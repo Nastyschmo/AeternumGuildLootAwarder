@@ -6,6 +6,8 @@
 <title>Guild Loot Ledger</title>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script>const whTooltips = { colorLinks: true, iconizeLinks: true, iconSize: 'small' };</script>
+<script src="https://wow.zamimg.com/js/tooltips.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Karla:wght@400;500;600;700&display=swap');
 
@@ -49,7 +51,7 @@
   }
 
   #app{
-    max-width: 1800px;
+    max-width: 2600px;
     margin: 0 auto;
     padding: 28px 20px 60px;
   }
@@ -299,10 +301,16 @@
   .gear-char{ font-weight: 700; white-space: nowrap; }
   .gear-empty{ color: var(--text-faint); text-align: center; }
   .gear-item{ font-weight: 600; white-space: nowrap; display: block; }
+  .wh-item-link{ font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .wh-item-link:hover{ text-decoration: underline; }
   .gear-date{ display: inline-block; font-size: 10.5px; color: var(--text-faint); font-weight: 400; white-space: nowrap; }
-  .gear-meta{ display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+  .gear-meta{ display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 2px; }
   .decision-tag-sm{ font-size: 9.5px; font-weight: 700; padding: 1px 5px; }
-  .gear-table th, .gear-table td{ padding: 7px 9px; font-size: 12.5px; }
+  .gear-table th, .gear-table td{
+    padding: 7px 9px; font-size: 12.5px; text-align: center;
+    border-right: 1px solid var(--border-soft);
+  }
+  .gear-table th:last-child, .gear-table td:last-child{ border-right: none; }
   .gear-table td.gear-char{ font-size: 13px; }
 
   /* ---------- Setup screen ---------- */
@@ -542,10 +550,21 @@
       `</span>`;
   }
 
+  // If we know the item's real Wowhead ID, link it so Wowhead's own widget shows the
+  // real icon and a full in-game-style hover tooltip. Otherwise fall back to our
+  // generic slot glyph with plain colored text.
+  function itemDisplayHtml(name, whId, slot, colorHex, size, fallbackTitle){
+    if (whId){
+      return `<a href="https://www.wowhead.com/tbc/item=${whId}" target="_blank" rel="noopener" class="wh-item-link">${escapeHtml(name)}</a>`;
+    }
+    const titleAttr = fallbackTitle ? ` title="${escapeHtml(fallbackTitle)}"` : '';
+    return `<span class="item-line">${slotIconHtml(slot, colorHex, size)}<span class="item-name" style="color:${colorHex}"${titleAttr}>${escapeHtml(name)}</span></span>`;
+  }
+
   // Reference library of TBC raid instances & bosses (static game content).
   // Notes are limited to well-established highlights, not exhaustive loot tables —
   // use the item field's free text for anything not listed here.
-  function itemsFrom(pairs){ return pairs.map(([name, slot]) => ({ name, slot })); }
+  function itemsFrom(pairs){ return pairs.map(([name, slot, whId]) => ({ name, slot, whId: whId || null })); }
 
   const RAID_DATA = [
     { id: 'kara', name: "Karazhan", size: 10, bosses: [
@@ -589,107 +608,107 @@
     ]},
     { id: 'hyjal', name: "Mount Hyjal", size: 25, bosses: [
       { name: "Rage Winterchill", items: itemsFrom([
-        ["Chronicle of Dark Secrets", "Off-Hand"], ["Blessed Adamantite Bracers", "Wrist"], ["Cuffs of Devastation", "Wrist"],
-        ["Bracers of Martyrdom", "Wrist"], ["Rejuvenating Bracers", "Wrist"], ["Blood-stained Pauldrons", "Shoulder"],
-        ["Tracker's Blade", "Weapon"], ["Deadly Cuffs", "Wrist"], ["Furious Shackles", "Wrist"],
-        ["Howling Wind Bracers", "Wrist"], ["Stillwater Boots", "Feet"], ["Bracers of the Pathfinder", "Wrist"]
+        ["Chronicle of Dark Secrets", "Off-Hand", 30872], ["Blessed Adamantite Bracers", "Wrist", 30862], ["Cuffs of Devastation", "Wrist", 30870],
+        ["Bracers of Martyrdom", "Wrist", 30871], ["Rejuvenating Bracers", "Wrist", 30868], ["Blood-stained Pauldrons", "Shoulder", 30866],
+        ["Tracker's Blade", "Weapon", 30865], ["Deadly Cuffs", "Wrist", 30863], ["Furious Shackles", "Wrist", 30861],
+        ["Howling Wind Bracers", "Wrist", 30869], ["Stillwater Boots", "Feet", 30873], ["Bracers of the Pathfinder", "Wrist", 30864]
       ]) },
       { name: "Anetheron", items: itemsFrom([
-        ["Anetheron's Noose", "Waist"], ["Hatefury Mantle", "Shoulder"], ["Archbishop's Slippers", "Feet"],
-        ["Pillar of Ferocity", "Weapon"], ["Bastion of Light", "Off-Hand"], ["Glimmering Steel Mantle", "Shoulder"],
-        ["The Unbreakable Will", "Weapon"], ["Blade of Infamy", "Weapon"], ["Quickstrider Moccasins", "Feet"],
-        ["Golden Links of Restoration", "Chest"], ["Don Alejandro's Money Belt", "Waist"], ["Enchanted Leather Sandals", "Feet"]
+        ["Anetheron's Noose", "Waist", 30888], ["Hatefury Mantle", "Shoulder", 30884], ["Archbishop's Slippers", "Feet", 30885],
+        ["Pillar of Ferocity", "Weapon", 30883], ["Bastion of Light", "Off-Hand", 30882], ["Glimmering Steel Mantle", "Shoulder", 30878],
+        ["The Unbreakable Will", "Weapon", 30874], ["Blade of Infamy", "Weapon", 30881], ["Quickstrider Moccasins", "Feet", 30880],
+        ["Golden Links of Restoration", "Chest", 30887], ["Don Alejandro's Money Belt", "Waist", 30879], ["Enchanted Leather Sandals", "Feet", 30886]
       ]) },
       { name: "Kaz'rogal", items: itemsFrom([
-        ["Kaz'rogal's Hardened Heart", "Off-Hand"], ["Black Featherlight Boots", "Feet"], ["Beast-tamer's Shoulders", "Shoulder"],
-        ["Sun-touched Chain Leggings", "Legs"], ["Blue Suede Shoes", "Feet"], ["Angelista's Sash", "Waist"],
-        ["Belt of the Crescent Moon", "Waist"], ["Belt of Seething Fury", "Waist"], ["Leggings of Channeled Elements", "Legs"],
-        ["Razorfury Mantle", "Shoulder"], ["Hammer of Atonement", "Weapon"], ["Valestalker Girdle", "Waist"]
+        ["Kaz'rogal's Hardened Heart", "Off-Hand", 30889], ["Black Featherlight Boots", "Feet", 30891], ["Beast-tamer's Shoulders", "Shoulder", 30892],
+        ["Sun-touched Chain Leggings", "Legs", 30893], ["Blue Suede Shoes", "Feet", 30894], ["Angelista's Sash", "Waist", 30895],
+        ["Belt of the Crescent Moon", "Waist", 30914], ["Belt of Seething Fury", "Waist", 30915], ["Leggings of Channeled Elements", "Legs", 30916],
+        ["Razorfury Mantle", "Shoulder", 30917], ["Hammer of Atonement", "Weapon", 30918], ["Valestalker Girdle", "Waist", 30919]
       ]) },
       { name: "Azgalor", note: "Tier 6 Gloves token boss", items: itemsFrom([
-        ["Gloves of the Forgotten Vanquisher", "Hands"], ["Gloves of the Forgotten Protector", "Hands"], ["Gloves of the Forgotten Conqueror", "Hands"],
-        ["Girdle of Hope", "Waist"], ["Bow-stitched Leggings", "Legs"], ["Don Rodrigo's Poncho", "Chest"],
-        ["Glory of the Defender", "Chest"], ["Boundless Agony", "Weapon"], ["Shady Dealer's Pantaloons", "Legs"]
+        ["Gloves of the Forgotten Vanquisher", "Hands", 31093], ["Gloves of the Forgotten Protector", "Hands", 31094], ["Gloves of the Forgotten Conqueror", "Hands", 31092],
+        ["Girdle of Hope", "Waist", 30897], ["Bow-stitched Leggings", "Legs", 30900], ["Don Rodrigo's Poncho", "Chest", 30899],
+        ["Glory of the Defender", "Chest", 30896], ["Boundless Agony", "Weapon", 30901], ["Shady Dealer's Pantaloons", "Legs", 30898]
       ]) },
       { name: "Archimonde", note: "Tier 6 Helm token boss", items: itemsFrom([
-        ["Helm of the Forgotten Vanquisher", "Head"], ["Helm of the Forgotten Protector", "Head"], ["Helm of the Forgotten Conqueror", "Head"],
-        ["Bristleblitz Striker", "Ranged"], ["Mail of Fevered Pursuit", "Chest"], ["Robes of Rhonin", "Chest"],
-        ["Savior's Grasp", "Chest"], ["Tempest of Chaos", "Weapon"], ["Scepter of Purification", "Off-Hand"],
-        ["Apostle of Argus", "Weapon"], ["Leggings of Eternity", "Legs"], ["Midnight Chestguard", "Chest"],
-        ["Legguards of Endless Rage", "Legs"], ["Cataclysm's Edge", "Weapon"], ["Antonidas's Aegis of Rapt Concentration", "Off-Hand"]
+        ["Helm of the Forgotten Vanquisher", "Head", 31096], ["Helm of the Forgotten Protector", "Head", 31095], ["Helm of the Forgotten Conqueror", "Head", 31097],
+        ["Bristleblitz Striker", "Ranged", 30906], ["Mail of Fevered Pursuit", "Chest", 30907], ["Robes of Rhonin", "Chest", 30913],
+        ["Savior's Grasp", "Chest", 30904], ["Tempest of Chaos", "Weapon", 30910], ["Scepter of Purification", "Off-Hand", 30911],
+        ["Apostle of Argus", "Weapon", 30908], ["Leggings of Eternity", "Legs", 30912], ["Midnight Chestguard", "Chest", 30905],
+        ["Legguards of Endless Rage", "Legs", 30903], ["Cataclysm's Edge", "Weapon", 30902], ["Antonidas's Aegis of Rapt Concentration", "Off-Hand", 30909]
       ]) },
       { name: "Trash", note: "Same BoE trash pool shared with other Phase 3 raids", items: itemsFrom([
-        ["Claw of Molten Fury", "Weapon"], ["Fist of Molten Fury", "Weapon"], ["Hammer of Judgement", "Weapon"],
-        ["Boots of the Divine Light", "Feet"], ["Chestguard of Relentless Storms", "Chest"], ["Nethervoid Cloak", "Back"],
-        ["Pepe's Shroud of Pacification", "Back"], ["Choker of Serrated Blades", "Neck"], ["Hellfire-Encased Pendant", "Neck"]
+        ["Claw of Molten Fury", "Weapon", 32946], ["Fist of Molten Fury", "Weapon", 32945], ["Hammer of Judgement", "Weapon", 34009],
+        ["Boots of the Divine Light", "Feet", 32609], ["Chestguard of Relentless Storms", "Chest", 32592], ["Nethervoid Cloak", "Back", 32590],
+        ["Pepe's Shroud of Pacification", "Back", 34010], ["Choker of Serrated Blades", "Neck", 32591], ["Hellfire-Encased Pendant", "Neck", 32589]
       ]) }
     ]},
     { id: 'bt', name: "Black Temple", size: 25, bosses: [
       { name: "High Warlord Naj'entus", items: itemsFrom([
-        ["Ring of Calming Waves", "Ring"], ["Ring of Captured Storms", "Ring"], ["Halberd of Desolation", "Weapon"],
-        ["Tide-stomper's Greaves", "Feet"], ["Boots of Oceanic Fury", "Feet"], ["Eternium Shell Bracers", "Wrist"],
-        ["Fists of Mukoa", "Hands"], ["Guise of the Tidal Lurker", "Head"], ["Helm of Soothing Currents", "Head"],
-        ["Mantle of Darkness", "Shoulder"], ["Pearl Inlaid Boots", "Feet"], ["Rising Tide", "Weapon"],
-        ["Slippers of the Seacaller", "Feet"], ["The Maelstrom's Fury", "Weapon"]
+        ["Ring of Calming Waves", "Ring", 32238], ["Ring of Captured Storms", "Ring", 32247], ["Halberd of Desolation", "Weapon", 32248],
+        ["Tide-stomper's Greaves", "Feet", 32245], ["Boots of Oceanic Fury", "Feet", 32242], ["Eternium Shell Bracers", "Wrist", 32232],
+        ["Fists of Mukoa", "Hands", 32234], ["Guise of the Tidal Lurker", "Head", 32240], ["Helm of Soothing Currents", "Head", 32241],
+        ["Mantle of Darkness", "Shoulder", 32377], ["Pearl Inlaid Boots", "Feet", 32243], ["Rising Tide", "Weapon", 32236],
+        ["Slippers of the Seacaller", "Feet", 32239], ["The Maelstrom's Fury", "Weapon", 32237]
       ]) },
       { name: "Supremus", items: itemsFrom([
-        ["Band of the Abyssal Lord", "Ring"], ["Idol of the White Stag", "Relic"], ["Legionkiller", "Ranged"],
-        ["Nether Shadow Tunic", "Chest"], ["The Brutalizer", "Weapon"], ["Waistwrap of Infinity", "Waist"],
-        ["Choker of Endless Nightmares", "Neck"], ["Felstone Bulwark", "Off-Hand"], ["Pauldrons of Abyssal Fury", "Shoulder"],
-        ["Syphon of the Nathrezim", "Weapon"], ["Wraps of Precise Flight", "Wrist"], ["Naturalist's Preserving Cinch", "Waist"],
-        ["Bands of the Coming Storm", "Wrist"]
+        ["Band of the Abyssal Lord", "Ring", 32261], ["Idol of the White Stag", "Relic", 32257], ["Legionkiller", "Ranged", 32253],
+        ["Nether Shadow Tunic", "Chest", 32252], ["The Brutalizer", "Weapon", 32254], ["Waistwrap of Infinity", "Waist", 32256],
+        ["Choker of Endless Nightmares", "Neck", 32260], ["Felstone Bulwark", "Off-Hand", 32255], ["Pauldrons of Abyssal Fury", "Shoulder", 32250],
+        ["Syphon of the Nathrezim", "Weapon", 32262], ["Wraps of Precise Flight", "Wrist", 32251], ["Naturalist's Preserving Cinch", "Waist", 32258],
+        ["Bands of the Coming Storm", "Wrist", 32259]
       ]) },
       { name: "Shade of Akama", items: itemsFrom([
-        ["Kilt of Immortal Nature", "Legs"], ["Myrmidon's Treads", "Feet"], ["Amice of Brilliant Light", "Shoulder"],
-        ["Blind-Seer's Icon", "Off-Hand"], ["Flashfire Girdle", "Waist"], ["Focused Mana Bindings", "Wrist"],
-        ["Grips of Silent Justice", "Hands"], ["Praetorian's Legguards", "Legs"], ["Ring of Deceitful Intent", "Ring"],
-        ["Shadow-walker's Cord", "Waist"], ["Shoulders of the Hidden Predator", "Shoulder"], ["Spiritwalker Gauntlets", "Hands"],
-        ["The Seeker's Wristguards", "Wrist"], ["Wristbands of Divine Influence", "Wrist"]
+        ["Kilt of Immortal Nature", "Legs", 32271], ["Myrmidon's Treads", "Feet", 32268], ["Amice of Brilliant Light", "Shoulder", 32273],
+        ["Blind-Seer's Icon", "Off-Hand", 32361], ["Flashfire Girdle", "Waist", 32276], ["Focused Mana Bindings", "Wrist", 32270],
+        ["Grips of Silent Justice", "Hands", 32278], ["Praetorian's Legguards", "Legs", 32263], ["Ring of Deceitful Intent", "Ring", 32266],
+        ["Shadow-walker's Cord", "Waist", 32265], ["Shoulders of the Hidden Predator", "Shoulder", 32264], ["Spiritwalker Gauntlets", "Hands", 32275],
+        ["The Seeker's Wristguards", "Wrist", 32279], ["Wristbands of Divine Influence", "Wrist", 32513]
       ]) },
       { name: "Teron Gorefiend", items: itemsFrom([
-        ["Rifle of the Stoic Guardian", "Ranged"], ["Twisted Blades of Zarak", "Ranged"], ["Botanist's Gloves of Growth", "Hands"],
-        ["Cowl of Benevolence", "Head"], ["Gauntlets of Enforcement", "Hands"], ["Girdle of Lordaeron's Fallen", "Waist"],
-        ["Insidious Bands", "Wrist"], ["Robe of the Shadow Council", "Chest"], ["Shadowmoon Destroyer's Drape", "Back"],
-        ["Softstep Boots of Tracking", "Feet"], ["Soul Cleaver", "Weapon"], ["Totem of Ancestral Guidance", "Relic"]
+        ["Rifle of the Stoic Guardian", "Ranged", 32325], ["Twisted Blades of Zarak", "Ranged", 32326], ["Botanist's Gloves of Growth", "Hands", 32328],
+        ["Cowl of Benevolence", "Head", 32329], ["Gauntlets of Enforcement", "Hands", 32280], ["Girdle of Lordaeron's Fallen", "Waist", 32512],
+        ["Insidious Bands", "Wrist", 32324], ["Robe of the Shadow Council", "Chest", 32327], ["Shadowmoon Destroyer's Drape", "Back", 32323],
+        ["Softstep Boots of Tracking", "Feet", 32510], ["Soul Cleaver", "Weapon", 32348], ["Totem of Ancestral Guidance", "Relic", 32330]
       ]) },
       { name: "Reliquary of Souls", items: itemsFrom([
-        ["Boneweave Girdle", "Waist"], ["Crown of Empowered Fate", "Head"], ["Dreadboots of the Legion", "Feet"],
-        ["Elunite Empowered Bracers", "Wrist"], ["Gloves of Unfailing Faith", "Hands"], ["Grips of Damnation", "Hands"],
-        ["Naaru-Blessed Life Rod", "Ranged"], ["Naturewarden's Treads", "Feet"], ["Pendant of Titans", "Neck"],
-        ["The Wavemender's Mantle", "Shoulder"], ["Torch of the Damned", "Weapon"], ["Touch of Inspiration", "Off-Hand"],
-        ["Translucent Spellthread Necklace", "Neck"]
+        ["Boneweave Girdle", "Waist", 32346], ["Crown of Empowered Fate", "Head", 32354], ["Dreadboots of the Legion", "Feet", 32345],
+        ["Elunite Empowered Bracers", "Wrist", 32351], ["Gloves of Unfailing Faith", "Hands", 32353], ["Grips of Damnation", "Hands", 32347],
+        ["Naaru-Blessed Life Rod", "Ranged", 32363], ["Naturewarden's Treads", "Feet", 32352], ["Pendant of Titans", "Neck", 32362],
+        ["The Wavemender's Mantle", "Shoulder", 32517], ["Torch of the Damned", "Weapon", 32332], ["Touch of Inspiration", "Off-Hand", 32350],
+        ["Translucent Spellthread Necklace", "Neck", 32349]
       ]) },
       { name: "Gurtogg Bloodboil", items: itemsFrom([
-        ["Leggings of Divine Retribution", "Legs"], ["Belt of Primal Majesty", "Waist"], ["Blood-cursed Shoulderpads", "Shoulder"],
-        ["Garments of Temperance", "Chest"], ["Girdle of Mighty Resolve", "Waist"], ["Girdle of Stability", "Waist"],
-        ["Messenger of Fate", "Weapon"], ["Shadowmoon Insignia", "Trinket"], ["Shroud of Forgiveness", "Back"],
-        ["Staff of Immaculate Recovery", "Weapon"], ["Unstoppable Aggressor's Ring", "Ring"], ["Vest of Mounting Assault", "Chest"],
-        ["Wand of Prismatic Focus", "Ranged"]
+        ["Leggings of Divine Retribution", "Legs", 32341], ["Belt of Primal Majesty", "Waist", 32339], ["Blood-cursed Shoulderpads", "Shoulder", 32338],
+        ["Garments of Temperance", "Chest", 32340], ["Girdle of Mighty Resolve", "Waist", 32342], ["Girdle of Stability", "Waist", 32333],
+        ["Messenger of Fate", "Weapon", 32269], ["Shadowmoon Insignia", "Trinket", 32501], ["Shroud of Forgiveness", "Back", 32337],
+        ["Staff of Immaculate Recovery", "Weapon", 32344], ["Unstoppable Aggressor's Ring", "Ring", 32335], ["Vest of Mounting Assault", "Chest", 32334],
+        ["Wand of Prismatic Focus", "Ranged", 32343]
       ]) },
       { name: "Mother Shahraz", note: "Tier 6 Shoulder token boss", items: itemsFrom([
-        ["Pauldrons of the Forgotten Vanquisher", "Shoulder"], ["Pauldrons of the Forgotten Conqueror", "Shoulder"], ["Pauldrons of the Forgotten Protector", "Shoulder"],
-        ["Tome of the Lightbringer", "Relic"], ["Blade of Savagery", "Weapon"], ["Heartshatter Breastplate", "Chest"],
-        ["Leggings of Devastation", "Legs"], ["Nadina's Pendant of Purity", "Neck"], ["Shadowmaster's Boots", "Feet"]
+        ["Pauldrons of the Forgotten Vanquisher", "Shoulder", 31102], ["Pauldrons of the Forgotten Conqueror", "Shoulder", 31101], ["Pauldrons of the Forgotten Protector", "Shoulder", 31103],
+        ["Tome of the Lightbringer", "Relic", 32368], ["Blade of Savagery", "Weapon", 32369], ["Heartshatter Breastplate", "Chest", 32365],
+        ["Leggings of Devastation", "Legs", 32367], ["Nadina's Pendant of Purity", "Neck", 32370], ["Shadowmaster's Boots", "Feet", 32366]
       ]) },
       { name: "The Illidari Council", note: "Tier 6 Legs token boss", items: itemsFrom([
-        ["Leggings of the Forgotten Conqueror", "Legs"], ["Leggings of the Forgotten Protector", "Legs"], ["Leggings of the Forgotten Vanquisher", "Legs"],
-        ["Belt of Divine Guidance", "Waist"], ["Cloak of the Illidari Council", "Back"], ["Forest Prowler's Helm", "Head"],
-        ["Helm of the Illidari Shatterer", "Head"], ["Madness of the Betrayer", "Trinket"], ["Veil of Turning Leaves", "Shoulder"]
+        ["Leggings of the Forgotten Conqueror", "Legs", 31098], ["Leggings of the Forgotten Protector", "Legs", 31100], ["Leggings of the Forgotten Vanquisher", "Legs", 31099],
+        ["Belt of Divine Guidance", "Waist", 32519], ["Cloak of the Illidari Council", "Back", 32331], ["Forest Prowler's Helm", "Head", 32376],
+        ["Helm of the Illidari Shatterer", "Head", 32373], ["Madness of the Betrayer", "Trinket", 32505], ["Veil of Turning Leaves", "Shoulder", 32518]
       ]) },
       { name: "Illidan Stormrage", note: "Tier 6 Chest token boss · drops the Warglaives of Azzinoth", items: itemsFrom([
-        ["Chestguard of the Forgotten Protector", "Chest"], ["Chestguard of the Forgotten Vanquisher", "Chest"], ["Chestguard of the Forgotten Conqueror", "Chest"],
-        ["The Skull of Gul'dan", "Trinket"], ["Black Bow of the Betrayer", "Ranged"], ["Crystal Spire of Karabor", "Weapon"],
-        ["Memento of Tyrande", "Trinket"], ["Bulwark of Azzinoth", "Off-Hand"], ["Cowl of the Illidari High Lord", "Head"],
-        ["Cursed Vision of Sargeras", "Head"], ["Faceplate of the Impenetrable", "Head"], ["Shard of Azzinoth", "Weapon"],
-        ["Shroud of the Highborne", "Back"], ["Stormrage Signet Ring", "Ring"], ["Zhar'doom, Greatstaff of the Devourer", "Weapon"],
-        ["Warglaive of Azzinoth (pair)", "Weapon"]
+        ["Chestguard of the Forgotten Protector", "Chest", 31091], ["Chestguard of the Forgotten Vanquisher", "Chest", 31090], ["Chestguard of the Forgotten Conqueror", "Chest", 31089],
+        ["The Skull of Gul'dan", "Trinket", 32483], ["Black Bow of the Betrayer", "Ranged", 32336], ["Crystal Spire of Karabor", "Weapon", 32500],
+        ["Memento of Tyrande", "Trinket", 32496], ["Bulwark of Azzinoth", "Off-Hand", 32375], ["Cowl of the Illidari High Lord", "Head", 32525],
+        ["Cursed Vision of Sargeras", "Head", 32235], ["Faceplate of the Impenetrable", "Head", 32521], ["Shard of Azzinoth", "Weapon", 32471],
+        ["Shroud of the Highborne", "Back", 32524], ["Stormrage Signet Ring", "Ring", 32497], ["Zhar'doom, Greatstaff of the Devourer", "Weapon", 32374],
+        ["Warglaive of Azzinoth (pair)", "Weapon", 32837]
       ]) },
       { name: "Trash", items: itemsFrom([
-        ["Boots of the Divine Light", "Feet"], ["Treads of the Den Mother", "Feet"], ["Chestguard of Relentless Storms", "Chest"],
-        ["Pillager's Gauntlets", "Hands"], ["Girdle of the Lightbearer", "Waist"], ["Nethervoid Cloak", "Back"],
-        ["Pepe's Shroud of Pacification", "Back"], ["Choker of Serrated Blades", "Neck"], ["Shroud of the Final Stand", "Back"],
-        ["Blessed Band of Karabor", "Ring"], ["Ring of Ancient Knowledge", "Ring"], ["Band of Devastation", "Ring"],
-        ["Hellfire-Encased Pendant", "Neck"], ["Swiftsteel Bludgeon", "Weapon"], ["Illidari Runeshield", "Off-Hand"]
+        ["Boots of the Divine Light", "Feet", 32609], ["Treads of the Den Mother", "Feet", 32593], ["Chestguard of Relentless Storms", "Chest", 32592],
+        ["Pillager's Gauntlets", "Hands", 32608], ["Girdle of the Lightbearer", "Waist", 32606], ["Nethervoid Cloak", "Back", 32590],
+        ["Pepe's Shroud of Pacification", "Back", 34010], ["Choker of Serrated Blades", "Neck", 32591], ["Shroud of the Final Stand", "Back", 34012],
+        ["Blessed Band of Karabor", "Ring", 32528], ["Ring of Ancient Knowledge", "Ring", 32527], ["Band of Devastation", "Ring", 32526],
+        ["Hellfire-Encased Pendant", "Neck", 32589], ["Swiftsteel Bludgeon", "Weapon", 32943], ["Illidari Runeshield", "Off-Hand", 34011]
       ]) }
     ]},
     { id: 'za', name: "Zul'Aman", size: 10, bosses: [
@@ -1163,21 +1182,24 @@
     const bossName = isOtherBoss ? els.fBossCustom.value.trim() : els.fBoss.value;
 
     const meta = {};
-    const addItem = (name, slot, forBossName) => {
+    const addItem = (name, slot, forBossName, whId) => {
       if (!name) return;
-      if (!meta[name]) meta[name] = { slot: slot || null, bossName: forBossName || null };
-      else if (!meta[name].slot && slot) meta[name].slot = slot;
+      if (!meta[name]) meta[name] = { slot: slot || null, bossName: forBossName || null, whId: whId || null };
+      else {
+        if (!meta[name].slot && slot) meta[name].slot = slot;
+        if (!meta[name].whId && whId) meta[name].whId = whId;
+      }
     };
 
     if (isAllBosses && raid){
-      raid.bosses.forEach(b => (b.items || []).forEach(it => addItem(it.name, it.slot, b.name)));
-      state.loot.forEach(l => { if (l.raidId === raidId && l.item) addItem(l.item, l.slot, l.bossName); });
+      raid.bosses.forEach(b => (b.items || []).forEach(it => addItem(it.name, it.slot, b.name, it.whId)));
+      state.loot.forEach(l => { if (l.raidId === raidId && l.item) addItem(l.item, l.slot, l.bossName, l.whId); });
     } else if (!isOtherBoss && raid){
       const boss = raid.bosses.find(b => b.name === bossName);
-      (boss && boss.items ? boss.items : []).forEach(it => addItem(it.name, it.slot, boss.name));
-      state.loot.forEach(l => { if (l.raidId === raidId && l.bossName === bossName && l.item) addItem(l.item, l.slot, bossName); });
+      (boss && boss.items ? boss.items : []).forEach(it => addItem(it.name, it.slot, boss.name, it.whId));
+      state.loot.forEach(l => { if (l.raidId === raidId && l.bossName === bossName && l.item) addItem(l.item, l.slot, bossName, l.whId); });
     } else {
-      state.loot.forEach(l => { if (l.raidId === raidId && l.bossName === bossName && l.item) addItem(l.item, l.slot, bossName); });
+      state.loot.forEach(l => { if (l.raidId === raidId && l.bossName === bossName && l.item) addItem(l.item, l.slot, bossName, l.whId); });
     }
 
     currentItemMeta = meta;
@@ -1237,7 +1259,7 @@
         <tr>
           <td>${escapeHtml(l.date || '')}</td>
           <td class="recipient-cell" style="${cls ? `color:${cls.color}` : ''}">${escapeHtml(l.recipientName)}</td>
-          <td><span class="item-line">${slotIconHtml(l.slot, q.color)}<span class="item-name" style="color:${q.color}">${escapeHtml(l.item)}</span></span></td>
+          <td>${itemDisplayHtml(l.item, l.whId, l.slot, q.color, 20)}</td>
           <td>${escapeHtml(l.slot || '—')}</td>
           <td><span class="decision-tag decision-${(l.decision || 'upgrade').toLowerCase()}">${escapeHtml(l.decision || '—')}</span></td>
           <td class="boss-cell">
@@ -1428,7 +1450,7 @@
         const raid = RAID_MAP[entry.raidId];
         const tip = `${entry.date || ''} · ${entry.decision || ''} · ${entry.bossName || ''}${raid ? ' · ' + raid.name : ''}`;
         return `<td>
-          <span class="item-line">${slotIconHtml(slot, q.color, 14)}<span class="gear-item" style="color:${q.color}" title="${escapeHtml(tip)}">${escapeHtml(entry.item)}</span></span>
+          ${itemDisplayHtml(entry.item, entry.whId, slot, q.color, 14, tip)}
           <span class="gear-meta">
             <span class="gear-date">${escapeHtml(entry.date || '')}</span>
             <span class="decision-tag decision-tag-sm decision-${(entry.decision || 'upgrade').toLowerCase()}">${escapeHtml(entry.decision || '—')}</span>
@@ -1529,6 +1551,7 @@
       quality: els.fQuality.value,
       item,
       slot,
+      whId: (currentItemMeta[item] && currentItemMeta[item].whId) || null,
       recipientName,
       recipientClass,
       decision: els.fDecision.value,

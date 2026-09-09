@@ -253,6 +253,12 @@
   tbody tr:hover{ background: rgba(255,255,255,0.02); }
 
   .item-name{ font-weight: 700; }
+  .slot-icon{
+    display: inline-flex; align-items: center; justify-content: center; flex: none;
+    border-radius: 4px; border: 1.5px solid; background: rgba(255,255,255,0.03);
+    vertical-align: middle; margin-right: 6px;
+  }
+  .item-line{ display: inline-flex; align-items: center; }
   .boss-cell .boss-main{ font-weight: 600; }
   .boss-cell .raid-sub{ display: block; font-size: 11.5px; color: var(--text-faint); margin-top: 1px; }
   .recipient-cell{ font-weight: 600; }
@@ -293,7 +299,9 @@
   .gear-char{ font-weight: 700; white-space: nowrap; }
   .gear-empty{ color: var(--text-faint); text-align: center; }
   .gear-item{ font-weight: 600; white-space: nowrap; display: block; }
-  .gear-date{ display: block; font-size: 10.5px; color: var(--text-faint); font-weight: 400; margin-top: 1px; white-space: nowrap; }
+  .gear-date{ display: inline-block; font-size: 10.5px; color: var(--text-faint); font-weight: 400; white-space: nowrap; }
+  .gear-meta{ display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+  .decision-tag-sm{ font-size: 9.5px; font-weight: 700; padding: 1px 5px; }
   .gear-table th, .gear-table td{ padding: 7px 9px; font-size: 12.5px; }
   .gear-table td.gear-char{ font-size: 13px; }
 
@@ -503,6 +511,37 @@
   const SLOTS = ['Head', 'Neck', 'Shoulder', 'Back', 'Chest', 'Wrist', 'Hands', 'Waist', 'Legs', 'Feet', 'Ring', 'Trinket', 'Weapon', 'Off-Hand', 'Ranged', 'Relic'];
   const LOOT_DECISIONS = ['BiS', 'Upgrade', 'Offspec', 'PVP'];
 
+  // Generic per-slot icon glyphs (not exact item art — we don't have a full item->icon
+  // database, and this avoids hotlinking a large volume of third-party game-art images).
+  // Drawn on a 20x20 grid; colored by the item's rarity at render time.
+  const SLOT_ICON_SVGS = {
+    'Head': '<path d="M3 11c0-3.9 3.1-7 7-7s7 3.1 7 7v1H3z"/><rect x="2" y="12" width="16" height="2" rx="1"/>',
+    'Neck': '<circle cx="10" cy="13" r="2.6" fill="none" stroke-width="1.6"/><path d="M6 4c0 3 2 5 4 5s4-2 4-5" fill="none" stroke-width="1.6"/>',
+    'Shoulder': '<circle cx="6.5" cy="8" r="3.4"/><circle cx="13.5" cy="8" r="3.4"/>',
+    'Back': '<path d="M10 3 L16 16 L10 13 L4 16 Z"/>',
+    'Chest': '<path d="M5 4 L10 6 L15 4 L16 9 L14 17 L6 17 L4 9 Z"/>',
+    'Wrist': '<path d="M4 7 a6 5 0 0 1 12 0" fill="none" stroke-width="2.2"/><path d="M4 12 a6 5 0 0 0 12 0" fill="none" stroke-width="2.2"/>',
+    'Hands': '<path d="M6 9V5a1.4 1.4 0 0 1 2.8 0v3M9 8V4a1.4 1.4 0 0 1 2.8 0v4M12 8.5V5a1.4 1.4 0 0 1 2.8 0v6c0 3.3-2.2 6-5.8 6-3 0-5-1.8-5-4.5V9a1.3 1.3 0 0 1 2.6 0v1" fill="none" stroke-width="1.4" stroke-linecap="round"/>',
+    'Waist': '<rect x="2" y="9" width="16" height="3" rx="1"/><rect x="8" y="8" width="4" height="5" rx="0.8" fill="var(--bg)"/>',
+    'Legs': '<path d="M6 3h3v8l1 6H7l-1-6z"/><path d="M11 3h3l1 8-1 6h-3l1-6z"/>',
+    'Feet': '<path d="M6 3h3v8l4 2c1.5.6 1.5 3-.5 3H6c-1 0-1-1-1-1z"/>',
+    'Ring': '<circle cx="10" cy="10" r="5.5" fill="none" stroke-width="2.6"/>',
+    'Trinket': '<path d="M10 2 L12.5 7.5 L18 10 L12.5 12.5 L10 18 L7.5 12.5 L2 10 L7.5 7.5 Z"/>',
+    'Weapon': '<path d="M4 16 L13 7 M13 7 L16 4 L17 5.5 L14.5 8 M4 16 L2.5 17.5 M11 9 L9 7" fill="none" stroke-width="1.8" stroke-linecap="round"/>',
+    'Off-Hand': '<path d="M10 2 L16 5 V10 C16 14.5 13 17 10 18 C7 17 4 14.5 4 10 V5 Z" fill="none" stroke-width="1.6"/>',
+    'Ranged': '<path d="M5 3 a12 12 0 0 1 0 14" fill="none" stroke-width="1.8"/><line x1="5" y1="3" x2="5" y2="17" stroke-width="1" stroke-dasharray="1.5,1"/>',
+    'Relic': '<rect x="5" y="3" width="10" height="14" rx="1" fill="none" stroke-width="1.6"/><line x1="10" y1="4" x2="10" y2="16" stroke-width="1.2"/>'
+  };
+
+  function slotIconHtml(slot, colorHex, size){
+    size = size || 16;
+    const glyph = SLOT_ICON_SVGS[slot];
+    if (!glyph) return `<span class="slot-icon" style="width:${size}px;height:${size}px;border-color:${colorHex}"></span>`;
+    return `<span class="slot-icon" style="width:${size}px;height:${size}px;border-color:${colorHex}">` +
+      `<svg viewBox="0 0 20 20" width="${size - 6}" height="${size - 6}"><g fill="${colorHex}" stroke="${colorHex}">${glyph}</g></svg>` +
+      `</span>`;
+  }
+
   // Reference library of TBC raid instances & bosses (static game content).
   // Notes are limited to well-established highlights, not exhaustive loot tables —
   // use the item field's free text for anything not listed here.
@@ -553,7 +592,7 @@
         ["Chronicle of Dark Secrets", "Off-Hand"], ["Blessed Adamantite Bracers", "Wrist"], ["Cuffs of Devastation", "Wrist"],
         ["Bracers of Martyrdom", "Wrist"], ["Rejuvenating Bracers", "Wrist"], ["Blood-stained Pauldrons", "Shoulder"],
         ["Tracker's Blade", "Weapon"], ["Deadly Cuffs", "Wrist"], ["Furious Shackles", "Wrist"],
-        ["Howling Wind Bracers", "Wrist"], ["Stillwater Boots", "Feet"]
+        ["Howling Wind Bracers", "Wrist"], ["Stillwater Boots", "Feet"], ["Bracers of the Pathfinder", "Wrist"]
       ]) },
       { name: "Anetheron", items: itemsFrom([
         ["Anetheron's Noose", "Waist"], ["Hatefury Mantle", "Shoulder"], ["Archbishop's Slippers", "Feet"],
@@ -579,7 +618,11 @@
         ["Apostle of Argus", "Weapon"], ["Leggings of Eternity", "Legs"], ["Midnight Chestguard", "Chest"],
         ["Legguards of Endless Rage", "Legs"], ["Cataclysm's Edge", "Weapon"], ["Antonidas's Aegis of Rapt Concentration", "Off-Hand"]
       ]) },
-      { name: "Trash", note: "Wave-based trash — no dedicated item table published, drops from the same general loot pool as the bosses" }
+      { name: "Trash", note: "Same BoE trash pool shared with other Phase 3 raids", items: itemsFrom([
+        ["Claw of Molten Fury", "Weapon"], ["Fist of Molten Fury", "Weapon"], ["Hammer of Judgement", "Weapon"],
+        ["Boots of the Divine Light", "Feet"], ["Chestguard of Relentless Storms", "Chest"], ["Nethervoid Cloak", "Back"],
+        ["Pepe's Shroud of Pacification", "Back"], ["Choker of Serrated Blades", "Neck"], ["Hellfire-Encased Pendant", "Neck"]
+      ]) }
     ]},
     { id: 'bt', name: "Black Temple", size: 25, bosses: [
       { name: "High Warlord Naj'entus", items: itemsFrom([
@@ -1063,7 +1106,10 @@
     const sorted = state.roster.slice().sort((a,b) => a.name.localeCompare(b.name));
     const inGroup = sorted.filter(c => c.groupId === groupId);
     const others = sorted.filter(c => c.groupId !== groupId);
-    const optHtml = c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`;
+    const optHtml = c => {
+      const cls = CLASS_MAP[c.class] || CLASS_MAP.warrior;
+      return `<option value="${escapeHtml(c.name)}" style="color:${cls.color};">${escapeHtml(c.name)}</option>`;
+    };
     let html = '';
     if (inGroup.length) html += `<optgroup label="This raid's roster">${inGroup.map(optHtml).join('')}</optgroup>`;
     if (others.length) html += `<optgroup label="${inGroup.length ? 'Other characters' : 'Roster'}">${others.map(optHtml).join('')}</optgroup>`;
@@ -1143,13 +1189,6 @@
     const meta = currentItemMeta[els.fItem.value.trim()];
     if (!meta) return;
     if (meta.slot && SLOTS.includes(meta.slot)) els.fSlot.value = meta.slot;
-    if (els.fBoss.value === ALL_BOSSES && meta.bossName){
-      const raid = RAID_MAP[els.fInstance.value];
-      if (raid && raid.bosses.some(b => b.name === meta.bossName)){
-        els.fBoss.value = meta.bossName;
-        updateBossHint();
-      }
-    }
   }
 
   function resetLootFormFields(){
@@ -1198,7 +1237,7 @@
         <tr>
           <td>${escapeHtml(l.date || '')}</td>
           <td class="recipient-cell" style="${cls ? `color:${cls.color}` : ''}">${escapeHtml(l.recipientName)}</td>
-          <td><span class="item-name" style="color:${q.color}">${escapeHtml(l.item)}</span></td>
+          <td><span class="item-line">${slotIconHtml(l.slot, q.color)}<span class="item-name" style="color:${q.color}">${escapeHtml(l.item)}</span></span></td>
           <td>${escapeHtml(l.slot || '—')}</td>
           <td><span class="decision-tag decision-${(l.decision || 'upgrade').toLowerCase()}">${escapeHtml(l.decision || '—')}</span></td>
           <td class="boss-cell">
@@ -1387,10 +1426,13 @@
         if (!entry) return `<td class="gear-empty">—</td>`;
         const q = QUALITY_MAP[entry.quality] || QUALITY_MAP.common;
         const raid = RAID_MAP[entry.raidId];
-        const tip = `${entry.date || ''} · ${entry.bossName || ''}${raid ? ' · ' + raid.name : ''}`;
+        const tip = `${entry.date || ''} · ${entry.decision || ''} · ${entry.bossName || ''}${raid ? ' · ' + raid.name : ''}`;
         return `<td>
-          <span class="gear-item" style="color:${q.color}" title="${escapeHtml(tip)}">${escapeHtml(entry.item)}</span>
-          <span class="gear-date">${escapeHtml(entry.date || '')}</span>
+          <span class="item-line">${slotIconHtml(slot, q.color, 14)}<span class="gear-item" style="color:${q.color}" title="${escapeHtml(tip)}">${escapeHtml(entry.item)}</span></span>
+          <span class="gear-meta">
+            <span class="gear-date">${escapeHtml(entry.date || '')}</span>
+            <span class="decision-tag decision-tag-sm decision-${(entry.decision || 'upgrade').toLowerCase()}">${escapeHtml(entry.decision || '—')}</span>
+          </span>
         </td>`;
       }).join('');
       return `<tr><td class="gear-char" style="color:${cls.color}">${escapeHtml(c.name)}</td>${cells}</tr>`;
@@ -1449,7 +1491,10 @@
     const raid = RAID_MAP[els.fInstance.value];
     let bossName;
     if (els.fBoss.value === OTHER_BOSS) bossName = els.fBossCustom.value.trim();
-    else if (els.fBoss.value === ALL_BOSSES) bossName = 'Unspecified boss';
+    else if (els.fBoss.value === ALL_BOSSES){
+      const meta = currentItemMeta[els.fItem.value.trim()];
+      bossName = (meta && meta.bossName) ? meta.bossName : 'Unspecified boss';
+    }
     else bossName = els.fBoss.value;
     let recipientName, recipientClass;
     if (els.fRecipient.value === OTHER_RECIPIENT){

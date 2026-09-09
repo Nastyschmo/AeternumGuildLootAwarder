@@ -73,6 +73,23 @@
   }
 
   .brand{ display: flex; gap: 14px; align-items: center; }
+
+  .role-hidden{ display: none !important; }
+
+  .topbar-actions{ display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+
+  .access-control{ position: relative; }
+  .access-popover{
+    position: absolute; right: 0; top: calc(100% + 8px); z-index: 40;
+    width: 240px; background: var(--bg-panel-raised); border: 1px solid var(--gold);
+    border-radius: 6px; padding: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .access-popover.hidden{ display: none; }
+  .access-popover-title{ font-family: 'Cinzel', serif; color: var(--gold-bright); font-size: 13px; margin-bottom: 10px; }
+  .access-popover label{ display: block; font-size: 11px; color: var(--text-faint); font-weight: 600; margin-bottom: 5px; }
+  .access-popover input{ margin-bottom: 6px; }
+  .access-error{ min-height: 14px; font-size: 11px; color: var(--danger-bright); margin-bottom: 6px; }
+  .access-popover-actions{ display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 10px; }
   .brand svg{ flex: none; width: 40px; height: 40px; }
   .brand h1{
     font-family: 'Cinzel', serif;
@@ -296,17 +313,18 @@
   }
   .content-tab.active{ color: var(--gold-bright); border-bottom-color: var(--gold); }
   .content-tab:hover:not(.active){ color: var(--text-muted); }
-  #ledgerView.hidden, #gearView.hidden{ display: none; }
+  #ledgerView.hidden, #gearView.hidden, #byGroupView.hidden{ display: none; }
 
   /* ---------- Roster group assignment ---------- */
   .roster-controls{ display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-  .roster-controls-selects{ display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
-  .roster-group-select, .roster-role-select{ width: auto; font-size: 11px; padding: 3px 6px; flex: 1; min-width: 0; }
+  .roster-controls-selects{ display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; flex-wrap: wrap; }
+  .roster-group-select, .roster-role-select, .roster-class-select{ width: auto; font-size: 11px; padding: 3px 6px; flex: 1 1 60px; min-width: 60px; }
   .roster-name{ display: flex; align-items: center; flex-wrap: wrap; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .role-tag{
     display: inline-block; font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 3px;
     border: 1px solid; background: rgba(255,255,255,0.03); white-space: nowrap;
   }
+  .roster-readonly-meta{ font-size: 11px; color: var(--text-faint); }
 
   /* ---------- Gear overview ---------- */
   .gear-char{ font-weight: 700; white-space: nowrap; }
@@ -375,7 +393,23 @@
         <div class="save-status" id="saveStatus"></div>
       </div>
     </div>
-    <button class="btn btn-ghost" id="newGroupToggle">+ New raid group</button>
+    <div class="topbar-actions">
+      <div class="access-control">
+        <button class="btn btn-ghost btn-sm" id="accessSwitchBtn">Role: <span id="accessBadge">Guild Member</span></button>
+        <div class="access-popover hidden" id="accessPopover">
+          <div class="access-popover-title">Switch role</div>
+          <label for="accessPasscodeInput">Loot Council / Admin passcode</label>
+          <input type="password" id="accessPasscodeInput" placeholder="Enter passcode" autocomplete="off" />
+          <div class="access-error" id="accessError"></div>
+          <div class="access-popover-actions">
+            <button type="button" class="btn btn-sm btn-ghost" id="accessCancelBtn">Cancel</button>
+            <button type="button" class="btn btn-sm btn-primary" id="accessUnlockBtn">Unlock</button>
+          </div>
+          <button type="button" class="btn btn-sm btn-ghost btn-block" id="accessResetBtn">View as Guild Member</button>
+        </div>
+      </div>
+      <button class="btn btn-ghost" id="newGroupToggle">+ New raid group</button>
+    </div>
   </div>
 
   <div class="setup-screen hidden" id="setupScreen">
@@ -409,7 +443,7 @@
       </div>
 
       <div id="ledgerView">
-      <div class="log-toggle-row">
+      <div class="log-toggle-row" id="logToggleRow">
         <button class="btn btn-primary" id="logToggleBtn">+ Log loot</button>
       </div>
 
@@ -525,6 +559,46 @@
   };
   const DB_PATH = 'guild-loot-data';
   let db = null;
+
+  // ---------------------------------------------------------------------
+  // ACCESS CONTROL — three roles: Admin, Loot Council, Guild Member.
+  // Guild Members get read-only access (Roster, Loot Ledger, Gear by Slot,
+  // Gear by Group). Loot Council and Admin can add/edit/delete everything.
+  // Change these passcodes before sharing the link with your guild.
+  //
+  // IMPORTANT: this is a convenience gate, not real security. Anyone who
+  // views this page's source can read these passcodes, and the role is
+  // just remembered in that person's own browser (localStorage) — it isn't
+  // enforced by Firebase. For a small trusted guild this is normally fine
+  // (same trust model as the open database rules), but if you need access
+  // that can't be bypassed by a curious member, that requires adding real
+  // Firebase Authentication — ask if you'd like help setting that up.
+  // ---------------------------------------------------------------------
+  const ACCESS_PASSCODES = {
+    admin: 'CHANGE_ME_ADMIN',
+    lootcouncil: 'CHANGE_ME_LOOTCOUNCIL'
+  };
+  const ACCESS_ROLES = {
+    admin: { label: 'Admin' },
+    lootcouncil: { label: 'Loot Council' },
+    member: { label: 'Guild Member' }
+  };
+  const ACCESS_STORAGE_KEY = 'guild-loot-role';
+
+  function loadStoredRole(){
+    try{
+      const stored = localStorage.getItem(ACCESS_STORAGE_KEY);
+      return ACCESS_ROLES[stored] ? stored : 'member';
+    }catch(e){
+      return 'member';
+    }
+  }
+
+  let currentRole = loadStoredRole();
+
+  function canEdit(){
+    return currentRole === 'admin' || currentRole === 'lootcouncil';
+  }
 
   function isFirebaseConfigured(){
     return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY'
@@ -883,6 +957,15 @@
     editBanner: document.getElementById('editBanner'),
     cancelEditLink: document.getElementById('cancelEditLink'),
     lootSubmitBtn: document.getElementById('lootSubmitBtn'),
+    logToggleRow: document.getElementById('logToggleRow'),
+    accessSwitchBtn: document.getElementById('accessSwitchBtn'),
+    accessBadge: document.getElementById('accessBadge'),
+    accessPopover: document.getElementById('accessPopover'),
+    accessPasscodeInput: document.getElementById('accessPasscodeInput'),
+    accessError: document.getElementById('accessError'),
+    accessCancelBtn: document.getElementById('accessCancelBtn'),
+    accessUnlockBtn: document.getElementById('accessUnlockBtn'),
+    accessResetBtn: document.getElementById('accessResetBtn'),
     formError: document.getElementById('formError'),
     searchInput: document.getElementById('searchInput'),
     activeGroupLabel: document.getElementById('activeGroupLabel'),
@@ -1022,10 +1105,10 @@
         <span class="g-name">${escapeHtml(g.name)}</span>
         <span style="display:flex; align-items:center; gap:6px;">
           <span class="count">${count}</span>
-          <span class="del-x" title="Delete group">✕</span>
+          ${canEdit() ? '<span class="del-x" title="Delete group">✕</span>' : ''}
         </span>`;
       row.addEventListener('click', () => { activeGroupId = g.id; renderAll(); });
-      row.querySelector('.del-x').addEventListener('click', (e) => { e.stopPropagation(); deleteGroup(g.id); });
+      if (canEdit()) row.querySelector('.del-x').addEventListener('click', (e) => { e.stopPropagation(); deleteGroup(g.id); });
       groupList.appendChild(row);
     });
 
@@ -1059,43 +1142,63 @@
     return opts.join('');
   }
 
+  function classOptionsHtml(selectedId){
+    return CLASSES.map(c => `<option value="${c.id}" ${c.id === selectedId ? 'selected' : ''}>${c.label}</option>`).join('');
+  }
+
   function renderSidebarRoster(){
+    const editable = canEdit();
     let html = '<div class="sidebar-title">GUILD ROSTER</div><div id="rosterList"></div>';
-    html += `<div class="new-row" id="newCharRow">
-        <input type="text" id="newCharName" placeholder="Character name" maxlength="24" />
-        <select id="newCharClass">${CLASSES.map(c => `<option value="${c.id}">${c.label}</option>`).join('')}</select>
-        <select id="newCharRole">${roleOptionsHtml('')}</select>
-        <select id="newCharGroup">${groupOptionsHtml('')}</select>
-        <button class="btn btn-sm btn-primary btn-block" id="addCharBtn">+ Add character</button>
-      </div>`;
+    if (editable){
+      html += `<div class="new-row" id="newCharRow">
+          <input type="text" id="newCharName" placeholder="Character name" maxlength="24" />
+          <select id="newCharClass">${CLASSES.map(c => `<option value="${c.id}">${c.label}</option>`).join('')}</select>
+          <select id="newCharRole">${roleOptionsHtml('')}</select>
+          <select id="newCharGroup">${groupOptionsHtml('')}</select>
+          <button class="btn btn-sm btn-primary btn-block" id="addCharBtn">+ Add character</button>
+        </div>`;
+    }
     els.sidebarBody.innerHTML = html;
 
     const rosterList = document.getElementById('rosterList');
     if (state.roster.length === 0){
-      rosterList.innerHTML = '<div class="lootlib-note">No characters yet — add your guild\'s roster below.</div>';
+      rosterList.innerHTML = '<div class="lootlib-note">No characters yet' + (editable ? " — add your guild's roster below." : ' yet.') + '</div>';
     } else {
       state.roster.slice().sort((a,b) => a.name.localeCompare(b.name)).forEach(c => {
         const cls = CLASS_MAP[c.class] || CLASS_MAP.warrior;
         const role = ROLE_MAP[c.role];
+        const group = groupById(c.groupId);
         const row = document.createElement('div');
         row.className = 'roster-item';
-        row.innerHTML = `
-          <span class="roster-name"><span class="class-dot" style="background:${cls.color}"></span>${escapeHtml(c.name)}
-            ${role ? `<span class="role-tag" style="color:${role.color};border-color:${role.color}">${role.label}</span>` : ''}
-          </span>
-          <span class="roster-controls">
-            <span class="roster-controls-selects">
-              <select class="roster-role-select" title="Role">${roleOptionsHtml(c.role || '')}</select>
-              <select class="roster-group-select" title="Raid group">${groupOptionsHtml(c.groupId || '')}</select>
+        if (editable){
+          row.innerHTML = `
+            <span class="roster-name"><span class="class-dot" style="background:${cls.color}"></span>${escapeHtml(c.name)}
+              ${role ? `<span class="role-tag" style="color:${role.color};border-color:${role.color}">${role.label}</span>` : ''}
             </span>
-            <span class="del-x" title="Remove character">✕</span>
-          </span>`;
-        row.querySelector('.del-x').addEventListener('click', () => deleteCharacter(c.id));
-        row.querySelector('.roster-group-select').addEventListener('change', (e) => setCharacterGroup(c.id, e.target.value));
-        row.querySelector('.roster-role-select').addEventListener('change', (e) => setCharacterRole(c.id, e.target.value));
+            <span class="roster-controls">
+              <span class="roster-controls-selects">
+                <select class="roster-class-select" title="Class">${classOptionsHtml(c.class)}</select>
+                <select class="roster-role-select" title="Role">${roleOptionsHtml(c.role || '')}</select>
+                <select class="roster-group-select" title="Raid group">${groupOptionsHtml(c.groupId || '')}</select>
+              </span>
+              <span class="del-x" title="Remove character">✕</span>
+            </span>`;
+          row.querySelector('.del-x').addEventListener('click', () => deleteCharacter(c.id));
+          row.querySelector('.roster-class-select').addEventListener('change', (e) => setCharacterClass(c.id, e.target.value));
+          row.querySelector('.roster-group-select').addEventListener('change', (e) => setCharacterGroup(c.id, e.target.value));
+          row.querySelector('.roster-role-select').addEventListener('change', (e) => setCharacterRole(c.id, e.target.value));
+        } else {
+          row.innerHTML = `
+            <span class="roster-name"><span class="class-dot" style="background:${cls.color}"></span>${escapeHtml(c.name)}
+              ${role ? `<span class="role-tag" style="color:${role.color};border-color:${role.color}">${role.label}</span>` : ''}
+            </span>
+            <span class="roster-readonly-meta">${group ? escapeHtml(group.name) : 'No raid group'}</span>`;
+        }
         rosterList.appendChild(row);
       });
     }
+
+    if (!editable) return;
 
     document.getElementById('addCharBtn').addEventListener('click', async () => {
       const nameInput = document.getElementById('newCharName');
@@ -1115,7 +1218,7 @@
     let html = '<div class="sidebar-title">CURRENT PHASE</div>';
     html += '<div id="phaseChecks" style="padding:0 4px 10px;">' + RAID_DATA.map(r => `
       <label style="display:flex; align-items:center; gap:7px; font-size:12.5px; padding:3px 5px; cursor:pointer; color:${currentPhaseIds().includes(r.id) ? 'var(--gold-bright)' : 'var(--text-muted)'};">
-        <input type="checkbox" data-phase-raid="${r.id}" ${currentPhaseIds().includes(r.id) ? 'checked' : ''} style="width:auto;" />
+        <input type="checkbox" data-phase-raid="${r.id}" ${currentPhaseIds().includes(r.id) ? 'checked' : ''} ${canEdit() ? '' : 'disabled'} style="width:auto;" />
         ${escapeHtml(r.name)}
       </label>`).join('') + '</div>';
     html += '<div class="lootlib-note" style="padding-top:0;">Checked raids are pre-selected when logging loot and sort to the top of the raid picker.</div>';
@@ -1204,6 +1307,14 @@
     const c = state.roster.find(x => x.id === charId);
     if (!c) return;
     c.groupId = groupId || null;
+    renderAll();
+    await saveData();
+  }
+
+  async function setCharacterClass(charId, classId){
+    const c = state.roster.find(x => x.id === charId);
+    if (!c || !CLASS_MAP[classId]) return;
+    c.class = classId;
     renderAll();
     await saveData();
   }
@@ -1359,13 +1470,17 @@
     const items = lootForActiveScope();
 
     if (state.groups.length === 0){
-      els.ledgerWrap.innerHTML = `
+      els.ledgerWrap.innerHTML = canEdit() ? `
         <div class="empty-state">
           <h3>No raid groups yet</h3>
           <p>Add a raid group (e.g. "Main Raid" or "Alt Run") to start logging loot.</p>
           <button class="btn btn-primary" id="emptyAddGroupBtn">+ New raid group</button>
+        </div>` : `
+        <div class="empty-state">
+          <h3>No raid groups yet</h3>
+          <p>A Loot Council member needs to set up a raid group before there's anything to show here.</p>
         </div>`;
-      document.getElementById('emptyAddGroupBtn').addEventListener('click', showNewGroupRow);
+      if (canEdit()) document.getElementById('emptyAddGroupBtn').addEventListener('click', showNewGroupRow);
       return;
     }
 
@@ -1398,7 +1513,7 @@
           </td>
           <td><span class="group-tag">${g ? escapeHtml(g.name) : 'Removed group'}</span></td>
           <td class="row-actions">
-            ${confirming
+            ${!canEdit() ? '' : confirming
               ? `<button class="btn btn-sm btn-danger" data-confirm-del="${l.id}">Confirm</button>
                  <button class="btn btn-sm btn-ghost" data-cancel-del="${l.id}">Cancel</button>`
               : `<button class="btn btn-sm btn-ghost" data-edit="${l.id}">Edit</button>
@@ -1517,9 +1632,23 @@
   }
 
   function renderAll(){
+    applyAccessControl();
     renderSidebar();
     populateFormStaticOptions();
     renderMainView();
+  }
+
+  function applyAccessControl(){
+    const editable = canEdit();
+    els.accessBadge.textContent = ACCESS_ROLES[currentRole].label;
+    els.logToggleRow.classList.toggle('role-hidden', !editable);
+    els.lootForm.classList.toggle('role-hidden', !editable);
+    els.newGroupToggle.classList.toggle('role-hidden', !editable);
+    if (!editable){
+      els.lootForm.classList.add('hidden');
+      pendingDeleteId = null;
+      exitEditMode();
+    }
   }
 
   function renderMainView(){
@@ -1562,6 +1691,7 @@
       let best = null;
       state.loot.forEach(l => {
         if (l.slot !== slot) return;
+        if (l.decision !== 'BiS' && l.decision !== 'Upgrade') return;
         if ((l.recipientName || '').toLowerCase() !== charName.toLowerCase()) return;
         if (activeGroupId !== 'all' && l.groupId !== activeGroupId) return;
         const better = !best
@@ -1636,6 +1766,7 @@
     function lootFor(charName){
       return state.loot
         .filter(l => (l.recipientName || '').toLowerCase() === charName.toLowerCase()
+          && (l.decision === 'BiS' || l.decision === 'Upgrade')
           && (activeGroupId === 'all' || l.groupId === activeGroupId))
         .sort((a,b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
     }
@@ -1679,6 +1810,48 @@
   /* ---------------- Events ---------------- */
 
   els.newGroupToggle.addEventListener('click', showNewGroupRow);
+
+  function setRole(role){
+    currentRole = role;
+    try{ localStorage.setItem(ACCESS_STORAGE_KEY, role); }catch(e){}
+    applyAccessControl();
+    renderAll();
+  }
+
+  els.accessSwitchBtn.addEventListener('click', () => {
+    els.accessPopover.classList.toggle('hidden');
+    els.accessError.textContent = '';
+    els.accessPasscodeInput.value = '';
+    if (!els.accessPopover.classList.contains('hidden')) els.accessPasscodeInput.focus();
+  });
+  els.accessCancelBtn.addEventListener('click', () => els.accessPopover.classList.add('hidden'));
+  els.accessResetBtn.addEventListener('click', () => {
+    setRole('member');
+    els.accessPopover.classList.add('hidden');
+  });
+  els.accessUnlockBtn.addEventListener('click', () => {
+    const code = els.accessPasscodeInput.value;
+    if (code && code === ACCESS_PASSCODES.admin){
+      setRole('admin');
+      els.accessPopover.classList.add('hidden');
+    } else if (code && code === ACCESS_PASSCODES.lootcouncil){
+      setRole('lootcouncil');
+      els.accessPopover.classList.add('hidden');
+    } else {
+      els.accessError.textContent = 'Incorrect passcode.';
+    }
+  });
+  els.accessPasscodeInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter'){ e.preventDefault(); els.accessUnlockBtn.click(); }
+  });
+  document.addEventListener('click', (e) => {
+    if (!els.accessPopover.classList.contains('hidden')
+      && !els.accessPopover.contains(e.target)
+      && e.target !== els.accessSwitchBtn
+      && !els.accessSwitchBtn.contains(e.target)){
+      els.accessPopover.classList.add('hidden');
+    }
+  });
 
   els.byGroupFilter.addEventListener('change', () => {
     activeGroupId = els.byGroupFilter.value;

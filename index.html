@@ -218,6 +218,16 @@
   .quality-dot{ flex: none; width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.3); }
 
   .log-form-actions{ display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+  .edit-banner{
+    display: flex; align-items: center; gap: 6px; margin-bottom: 14px; padding: 8px 11px;
+    border-radius: 4px; background: rgba(201,162,39,0.1); border: 1px solid rgba(201,162,39,0.35);
+    color: var(--gold-bright); font-size: 12.5px; font-weight: 600;
+  }
+  .edit-banner.hidden{ display: none; }
+  .edit-banner button{
+    background: none; border: none; padding: 0; color: var(--gold-bright); text-decoration: underline;
+    font-size: 12.5px; font-weight: 700; cursor: pointer;
+  }
   .form-error{
     display: none; margin-top: 12px; padding: 8px 11px; border-radius: 4px;
     background: rgba(181,73,63,0.12); border: 1px solid var(--danger); color: var(--danger-bright);
@@ -358,6 +368,7 @@
       </div>
 
       <form class="log-form hidden" id="lootForm">
+        <div class="edit-banner hidden" id="editBanner">Editing an existing entry — <button type="button" id="cancelEditLink">cancel edit</button> to add a new one instead.</div>
         <div class="log-form-grid">
           <div class="field">
             <label for="f-group">Raid group</label>
@@ -417,7 +428,7 @@
         <div class="form-error" id="formError"></div>
         <div class="log-form-actions">
           <button type="button" class="btn btn-ghost" id="cancelLogBtn">Cancel</button>
-          <button type="submit" class="btn btn-primary">Add to ledger</button>
+          <button type="submit" class="btn btn-primary" id="lootSubmitBtn">Add to ledger</button>
         </div>
       </form>
 
@@ -675,6 +686,7 @@
   let pendingDeleteId = null;
   let mainView = 'ledger';
   let currentItemMeta = {};
+  let editingId = null;
 
   function currentPhaseIds(){
     const ids = state.settings && Array.isArray(state.settings.currentPhaseRaidIds) ? state.settings.currentPhaseRaidIds : [];
@@ -707,6 +719,9 @@
     customRecipientField: document.getElementById('customRecipientField'),
     fRecipientCustom: document.getElementById('f-recipient-custom'),
     fDecision: document.getElementById('f-decision'),
+    editBanner: document.getElementById('editBanner'),
+    cancelEditLink: document.getElementById('cancelEditLink'),
+    lootSubmitBtn: document.getElementById('lootSubmitBtn'),
     formError: document.getElementById('formError'),
     searchInput: document.getElementById('searchInput'),
     activeGroupLabel: document.getElementById('activeGroupLabel'),
@@ -1195,7 +1210,8 @@
             ${confirming
               ? `<button class="btn btn-sm btn-danger" data-confirm-del="${l.id}">Confirm</button>
                  <button class="btn btn-sm btn-ghost" data-cancel-del="${l.id}">Cancel</button>`
-              : `<button class="btn btn-sm btn-ghost" data-del="${l.id}">Delete</button>`
+              : `<button class="btn btn-sm btn-ghost" data-edit="${l.id}">Edit</button>
+                 <button class="btn btn-sm btn-ghost" data-del="${l.id}">Delete</button>`
             }
           </td>
         </tr>`;
@@ -1209,6 +1225,9 @@
         <tbody>${rows}</tbody>
       </table>`;
 
+    els.ledgerWrap.querySelectorAll('[data-edit]').forEach(btn => {
+      btn.addEventListener('click', () => enterEditMode(btn.getAttribute('data-edit')));
+    });
     els.ledgerWrap.querySelectorAll('[data-del]').forEach(btn => {
       btn.addEventListener('click', () => { pendingDeleteId = btn.getAttribute('data-del'); renderLedger(); });
     });
@@ -1225,11 +1244,85 @@
     renderAll();
     await saveData();
   }
+  async function updateLoot(id, fields){
+    const idx = state.loot.findIndex(l => l.id === id);
+    if (idx === -1) return;
+    state.loot[idx] = { ...state.loot[idx], ...fields };
+    renderAll();
+    await saveData();
+  }
   async function deleteLoot(id){
     state.loot = state.loot.filter(l => l.id !== id);
     pendingDeleteId = null;
     renderAll();
     await saveData();
+  }
+
+  function enterEditMode(id){
+    const entry = state.loot.find(l => l.id === id);
+    if (!entry) return;
+    if (state.groups.length === 0) return;
+
+    editingId = id;
+    els.lootForm.classList.remove('hidden');
+    els.formError.classList.remove('visible');
+
+    // Rebuild every static list first, then force each value in dependency order.
+    populateFormStaticOptions();
+
+    if (state.groups.some(g => g.id === entry.groupId)) els.fGroup.value = entry.groupId;
+    if (RAID_MAP[entry.raidId]) els.fInstance.value = entry.raidId;
+    populateBossOptions();
+
+    const raid = RAID_MAP[entry.raidId];
+    if (raid && raid.bosses.some(b => b.name === entry.bossName)){
+      els.fBoss.value = entry.bossName;
+    } else {
+      els.fBoss.value = OTHER_BOSS;
+      els.fBossCustom.value = entry.bossName || '';
+    }
+    updateBossHint();
+    updateItemOptions();
+
+    els.fItem.value = entry.item || '';
+    applyItemMetadata();
+    els.fSlot.value = SLOTS.includes(entry.slot) ? entry.slot : '';
+
+    els.fQuality.value = QUALITY_MAP[entry.quality] ? entry.quality : 'epic';
+    updateQualityDot();
+
+    buildRecipientOptions();
+    const onRoster = characterByName(entry.recipientName);
+    if (onRoster){
+      els.fRecipient.value = entry.recipientName;
+    } else {
+      els.fRecipient.value = OTHER_RECIPIENT;
+      els.fRecipientCustom.value = entry.recipientName || '';
+    }
+    updateRecipientCustomVisibility();
+
+    els.fDecision.value = LOOT_DECISIONS.includes(entry.decision) ? entry.decision : LOOT_DECISIONS[0];
+    els.fDate.value = entry.date || todayStr();
+
+    els.editBanner.classList.remove('hidden');
+    els.lootSubmitBtn.textContent = 'Save changes';
+    if (typeof els.lootForm.scrollIntoView === 'function'){
+      els.lootForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  function exitEditMode(){
+    editingId = null;
+    els.editBanner.classList.add('hidden');
+    els.lootSubmitBtn.textContent = 'Add to ledger';
+  }
+
+  function resetForNewEntry(){
+    els.fDate.value = todayStr();
+    if (activeGroupId !== 'all') els.fGroup.value = activeGroupId;
+    buildRecipientOptions();
+    els.fInstance.value = defaultInstanceId();
+    populateBossOptions();
   }
 
   function renderAll(){
@@ -1324,16 +1417,20 @@
     els.lootForm.classList.toggle('hidden');
     if (opening){
       els.formError.classList.remove('visible');
-      els.fDate.value = todayStr();
-      if (activeGroupId !== 'all') els.fGroup.value = activeGroupId;
-      buildRecipientOptions();
-      els.fInstance.value = defaultInstanceId();
-      populateBossOptions();
+      resetForNewEntry();
+    } else {
+      exitEditMode();
     }
   });
   els.cancelLogBtn.addEventListener('click', () => {
     els.lootForm.classList.add('hidden');
     els.formError.classList.remove('visible');
+    exitEditMode();
+  });
+  els.cancelEditLink.addEventListener('click', () => {
+    exitEditMode();
+    resetLootFormFields();
+    resetForNewEntry();
   });
 
   els.fGroup.addEventListener('change', buildRecipientOptions);
@@ -1374,14 +1471,13 @@
     if (!recipientName) missing.push('the recipient');
 
     if (missing.length){
-      els.formError.textContent = `Please fill in ${missing.join(', ')} before adding this to the ledger.`;
+      els.formError.textContent = `Please fill in ${missing.join(', ')} before ${editingId ? 'saving these changes' : 'adding this to the ledger'}.`;
       els.formError.classList.add('visible');
       return;
     }
     els.formError.classList.remove('visible');
 
-    const entry = {
-      id: uid(),
+    const fields = {
       groupId: els.fGroup.value,
       raidId: raid.id,
       bossName,
@@ -1391,10 +1487,15 @@
       recipientName,
       recipientClass,
       decision: els.fDecision.value,
-      date: els.fDate.value || todayStr(),
-      createdAt: Date.now()
+      date: els.fDate.value || todayStr()
     };
-    await addLoot(entry);
+
+    if (editingId){
+      await updateLoot(editingId, fields);
+      exitEditMode();
+    } else {
+      await addLoot({ id: uid(), createdAt: Date.now(), ...fields });
+    }
     resetLootFormFields();
     els.fItem.focus();
     renderAll();

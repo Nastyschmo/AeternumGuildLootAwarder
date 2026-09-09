@@ -250,7 +250,14 @@
     display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 3px;
     background: var(--bg-panel-raised); color: var(--text-muted); border: 1px solid var(--border-soft);
   }
-  .note-cell{ color: var(--text-muted); font-size: 12.5px; }
+  .decision-tag{
+    display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 3px;
+    border: 1px solid transparent;
+  }
+  .decision-bis{ background: rgba(201,162,39,0.16); color: var(--gold-bright); border-color: rgba(201,162,39,0.4); }
+  .decision-upgrade{ background: rgba(63,217,86,0.12); color: var(--q-uncommon); border-color: rgba(63,217,86,0.35); }
+  .decision-offspec{ background: rgba(164,150,122,0.14); color: var(--text-muted); border-color: var(--border); }
+  .decision-pvp{ background: rgba(51,153,255,0.14); color: var(--q-rare); border-color: rgba(51,153,255,0.35); }
   .row-actions{ text-align: right; white-space: nowrap; }
 
   .empty-state{ padding: 46px 20px; text-align: center; color: var(--text-muted); }
@@ -402,9 +409,9 @@
             <input type="text" id="f-recipient-custom" placeholder="Not on the roster" />
           </div>
 
-          <div class="field span3">
-            <label for="f-note">Note (optional)</label>
-            <input type="text" id="f-note" placeholder="Off-spec roll, DE'd, etc." />
+          <div class="field">
+            <label for="f-decision">Loot decision</label>
+            <select id="f-decision"></select>
           </div>
         </div>
         <div class="form-error" id="formError"></div>
@@ -442,17 +449,15 @@
   // Rules (see the README), not by hiding this object.
   // ---------------------------------------------------------------------
   const FIREBASE_CONFIG = {
-                    apiKey: "AIzaSyDlc3JJjZ2kFip-uFn8B-FW1mABjPSKgvM",
-                    authDomain: "aeternum-guild-loot-awards.firebaseapp.com",
-                    databaseURL:
-                        "https://aeternum-guild-loot-awards-default-rtdb.europe-west1.firebasedatabase.app",
-                    projectId: "aeternum-guild-loot-awards",
-                    storageBucket:
-                        "aeternum-guild-loot-awards.firebasestorage.app",
-                    messagingSenderId: "539427044594",
-                    appId: "1:539427044594:web:3f4e2f58e4eb901fc3646b",
-                    measurementId: "G-J9MQD020BG",
-                };
+    apiKey: "AIzaSyDlc3JJjZ2kFip-uFn8B-FW1mABjPSKgvM",
+    authDomain: "aeternum-guild-loot-awards.firebaseapp.com",
+    databaseURL: "https://aeternum-guild-loot-awards-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "aeternum-guild-loot-awards",
+    storageBucket: "aeternum-guild-loot-awards.firebasestorage.app",
+    messagingSenderId: "539427044594",
+    appId: "1:539427044594:web:3f4e2f58e4eb901fc3646b",
+    measurementId: "G-J9MQD020BG"
+  };
   const DB_PATH = 'guild-loot-data';
   let db = null;
 
@@ -485,6 +490,7 @@
   const CLASS_MAP = Object.fromEntries(CLASSES.map(c => [c.id, c]));
 
   const SLOTS = ['Head', 'Neck', 'Shoulder', 'Back', 'Chest', 'Wrist', 'Hands', 'Waist', 'Legs', 'Feet', 'Ring', 'Trinket', 'Weapon', 'Off-Hand', 'Ranged', 'Relic'];
+  const LOOT_DECISIONS = ['BiS', 'Upgrade', 'Offspec', 'PVP'];
 
   // Reference library of TBC raid instances & bosses (static game content).
   // Notes are limited to well-established highlights, not exhaustive loot tables —
@@ -700,7 +706,7 @@
     fRecipient: document.getElementById('f-recipient'),
     customRecipientField: document.getElementById('customRecipientField'),
     fRecipientCustom: document.getElementById('f-recipient-custom'),
-    fNote: document.getElementById('f-note'),
+    fDecision: document.getElementById('f-decision'),
     formError: document.getElementById('formError'),
     searchInput: document.getElementById('searchInput'),
     activeGroupLabel: document.getElementById('activeGroupLabel'),
@@ -1028,6 +1034,10 @@
     els.fSlot.innerHTML = '<option value="" disabled>Select slot…</option>' + SLOTS.map(s => `<option value="${s}">${s}</option>`).join('');
     els.fSlot.value = prevSlot && SLOTS.includes(prevSlot) ? prevSlot : '';
 
+    const prevDecision = els.fDecision.value;
+    els.fDecision.innerHTML = LOOT_DECISIONS.map(d => `<option value="${d}">${d}</option>`).join('');
+    els.fDecision.value = LOOT_DECISIONS.includes(prevDecision) ? prevDecision : LOOT_DECISIONS[0];
+
     buildRecipientOptions();
 
     populateBossOptions();
@@ -1062,6 +1072,8 @@
       + `<option value="${OTHER_BOSS}">Other / trash drop…</option>`;
     if (previousBoss && (previousBoss === ALL_BOSSES || previousBoss === OTHER_BOSS || raid.bosses.some(b => b.name === previousBoss))){
       els.fBoss.value = previousBoss;
+    } else {
+      els.fBoss.value = ALL_BOSSES;
     }
     updateBossHint();
     updateItemOptions();
@@ -1129,7 +1141,7 @@
     els.fBossCustom.value = '';
     els.fItem.value = '';
     els.fRecipientCustom.value = '';
-    els.fNote.value = '';
+    els.fDecision.value = LOOT_DECISIONS[0];
     els.fSlot.value = '';
     els.customRecipientField.style.display = 'none';
     els.formError.classList.remove('visible');
@@ -1178,7 +1190,7 @@
           <td>${escapeHtml(l.slot || '—')}</td>
           <td class="recipient-cell" style="${cls ? `color:${cls.color}` : ''}">${escapeHtml(l.recipientName)}</td>
           <td><span class="group-tag">${g ? escapeHtml(g.name) : 'Removed group'}</span></td>
-          <td class="note-cell">${escapeHtml(l.note || '')}</td>
+          <td><span class="decision-tag decision-${(l.decision || 'upgrade').toLowerCase()}">${escapeHtml(l.decision || '—')}</span></td>
           <td class="row-actions">
             ${confirming
               ? `<button class="btn btn-sm btn-danger" data-confirm-del="${l.id}">Confirm</button>
@@ -1192,7 +1204,7 @@
     els.ledgerWrap.innerHTML = `
       <table>
         <thead>
-          <tr><th>Date</th><th>Boss</th><th>Item</th><th>Slot</th><th>Recipient</th><th>Group</th><th>Note</th><th></th></tr>
+          <tr><th>Date</th><th>Boss</th><th>Item</th><th>Slot</th><th>Recipient</th><th>Group</th><th>Decision</th><th></th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>`;
@@ -1378,7 +1390,7 @@
       slot,
       recipientName,
       recipientClass,
-      note: els.fNote.value.trim(),
+      decision: els.fDecision.value,
       date: els.fDate.value || todayStr(),
       createdAt: Date.now()
     };

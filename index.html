@@ -244,6 +244,7 @@
 
   /* ---------- Toolbar ---------- */
   .toolbar{ display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .bygroup-filter{ max-width: 240px; }
   .toolbar input{ max-width: 320px; }
   .toolbar .active-group-label{ font-family: 'Cinzel', serif; font-size: 15px; color: var(--gold-bright); }
 
@@ -494,7 +495,7 @@
 
       <div id="byGroupView" class="hidden">
         <div class="toolbar">
-          <span class="active-group-label" id="byGroupLabel">All groups</span>
+          <select id="byGroupFilter" class="bygroup-filter"></select>
         </div>
         <div class="ledger" id="byGroupWrap"></div>
       </div>
@@ -890,7 +891,7 @@
     gearGroupLabel: document.getElementById('gearGroupLabel'),
     byGroupView: document.getElementById('byGroupView'),
     byGroupWrap: document.getElementById('byGroupWrap'),
-    byGroupLabel: document.getElementById('byGroupLabel'),
+    byGroupFilter: document.getElementById('byGroupFilter'),
     saveStatus: document.getElementById('saveStatus'),
     setupScreen: document.getElementById('setupScreen'),
     mainLayout: document.getElementById('mainLayout')
@@ -1596,9 +1597,10 @@
   }
 
   function renderGearByGroup(){
-    els.byGroupLabel.textContent = activeGroupId === 'all'
-      ? 'All groups — every character'
-      : (groupById(activeGroupId)?.name || 'Unknown group');
+    const options = [`<option value="all">All groups</option>`]
+      .concat(state.groups.map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`));
+    els.byGroupFilter.innerHTML = options.join('');
+    els.byGroupFilter.value = state.groups.some(g => g.id === activeGroupId) ? activeGroupId : 'all';
 
     if (state.roster.length === 0){
       els.byGroupWrap.innerHTML = `
@@ -1667,6 +1669,11 @@
   /* ---------------- Events ---------------- */
 
   els.newGroupToggle.addEventListener('click', showNewGroupRow);
+
+  els.byGroupFilter.addEventListener('change', () => {
+    activeGroupId = els.byGroupFilter.value;
+    renderAll();
+  });
 
   document.querySelectorAll('.content-tab').forEach(tab => {
     tab.addEventListener('click', () => { mainView = tab.getAttribute('data-view'); renderMainView(); });

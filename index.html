@@ -62,10 +62,14 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
-    padding-bottom: 20px;
+    padding: 20px 0;
     margin-bottom: 22px;
     border-bottom: 1px solid var(--border-soft);
     flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: var(--bg);
   }
 
   .brand{ display: flex; gap: 14px; align-items: center; }
@@ -133,7 +137,9 @@
     border-radius: 6px;
     padding: 10px;
     position: sticky;
-    top: 20px;
+    top: 132px;
+    max-height: calc(100vh - 152px);
+    overflow-y: auto;
   }
 
   .sidebar-tabs{
@@ -176,14 +182,13 @@
 
   /* roster */
   .roster-item{
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 7px 9px; border-radius: 4px; font-size: 13px; margin-bottom: 2px;
+    display: flex; flex-direction: column; gap: 5px;
+    padding: 8px 9px; border-radius: 4px; font-size: 13px; margin-bottom: 3px;
   }
   .roster-item:hover{ background: var(--bg-panel-raised); }
-  .roster-item .del-x{ display: none; color: var(--text-faint); font-size: 13px; cursor: pointer; padding: 2px 4px; }
-  .roster-item:hover .del-x{ display: inline-block; }
+  .roster-item .del-x{ color: var(--text-faint); font-size: 13px; cursor: pointer; padding: 2px 4px; }
   .roster-item .del-x:hover{ color: var(--danger-bright); }
-  .class-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:7px; }
+  .class-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:7px; flex: none; }
 
   /* loot library */
   .lootlib-note{ font-size: 11.5px; color: var(--text-faint); padding: 2px 8px 10px; line-height: 1.5; }
@@ -293,9 +298,14 @@
   #ledgerView.hidden, #gearView.hidden{ display: none; }
 
   /* ---------- Roster group assignment ---------- */
-  .roster-controls{ display: flex; align-items: center; gap: 6px; }
-  .roster-group-select{ width: auto; font-size: 11px; padding: 3px 6px; max-width: 108px; }
-  .roster-name{ display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .roster-controls{ display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .roster-controls-selects{ display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+  .roster-group-select, .roster-role-select{ width: auto; font-size: 11px; padding: 3px 6px; flex: 1; min-width: 0; }
+  .roster-name{ display: flex; align-items: center; flex-wrap: wrap; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .role-tag{
+    display: inline-block; font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 3px;
+    border: 1px solid; background: rgba(255,255,255,0.03); white-space: nowrap;
+  }
 
   /* ---------- Gear overview ---------- */
   .gear-char{ font-weight: 700; white-space: nowrap; }
@@ -303,7 +313,12 @@
   .gear-item{ font-weight: 600; white-space: nowrap; display: block; }
   .wh-item-link{ font-weight: 700; text-decoration: none; white-space: nowrap; }
   .wh-item-link:hover{ text-decoration: underline; }
-  .wh-icon-link{ display: inline-block; width: 22px; height: 22px; vertical-align: middle; }
+  .gear-table .item-name, .gear-table .wh-item-link,
+  .byg-item-row .item-name, .byg-item-row .wh-item-link{
+    white-space: normal;
+    overflow-wrap: break-word;
+    max-width: 180px;
+  }
   .gear-date{ display: inline-block; font-size: 10.5px; color: var(--text-faint); font-weight: 400; white-space: nowrap; }
   .gear-meta{ display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 2px; }
   .decision-tag-sm{ font-size: 9.5px; font-weight: 700; padding: 1px 5px; }
@@ -313,6 +328,18 @@
   }
   .gear-table th:last-child, .gear-table td:last-child{ border-right: none; }
   .gear-table td.gear-char{ font-size: 13px; }
+
+  /* ---------- Gear by Group ---------- */
+  .bygroup-table th, .bygroup-table td{ padding: 10px 12px; font-size: 13px; vertical-align: top; }
+  .byg-char-cell{ white-space: nowrap; width: 1%; }
+  .byg-count{ display: block; font-size: 11px; color: var(--text-faint); margin-top: 4px; font-weight: 600; }
+  .byg-item-row{
+    display: flex; align-items: center; gap: 9px; padding: 6px 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .byg-item-row:last-child{ border-bottom: none; }
+  .byg-item-row .gear-date{ margin-left: auto; }
+  .byg-empty{ color: var(--text-faint); font-size: 12.5px; font-style: italic; padding: 4px 0; }
 
   /* ---------- Setup screen ---------- */
   .setup-screen{
@@ -377,6 +404,7 @@
       <div class="content-tabs">
         <div class="content-tab active" data-view="ledger">Loot Ledger</div>
         <div class="content-tab" data-view="gear">Gear by Slot</div>
+        <div class="content-tab" data-view="bygroup">Gear by Group</div>
       </div>
 
       <div id="ledgerView">
@@ -463,6 +491,13 @@
         </div>
         <div class="ledger" id="gearWrap"></div>
       </div>
+
+      <div id="byGroupView" class="hidden">
+        <div class="toolbar">
+          <span class="active-group-label" id="byGroupLabel">All groups</span>
+        </div>
+        <div class="ledger" id="byGroupWrap"></div>
+      </div>
     </main>
   </div>
 </div>
@@ -519,6 +554,14 @@
 
   const SLOTS = ['Head', 'Neck', 'Shoulder', 'Back', 'Chest', 'Wrist', 'Hands', 'Waist', 'Legs', 'Feet', 'Ring', 'Trinket', 'Weapon', 'Off-Hand', 'Ranged', 'Relic'];
   const LOOT_DECISIONS = ['BiS', 'Upgrade', 'Offspec', 'PVP'];
+
+  const ROLES = [
+    { id: 'tank', label: 'Tank', color: '#4a90d9' },
+    { id: 'attack_power', label: 'Attack Power', color: '#d9534f' },
+    { id: 'spell_damage', label: 'Spell Damage', color: '#9b59b6' },
+    { id: 'heal', label: 'Heal', color: '#2ecc71' }
+  ];
+  const ROLE_MAP = Object.fromEntries(ROLES.map(r => [r.id, r]));
 
   // Generic per-slot icon glyphs (not exact item art — we don't have a full item->icon
   // database, and this avoids hotlinking a large volume of third-party game-art images).
@@ -845,6 +888,9 @@
     gearView: document.getElementById('gearView'),
     gearWrap: document.getElementById('gearWrap'),
     gearGroupLabel: document.getElementById('gearGroupLabel'),
+    byGroupView: document.getElementById('byGroupView'),
+    byGroupWrap: document.getElementById('byGroupWrap'),
+    byGroupLabel: document.getElementById('byGroupLabel'),
     saveStatus: document.getElementById('saveStatus'),
     setupScreen: document.getElementById('setupScreen'),
     mainLayout: document.getElementById('mainLayout')
@@ -974,7 +1020,7 @@
           <span class="count">${count}</span>
           <span class="del-x" title="Delete group">✕</span>
         </span>`;
-      row.querySelector('.g-name').addEventListener('click', () => { activeGroupId = g.id; renderAll(); });
+      row.addEventListener('click', () => { activeGroupId = g.id; renderAll(); });
       row.querySelector('.del-x').addEventListener('click', (e) => { e.stopPropagation(); deleteGroup(g.id); });
       groupList.appendChild(row);
     });
@@ -1003,11 +1049,18 @@
     return opts.join('');
   }
 
+  function roleOptionsHtml(selectedId){
+    const opts = [`<option value="">No role</option>`]
+      .concat(ROLES.map(r => `<option value="${r.id}" ${r.id === selectedId ? 'selected' : ''}>${r.label}</option>`));
+    return opts.join('');
+  }
+
   function renderSidebarRoster(){
     let html = '<div class="sidebar-title">GUILD ROSTER</div><div id="rosterList"></div>';
     html += `<div class="new-row" id="newCharRow">
         <input type="text" id="newCharName" placeholder="Character name" maxlength="24" />
         <select id="newCharClass">${CLASSES.map(c => `<option value="${c.id}">${c.label}</option>`).join('')}</select>
+        <select id="newCharRole">${roleOptionsHtml('')}</select>
         <select id="newCharGroup">${groupOptionsHtml('')}</select>
         <button class="btn btn-sm btn-primary btn-block" id="addCharBtn">+ Add character</button>
       </div>`;
@@ -1019,16 +1072,23 @@
     } else {
       state.roster.slice().sort((a,b) => a.name.localeCompare(b.name)).forEach(c => {
         const cls = CLASS_MAP[c.class] || CLASS_MAP.warrior;
+        const role = ROLE_MAP[c.role];
         const row = document.createElement('div');
         row.className = 'roster-item';
         row.innerHTML = `
-          <span class="roster-name"><span class="class-dot" style="background:${cls.color}"></span>${escapeHtml(c.name)}</span>
+          <span class="roster-name"><span class="class-dot" style="background:${cls.color}"></span>${escapeHtml(c.name)}
+            ${role ? `<span class="role-tag" style="color:${role.color};border-color:${role.color}">${role.label}</span>` : ''}
+          </span>
           <span class="roster-controls">
-            <select class="roster-group-select" title="Raid group">${groupOptionsHtml(c.groupId || '')}</select>
+            <span class="roster-controls-selects">
+              <select class="roster-role-select" title="Role">${roleOptionsHtml(c.role || '')}</select>
+              <select class="roster-group-select" title="Raid group">${groupOptionsHtml(c.groupId || '')}</select>
+            </span>
             <span class="del-x" title="Remove character">✕</span>
           </span>`;
         row.querySelector('.del-x').addEventListener('click', () => deleteCharacter(c.id));
         row.querySelector('.roster-group-select').addEventListener('change', (e) => setCharacterGroup(c.id, e.target.value));
+        row.querySelector('.roster-role-select').addEventListener('change', (e) => setCharacterRole(c.id, e.target.value));
         rosterList.appendChild(row);
       });
     }
@@ -1036,8 +1096,9 @@
     document.getElementById('addCharBtn').addEventListener('click', async () => {
       const nameInput = document.getElementById('newCharName');
       const classSelect = document.getElementById('newCharClass');
+      const roleSelect = document.getElementById('newCharRole');
       const groupSelect = document.getElementById('newCharGroup');
-      await addCharacter(nameInput.value, classSelect.value, groupSelect.value);
+      await addCharacter(nameInput.value, classSelect.value, groupSelect.value, roleSelect.value);
       nameInput.value = '';
       nameInput.focus();
     });
@@ -1118,11 +1179,19 @@
     await saveData();
   }
 
-  async function addCharacter(name, classId, groupId){
+  async function addCharacter(name, classId, groupId, role){
     const trimmed = name.trim();
     if (!trimmed) return;
     if (characterByName(trimmed)){ setStatus('That character is already on the roster', true); return; }
-    state.roster.push({ id: uid(), name: trimmed, class: classId, groupId: groupId || null });
+    state.roster.push({ id: uid(), name: trimmed, class: classId, groupId: groupId || null, role: role || null });
+    renderAll();
+    await saveData();
+  }
+
+  async function setCharacterRole(charId, role){
+    const c = state.roster.find(x => x.id === charId);
+    if (!c) return;
+    c.role = role || null;
     renderAll();
     await saveData();
   }
@@ -1453,7 +1522,9 @@
     document.querySelectorAll('.content-tab').forEach(t => t.classList.toggle('active', t.getAttribute('data-view') === mainView));
     els.ledgerView.classList.toggle('hidden', mainView !== 'ledger');
     els.gearView.classList.toggle('hidden', mainView !== 'gear');
+    els.byGroupView.classList.toggle('hidden', mainView !== 'bygroup');
     if (mainView === 'gear') renderGearOverview();
+    else if (mainView === 'bygroup') renderGearByGroup();
     else renderLedger();
   }
 
@@ -1520,6 +1591,75 @@
     els.gearWrap.innerHTML = `
       <table class="gear-table">
         <thead><tr><th>Character</th>${headerCells}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  function renderGearByGroup(){
+    els.byGroupLabel.textContent = activeGroupId === 'all'
+      ? 'All groups — every character'
+      : (groupById(activeGroupId)?.name || 'Unknown group');
+
+    if (state.roster.length === 0){
+      els.byGroupWrap.innerHTML = `
+        <div class="empty-state">
+          <h3>No roster yet</h3>
+          <p>Add characters in the Roster tab to see their loot summary.</p>
+        </div>`;
+      return;
+    }
+
+    const characters = (activeGroupId === 'all' ? state.roster.slice() : state.roster.filter(c => c.groupId === activeGroupId))
+      .sort((a,b) => a.name.localeCompare(b.name));
+
+    if (characters.length === 0){
+      els.byGroupWrap.innerHTML = `
+        <div class="empty-state">
+          <h3>No characters assigned to this group</h3>
+          <p>Assign roster characters to this raid group from the Roster tab.</p>
+        </div>`;
+      return;
+    }
+
+    function lootFor(charName){
+      return state.loot
+        .filter(l => (l.recipientName || '').toLowerCase() === charName.toLowerCase()
+          && (activeGroupId === 'all' || l.groupId === activeGroupId))
+        .sort((a,b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
+    }
+
+    const rows = characters.map(c => {
+      const cls = CLASS_MAP[c.class] || CLASS_MAP.warrior;
+      const role = ROLE_MAP[c.role];
+      const items = lootFor(c.name);
+
+      const lootListHtml = items.length
+        ? items.map(entry => {
+            const q = QUALITY_MAP[entry.quality] || QUALITY_MAP.common;
+            const raid = RAID_MAP[entry.raidId];
+            const tip = `${entry.date || ''} · ${entry.decision || ''} · ${entry.bossName || ''}${raid ? ' · ' + raid.name : ''}`;
+            return `<div class="byg-item-row">
+              ${itemIconCellHtml(entry.icon, entry.slot, q.color, 18)}
+              ${itemNameHtml(entry.item, entry.whId, q.color)}
+              <span class="gear-date">${escapeHtml(entry.date || '')}</span>
+              <span class="decision-tag decision-tag-sm decision-${(entry.decision || 'upgrade').toLowerCase()}" title="${escapeHtml(tip)}">${escapeHtml(entry.decision || '—')}</span>
+            </div>`;
+          }).join('')
+        : `<div class="byg-empty">No loot logged yet</div>`;
+
+      return `<tr>
+        <td class="byg-char-cell">
+          <span class="gear-char" style="color:${cls.color}">${escapeHtml(c.name)}</span>
+          ${role ? `<span class="role-tag" style="color:${role.color};border-color:${role.color}">${role.label}</span>` : ''}
+          <span class="byg-count">${items.length} item${items.length === 1 ? '' : 's'}</span>
+        </td>
+        <td class="byg-loot-cell">${lootListHtml}</td>
+      </tr>`;
+    }).join('');
+
+    els.byGroupWrap.innerHTML = `
+      <table class="bygroup-table">
+        <thead><tr><th>Character</th><th>Loot received</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>`;
   }

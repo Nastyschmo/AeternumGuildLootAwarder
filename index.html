@@ -6,7 +6,7 @@
 <title>Guild Loot Ledger</title>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
-<script>const whTooltips = { colorLinks: true, iconizeLinks: true, iconSize: 'small' };</script>
+<script>const whTooltips = { colorLinks: false, iconSize: true };</script>
 <script src="https://wow.zamimg.com/js/tooltips.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Karla:wght@400;500;600;700&display=swap');
@@ -303,6 +303,7 @@
   .gear-item{ font-weight: 600; white-space: nowrap; display: block; }
   .wh-item-link{ font-weight: 700; text-decoration: none; white-space: nowrap; }
   .wh-item-link:hover{ text-decoration: underline; }
+  .wh-icon-link{ display: inline-block; width: 22px; height: 22px; vertical-align: middle; }
   .gear-date{ display: inline-block; font-size: 10.5px; color: var(--text-faint); font-weight: 400; white-space: nowrap; }
   .gear-meta{ display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 2px; }
   .decision-tag-sm{ font-size: 9.5px; font-weight: 700; padding: 1px 5px; }
@@ -553,9 +554,31 @@
   // If we know the item's real Wowhead ID, link it so Wowhead's own widget shows the
   // real icon and a full in-game-style hover tooltip. Otherwise fall back to our
   // generic slot glyph with plain colored text.
+  // Icon-only cell (for a dedicated Icon column). Uses Wowhead's real icon via a
+  // per-link data-wh-icon-size attribute (global icons are off so this doesn't
+  // spill onto the name link), falling back to our generic slot glyph.
+  function itemIconCellHtml(whId, slot, colorHex, size){
+    size = size || 20;
+    if (whId){
+      return `<a href="https://www.wowhead.com/tbc/item=${whId}" target="_blank" rel="noopener" class="wh-icon-link" data-wh-icon-size="small" aria-label="item icon"></a>`;
+    }
+    return slotIconHtml(slot, colorHex, size);
+  }
+
+  // Plain item name, colored by our own rarity data, still linked to Wowhead for
+  // the hover tooltip when we know the item — but never re-colored by Wowhead.
+  function itemNameHtml(name, whId, colorHex){
+    if (whId){
+      return `<a href="https://www.wowhead.com/tbc/item=${whId}" target="_blank" rel="noopener" class="wh-item-link" style="color:${colorHex}">${escapeHtml(name)}</a>`;
+    }
+    return `<span class="item-name" style="color:${colorHex}">${escapeHtml(name)}</span>`;
+  }
+
+  // Icon + name together in one cell (used in the Gear grid, where a separate
+  // icon column per slot isn't practical).
   function itemDisplayHtml(name, whId, slot, colorHex, size, fallbackTitle){
     if (whId){
-      return `<a href="https://www.wowhead.com/tbc/item=${whId}" target="_blank" rel="noopener" class="wh-item-link">${escapeHtml(name)}</a>`;
+      return `<a href="https://www.wowhead.com/tbc/item=${whId}" target="_blank" rel="noopener" class="wh-item-link" data-wh-icon-size="small" style="color:${colorHex}">${escapeHtml(name)}</a>`;
     }
     const titleAttr = fallbackTitle ? ` title="${escapeHtml(fallbackTitle)}"` : '';
     return `<span class="item-line">${slotIconHtml(slot, colorHex, size)}<span class="item-name" style="color:${colorHex}"${titleAttr}>${escapeHtml(name)}</span></span>`;
@@ -731,6 +754,24 @@
     ]}
   ];
   const RAID_MAP = Object.fromEntries(RAID_DATA.map(r => [r.id, r]));
+
+  // Flat name -> Wowhead ID index across every raid's seed data, used to backfill
+  // entries that were logged before the Wowhead integration existed.
+  const GLOBAL_ITEM_INDEX = {};
+  RAID_DATA.forEach(r => r.bosses.forEach(b => (b.items || []).forEach(it => {
+    if (it.whId && !GLOBAL_ITEM_INDEX[it.name]) GLOBAL_ITEM_INDEX[it.name] = it.whId;
+  })));
+
+  function backfillItemMetadata(){
+    let changed = false;
+    state.loot.forEach(l => {
+      if (!l.whId && GLOBAL_ITEM_INDEX[l.item]){
+        l.whId = GLOBAL_ITEM_INDEX[l.item];
+        changed = true;
+      }
+    });
+    return changed;
+  }
   const OTHER_BOSS = '__other__';
   const ALL_BOSSES = '__all__';
   const OTHER_RECIPIENT = '__other__';
@@ -850,8 +891,10 @@
       const val = snapshot.val();
       state = val ? normalizeState(val) : defaultState();
       if (firstLoad){ lootlibRaidId = defaultInstanceId(); firstLoad = false; }
+      const backfilled = backfillItemMetadata();
       renderAll();
       setStatus('Synced', false);
+      if (backfilled) saveData();
     }, (error) => {
       setStatus('Could not sync — check your Firebase rules and connection', true);
     });
@@ -1259,7 +1302,8 @@
         <tr>
           <td>${escapeHtml(l.date || '')}</td>
           <td class="recipient-cell" style="${cls ? `color:${cls.color}` : ''}">${escapeHtml(l.recipientName)}</td>
-          <td>${itemDisplayHtml(l.item, l.whId, l.slot, q.color, 20)}</td>
+          <td>${itemIconCellHtml(l.whId, l.slot, q.color, 22)}</td>
+          <td>${itemNameHtml(l.item, l.whId, q.color)}</td>
           <td>${escapeHtml(l.slot || '—')}</td>
           <td><span class="decision-tag decision-${(l.decision || 'upgrade').toLowerCase()}">${escapeHtml(l.decision || '—')}</span></td>
           <td class="boss-cell">
@@ -1281,7 +1325,7 @@
     els.ledgerWrap.innerHTML = `
       <table>
         <thead>
-          <tr><th>Date</th><th>Character</th><th>Item</th><th>Slot</th><th>Decision</th><th>Boss</th><th>Group</th><th></th></tr>
+          <tr><th>Date</th><th>Character</th><th>Icon</th><th>Item</th><th>Slot</th><th>Decision</th><th>Boss</th><th>Group</th><th></th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>`;

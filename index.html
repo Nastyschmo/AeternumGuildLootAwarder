@@ -496,6 +496,7 @@
       <div id="byGroupView" class="hidden">
         <div class="toolbar">
           <select id="byGroupFilter" class="bygroup-filter"></select>
+          <select id="byRoleFilter" class="bygroup-filter"></select>
         </div>
         <div class="ledger" id="byGroupWrap"></div>
       </div>
@@ -839,6 +840,7 @@
 
   let state = defaultState();
   let activeGroupId = 'all';
+  let activeRoleFilter = 'all';
   let sidebarTab = 'groups';
   let lootlibRaidId = DEFAULT_PHASE_RAID_IDS[0];
   let searchTerm = '';
@@ -892,6 +894,7 @@
     byGroupView: document.getElementById('byGroupView'),
     byGroupWrap: document.getElementById('byGroupWrap'),
     byGroupFilter: document.getElementById('byGroupFilter'),
+    byRoleFilter: document.getElementById('byRoleFilter'),
     saveStatus: document.getElementById('saveStatus'),
     setupScreen: document.getElementById('setupScreen'),
     mainLayout: document.getElementById('mainLayout')
@@ -1597,10 +1600,15 @@
   }
 
   function renderGearByGroup(){
-    const options = [`<option value="all">All groups</option>`]
+    const groupOptions = [`<option value="all">All groups</option>`]
       .concat(state.groups.map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`));
-    els.byGroupFilter.innerHTML = options.join('');
+    els.byGroupFilter.innerHTML = groupOptions.join('');
     els.byGroupFilter.value = state.groups.some(g => g.id === activeGroupId) ? activeGroupId : 'all';
+
+    const roleOptions = [`<option value="all">All roles</option>`]
+      .concat(ROLES.map(r => `<option value="${r.id}">${r.label}</option>`));
+    els.byRoleFilter.innerHTML = roleOptions.join('');
+    els.byRoleFilter.value = activeRoleFilter;
 
     if (state.roster.length === 0){
       els.byGroupWrap.innerHTML = `
@@ -1611,14 +1619,16 @@
       return;
     }
 
-    const characters = (activeGroupId === 'all' ? state.roster.slice() : state.roster.filter(c => c.groupId === activeGroupId))
+    const characters = state.roster
+      .filter(c => activeGroupId === 'all' || c.groupId === activeGroupId)
+      .filter(c => activeRoleFilter === 'all' || c.role === activeRoleFilter)
       .sort((a,b) => a.name.localeCompare(b.name));
 
     if (characters.length === 0){
       els.byGroupWrap.innerHTML = `
         <div class="empty-state">
-          <h3>No characters assigned to this group</h3>
-          <p>Assign roster characters to this raid group from the Roster tab.</p>
+          <h3>No characters match this filter</h3>
+          <p>Try a different group or role, or assign characters to one from the Roster tab.</p>
         </div>`;
       return;
     }
@@ -1673,6 +1683,11 @@
   els.byGroupFilter.addEventListener('change', () => {
     activeGroupId = els.byGroupFilter.value;
     renderAll();
+  });
+
+  els.byRoleFilter.addEventListener('change', () => {
+    activeRoleFilter = els.byRoleFilter.value;
+    renderGearByGroup();
   });
 
   document.querySelectorAll('.content-tab').forEach(tab => {

@@ -296,8 +296,16 @@
   .bygroup-filter{ max-width: 240px; }
 
   /* ---------- Attendance ---------- */
-  .attendance-session-info{ font-size: 12.5px; color: var(--text-faint); margin: -4px 0 12px; }
+  .attendance-session-info{ font-size: 12.5px; color: var(--text-faint); margin: 0; }
   .attendance-session-info.past-note{ color: var(--gold-bright); }
+  .att-accepted-count{
+    font-family: 'Cinzel', serif; font-size: 15px; font-weight: 700; color: var(--gold-bright);
+    white-space: nowrap;
+  }
+  .att-accepted-count.att-over-limit{
+    color: #ff2049;
+    text-shadow: 0 0 6px rgba(255, 32, 73, 0.85), 0 0 14px rgba(255, 32, 73, 0.55);
+  }
   .att-select{ font-size: 12px; padding: 4px 8px; min-width: 108px; }
   .att-check-cell{ text-align: center; }
   .att-check{ width: 18px; height: 18px; cursor: pointer; }
@@ -688,7 +696,10 @@
           <button type="button" class="btn btn-sm btn-primary hidden" id="attConfirmNewSessionBtn">Create</button>
           <button type="button" class="btn btn-sm btn-ghost hidden" id="attCancelNewSessionBtn">Cancel</button>
         </div>
-        <div id="attSessionInfo" class="attendance-session-info"></div>
+        <div class="toolbar">
+          <div id="attSessionInfo" class="attendance-session-info"></div>
+          <span id="attAcceptedCount" class="att-accepted-count"></span>
+        </div>
         <div class="toolbar" id="attFillInRow">
           <select id="attFillInSelect" class="bygroup-filter"></select>
           <button type="button" class="btn btn-sm btn-ghost" id="attFillInAddBtn">+ Add as fill-in for this raid night</button>
@@ -1358,6 +1369,7 @@
     attConfirmNewSessionBtn: document.getElementById('attConfirmNewSessionBtn'),
     attCancelNewSessionBtn: document.getElementById('attCancelNewSessionBtn'),
     attSessionInfo: document.getElementById('attSessionInfo'),
+    attAcceptedCount: document.getElementById('attAcceptedCount'),
     attFillInRow: document.getElementById('attFillInRow'),
     attFillInSelect: document.getElementById('attFillInSelect'),
     attFillInAddBtn: document.getElementById('attFillInAddBtn'),
@@ -2427,12 +2439,14 @@
     els.attSessionFilter.innerHTML = sessionOptions || '<option value="">No raid nights yet</option>';
 
     if (!attSessionId || !sessions.some(s => s.id === attSessionId)){
-      attSessionId = sessions.length ? sessions[sessions.length - 1].id : null;
+      const todaySession = sessions.find(s => s.date === todayStr());
+      attSessionId = todaySession ? todaySession.id : (sessions.length ? sessions[sessions.length - 1].id : null);
     }
     if (attSessionId) els.attSessionFilter.value = attSessionId;
 
     if (!attSessionId){
       els.attSessionInfo.textContent = '';
+      els.attAcceptedCount.textContent = '';
       els.attFillInRow.classList.add('role-hidden');
       els.attendanceTableWrap.innerHTML = `
         <div class="empty-state">
@@ -2450,6 +2464,11 @@
       ? `${session.date} — past raid night, kept as a historical record (read-only).`
       : `${session.date} — current sign-ups. Editable by Loot Council/Admin.`;
     els.attSessionInfo.classList.toggle('past-note', isPast);
+
+    const RAID_CAP = 25;
+    const acceptedCount = Object.values(session.attendance).filter(a => a.status === 'accepted').length;
+    els.attAcceptedCount.textContent = `${acceptedCount}/${RAID_CAP}`;
+    els.attAcceptedCount.classList.toggle('att-over-limit', acceptedCount > RAID_CAP);
 
     els.attFillInRow.classList.toggle('role-hidden', !editable);
     if (editable){

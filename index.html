@@ -298,12 +298,16 @@
   .toolbar .active-group-label{ font-family: 'Cinzel', serif; font-size: 15px; color: var(--gold-bright); }
 
   /* ---------- Ledger table ---------- */
-  .ledger{ background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 6px; overflow: hidden; overflow-x: auto; }
+  .ledger{
+    background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 6px;
+    overflow: auto; max-height: 65vh; position: relative;
+  }
   table{ width: 100%; border-collapse: collapse; }
   thead th{
     text-align: left; font-size: 11px; letter-spacing: 0.04em; color: var(--text-faint);
     font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--border-soft);
     background: var(--bg-panel-raised); white-space: nowrap;
+    position: sticky; top: 0; z-index: 5;
   }
   tbody td{ padding: 10px 12px; font-size: 13.5px; border-bottom: 1px solid var(--border-soft); color: var(--text); vertical-align: top; }
   tbody tr:last-child td{ border-bottom: none; }
@@ -345,7 +349,7 @@
   }
   .content-tab.active{ color: var(--gold-bright); border-bottom-color: var(--gold); }
   .content-tab:hover:not(.active){ color: var(--text-muted); }
-  #ledgerView.hidden, #gearView.hidden, #byGroupView.hidden{ display: none; }
+  #ledgerView.hidden, #gearView.hidden, #byGroupView.hidden, #rosterView.hidden{ display: none; }
 
   /* ---------- Roster group assignment ---------- */
   .roster-controls{ display: flex; align-items: center; justify-content: space-between; gap: 6px; }
@@ -503,7 +507,6 @@
     <nav class="sidebar">
       <div class="sidebar-tabs">
         <div class="sidebar-tab active" data-tab="groups">Groups</div>
-        <div class="sidebar-tab" data-tab="roster">Roster</div>
         <div class="sidebar-tab" data-tab="lootlib">Raids</div>
       </div>
       <div id="sidebarBody"></div>
@@ -514,6 +517,7 @@
         <div class="content-tab active" data-view="ledger">Loot Ledger</div>
         <div class="content-tab" data-view="gear">Gear by Slot</div>
         <div class="content-tab" data-view="bygroup">Gear by Group</div>
+        <div class="content-tab" data-view="roster">Character Roster</div>
       </div>
 
       <div id="ledgerView">
@@ -607,6 +611,46 @@
           <select id="byRoleFilter" class="bygroup-filter"></select>
         </div>
         <div class="ledger" id="byGroupWrap"></div>
+      </div>
+
+      <div id="rosterView" class="hidden">
+        <div class="log-toggle-row" id="charToggleRow">
+          <button class="btn btn-primary" id="charToggleBtn">+ Add character</button>
+        </div>
+
+        <form class="log-form hidden" id="charForm">
+          <div class="edit-banner hidden" id="charEditBanner">Editing an existing character — <button type="button" id="cancelCharEditLink">cancel edit</button> to add a new one instead.</div>
+          <div class="log-form-grid">
+            <div class="field">
+              <label for="cf-name">Character name</label>
+              <input type="text" id="cf-name" placeholder="Character name" maxlength="24" required />
+            </div>
+            <div class="field">
+              <label for="cf-class">Class</label>
+              <select id="cf-class"></select>
+            </div>
+            <div class="field">
+              <label for="cf-role">Role</label>
+              <select id="cf-role"></select>
+            </div>
+            <div class="field">
+              <label for="cf-group">Raid group</label>
+              <select id="cf-group"></select>
+            </div>
+          </div>
+          <div class="form-error" id="charFormError"></div>
+          <div class="log-form-actions">
+            <button type="button" class="btn btn-ghost" id="cancelCharBtn">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="charSubmitBtn">Add character</button>
+          </div>
+        </form>
+
+        <div class="toolbar">
+          <input type="text" id="rosterSearchInput" placeholder="Search character name" />
+          <select id="rosterGroupFilter" class="bygroup-filter"></select>
+        </div>
+
+        <div class="ledger" id="rosterTableWrap"></div>
       </div>
     </main>
   </div>
@@ -1146,6 +1190,10 @@
   let state = defaultState();
   let activeGroupId = 'all';
   let activeRoleFilter = 'all';
+  let editingCharacterId = null;
+  let pendingCharDeleteId = null;
+  let rosterSearchTerm = '';
+  let rosterGroupFilterVal = 'all';
   let sidebarTab = 'groups';
   let lootlibRaidId = DEFAULT_PHASE_RAID_IDS[0];
   let searchTerm = '';
@@ -1216,6 +1264,22 @@
     byGroupWrap: document.getElementById('byGroupWrap'),
     byGroupFilter: document.getElementById('byGroupFilter'),
     byRoleFilter: document.getElementById('byRoleFilter'),
+    rosterView: document.getElementById('rosterView'),
+    charToggleRow: document.getElementById('charToggleRow'),
+    charToggleBtn: document.getElementById('charToggleBtn'),
+    charForm: document.getElementById('charForm'),
+    charEditBanner: document.getElementById('charEditBanner'),
+    cancelCharEditLink: document.getElementById('cancelCharEditLink'),
+    cfName: document.getElementById('cf-name'),
+    cfClass: document.getElementById('cf-class'),
+    cfRole: document.getElementById('cf-role'),
+    cfGroup: document.getElementById('cf-group'),
+    charFormError: document.getElementById('charFormError'),
+    cancelCharBtn: document.getElementById('cancelCharBtn'),
+    charSubmitBtn: document.getElementById('charSubmitBtn'),
+    rosterSearchInput: document.getElementById('rosterSearchInput'),
+    rosterGroupFilter: document.getElementById('rosterGroupFilter'),
+    rosterTableWrap: document.getElementById('rosterTableWrap'),
     saveStatus: document.getElementById('saveStatus'),
     setupScreen: document.getElementById('setupScreen'),
     mainLayout: document.getElementById('mainLayout')
@@ -1387,7 +1451,6 @@
       t.classList.toggle('active', t.getAttribute('data-tab') === sidebarTab);
     });
     if (sidebarTab === 'groups') renderSidebarGroups();
-    else if (sidebarTab === 'roster') renderSidebarRoster();
     else renderSidebarLootLib();
   }
 
@@ -1450,74 +1513,6 @@
 
   function classOptionsHtml(selectedId){
     return CLASSES.map(c => `<option value="${c.id}" ${c.id === selectedId ? 'selected' : ''}>${c.label}</option>`).join('');
-  }
-
-  function renderSidebarRoster(){
-    const editable = canEdit();
-    let html = '<div class="sidebar-title">GUILD ROSTER</div><div id="rosterList"></div>';
-    if (editable){
-      html += `<div class="new-row" id="newCharRow">
-          <input type="text" id="newCharName" placeholder="Character name" maxlength="24" />
-          <select id="newCharClass">${CLASSES.map(c => `<option value="${c.id}">${c.label}</option>`).join('')}</select>
-          <select id="newCharRole">${roleOptionsHtml('')}</select>
-          <select id="newCharGroup">${groupOptionsHtml('')}</select>
-          <button class="btn btn-sm btn-primary btn-block" id="addCharBtn">+ Add character</button>
-        </div>`;
-    }
-    els.sidebarBody.innerHTML = html;
-
-    const rosterList = document.getElementById('rosterList');
-    if (state.roster.length === 0){
-      rosterList.innerHTML = '<div class="lootlib-note">No characters yet' + (editable ? " — add your guild's roster below." : ' yet.') + '</div>';
-    } else {
-      state.roster.slice().sort((a,b) => a.name.localeCompare(b.name)).forEach(c => {
-        const cls = CLASS_MAP[c.class] || CLASS_MAP.warrior;
-        const role = ROLE_MAP[c.role];
-        const group = groupById(c.groupId);
-        const row = document.createElement('div');
-        row.className = 'roster-item';
-        if (editable){
-          row.innerHTML = `
-            <span class="roster-name"><span class="class-dot" style="background:${cls.color}"></span>${escapeHtml(c.name)}
-              ${role ? `<span class="role-tag" style="color:${role.color};border-color:${role.color}">${role.label}</span>` : ''}
-            </span>
-            <span class="roster-controls">
-              <span class="roster-controls-selects">
-                <select class="roster-class-select" title="Class">${classOptionsHtml(c.class)}</select>
-                <select class="roster-role-select" title="Role">${roleOptionsHtml(c.role || '')}</select>
-                <select class="roster-group-select" title="Raid group">${groupOptionsHtml(c.groupId || '')}</select>
-              </span>
-              <span class="del-x" title="Remove character">✕</span>
-            </span>`;
-          row.querySelector('.del-x').addEventListener('click', () => deleteCharacter(c.id));
-          row.querySelector('.roster-class-select').addEventListener('change', (e) => setCharacterClass(c.id, e.target.value));
-          row.querySelector('.roster-group-select').addEventListener('change', (e) => setCharacterGroup(c.id, e.target.value));
-          row.querySelector('.roster-role-select').addEventListener('change', (e) => setCharacterRole(c.id, e.target.value));
-        } else {
-          row.innerHTML = `
-            <span class="roster-name"><span class="class-dot" style="background:${cls.color}"></span>${escapeHtml(c.name)}
-              ${role ? `<span class="role-tag" style="color:${role.color};border-color:${role.color}">${role.label}</span>` : ''}
-            </span>
-            <span class="roster-readonly-meta">${group ? escapeHtml(group.name) : 'No raid group'}</span>`;
-        }
-        rosterList.appendChild(row);
-      });
-    }
-
-    if (!editable) return;
-
-    document.getElementById('addCharBtn').addEventListener('click', async () => {
-      const nameInput = document.getElementById('newCharName');
-      const classSelect = document.getElementById('newCharClass');
-      const roleSelect = document.getElementById('newCharRole');
-      const groupSelect = document.getElementById('newCharGroup');
-      await addCharacter(nameInput.value, classSelect.value, groupSelect.value, roleSelect.value);
-      nameInput.value = '';
-      nameInput.focus();
-    });
-    document.getElementById('newCharName').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter'){ e.preventDefault(); document.getElementById('addCharBtn').click(); }
-    });
   }
 
   function renderSidebarLootLib(){
@@ -1962,10 +1957,15 @@
     els.logToggleRow.classList.toggle('role-hidden', !editable);
     els.lootForm.classList.toggle('role-hidden', !editable);
     els.newGroupToggle.classList.toggle('role-hidden', !editable);
+    els.charToggleRow.classList.toggle('role-hidden', !editable);
+    els.charForm.classList.toggle('role-hidden', !editable);
     if (!editable){
       els.lootForm.classList.add('hidden');
       pendingDeleteId = null;
       exitEditMode();
+      els.charForm.classList.add('hidden');
+      pendingCharDeleteId = null;
+      exitCharacterEditMode();
     }
   }
 
@@ -1974,8 +1974,10 @@
     els.ledgerView.classList.toggle('hidden', mainView !== 'ledger');
     els.gearView.classList.toggle('hidden', mainView !== 'gear');
     els.byGroupView.classList.toggle('hidden', mainView !== 'bygroup');
+    els.rosterView.classList.toggle('hidden', mainView !== 'roster');
     if (mainView === 'gear') renderGearOverview();
     else if (mainView === 'bygroup') renderGearByGroup();
+    else if (mainView === 'roster') renderRosterView();
     else renderLedger();
   }
 
@@ -2125,6 +2127,123 @@
       </table>`;
   }
 
+  function renderRosterView(){
+    const editable = canEdit();
+
+    const groupOptions = [`<option value="all">All groups</option>`]
+      .concat(state.groups.map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`))
+      .concat([`<option value="none">No raid group</option>`]);
+    els.rosterGroupFilter.innerHTML = groupOptions.join('');
+    els.rosterGroupFilter.value = rosterGroupFilterVal;
+
+    els.cfClass.innerHTML = classOptionsHtml('');
+    els.cfRole.innerHTML = roleOptionsHtml('');
+    els.cfGroup.innerHTML = groupOptionsHtml('');
+
+    if (state.roster.length === 0){
+      els.rosterTableWrap.innerHTML = `
+        <div class="empty-state">
+          <h3>No characters yet</h3>
+          <p>${editable ? 'Use "+ Add character" above to start building your roster.' : 'A Loot Council member needs to add your guild\'s roster.'}</p>
+        </div>`;
+      return;
+    }
+
+    const term = rosterSearchTerm.trim().toLowerCase();
+    const characters = state.roster
+      .filter(c => !term || c.name.toLowerCase().includes(term))
+      .filter(c => {
+        if (rosterGroupFilterVal === 'all') return true;
+        if (rosterGroupFilterVal === 'none') return !c.groupId;
+        return c.groupId === rosterGroupFilterVal;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    if (characters.length === 0){
+      els.rosterTableWrap.innerHTML = `
+        <div class="empty-state">
+          <h3>No characters match this filter</h3>
+          <p>Try a different search or group filter.</p>
+        </div>`;
+      return;
+    }
+
+    const rows = characters.map(c => {
+      const cls = CLASS_MAP[c.class] || CLASS_MAP.warrior;
+      const role = ROLE_MAP[c.role];
+      const group = groupById(c.groupId);
+      const confirming = pendingCharDeleteId === c.id;
+      return `
+        <tr>
+          <td><span class="gear-char" style="color:${cls.color}">${escapeHtml(c.name)}</span></td>
+          <td>${cls.label}</td>
+          <td>${role ? `<span class="role-tag" style="color:${role.color};border-color:${role.color}">${role.label}</span>` : '—'}</td>
+          <td>${group ? `<span class="group-tag">${escapeHtml(group.name)}</span>` : '—'}</td>
+          <td class="row-actions">
+            ${!editable ? '' : confirming
+              ? `<button class="btn btn-sm btn-danger" data-confirm-chardel="${c.id}">Confirm</button>
+                 <button class="btn btn-sm btn-ghost" data-cancel-chardel="${c.id}">Cancel</button>`
+              : `<button class="btn btn-sm btn-ghost" data-edit-char="${c.id}">Edit</button>
+                 <button class="btn btn-sm btn-ghost" data-del-char="${c.id}">Delete</button>`
+            }
+          </td>
+        </tr>`;
+    }).join('');
+
+    els.rosterTableWrap.innerHTML = `
+      <table>
+        <thead><tr><th>Character</th><th>Class</th><th>Role</th><th>Raid group</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+
+    els.rosterTableWrap.querySelectorAll('[data-edit-char]').forEach(btn => {
+      btn.addEventListener('click', () => enterCharacterEditMode(btn.getAttribute('data-edit-char')));
+    });
+    els.rosterTableWrap.querySelectorAll('[data-del-char]').forEach(btn => {
+      btn.addEventListener('click', () => { pendingCharDeleteId = btn.getAttribute('data-del-char'); renderRosterView(); });
+    });
+    els.rosterTableWrap.querySelectorAll('[data-cancel-chardel]').forEach(btn => {
+      btn.addEventListener('click', () => { pendingCharDeleteId = null; renderRosterView(); });
+    });
+    els.rosterTableWrap.querySelectorAll('[data-confirm-chardel]').forEach(btn => {
+      btn.addEventListener('click', () => deleteCharacter(btn.getAttribute('data-confirm-chardel')));
+    });
+  }
+
+  function resetCharForm(){
+    els.cfName.value = '';
+    els.cfClass.value = CLASSES[0].id;
+    els.cfRole.value = '';
+    els.cfGroup.value = '';
+    els.charFormError.classList.remove('visible');
+  }
+
+  function enterCharacterEditMode(id){
+    const c = state.roster.find(x => x.id === id);
+    if (!c) return;
+    editingCharacterId = id;
+    els.charForm.classList.remove('hidden');
+    els.charFormError.classList.remove('visible');
+    els.cfClass.innerHTML = classOptionsHtml(c.class);
+    els.cfRole.innerHTML = roleOptionsHtml(c.role || '');
+    els.cfGroup.innerHTML = groupOptionsHtml(c.groupId || '');
+    els.cfName.value = c.name;
+    els.cfClass.value = c.class;
+    els.cfRole.value = c.role || '';
+    els.cfGroup.value = c.groupId || '';
+    els.charEditBanner.classList.remove('hidden');
+    els.charSubmitBtn.textContent = 'Save changes';
+    if (typeof els.charForm.scrollIntoView === 'function'){
+      els.charForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  function exitCharacterEditMode(){
+    editingCharacterId = null;
+    els.charEditBanner.classList.add('hidden');
+    els.charSubmitBtn.textContent = 'Add character';
+  }
+
   /* ---------------- Events ---------------- */
 
   els.newGroupToggle.addEventListener('click', showNewGroupRow);
@@ -2217,6 +2336,72 @@
     exitEditMode();
     resetLootFormFields();
     resetForNewEntry();
+  });
+
+  els.charToggleBtn.addEventListener('click', () => {
+    const opening = els.charForm.classList.contains('hidden');
+    els.charForm.classList.toggle('hidden');
+    if (opening){
+      resetCharForm();
+    } else {
+      exitCharacterEditMode();
+    }
+  });
+  els.cancelCharBtn.addEventListener('click', () => {
+    els.charForm.classList.add('hidden');
+    els.charFormError.classList.remove('visible');
+    exitCharacterEditMode();
+  });
+  els.cancelCharEditLink.addEventListener('click', () => {
+    exitCharacterEditMode();
+    resetCharForm();
+  });
+
+  els.rosterSearchInput.addEventListener('input', (e) => {
+    rosterSearchTerm = e.target.value;
+    renderRosterView();
+  });
+  els.rosterGroupFilter.addEventListener('change', () => {
+    rosterGroupFilterVal = els.rosterGroupFilter.value;
+    renderRosterView();
+  });
+
+  els.charForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = els.cfName.value.trim();
+    const classId = els.cfClass.value;
+    const role = els.cfRole.value;
+    const groupId = els.cfGroup.value;
+
+    if (!name){
+      els.charFormError.textContent = 'Please enter a character name.';
+      els.charFormError.classList.add('visible');
+      return;
+    }
+    const existing = characterByName(name);
+    if (existing && existing.id !== editingCharacterId){
+      els.charFormError.textContent = 'That character name is already on the roster.';
+      els.charFormError.classList.add('visible');
+      return;
+    }
+    els.charFormError.classList.remove('visible');
+
+    if (editingCharacterId){
+      const c = state.roster.find(x => x.id === editingCharacterId);
+      if (c){
+        c.name = name;
+        c.class = classId;
+        c.role = role || null;
+        c.groupId = groupId || null;
+        renderAll();
+        await saveData('roster');
+      }
+      exitCharacterEditMode();
+    } else {
+      await addCharacter(name, classId, groupId, role);
+    }
+    els.charForm.classList.add('hidden');
+    resetCharForm();
   });
 
   els.fGroup.addEventListener('change', buildRecipientOptions);

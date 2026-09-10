@@ -6,6 +6,7 @@
 <title>Guild Loot Ledger</title>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script>const whTooltips = { colorLinks: false, iconSize: true };</script>
 <script src="https://wow.zamimg.com/js/tooltips.js"></script>
 <style>
@@ -79,17 +80,47 @@
   .topbar-actions{ display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
 
   .access-control{ position: relative; }
+  #accessSwitchBtn{ display: flex; align-items: center; gap: 7px; }
+  .access-avatar{ width: 20px; height: 20px; border-radius: 50%; flex: none; }
+  .access-avatar.hidden{ display: none; }
   .access-popover{
     position: absolute; right: 0; top: calc(100% + 8px); z-index: 40;
-    width: 240px; background: var(--bg-panel-raised); border: 1px solid var(--gold);
+    width: 220px; background: var(--bg-panel-raised); border: 1px solid var(--gold);
     border-radius: 6px; padding: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
   }
   .access-popover.hidden{ display: none; }
-  .access-popover-title{ font-family: 'Cinzel', serif; color: var(--gold-bright); font-size: 13px; margin-bottom: 10px; }
+  .access-popover-title{ font-family: 'Cinzel', serif; color: var(--gold-bright); font-size: 13px; margin-bottom: 4px; word-break: break-word; }
+  .access-popover-sub{ font-size: 11.5px; color: var(--text-muted); margin-bottom: 12px; }
   .access-popover label{ display: block; font-size: 11px; color: var(--text-faint); font-weight: 600; margin-bottom: 5px; }
   .access-popover input{ margin-bottom: 6px; }
   .access-error{ min-height: 14px; font-size: 11px; color: var(--danger-bright); margin-bottom: 6px; }
   .access-popover-actions{ display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 10px; }
+  .access-popover .btn-block{ margin-top: 6px; }
+
+  .btn-discord{ background: #5865F2; color: #fff; border: 1px solid #4752c4; }
+  .btn-discord:hover{ background: #4752c4; }
+  .discord-login-error{ min-height: 16px; font-size: 12.5px; color: var(--danger-bright); margin-bottom: 10px; }
+
+  .access-modal{
+    position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .access-modal.hidden{ display: none; }
+  .access-modal-card{
+    background: var(--bg-panel); border: 1px solid var(--gold); border-radius: 8px;
+    padding: 22px 24px; max-width: 480px; width: 100%; max-height: 80vh; overflow-y: auto;
+  }
+  .access-modal-header{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .access-modal-header h2{ font-family: 'Cinzel', serif; color: var(--gold-bright); font-size: 18px; margin: 0; }
+  .access-modal-note{ font-size: 12.5px; color: var(--text-muted); margin: 0 0 14px; line-height: 1.5; }
+  .access-member-row{
+    display: flex; align-items: center; gap: 10px; padding: 8px 4px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .access-member-row:last-child{ border-bottom: none; }
+  .access-member-avatar{ width: 28px; height: 28px; border-radius: 50%; flex: none; background: var(--bg-panel-raised); }
+  .access-member-name{ flex: 1; min-width: 0; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .access-member-role-select{ width: auto; font-size: 12px; padding: 4px 8px; }
   .brand svg{ flex: none; width: 40px; height: 40px; }
   .brand h1{
     font-family: 'Cinzel', serif;
@@ -395,17 +426,15 @@
     </div>
     <div class="topbar-actions">
       <div class="access-control">
-        <button class="btn btn-ghost btn-sm" id="accessSwitchBtn">Role: <span id="accessBadge">Guild Member</span></button>
+        <button class="btn btn-ghost btn-sm" id="accessSwitchBtn">
+          <img id="accessAvatarImg" class="access-avatar hidden" alt="" />
+          <span id="accessBadge">Guild Member</span>
+        </button>
         <div class="access-popover hidden" id="accessPopover">
-          <div class="access-popover-title">Switch role</div>
-          <label for="accessPasscodeInput">Loot Council / Admin passcode</label>
-          <input type="password" id="accessPasscodeInput" placeholder="Enter passcode" autocomplete="off" />
-          <div class="access-error" id="accessError"></div>
-          <div class="access-popover-actions">
-            <button type="button" class="btn btn-sm btn-ghost" id="accessCancelBtn">Cancel</button>
-            <button type="button" class="btn btn-sm btn-primary" id="accessUnlockBtn">Unlock</button>
-          </div>
-          <button type="button" class="btn btn-sm btn-ghost btn-block" id="accessResetBtn">View as Guild Member</button>
+          <div class="access-popover-title" id="accessPopoverName">Logged in via Discord</div>
+          <div class="access-popover-sub" id="accessPopoverRole">Guild Member</div>
+          <button type="button" class="btn btn-sm btn-ghost btn-block" id="accessManageBtn">Manage access</button>
+          <button type="button" class="btn btn-sm btn-ghost btn-block" id="accessLogoutBtn">Log out</button>
         </div>
       </div>
       <button class="btn btn-ghost" id="newGroupToggle">+ New raid group</button>
@@ -423,6 +452,50 @@
       <li>Save the file and re-upload it wherever you're hosting it (e.g. push to GitHub Pages). Reload this page.</li>
     </ol>
     <p class="setup-note">Security note: test-mode rules leave the database open to anyone who has the URL to your Firebase project. That's fine for a small trusted guild tool, but once things are working, tighten your Realtime Database rules under <strong>Build → Realtime Database → Rules</strong> so only your app's data path is readable/writable, or add a simple shared passcode check. See the included README for a starter rule set.</p>
+  </div>
+
+  <div class="setup-screen hidden" id="discordSetupScreen">
+    <h2>Discord login setup needed</h2>
+    <p>This page requires logging in with Discord to view anything. Someone needs to connect it to a Discord application first (five minutes, no coding):</p>
+    <ol>
+      <li>Go to the <a href="https://discord.com/developers/applications" target="_blank" rel="noopener">Discord Developer Portal</a> and click <strong>New Application</strong>.</li>
+      <li>Open the <strong>OAuth2</strong> tab. Under <strong>Client information</strong>, toggle <strong>Public Client</strong> ON and save — this lets the login work with no server and no secret key.</li>
+      <li>Still on the OAuth2 tab, under <strong>Redirects</strong>, add this page's exact URL: <code id="discordRedirectHint">…</code></li>
+      <li>Copy the <strong>Client ID</strong> from the top of the OAuth2 page.</li>
+      <li>Open this HTML file in a text editor, find the <code>DISCORD_CONFIG</code> block near the top of the <code>&lt;script&gt;</code> section, and paste your Client ID in, replacing the placeholder.</li>
+      <li>Save the file, re-upload it, and reload this page. The first person who logs in becomes Admin.</li>
+    </ol>
+    <p class="setup-note">This value isn't secret the way a client secret would be — Discord's "Public Client" mode is specifically designed to work safely from a plain web page like this one.</p>
+  </div>
+
+  <div class="setup-screen hidden" id="workerSetupScreen">
+    <h2>One more step: lock down the database</h2>
+    <p>Discord login alone only gates this page — it doesn't stop someone from reading your Firebase database directly. A small, free Cloudflare Worker closes that gap by verifying each login and issuing a real Firebase sign-in token. Full step-by-step instructions (with the Worker code to paste in) are in the included <strong>README.md</strong>, under "Locking down the database with real authentication." Short version:</p>
+    <ol>
+      <li>Generate a Firebase service account key (Project settings → Service accounts).</li>
+      <li>Create a free Cloudflare account, deploy the provided Worker code, and set that key as an encrypted secret.</li>
+      <li>Copy the Worker's URL into the <code>WORKER_URL</code> constant near the top of this file's <code>&lt;script&gt;</code> section.</li>
+      <li>Update your Firebase Realtime Database rules to the version shown in the README (requires login for all access).</li>
+    </ol>
+    <p class="setup-note">Until this is done, your database is still readable/writable by anyone who finds its URL, regardless of the Discord login screen.</p>
+  </div>
+
+  <div class="setup-screen hidden" id="discordLoginScreen">
+    <h2>Log in to continue</h2>
+    <p>This guild's loot ledger requires a Discord login so everyone's role (Guild Member, Loot Council, or Admin) can be tracked properly.</p>
+    <div class="discord-login-error" id="discordLoginError"></div>
+    <button class="btn btn-primary btn-discord" id="discordLoginBtn">Log in with Discord</button>
+  </div>
+
+  <div class="access-modal hidden" id="accessModal">
+    <div class="access-modal-card">
+      <div class="access-modal-header">
+        <h2>Manage access</h2>
+        <button type="button" class="btn btn-ghost btn-sm" id="accessModalCloseBtn">Close</button>
+      </div>
+      <p class="access-modal-note">Everyone who has logged in with Discord shows up here. Change their role to grant or remove edit access.</p>
+      <div id="accessMemberList"></div>
+    </div>
   </div>
 
   <div class="layout" id="mainLayout">
@@ -559,45 +632,202 @@
   };
   const DB_PATH = 'guild-loot-data';
   let db = null;
+  let syncStarted = false;
 
   // ---------------------------------------------------------------------
-  // ACCESS CONTROL — three roles: Admin, Loot Council, Guild Member.
-  // Guild Members get read-only access (Roster, Loot Ledger, Gear by Slot,
-  // Gear by Group). Loot Council and Admin can add/edit/delete everything.
-  // Change these passcodes before sharing the link with your guild.
+  // ACCESS CONTROL — real Discord login, three roles: Admin, Loot Council,
+  // Guild Member. Everyone must log in with Discord to see this page at
+  // all. The first person who ever logs in automatically becomes Admin;
+  // Admin can then promote/demote anyone else who has logged in via the
+  // "Manage access" panel.
   //
-  // IMPORTANT: this is a convenience gate, not real security. Anyone who
-  // views this page's source can read these passcodes, and the role is
-  // just remembered in that person's own browser (localStorage) — it isn't
-  // enforced by Firebase. For a small trusted guild this is normally fine
-  // (same trust model as the open database rules), but if you need access
-  // that can't be bypassed by a curious member, that requires adding real
-  // Firebase Authentication — ask if you'd like help setting that up.
+  // This uses Discord's "Public Client" OAuth mode with PKCE, which needs
+  // no client secret — safe to run from a plain static page like this one.
+  //
+  // A logged-in Discord identity by itself does NOT protect your Firebase
+  // data — it only gates this page's UI. To actually lock the database
+  // down (so it rejects anyone who hasn't logged in, even someone hitting
+  // it directly), a small Cloudflare Worker verifies each Discord login
+  // and mints a real Firebase Authentication token. See the README for
+  // how to deploy it — this is what WORKER_URL below points at.
   // ---------------------------------------------------------------------
-  const ACCESS_PASSCODES = {
-    admin: 'CHANGE_ME_ADMIN',
-    lootcouncil: 'CHANGE_ME_LOOTCOUNCIL'
+  const DISCORD_CONFIG = {
+    clientId: 'YOUR_DISCORD_CLIENT_ID'
   };
+  const WORKER_URL = 'https://guildlootdiscordworker.sebastian-spiehs.workers.dev/mint-token';
+  const DISCORD_REDIRECT_URI = window.location.origin + window.location.pathname;
+  const DISCORD_IDENTITY_KEY = 'guild-loot-discord-identity';
+  const DISCORD_PKCE_VERIFIER_KEY = 'guild-loot-discord-pkce-verifier';
+  const DISCORD_OAUTH_STATE_KEY = 'guild-loot-discord-oauth-state';
+
+  function isWorkerConfigured(){
+    return WORKER_URL && !WORKER_URL.includes('YOUR-WORKER-SUBDOMAIN');
+  }
+
   const ACCESS_ROLES = {
     admin: { label: 'Admin' },
     lootcouncil: { label: 'Loot Council' },
     member: { label: 'Guild Member' }
   };
-  const ACCESS_STORAGE_KEY = 'guild-loot-role';
 
-  function loadStoredRole(){
-    try{
-      const stored = localStorage.getItem(ACCESS_STORAGE_KEY);
-      return ACCESS_ROLES[stored] ? stored : 'member';
-    }catch(e){
-      return 'member';
-    }
-  }
-
-  let currentRole = loadStoredRole();
+  let currentRole = 'member';
+  let discordIdentity = null;
 
   function canEdit(){
     return currentRole === 'admin' || currentRole === 'lootcouncil';
+  }
+
+  function isDiscordConfigured(){
+    return DISCORD_CONFIG.clientId && DISCORD_CONFIG.clientId !== 'YOUR_DISCORD_CLIENT_ID';
+  }
+
+  function loadDiscordIdentity(){
+    try{
+      const raw = localStorage.getItem(DISCORD_IDENTITY_KEY);
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){
+      return null;
+    }
+  }
+
+  function saveDiscordIdentity(identity){
+    try{ localStorage.setItem(DISCORD_IDENTITY_KEY, JSON.stringify(identity)); }catch(e){}
+  }
+
+  function logoutDiscord(){
+    try{ localStorage.removeItem(DISCORD_IDENTITY_KEY); }catch(e){}
+    try{ if (firebase.auth().currentUser) firebase.auth().signOut(); }catch(e){}
+    window.location.reload();
+  }
+
+  function randomPkceString(length){
+    const arr = new Uint8Array(length);
+    crypto.getRandomValues(arr);
+    return Array.from(arr, b => ('0' + b.toString(16)).slice(-2)).join('').slice(0, length);
+  }
+
+  async function sha256Base64Url(input){
+    const data = new TextEncoder().encode(input);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    let str = '';
+    new Uint8Array(digest).forEach(b => { str += String.fromCharCode(b); });
+    return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  async function startDiscordLogin(){
+    const verifier = randomPkceString(64);
+    const challenge = await sha256Base64Url(verifier);
+    const state = randomPkceString(24);
+    sessionStorage.setItem(DISCORD_PKCE_VERIFIER_KEY, verifier);
+    sessionStorage.setItem(DISCORD_OAUTH_STATE_KEY, state);
+    const params = new URLSearchParams({
+      client_id: DISCORD_CONFIG.clientId,
+      redirect_uri: DISCORD_REDIRECT_URI,
+      response_type: 'code',
+      scope: 'identify',
+      state: state,
+      code_challenge: challenge,
+      code_challenge_method: 'S256'
+    });
+    window.location.href = 'https://discord.com/oauth2/authorize?' + params.toString();
+  }
+
+  // Handles the redirect back from Discord (?code=...&state=...), if present.
+  // On success, returns the Firebase custom token minted by our Worker (after
+  // it independently verified the Discord login server-side). Returns null
+  // if there was no callback to handle, or if it failed.
+  async function handleDiscordCallback(){
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (!code) return null;
+
+    const returnedState = params.get('state');
+    const expectedState = sessionStorage.getItem(DISCORD_OAUTH_STATE_KEY);
+    const verifier = sessionStorage.getItem(DISCORD_PKCE_VERIFIER_KEY);
+    window.history.replaceState({}, '', window.location.pathname);
+    sessionStorage.removeItem(DISCORD_OAUTH_STATE_KEY);
+    sessionStorage.removeItem(DISCORD_PKCE_VERIFIER_KEY);
+
+    if (!verifier || !returnedState || returnedState !== expectedState){
+      showDiscordLoginError('Login could not be verified — please try again.');
+      return null;
+    }
+
+    try{
+      const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: DISCORD_CONFIG.clientId,
+          grant_type: 'authorization_code',
+          code: code,
+          redirect_uri: DISCORD_REDIRECT_URI,
+          code_verifier: verifier
+        })
+      });
+      if (!tokenRes.ok) throw new Error('token exchange failed');
+      const tokenData = await tokenRes.json();
+
+      // Hand the Discord access token to our Worker — it independently
+      // verifies it with Discord (never trusts a client-supplied identity)
+      // and mints a real Firebase Authentication token for that user.
+      const mintRes = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ discordAccessToken: tokenData.access_token })
+      });
+      if (!mintRes.ok) throw new Error('token mint failed');
+      const mintData = await mintRes.json();
+
+      saveDiscordIdentity({ id: mintData.user.id, username: mintData.user.username, avatar: mintData.user.avatar || null });
+      return mintData.token;
+    }catch(e){
+      showDiscordLoginError('Discord login failed. Please try again.');
+      return null;
+    }
+  }
+
+  function showDiscordLoginError(msg){
+    const el = document.getElementById('discordLoginError');
+    if (el) el.textContent = msg;
+  }
+
+  function discordAvatarUrl(identity){
+    if (!identity || !identity.avatar) return null;
+    return `https://cdn.discordapp.com/avatars/${identity.id}/${identity.avatar}.png?size=64`;
+  }
+
+  // Ensures this Discord user has a role entry in the synced state, creating
+  // one (Admin if they're the very first person ever, Guild Member otherwise).
+  // Returns true if state.discordRoles changed and needs saving.
+  function ensureDiscordRole(){
+    if (!discordIdentity) return false;
+    if (!state.discordRoles) state.discordRoles = {};
+    const existing = state.discordRoles[discordIdentity.id];
+    let changed = false;
+    if (!existing){
+      const isFirstEver = Object.keys(state.discordRoles).length === 0;
+      state.discordRoles[discordIdentity.id] = {
+        role: isFirstEver ? 'admin' : 'member',
+        username: discordIdentity.username,
+        avatar: discordIdentity.avatar
+      };
+      changed = true;
+    } else if (existing.username !== discordIdentity.username || existing.avatar !== discordIdentity.avatar){
+      existing.username = discordIdentity.username;
+      existing.avatar = discordIdentity.avatar;
+      changed = true;
+    }
+    currentRole = state.discordRoles[discordIdentity.id].role;
+    return changed;
+  }
+
+  async function setDiscordUserRole(discordId, role){
+    if (!state.discordRoles || !state.discordRoles[discordId] || !ACCESS_ROLES[role]) return;
+    state.discordRoles[discordId].role = role;
+    if (discordIdentity && discordIdentity.id === discordId) currentRole = role;
+    renderAll();
+    await saveData('discordRoles/' + discordId);
   }
 
   function isFirebaseConfigured(){
@@ -909,7 +1139,7 @@
   const DEFAULT_PHASE_RAID_IDS = ['hyjal', 'bt'];
 
   function defaultState(){
-    return { groups: [], roster: [], loot: [], settings: { currentPhaseRaidIds: DEFAULT_PHASE_RAID_IDS.slice() } };
+    return { groups: [], roster: [], loot: [], discordRoles: {}, settings: { currentPhaseRaidIds: DEFAULT_PHASE_RAID_IDS.slice() } };
   }
 
   let state = defaultState();
@@ -960,12 +1190,19 @@
     logToggleRow: document.getElementById('logToggleRow'),
     accessSwitchBtn: document.getElementById('accessSwitchBtn'),
     accessBadge: document.getElementById('accessBadge'),
+    accessAvatarImg: document.getElementById('accessAvatarImg'),
     accessPopover: document.getElementById('accessPopover'),
-    accessPasscodeInput: document.getElementById('accessPasscodeInput'),
-    accessError: document.getElementById('accessError'),
-    accessCancelBtn: document.getElementById('accessCancelBtn'),
-    accessUnlockBtn: document.getElementById('accessUnlockBtn'),
-    accessResetBtn: document.getElementById('accessResetBtn'),
+    accessPopoverName: document.getElementById('accessPopoverName'),
+    accessPopoverRole: document.getElementById('accessPopoverRole'),
+    accessManageBtn: document.getElementById('accessManageBtn'),
+    accessLogoutBtn: document.getElementById('accessLogoutBtn'),
+    accessModal: document.getElementById('accessModal'),
+    accessModalCloseBtn: document.getElementById('accessModalCloseBtn'),
+    accessMemberList: document.getElementById('accessMemberList'),
+    discordSetupScreen: document.getElementById('discordSetupScreen'),
+    workerSetupScreen: document.getElementById('workerSetupScreen'),
+    discordLoginScreen: document.getElementById('discordLoginScreen'),
+    discordLoginBtn: document.getElementById('discordLoginBtn'),
     formError: document.getElementById('formError'),
     searchInput: document.getElementById('searchInput'),
     activeGroupLabel: document.getElementById('activeGroupLabel'),
@@ -1004,6 +1241,7 @@
       groups: Array.isArray(parsed.groups) ? parsed.groups : [],
       roster: Array.isArray(parsed.roster) ? parsed.roster : [],
       loot: Array.isArray(parsed.loot) ? parsed.loot : [],
+      discordRoles: (parsed.discordRoles && typeof parsed.discordRoles === 'object') ? parsed.discordRoles : {},
       settings: {
         currentPhaseRaidIds: (parsed.settings && Array.isArray(parsed.settings.currentPhaseRaidIds))
           ? parsed.settings.currentPhaseRaidIds
@@ -1012,16 +1250,38 @@
     };
   }
 
-  function showSetupScreen(){
-    els.setupScreen.classList.remove('hidden');
-    els.mainLayout.classList.add('hidden');
+  function showOnlyScreen(screenEl){
+    [els.setupScreen, els.discordSetupScreen, els.workerSetupScreen, els.discordLoginScreen].forEach(s => {
+      s.classList.toggle('hidden', s !== screenEl);
+    });
+    els.mainLayout.classList.toggle('hidden', true);
+    if (screenEl) screenEl.classList.remove('hidden');
+    if (!screenEl) els.mainLayout.classList.remove('hidden');
   }
 
-  function initFirebaseAndSync(){
+  function showSetupScreen(){ showOnlyScreen(els.setupScreen); }
+  function showDiscordSetupScreen(){
+    const hint = document.getElementById('discordRedirectHint');
+    if (hint) hint.textContent = DISCORD_REDIRECT_URI;
+    showOnlyScreen(els.discordSetupScreen);
+  }
+  function showWorkerSetupScreen(){ showOnlyScreen(els.workerSetupScreen); }
+  function showDiscordLoginScreen(){ showOnlyScreen(els.discordLoginScreen); }
+
+  async function bootstrap(){
     if (!isFirebaseConfigured()){
       showSetupScreen();
       return;
     }
+    if (!isDiscordConfigured()){
+      showDiscordSetupScreen();
+      return;
+    }
+    if (!isWorkerConfigured()){
+      showWorkerSetupScreen();
+      return;
+    }
+
     try{
       firebase.initializeApp(FIREBASE_CONFIG);
       db = firebase.database();
@@ -1031,25 +1291,70 @@
       return;
     }
 
+    // If we're returning from the Discord redirect, this exchanges the code
+    // for a real Firebase login token (minted by the Worker after it
+    // verified the login with Discord itself).
+    const pendingToken = await handleDiscordCallback();
+    if (pendingToken){
+      try{
+        await firebase.auth().signInWithCustomToken(pendingToken);
+      }catch(e){
+        showDiscordLoginError('Could not complete login. Please try again.');
+        showDiscordLoginScreen();
+        return;
+      }
+    }
+
+    // The authoritative gate: Firebase's own auth state, not just whatever
+    // we have cached locally. Fires immediately with the persisted session
+    // on repeat visits, so most people won't need to re-login every time.
+    firebase.auth().onAuthStateChanged((user) => {
+      if (user){
+        discordIdentity = loadDiscordIdentity() || { id: user.uid, username: 'Guild member', avatar: null };
+        showOnlyScreen(null);
+        startFirebaseSync();
+      } else {
+        try{ localStorage.removeItem(DISCORD_IDENTITY_KEY); }catch(e){}
+        discordIdentity = null;
+        showDiscordLoginScreen();
+      }
+    });
+  }
+
+  function startFirebaseSync(){
+    if (syncStarted) return;
+    syncStarted = true;
     let firstLoad = true;
     db.ref(DB_PATH).on('value', (snapshot) => {
       const val = snapshot.val();
       state = val ? normalizeState(val) : defaultState();
       if (firstLoad){ lootlibRaidId = defaultInstanceId(); firstLoad = false; }
       const backfilled = backfillItemMetadata();
+      const roleChanged = ensureDiscordRole();
       renderAll();
       setStatus('Synced', false);
-      if (backfilled) saveData();
+      if (backfilled) saveData('loot');
+      if (roleChanged && discordIdentity) saveData('discordRoles/' + discordIdentity.id);
     }, (error) => {
       setStatus('Could not sync — check your Firebase rules and connection', true);
     });
   }
 
-  async function saveData(){
+  function getByPath(obj, path){
+    return path.split('/').reduce((acc, key) => (acc == null ? acc : acc[key]), obj);
+  }
+
+  // path is the sub-path under guild-loot-data to write, e.g. 'groups',
+  // 'loot', or 'discordRoles/123456'. Writing to specific sub-paths (rather
+  // than the whole blob every time) is what lets Firebase's rules enforce
+  // different permissions per data type — see the README.
+  async function saveData(path){
     setStatus('Saving…', false);
     if (!db){ setStatus('Not connected to Firebase — see setup instructions', true); return; }
     try{
-      await db.ref(DB_PATH).set(state);
+      const ref = path ? db.ref(DB_PATH + '/' + path) : db.ref(DB_PATH);
+      const value = path ? getByPath(state, path) : state;
+      await ref.set(value === undefined ? null : value);
       // The realtime listener above will refresh the status to "Synced".
     }catch(e){
       setStatus('Could not save — check your Firebase rules and connection', true);
@@ -1238,7 +1543,7 @@
         if (cb.checked) ids.add(id); else ids.delete(id);
         state.settings.currentPhaseRaidIds = RAID_DATA.map(r => r.id).filter(rid => ids.has(rid));
         renderAll();
-        await saveData();
+        await saveData('settings');
       });
     });
 
@@ -1268,7 +1573,7 @@
     state.groups.push({ id: uid(), name: trimmed });
     activeGroupId = state.groups[state.groups.length - 1].id;
     renderAll();
-    await saveData();
+    await saveData('groups');
   }
 
   async function deleteGroup(groupId){
@@ -1283,7 +1588,8 @@
     state.roster.forEach(c => { if (c.groupId === groupId) c.groupId = null; });
     if (activeGroupId === groupId) activeGroupId = 'all';
     renderAll();
-    await saveData();
+    await saveData('groups');
+    await saveData('roster');
   }
 
   async function addCharacter(name, classId, groupId, role){
@@ -1292,7 +1598,7 @@
     if (characterByName(trimmed)){ setStatus('That character is already on the roster', true); return; }
     state.roster.push({ id: uid(), name: trimmed, class: classId, groupId: groupId || null, role: role || null });
     renderAll();
-    await saveData();
+    await saveData('roster');
   }
 
   async function setCharacterRole(charId, role){
@@ -1300,7 +1606,7 @@
     if (!c) return;
     c.role = role || null;
     renderAll();
-    await saveData();
+    await saveData('roster');
   }
 
   async function setCharacterGroup(charId, groupId){
@@ -1308,7 +1614,7 @@
     if (!c) return;
     c.groupId = groupId || null;
     renderAll();
-    await saveData();
+    await saveData('roster');
   }
 
   async function setCharacterClass(charId, classId){
@@ -1316,7 +1622,7 @@
     if (!c || !CLASS_MAP[classId]) return;
     c.class = classId;
     renderAll();
-    await saveData();
+    await saveData('roster');
   }
 
   async function deleteCharacter(id){
@@ -1325,7 +1631,7 @@
     if (!window.confirm(`Remove ${c.name} from the roster? Past loot entries keep their recipient name.`)) return;
     state.roster = state.roster.filter(x => x.id !== id);
     renderAll();
-    await saveData();
+    await saveData('roster');
   }
 
   /* ---------------- Log form ---------------- */
@@ -1548,20 +1854,20 @@
   async function addLoot(entry){
     state.loot.push(entry);
     renderAll();
-    await saveData();
+    await saveData('loot');
   }
   async function updateLoot(id, fields){
     const idx = state.loot.findIndex(l => l.id === id);
     if (idx === -1) return;
     state.loot[idx] = { ...state.loot[idx], ...fields };
     renderAll();
-    await saveData();
+    await saveData('loot');
   }
   async function deleteLoot(id){
     state.loot = state.loot.filter(l => l.id !== id);
     pendingDeleteId = null;
     renderAll();
-    await saveData();
+    await saveData('loot');
   }
 
   function enterEditMode(id){
@@ -1640,7 +1946,18 @@
 
   function applyAccessControl(){
     const editable = canEdit();
-    els.accessBadge.textContent = ACCESS_ROLES[currentRole].label;
+    const roleLabel = (ACCESS_ROLES[currentRole] || ACCESS_ROLES.member).label;
+    els.accessBadge.textContent = discordIdentity ? discordIdentity.username : roleLabel;
+    els.accessPopoverName.textContent = discordIdentity ? discordIdentity.username : 'Not logged in';
+    els.accessPopoverRole.textContent = roleLabel;
+    const avatarUrl = discordAvatarUrl(discordIdentity);
+    if (avatarUrl){
+      els.accessAvatarImg.src = avatarUrl;
+      els.accessAvatarImg.classList.remove('hidden');
+    } else {
+      els.accessAvatarImg.classList.add('hidden');
+    }
+    els.accessManageBtn.classList.toggle('role-hidden', currentRole !== 'admin');
     els.logToggleRow.classList.toggle('role-hidden', !editable);
     els.lootForm.classList.toggle('role-hidden', !editable);
     els.newGroupToggle.classList.toggle('role-hidden', !editable);
@@ -1811,38 +2128,8 @@
 
   els.newGroupToggle.addEventListener('click', showNewGroupRow);
 
-  function setRole(role){
-    currentRole = role;
-    try{ localStorage.setItem(ACCESS_STORAGE_KEY, role); }catch(e){}
-    applyAccessControl();
-    renderAll();
-  }
-
   els.accessSwitchBtn.addEventListener('click', () => {
     els.accessPopover.classList.toggle('hidden');
-    els.accessError.textContent = '';
-    els.accessPasscodeInput.value = '';
-    if (!els.accessPopover.classList.contains('hidden')) els.accessPasscodeInput.focus();
-  });
-  els.accessCancelBtn.addEventListener('click', () => els.accessPopover.classList.add('hidden'));
-  els.accessResetBtn.addEventListener('click', () => {
-    setRole('member');
-    els.accessPopover.classList.add('hidden');
-  });
-  els.accessUnlockBtn.addEventListener('click', () => {
-    const code = els.accessPasscodeInput.value;
-    if (code && code === ACCESS_PASSCODES.admin){
-      setRole('admin');
-      els.accessPopover.classList.add('hidden');
-    } else if (code && code === ACCESS_PASSCODES.lootcouncil){
-      setRole('lootcouncil');
-      els.accessPopover.classList.add('hidden');
-    } else {
-      els.accessError.textContent = 'Incorrect passcode.';
-    }
-  });
-  els.accessPasscodeInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter'){ e.preventDefault(); els.accessUnlockBtn.click(); }
   });
   document.addEventListener('click', (e) => {
     if (!els.accessPopover.classList.contains('hidden')
@@ -1852,6 +2139,47 @@
       els.accessPopover.classList.add('hidden');
     }
   });
+
+  els.accessLogoutBtn.addEventListener('click', () => logoutDiscord());
+
+  function renderAccessModal(){
+    const roles = state.discordRoles || {};
+    const ids = Object.keys(roles);
+    if (ids.length === 0){
+      els.accessMemberList.innerHTML = '<p class="access-modal-note">No one has logged in yet.</p>';
+      return;
+    }
+    const roleOrder = ['admin', 'lootcouncil', 'member'];
+    const roleOptHtml = (selected) => roleOrder.map(r =>
+      `<option value="${r}" ${r === selected ? 'selected' : ''}>${ACCESS_ROLES[r].label}</option>`).join('');
+    els.accessMemberList.innerHTML = ids.map(id => {
+      const m = roles[id];
+      const avatarUrl = m.avatar ? `https://cdn.discordapp.com/avatars/${id}/${m.avatar}.png?size=64` : null;
+      return `
+        <div class="access-member-row">
+          ${avatarUrl ? `<img class="access-member-avatar" src="${avatarUrl}" alt="" />` : `<span class="access-member-avatar"></span>`}
+          <span class="access-member-name">${escapeHtml(m.username || 'Unknown')}${id === (discordIdentity && discordIdentity.id) ? ' (you)' : ''}</span>
+          <select class="access-member-role-select" data-discord-id="${id}">${roleOptHtml(m.role)}</select>
+        </div>`;
+    }).join('');
+    els.accessMemberList.querySelectorAll('.access-member-role-select').forEach(sel => {
+      sel.addEventListener('change', (e) => setDiscordUserRole(sel.getAttribute('data-discord-id'), e.target.value));
+    });
+  }
+
+  els.accessManageBtn.addEventListener('click', () => {
+    els.accessPopover.classList.add('hidden');
+    renderAccessModal();
+    els.accessModal.classList.remove('hidden');
+  });
+  els.accessModalCloseBtn.addEventListener('click', () => els.accessModal.classList.add('hidden'));
+  els.accessModal.addEventListener('click', (e) => {
+    if (e.target === els.accessModal) els.accessModal.classList.add('hidden');
+  });
+
+  if (els.discordLoginBtn){
+    els.discordLoginBtn.addEventListener('click', () => startDiscordLogin());
+  }
 
   els.byGroupFilter.addEventListener('change', () => {
     activeGroupId = els.byGroupFilter.value;
@@ -1964,7 +2292,7 @@
 
   els.searchInput.addEventListener('input', (e) => { searchTerm = e.target.value; renderLedger(); });
 
-  initFirebaseAndSync();
+  bootstrap();
 })();
 </script>
 </body>

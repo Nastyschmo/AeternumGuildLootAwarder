@@ -299,6 +299,17 @@
   .attendance-session-info{ font-size: 12.5px; color: var(--text-faint); margin: -4px 0 12px; }
   .attendance-session-info.past-note{ color: var(--gold-bright); }
   .att-select{ font-size: 12px; padding: 4px 8px; min-width: 108px; }
+  .att-check-cell{ text-align: center; }
+  .att-check{ width: 18px; height: 18px; cursor: pointer; }
+  .att-guest-tag{
+    display: block; font-size: 10.5px; color: var(--gold-bright); font-weight: 600;
+    margin-top: 2px; white-space: nowrap;
+  }
+  .att-guest-remove{
+    background: none; border: none; color: var(--text-faint); cursor: pointer;
+    font-size: 10.5px; padding: 0 0 0 4px;
+  }
+  .att-guest-remove:hover{ color: var(--danger-bright); }
   .att-decline-note{ font-size: 12px; padding: 4px 8px; min-width: 140px; }
   .att-status-tag{
     display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 3px;
@@ -678,6 +689,10 @@
           <button type="button" class="btn btn-sm btn-ghost hidden" id="attCancelNewSessionBtn">Cancel</button>
         </div>
         <div id="attSessionInfo" class="attendance-session-info"></div>
+        <div class="toolbar" id="attFillInRow">
+          <select id="attFillInSelect" class="bygroup-filter"></select>
+          <button type="button" class="btn btn-sm btn-ghost" id="attFillInAddBtn">+ Add as fill-in for this raid night</button>
+        </div>
         <div class="ledger" id="attendanceTableWrap"></div>
       </div>
     </main>
@@ -1343,6 +1358,9 @@
     attConfirmNewSessionBtn: document.getElementById('attConfirmNewSessionBtn'),
     attCancelNewSessionBtn: document.getElementById('attCancelNewSessionBtn'),
     attSessionInfo: document.getElementById('attSessionInfo'),
+    attFillInRow: document.getElementById('attFillInRow'),
+    attFillInSelect: document.getElementById('attFillInSelect'),
+    attFillInAddBtn: document.getElementById('attFillInAddBtn'),
     attendanceTableWrap: document.getElementById('attendanceTableWrap'),
     saveStatus: document.getElementById('saveStatus'),
     setupScreen: document.getElementById('setupScreen'),
@@ -2363,6 +2381,23 @@
     await saveData('raidSessions');
   }
 
+  async function addGuestToSession(groupId, sessionId, characterId){
+    if (!characterId) return;
+    const session = (state.raidSessions[groupId] || []).find(s => s.id === sessionId);
+    if (!session || session.attendance[characterId]) return;
+    session.attendance[characterId] = { status: 'pending', note: '', subgroup: null, spec: null, curse: null };
+    renderAttendanceView();
+    await saveData('raidSessions');
+  }
+
+  async function removeGuestFromSession(groupId, sessionId, characterId){
+    const session = (state.raidSessions[groupId] || []).find(s => s.id === sessionId);
+    if (!session) return;
+    delete session.attendance[characterId];
+    renderAttendanceView();
+    await saveData('raidSessions');
+  }
+
   function renderAttendanceView(){
     const editableGlobally = canEdit();
 
@@ -2398,6 +2433,7 @@
 
     if (!attSessionId){
       els.attSessionInfo.textContent = '';
+      els.attFillInRow.classList.add('role-hidden');
       els.attendanceTableWrap.innerHTML = `
         <div class="empty-state">
           <h3>No raid nights scheduled yet</h3>
@@ -2415,20 +2451,37 @@
       : `${session.date} — current sign-ups. Editable by Loot Council/Admin.`;
     els.attSessionInfo.classList.toggle('past-note', isPast);
 
-    const characters = state.roster.filter(c => c.groupId === attGroupId).sort((a, b) => a.name.localeCompare(b.name));
+    els.attFillInRow.classList.toggle('role-hidden', !editable);
+    if (editable){
+      const notYetInSession = state.roster
+        .filter(c => !Object.prototype.hasOwnProperty.call(session.attendance, c.id))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      els.attFillInSelect.innerHTML = notYetInSession.length
+        ? notYetInSession.map(c => {
+            const home = groupById(c.groupId);
+            return `<option value="${c.id}">${escapeHtml(c.name)}${home ? ' — normally ' + escapeHtml(home.name) : ' — no raid group'}</option>`;
+          }).join('')
+        : '<option value="">Everyone is already on this raid night</option>';
+    }
+
+    const characters = state.roster
+      .filter(c => c.groupId === attGroupId || Object.prototype.hasOwnProperty.call(session.attendance, c.id))
+      .sort((a, b) => {
+        const clsA = (CLASS_MAP[a.class] || CLASS_MAP.warrior).label;
+        const clsB = (CLASS_MAP[b.class] || CLASS_MAP.warrior).label;
+        return clsA.localeCompare(clsB) || a.name.localeCompare(b.name);
+      });
     if (characters.length === 0){
       els.attendanceTableWrap.innerHTML = `
         <div class="empty-state">
           <h3>No characters assigned to this raid group</h3>
-          <p>Assign roster characters to this group from the Character Roster tab.</p>
+          <p>Assign roster characters to this group from the Character Roster tab, or add a one-off fill-in below once a raid night exists.</p>
         </div>`;
       return;
     }
 
     const subgroupOptHtml = (selected) => `<option value="">Unassigned</option>` +
       SUBGROUPS.map(n => `<option value="${n}" ${String(n) === String(selected) ? 'selected' : ''}>Group ${n}</option>`).join('');
-    const statusOptHtml = (selected) => ATT_STATUSES.map(s =>
-      `<option value="${s.id}" ${s.id === (selected || 'pending') ? 'selected' : ''}>${s.label}</option>`).join('');
     const specOptHtml = (classId, selected) => (CLASS_SPECS[classId] || []).map(s =>
       `<option value="${s.id}" ${s.id === selected ? 'selected' : ''}>${s.label}</option>`).join('');
     const curseOptHtml = (selected) => `<option value="">—</option>` + WARLOCK_CURSES.map(c =>
@@ -2456,39 +2509,78 @@
         ? `<select class="att-select" data-att-field="subgroup" data-char-id="${c.id}">${subgroupOptHtml(a.subgroup)}</select>`
         : (a.subgroup ? `Group ${a.subgroup}` : '—');
 
-      const statusCell = editable
-        ? `<select class="att-select" data-att-field="status" data-char-id="${c.id}">${statusOptHtml(a.status)}</select>`
-        : `<span class="att-status-tag att-status-${a.status || 'pending'}">${(ATT_STATUSES.find(s => s.id === a.status) || ATT_STATUSES[0]).label}</span>`;
+      const acceptCell = editable
+        ? `<input type="checkbox" class="att-check" data-att-check="accept" data-char-id="${c.id}" ${a.status === 'accepted' ? 'checked' : ''} />`
+        : (a.status === 'accepted' ? '✓' : '');
+
+      const declineCell = editable
+        ? `<input type="checkbox" class="att-check" data-att-check="decline" data-char-id="${c.id}" ${a.status === 'declined' ? 'checked' : ''} />`
+        : (a.status === 'declined' ? '✓' : '');
 
       const noteCell = editable
         ? `<input type="text" class="att-decline-note" data-att-field="note" data-char-id="${c.id}" value="${escapeHtml(a.note || '')}" placeholder="Reason for declining" ${a.status === 'declined' ? '' : 'style="visibility:hidden"'} />`
         : (a.status === 'declined' && a.note ? escapeHtml(a.note) : '—');
 
+      const isGuest = c.groupId !== attGroupId;
+      const homeGroup = isGuest ? groupById(c.groupId) : null;
+      const nameCell = `<span class="gear-char" style="color:${cls.color}">${escapeHtml(c.name)}</span>` +
+        (isGuest
+          ? `<span class="att-guest-tag" title="Normally on ${homeGroup ? escapeHtml(homeGroup.name) : 'no raid group'}">
+               fill-in${homeGroup ? ' · ' + escapeHtml(homeGroup.name) : ''}
+               ${editable ? `<button type="button" class="att-guest-remove" data-remove-guest="${c.id}" title="Remove from this raid night">✕</button>` : ''}
+             </span>`
+          : '');
+
       return `
         <tr>
-          <td><span class="gear-char" style="color:${cls.color}">${escapeHtml(c.name)}</span></td>
+          <td>${nameCell}</td>
           <td>${specCell}</td>
           <td>${curseCell}</td>
           <td>${subgroupCell}</td>
-          <td>${statusCell}</td>
+          <td class="att-check-cell">${acceptCell}</td>
+          <td class="att-check-cell">${declineCell}</td>
           <td class="att-note-cell">${noteCell}</td>
         </tr>`;
     }).join('');
 
     els.attendanceTableWrap.innerHTML = `
       <table>
-        <thead><tr><th>Character</th><th>Spec</th><th>Curse</th><th>Subgroup</th><th>Status</th><th>Decline reason</th></tr></thead>
+        <thead><tr><th>Character</th><th>Spec</th><th>Curse</th><th>Subgroup</th><th>Accept</th><th>Decline</th><th>Decline reason</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>`;
 
     if (!editable) return;
 
-    els.attendanceTableWrap.querySelectorAll('[data-att-field="status"]').forEach(sel => {
-      sel.addEventListener('change', (e) => {
-        const charId = sel.getAttribute('data-char-id');
-        setAttendanceField(attGroupId, attSessionId, charId, 'status', e.target.value);
-        const noteInput = els.attendanceTableWrap.querySelector(`[data-att-field="note"][data-char-id="${charId}"]`);
-        if (noteInput) noteInput.style.visibility = e.target.value === 'declined' ? 'visible' : 'hidden';
+    function setNoteVisibility(charId, declined){
+      const noteInput = els.attendanceTableWrap.querySelector(`[data-att-field="note"][data-char-id="${charId}"]`);
+      if (noteInput) noteInput.style.visibility = declined ? 'visible' : 'hidden';
+    }
+
+    els.attendanceTableWrap.querySelectorAll('[data-att-check="accept"]').forEach(box => {
+      box.addEventListener('change', (e) => {
+        const charId = box.getAttribute('data-char-id');
+        const declineBox = els.attendanceTableWrap.querySelector(`[data-att-check="decline"][data-char-id="${charId}"]`);
+        if (e.target.checked){
+          if (declineBox) declineBox.checked = false;
+          setNoteVisibility(charId, false);
+          setAttendanceField(attGroupId, attSessionId, charId, 'status', 'accepted');
+        } else {
+          setAttendanceField(attGroupId, attSessionId, charId, 'status', 'pending');
+        }
+      });
+    });
+    els.attendanceTableWrap.querySelectorAll('[data-att-check="decline"]').forEach(box => {
+      box.addEventListener('change', (e) => {
+        const charId = box.getAttribute('data-char-id');
+        const acceptBox = els.attendanceTableWrap.querySelector(`[data-att-check="accept"][data-char-id="${charId}"]`);
+        if (e.target.checked){
+          if (acceptBox) acceptBox.checked = false;
+          setNoteVisibility(charId, true);
+          setAttendanceField(attGroupId, attSessionId, charId, 'status', 'declined');
+        } else {
+          setNoteVisibility(charId, false);
+          setAttendanceField(attGroupId, attSessionId, charId, 'status', 'pending');
+        }
       });
     });
     els.attendanceTableWrap.querySelectorAll('[data-att-field="subgroup"]').forEach(sel => {
@@ -2502,6 +2594,9 @@
     });
     els.attendanceTableWrap.querySelectorAll('[data-att-field="note"]').forEach(inp => {
       inp.addEventListener('change', (e) => setAttendanceField(attGroupId, attSessionId, inp.getAttribute('data-char-id'), 'note', e.target.value));
+    });
+    els.attendanceTableWrap.querySelectorAll('[data-remove-guest]').forEach(btn => {
+      btn.addEventListener('click', () => removeGuestFromSession(attGroupId, attSessionId, btn.getAttribute('data-remove-guest')));
     });
   }
 
@@ -2600,6 +2695,9 @@
   els.attConfirmNewSessionBtn.addEventListener('click', async () => {
     await createRaidSession(attGroupId, els.attNewSessionDate.value);
     hideNewSessionControls();
+  });
+  els.attFillInAddBtn.addEventListener('click', async () => {
+    await addGuestToSession(attGroupId, attSessionId, els.attFillInSelect.value);
   });
 
   document.querySelectorAll('.content-tab').forEach(tab => {

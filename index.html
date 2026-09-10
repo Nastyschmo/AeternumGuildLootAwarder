@@ -1555,9 +1555,18 @@
   function groupById(id){ return state.groups.find(g => g.id === id); }
   function characterByName(name){ return state.roster.find(c => c.name.toLowerCase() === String(name).toLowerCase()); }
 
+  // A loot entry's "current" group is based on where its recipient is assigned
+  // on the Character Roster right now — not whichever group was selected when
+  // the entry was originally logged. This keeps the Ledger, its group counts,
+  // and Gear by Group all consistent with the live roster.
+  function currentGroupIdForEntry(l){
+    const c = characterByName(l.recipientName);
+    return c ? (c.groupId || null) : null;
+  }
+
   function lootForActiveScope(){
     let items = state.loot.slice();
-    if (activeGroupId !== 'all') items = items.filter(l => l.groupId === activeGroupId);
+    if (activeGroupId !== 'all') items = items.filter(l => currentGroupIdForEntry(l) === activeGroupId);
     if (searchTerm.trim()){
       const t = searchTerm.trim().toLowerCase();
       items = items.filter(l =>
@@ -1593,7 +1602,7 @@
     groupList.appendChild(allRow);
 
     state.groups.forEach(g => {
-      const count = state.loot.filter(l => l.groupId === g.id).length;
+      const count = state.loot.filter(l => currentGroupIdForEntry(l) === g.id).length;
       const row = document.createElement('div');
       row.className = 'group-item' + (activeGroupId === g.id ? ' active' : '');
       row.innerHTML = `
@@ -1701,9 +1710,9 @@
   async function deleteGroup(groupId){
     const g = groupById(groupId);
     if (!g) return;
-    const lootCount = state.loot.filter(l => l.groupId === groupId).length;
+    const lootCount = state.loot.filter(l => currentGroupIdForEntry(l) === groupId).length;
     const msg = lootCount > 0
-      ? `Delete "${g.name}"? Its ${lootCount} loot ${lootCount === 1 ? 'entry stays' : 'entries stay'} in the ledger, tagged as a removed group.`
+      ? `Delete "${g.name}"? Its ${lootCount} loot ${lootCount === 1 ? 'entry stays' : 'entries stay'} in the ledger — those characters will just show "No raid group" until reassigned.`
       : `Delete "${g.name}"?`;
     if (!window.confirm(msg)) return;
     state.groups = state.groups.filter(x => x.id !== groupId);
@@ -1925,7 +1934,7 @@
 
     const rows = items.map(l => {
       const q = QUALITY_MAP[l.quality] || QUALITY_MAP.common;
-      const g = groupById(l.groupId);
+      const g = groupById(currentGroupIdForEntry(l));
       const raid = RAID_MAP[l.raidId];
       const cls = l.recipientClass ? CLASS_MAP[l.recipientClass] : null;
       const confirming = pendingDeleteId === l.id;
@@ -1941,7 +1950,7 @@
             <span class="boss-main">${escapeHtml(l.bossName || '—')}</span>
             ${raid ? `<span class="raid-sub">${escapeHtml(raid.name)}</span>` : ''}
           </td>
-          <td><span class="group-tag">${g ? escapeHtml(g.name) : 'Removed group'}</span></td>
+          <td><span class="group-tag">${g ? escapeHtml(g.name) : 'No raid group'}</span></td>
           <td class="row-actions">
             ${!canEdit() ? '' : confirming
               ? `<button class="btn btn-sm btn-danger" data-confirm-del="${l.id}">Confirm</button>

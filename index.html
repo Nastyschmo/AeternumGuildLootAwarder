@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Guild Loot Ledger</title>
+<title>Aeternum Loot Awards</title>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -121,6 +121,7 @@
   .access-member-avatar{ width: 28px; height: 28px; border-radius: 50%; flex: none; background: var(--bg-panel-raised); }
   .access-member-name{ flex: 1; min-width: 0; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .access-member-role-select{ width: auto; font-size: 12px; padding: 4px 8px; }
+  .access-member-role-select:disabled{ opacity: 0.55; cursor: not-allowed; }
   .brand svg{ flex: none; width: 40px; height: 40px; }
   .brand h1{
     font-family: 'Cinzel', serif;
@@ -419,8 +420,8 @@
         <path d="M24 4 L28 16 L40 12 L32 22 L44 26 L30 28 L34 40 L24 32 L14 40 L18 28 L4 26 L16 22 L8 12 L20 16 Z" fill="#c9a227" stroke="#8f6c14" stroke-width="1"/>
       </svg>
       <div>
-        <h1>Guild Loot Ledger</h1>
-        <p>Shared record of what dropped and who took it home. Everyone who opens this page sees and can add to the same list.</p>
+        <h1>Aeternum Loot Awards</h1>
+        <p>Shared record of loot dropped in loot counciled guild runs. Check your item's received and compare your loot gains.</p>
         <div class="save-status" id="saveStatus"></div>
       </div>
     </div>
@@ -481,8 +482,8 @@
   </div>
 
   <div class="setup-screen hidden" id="discordLoginScreen">
-    <h2>Log in to continue</h2>
-    <p>This guild's loot ledger requires a Discord login so everyone's role (Guild Member, Loot Council, or Admin) can be tracked properly.</p>
+    <h2>Log in to Aeternum Loot Awards</h2>
+    <p>Shared record of loot dropped in loot counciled guild runs. Log in with Discord to check your items received and compare your loot gains.</p>
     <div class="discord-login-error" id="discordLoginError"></div>
     <button class="btn btn-primary btn-discord" id="discordLoginBtn">Log in with Discord</button>
   </div>
@@ -2154,15 +2155,16 @@
       `<option value="${r}" ${r === selected ? 'selected' : ''}>${ACCESS_ROLES[r].label}</option>`).join('');
     els.accessMemberList.innerHTML = ids.map(id => {
       const m = roles[id];
+      const isSelf = id === (discordIdentity && discordIdentity.id);
       const avatarUrl = m.avatar ? `https://cdn.discordapp.com/avatars/${id}/${m.avatar}.png?size=64` : null;
       return `
         <div class="access-member-row">
           ${avatarUrl ? `<img class="access-member-avatar" src="${avatarUrl}" alt="" />` : `<span class="access-member-avatar"></span>`}
-          <span class="access-member-name">${escapeHtml(m.username || 'Unknown')}${id === (discordIdentity && discordIdentity.id) ? ' (you)' : ''}</span>
-          <select class="access-member-role-select" data-discord-id="${id}">${roleOptHtml(m.role)}</select>
+          <span class="access-member-name">${escapeHtml(m.username || 'Unknown')}${isSelf ? ' (you)' : ''}</span>
+          <select class="access-member-role-select" data-discord-id="${id}" ${isSelf ? 'disabled title="You can\'t change your own role — ask another Admin, or use a second Discord account."' : ''}>${roleOptHtml(m.role)}</select>
         </div>`;
     }).join('');
-    els.accessMemberList.querySelectorAll('.access-member-role-select').forEach(sel => {
+    els.accessMemberList.querySelectorAll('.access-member-role-select:not([disabled])').forEach(sel => {
       sel.addEventListener('change', (e) => setDiscordUserRole(sel.getAttribute('data-discord-id'), e.target.value));
     });
   }

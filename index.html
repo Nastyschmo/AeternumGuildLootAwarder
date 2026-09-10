@@ -1759,7 +1759,9 @@
   /* ---------------- Log form ---------------- */
 
   function populateFormStaticOptions(){
+    const previousGroupId = els.fGroup.value;
     els.fGroup.innerHTML = state.groups.map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
+    if (previousGroupId && state.groups.some(g => g.id === previousGroupId)) els.fGroup.value = previousGroupId;
 
     const phaseIds = currentPhaseIds();
     const phaseRaids = RAID_DATA.filter(r => phaseIds.includes(r.id));
@@ -2200,10 +2202,16 @@
       return;
     }
 
+    const ROLE_ORDER = ROLES.map(r => r.id);
+    const roleSortIndex = (roleId) => {
+      const idx = ROLE_ORDER.indexOf(roleId);
+      return idx === -1 ? ROLE_ORDER.length : idx;
+    };
+
     const characters = state.roster
       .filter(c => activeGroupId === 'all' || c.groupId === activeGroupId)
       .filter(c => activeRoleFilter === 'all' || c.role === activeRoleFilter)
-      .sort((a,b) => a.name.localeCompare(b.name));
+      .sort((a, b) => roleSortIndex(a.role) - roleSortIndex(b.role) || a.name.localeCompare(b.name));
 
     if (characters.length === 0){
       els.byGroupWrap.innerHTML = `
@@ -2217,8 +2225,7 @@
     function lootFor(charName){
       return state.loot
         .filter(l => (l.recipientName || '').toLowerCase() === charName.toLowerCase()
-          && (l.decision === 'BiS' || l.decision === 'Upgrade')
-          && (activeGroupId === 'all' || l.groupId === activeGroupId))
+          && (l.decision === 'BiS' || l.decision === 'Upgrade'))
         .sort((a,b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
     }
 

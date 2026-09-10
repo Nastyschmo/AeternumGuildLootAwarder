@@ -987,6 +987,10 @@
   const CLASS_MAP = Object.fromEntries(CLASSES.map(c => [c.id, c]));
 
   const SLOTS = ['Head', 'Neck', 'Shoulder', 'Back', 'Chest', 'Wrist', 'Hands', 'Waist', 'Legs', 'Feet', 'Ring', 'Trinket', 'Weapon', 'Off-Hand', 'Ranged', 'Relic'];
+  // For the Gear by Slot overview specifically: characters can equip TWO rings
+  // and TWO trinkets at once, so that view shows two columns for each even
+  // though logging loot still just uses the single "Ring"/"Trinket" slot above.
+  const GEAR_DISPLAY_SLOTS = SLOTS.flatMap(s => (s === 'Ring' || s === 'Trinket') ? [s + ' 1', s + ' 2'] : [s]);
   const LOOT_DECISIONS = ['BiS', 'Upgrade', 'Offspec', 'PVP'];
 
   const ROLES = [
@@ -2149,32 +2153,36 @@
       return;
     }
 
-    function latestFor(charName, slot){
-      let best = null;
+    function latestFor(charName, displaySlot){
+      let baseSlot = displaySlot;
+      let rank = 0;
+      const m = displaySlot.match(/^(Ring|Trinket) (1|2)$/);
+      if (m){ baseSlot = m[1]; rank = Number(m[2]) - 1; }
+
+      const matches = [];
       state.loot.forEach(l => {
-        if (l.slot !== slot) return;
+        if (l.slot !== baseSlot) return;
         if (l.decision !== 'BiS' && l.decision !== 'Upgrade') return;
         if ((l.recipientName || '').toLowerCase() !== charName.toLowerCase()) return;
-        if (activeGroupId !== 'all' && l.groupId !== activeGroupId) return;
-        const better = !best
-          || (l.date || '').localeCompare(best.date || '') > 0
-          || ((l.date || '') === (best.date || '') && (l.createdAt || 0) > (best.createdAt || 0));
-        if (better) best = l;
+        if (activeGroupId !== 'all' && currentGroupIdForEntry(l) !== activeGroupId) return;
+        matches.push(l);
       });
-      return best;
+      matches.sort((a, b) =>
+        (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
+      return matches[rank] || null;
     }
 
-    const headerCells = SLOTS.map(s => `<th>${escapeHtml(s)}</th>`).join('');
+    const headerCells = GEAR_DISPLAY_SLOTS.map(s => `<th>${escapeHtml(s)}</th>`).join('');
     const rows = characters.map(c => {
       const cls = CLASS_MAP[c.class] || CLASS_MAP.warrior;
-      const cells = SLOTS.map(slot => {
+      const cells = GEAR_DISPLAY_SLOTS.map(slot => {
         const entry = latestFor(c.name, slot);
         if (!entry) return `<td class="gear-empty">—</td>`;
         const q = QUALITY_MAP[entry.quality] || QUALITY_MAP.common;
         const raid = RAID_MAP[entry.raidId];
         const tip = `${entry.date || ''} · ${entry.decision || ''} · ${entry.bossName || ''}${raid ? ' · ' + raid.name : ''}`;
         return `<td>
-          ${itemDisplayHtml(entry.item, entry.whId, slot, q.color, 14, entry.icon, tip)}
+          ${itemDisplayHtml(entry.item, entry.whId, entry.slot, q.color, 14, entry.icon, tip)}
           <span class="gear-meta">
             <span class="gear-date">${escapeHtml(entry.date || '')}</span>
             <span class="decision-tag decision-tag-sm decision-${(entry.decision || 'upgrade').toLowerCase()}">${escapeHtml(entry.decision || '—')}</span>

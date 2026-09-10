@@ -294,6 +294,20 @@
   /* ---------- Toolbar ---------- */
   .toolbar{ display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
   .bygroup-filter{ max-width: 240px; }
+
+  /* ---------- Attendance ---------- */
+  .attendance-session-info{ font-size: 12.5px; color: var(--text-faint); margin: -4px 0 12px; }
+  .attendance-session-info.past-note{ color: var(--gold-bright); }
+  .att-select{ font-size: 12px; padding: 4px 8px; min-width: 108px; }
+  .att-decline-note{ font-size: 12px; padding: 4px 8px; min-width: 140px; }
+  .att-status-tag{
+    display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 3px;
+    border: 1px solid transparent;
+  }
+  .att-status-accepted{ background: rgba(63,217,86,0.12); color: var(--q-uncommon); border-color: rgba(63,217,86,0.35); }
+  .att-status-declined{ background: rgba(181,73,63,0.14); color: var(--danger-bright); border-color: rgba(181,73,63,0.4); }
+  .att-status-pending{ background: rgba(164,150,122,0.12); color: var(--text-faint); border-color: var(--border); }
+  .att-readonly-dash{ color: var(--text-faint); }
   .toolbar input{ max-width: 320px; }
   .toolbar .active-group-label{ font-family: 'Cinzel', serif; font-size: 15px; color: var(--gold-bright); }
 
@@ -349,7 +363,7 @@
   }
   .content-tab.active{ color: var(--gold-bright); border-bottom-color: var(--gold); }
   .content-tab:hover:not(.active){ color: var(--text-muted); }
-  #ledgerView.hidden, #gearView.hidden, #byGroupView.hidden, #rosterView.hidden{ display: none; }
+  #ledgerView.hidden, #gearView.hidden, #byGroupView.hidden, #rosterView.hidden, #attendanceView.hidden{ display: none; }
 
   /* ---------- Roster group assignment ---------- */
   .roster-controls{ display: flex; align-items: center; justify-content: space-between; gap: 6px; }
@@ -518,6 +532,7 @@
         <div class="content-tab" data-view="gear">Gear by Slot</div>
         <div class="content-tab" data-view="bygroup">Gear by Group</div>
         <div class="content-tab" data-view="roster">Character Roster</div>
+        <div class="content-tab" data-view="attendance" id="attendanceTabBtn">Attendance</div>
       </div>
 
       <div id="ledgerView">
@@ -652,6 +667,19 @@
 
         <div class="ledger" id="rosterTableWrap"></div>
       </div>
+
+      <div id="attendanceView" class="hidden">
+        <div class="toolbar">
+          <select id="attGroupFilter" class="bygroup-filter"></select>
+          <select id="attSessionFilter" class="bygroup-filter"></select>
+          <button class="btn btn-primary btn-sm" id="attNewSessionBtn">+ New raid night</button>
+          <input type="date" id="attNewSessionDate" class="hidden" />
+          <button type="button" class="btn btn-sm btn-primary hidden" id="attConfirmNewSessionBtn">Create</button>
+          <button type="button" class="btn btn-sm btn-ghost hidden" id="attCancelNewSessionBtn">Cancel</button>
+        </div>
+        <div id="attSessionInfo" class="attendance-session-info"></div>
+        <div class="ledger" id="attendanceTableWrap"></div>
+      </div>
     </main>
   </div>
 </div>
@@ -711,6 +739,7 @@
 
   const ACCESS_ROLES = {
     admin: { label: 'Admin' },
+    officer: { label: 'Officer' },
     lootcouncil: { label: 'Loot Council' },
     member: { label: 'Guild Member' }
   };
@@ -719,7 +748,11 @@
   let discordIdentity = null;
 
   function canEdit(){
-    return currentRole === 'admin' || currentRole === 'lootcouncil';
+    return currentRole === 'admin' || currentRole === 'officer' || currentRole === 'lootcouncil';
+  }
+
+  function canSeeAttendance(){
+    return currentRole === 'admin' || currentRole === 'officer';
   }
 
   function isDiscordConfigured(){
@@ -913,6 +946,25 @@
     { id: 'heal', label: 'Heal', color: '#2ecc71' }
   ];
   const ROLE_MAP = Object.fromEntries(ROLES.map(r => [r.id, r]));
+
+  // Classes with a spec choice that matters for raid comp. Only these show a
+  // Spec dropdown in the Attendance view; everyone else shows a dash.
+  const CLASS_SPECS = {
+    hunter: [{ id: 'bm', label: 'Beast Mastery' }, { id: 'survival', label: 'Survival' }],
+    warlock: [{ id: 'affliction', label: 'Affliction' }, { id: 'destruction', label: 'Destruction' }]
+  };
+  const WARLOCK_CURSES = [
+    { id: 'recklessness', label: 'Curse of Recklessness' },
+    { id: 'elements', label: 'Curse of Elements' },
+    { id: 'doom', label: 'Curse of Doom' },
+    { id: 'tongues', label: 'Curse of Tongues' }
+  ];
+  const SUBGROUPS = [1, 2, 3, 4, 5];
+  const ATT_STATUSES = [
+    { id: 'pending', label: 'Pending' },
+    { id: 'accepted', label: 'Accepted' },
+    { id: 'declined', label: 'Declined' }
+  ];
 
   // Generic per-slot icon glyphs (not exact item art — we don't have a full item->icon
   // database, and this avoids hotlinking a large volume of third-party game-art images).
@@ -1184,7 +1236,7 @@
   const DEFAULT_PHASE_RAID_IDS = ['hyjal', 'bt'];
 
   function defaultState(){
-    return { groups: [], roster: [], loot: [], discordRoles: {}, settings: { currentPhaseRaidIds: DEFAULT_PHASE_RAID_IDS.slice() } };
+    return { groups: [], roster: [], loot: [], discordRoles: {}, raidSessions: {}, settings: { currentPhaseRaidIds: DEFAULT_PHASE_RAID_IDS.slice() } };
   }
 
   let state = defaultState();
@@ -1194,6 +1246,8 @@
   let pendingCharDeleteId = null;
   let rosterSearchTerm = '';
   let rosterGroupFilterVal = 'all';
+  let attGroupId = null;
+  let attSessionId = null;
   let sidebarTab = 'groups';
   let lootlibRaidId = DEFAULT_PHASE_RAID_IDS[0];
   let searchTerm = '';
@@ -1280,6 +1334,16 @@
     rosterSearchInput: document.getElementById('rosterSearchInput'),
     rosterGroupFilter: document.getElementById('rosterGroupFilter'),
     rosterTableWrap: document.getElementById('rosterTableWrap'),
+    attendanceView: document.getElementById('attendanceView'),
+    attendanceTabBtn: document.getElementById('attendanceTabBtn'),
+    attGroupFilter: document.getElementById('attGroupFilter'),
+    attSessionFilter: document.getElementById('attSessionFilter'),
+    attNewSessionBtn: document.getElementById('attNewSessionBtn'),
+    attNewSessionDate: document.getElementById('attNewSessionDate'),
+    attConfirmNewSessionBtn: document.getElementById('attConfirmNewSessionBtn'),
+    attCancelNewSessionBtn: document.getElementById('attCancelNewSessionBtn'),
+    attSessionInfo: document.getElementById('attSessionInfo'),
+    attendanceTableWrap: document.getElementById('attendanceTableWrap'),
     saveStatus: document.getElementById('saveStatus'),
     setupScreen: document.getElementById('setupScreen'),
     mainLayout: document.getElementById('mainLayout')
@@ -1307,6 +1371,7 @@
       roster: Array.isArray(parsed.roster) ? parsed.roster : [],
       loot: Array.isArray(parsed.loot) ? parsed.loot : [],
       discordRoles: (parsed.discordRoles && typeof parsed.discordRoles === 'object') ? parsed.discordRoles : {},
+      raidSessions: (parsed.raidSessions && typeof parsed.raidSessions === 'object') ? parsed.raidSessions : {},
       settings: {
         currentPhaseRaidIds: (parsed.settings && Array.isArray(parsed.settings.currentPhaseRaidIds))
           ? parsed.settings.currentPhaseRaidIds
@@ -1967,6 +2032,9 @@
       pendingCharDeleteId = null;
       exitCharacterEditMode();
     }
+    const seeAttendance = canSeeAttendance();
+    els.attendanceTabBtn.classList.toggle('role-hidden', !seeAttendance);
+    if (!seeAttendance && mainView === 'attendance') mainView = 'ledger';
   }
 
   function renderMainView(){
@@ -1975,9 +2043,11 @@
     els.gearView.classList.toggle('hidden', mainView !== 'gear');
     els.byGroupView.classList.toggle('hidden', mainView !== 'bygroup');
     els.rosterView.classList.toggle('hidden', mainView !== 'roster');
+    els.attendanceView.classList.toggle('hidden', mainView !== 'attendance');
     if (mainView === 'gear') renderGearOverview();
     else if (mainView === 'bygroup') renderGearByGroup();
     else if (mainView === 'roster') renderRosterView();
+    else if (mainView === 'attendance') renderAttendanceView();
     else renderLedger();
   }
 
@@ -2244,6 +2314,197 @@
     els.charSubmitBtn.textContent = 'Add character';
   }
 
+  /* ---------------- Attendance ---------------- */
+
+  function addDaysToDateStr(dateStr, days){
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function sessionsForGroup(groupId){
+    return (state.raidSessions[groupId] || []).slice().sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  function suggestedNextSessionDate(groupId){
+    const sessions = sessionsForGroup(groupId);
+    if (sessions.length) return addDaysToDateStr(sessions[sessions.length - 1].date, 7);
+    return todayStr();
+  }
+
+  async function createRaidSession(groupId, dateStr){
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr || '')){
+      setStatus('Please pick a valid date', true);
+      return;
+    }
+    if (!state.raidSessions[groupId]) state.raidSessions[groupId] = [];
+    if (state.raidSessions[groupId].some(s => s.date === dateStr)){
+      setStatus('A raid night for that date already exists', true);
+      return;
+    }
+    const attendance = {};
+    state.roster.filter(c => c.groupId === groupId).forEach(c => {
+      attendance[c.id] = { status: 'pending', note: '', subgroup: null, spec: null, curse: null };
+    });
+    const session = { id: uid(), date: dateStr, attendance };
+    state.raidSessions[groupId].push(session);
+    attGroupId = groupId;
+    attSessionId = session.id;
+    renderAll();
+    await saveData('raidSessions');
+  }
+
+  async function setAttendanceField(groupId, sessionId, characterId, field, value){
+    const session = (state.raidSessions[groupId] || []).find(s => s.id === sessionId);
+    if (!session) return;
+    if (!session.attendance[characterId]) session.attendance[characterId] = { status: 'pending', note: '', subgroup: null, spec: null, curse: null };
+    session.attendance[characterId][field] = value;
+    renderAttendanceView();
+    await saveData('raidSessions');
+  }
+
+  function renderAttendanceView(){
+    const editableGlobally = canEdit();
+
+    const groupOptions = state.groups.map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
+    els.attGroupFilter.innerHTML = groupOptions || '<option value="">No raid groups yet</option>';
+    if (!attGroupId || !state.groups.some(g => g.id === attGroupId)){
+      attGroupId = state.groups.length ? state.groups[0].id : null;
+    }
+    if (attGroupId) els.attGroupFilter.value = attGroupId;
+
+    els.attNewSessionBtn.classList.toggle('role-hidden', !editableGlobally);
+
+    if (!attGroupId){
+      els.attSessionFilter.innerHTML = '';
+      els.attSessionInfo.textContent = '';
+      els.attendanceTableWrap.innerHTML = `
+        <div class="empty-state">
+          <h3>No raid groups yet</h3>
+          <p>Create a raid group first (e.g. "Thursday Raid") from the sidebar.</p>
+        </div>`;
+      return;
+    }
+
+    const sessions = sessionsForGroup(attGroupId);
+    const sessionOptions = sessions.slice().reverse().map(s =>
+      `<option value="${s.id}">${s.date}${s.date === todayStr() ? ' (today)' : ''}</option>`).join('');
+    els.attSessionFilter.innerHTML = sessionOptions || '<option value="">No raid nights yet</option>';
+
+    if (!attSessionId || !sessions.some(s => s.id === attSessionId)){
+      attSessionId = sessions.length ? sessions[sessions.length - 1].id : null;
+    }
+    if (attSessionId) els.attSessionFilter.value = attSessionId;
+
+    if (!attSessionId){
+      els.attSessionInfo.textContent = '';
+      els.attendanceTableWrap.innerHTML = `
+        <div class="empty-state">
+          <h3>No raid nights scheduled yet</h3>
+          <p>${editableGlobally ? 'Use "+ New raid night" above to create the first one.' : 'A Loot Council member needs to schedule the first raid night.'}</p>
+        </div>`;
+      return;
+    }
+
+    const session = sessions.find(s => s.id === attSessionId);
+    const isPast = session.date < todayStr();
+    const editable = editableGlobally && !isPast;
+
+    els.attSessionInfo.textContent = isPast
+      ? `${session.date} — past raid night, kept as a historical record (read-only).`
+      : `${session.date} — current sign-ups. Editable by Loot Council/Admin.`;
+    els.attSessionInfo.classList.toggle('past-note', isPast);
+
+    const characters = state.roster.filter(c => c.groupId === attGroupId).sort((a, b) => a.name.localeCompare(b.name));
+    if (characters.length === 0){
+      els.attendanceTableWrap.innerHTML = `
+        <div class="empty-state">
+          <h3>No characters assigned to this raid group</h3>
+          <p>Assign roster characters to this group from the Character Roster tab.</p>
+        </div>`;
+      return;
+    }
+
+    const subgroupOptHtml = (selected) => `<option value="">Unassigned</option>` +
+      SUBGROUPS.map(n => `<option value="${n}" ${String(n) === String(selected) ? 'selected' : ''}>Group ${n}</option>`).join('');
+    const statusOptHtml = (selected) => ATT_STATUSES.map(s =>
+      `<option value="${s.id}" ${s.id === (selected || 'pending') ? 'selected' : ''}>${s.label}</option>`).join('');
+    const specOptHtml = (classId, selected) => (CLASS_SPECS[classId] || []).map(s =>
+      `<option value="${s.id}" ${s.id === selected ? 'selected' : ''}>${s.label}</option>`).join('');
+    const curseOptHtml = (selected) => `<option value="">—</option>` + WARLOCK_CURSES.map(c =>
+      `<option value="${c.id}" ${c.id === selected ? 'selected' : ''}>${c.label}</option>`).join('');
+
+    const rows = characters.map(c => {
+      const cls = CLASS_MAP[c.class] || CLASS_MAP.warrior;
+      const a = session.attendance[c.id] || { status: 'pending', note: '', subgroup: null, spec: null, curse: null };
+      const hasSpec = !!CLASS_SPECS[c.class];
+      const isWarlock = c.class === 'warlock';
+
+      const specCell = !hasSpec
+        ? `<span class="att-readonly-dash">—</span>`
+        : editable
+          ? `<select class="att-select" data-att-field="spec" data-char-id="${c.id}">${specOptHtml(c.class, a.spec)}</select>`
+          : (CLASS_SPECS[c.class].find(s => s.id === a.spec)?.label || '—');
+
+      const curseCell = !isWarlock
+        ? `<span class="att-readonly-dash">—</span>`
+        : editable
+          ? `<select class="att-select" data-att-field="curse" data-char-id="${c.id}">${curseOptHtml(a.curse)}</select>`
+          : (WARLOCK_CURSES.find(w => w.id === a.curse)?.label || '—');
+
+      const subgroupCell = editable
+        ? `<select class="att-select" data-att-field="subgroup" data-char-id="${c.id}">${subgroupOptHtml(a.subgroup)}</select>`
+        : (a.subgroup ? `Group ${a.subgroup}` : '—');
+
+      const statusCell = editable
+        ? `<select class="att-select" data-att-field="status" data-char-id="${c.id}">${statusOptHtml(a.status)}</select>`
+        : `<span class="att-status-tag att-status-${a.status || 'pending'}">${(ATT_STATUSES.find(s => s.id === a.status) || ATT_STATUSES[0]).label}</span>`;
+
+      const noteCell = editable
+        ? `<input type="text" class="att-decline-note" data-att-field="note" data-char-id="${c.id}" value="${escapeHtml(a.note || '')}" placeholder="Reason for declining" ${a.status === 'declined' ? '' : 'style="visibility:hidden"'} />`
+        : (a.status === 'declined' && a.note ? escapeHtml(a.note) : '—');
+
+      return `
+        <tr>
+          <td><span class="gear-char" style="color:${cls.color}">${escapeHtml(c.name)}</span></td>
+          <td>${specCell}</td>
+          <td>${curseCell}</td>
+          <td>${subgroupCell}</td>
+          <td>${statusCell}</td>
+          <td class="att-note-cell">${noteCell}</td>
+        </tr>`;
+    }).join('');
+
+    els.attendanceTableWrap.innerHTML = `
+      <table>
+        <thead><tr><th>Character</th><th>Spec</th><th>Curse</th><th>Subgroup</th><th>Status</th><th>Decline reason</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+
+    if (!editable) return;
+
+    els.attendanceTableWrap.querySelectorAll('[data-att-field="status"]').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        const charId = sel.getAttribute('data-char-id');
+        setAttendanceField(attGroupId, attSessionId, charId, 'status', e.target.value);
+        const noteInput = els.attendanceTableWrap.querySelector(`[data-att-field="note"][data-char-id="${charId}"]`);
+        if (noteInput) noteInput.style.visibility = e.target.value === 'declined' ? 'visible' : 'hidden';
+      });
+    });
+    els.attendanceTableWrap.querySelectorAll('[data-att-field="subgroup"]').forEach(sel => {
+      sel.addEventListener('change', (e) => setAttendanceField(attGroupId, attSessionId, sel.getAttribute('data-char-id'), 'subgroup', e.target.value || null));
+    });
+    els.attendanceTableWrap.querySelectorAll('[data-att-field="spec"]').forEach(sel => {
+      sel.addEventListener('change', (e) => setAttendanceField(attGroupId, attSessionId, sel.getAttribute('data-char-id'), 'spec', e.target.value || null));
+    });
+    els.attendanceTableWrap.querySelectorAll('[data-att-field="curse"]').forEach(sel => {
+      sel.addEventListener('change', (e) => setAttendanceField(attGroupId, attSessionId, sel.getAttribute('data-char-id'), 'curse', e.target.value || null));
+    });
+    els.attendanceTableWrap.querySelectorAll('[data-att-field="note"]').forEach(inp => {
+      inp.addEventListener('change', (e) => setAttendanceField(attGroupId, attSessionId, inp.getAttribute('data-char-id'), 'note', e.target.value));
+    });
+  }
+
   /* ---------------- Events ---------------- */
 
   els.newGroupToggle.addEventListener('click', showNewGroupRow);
@@ -2269,7 +2530,7 @@
       els.accessMemberList.innerHTML = '<p class="access-modal-note">No one has logged in yet.</p>';
       return;
     }
-    const roleOrder = ['admin', 'lootcouncil', 'member'];
+    const roleOrder = ['admin', 'officer', 'lootcouncil', 'member'];
     const roleOptHtml = (selected) => roleOrder.map(r =>
       `<option value="${r}" ${r === selected ? 'selected' : ''}>${ACCESS_ROLES[r].label}</option>`).join('');
     els.accessMemberList.innerHTML = ids.map(id => {
@@ -2310,6 +2571,35 @@
   els.byRoleFilter.addEventListener('change', () => {
     activeRoleFilter = els.byRoleFilter.value;
     renderGearByGroup();
+  });
+
+  els.attGroupFilter.addEventListener('change', () => {
+    attGroupId = els.attGroupFilter.value || null;
+    attSessionId = null;
+    renderAttendanceView();
+  });
+  els.attSessionFilter.addEventListener('change', () => {
+    attSessionId = els.attSessionFilter.value || null;
+    renderAttendanceView();
+  });
+  els.attNewSessionBtn.addEventListener('click', () => {
+    if (!attGroupId) return;
+    els.attNewSessionDate.value = suggestedNextSessionDate(attGroupId);
+    els.attNewSessionBtn.classList.add('hidden');
+    els.attNewSessionDate.classList.remove('hidden');
+    els.attConfirmNewSessionBtn.classList.remove('hidden');
+    els.attCancelNewSessionBtn.classList.remove('hidden');
+  });
+  function hideNewSessionControls(){
+    els.attNewSessionBtn.classList.remove('hidden');
+    els.attNewSessionDate.classList.add('hidden');
+    els.attConfirmNewSessionBtn.classList.add('hidden');
+    els.attCancelNewSessionBtn.classList.add('hidden');
+  }
+  els.attCancelNewSessionBtn.addEventListener('click', hideNewSessionControls);
+  els.attConfirmNewSessionBtn.addEventListener('click', async () => {
+    await createRaidSession(attGroupId, els.attNewSessionDate.value);
+    hideNewSessionControls();
   });
 
   document.querySelectorAll('.content-tab').forEach(tab => {

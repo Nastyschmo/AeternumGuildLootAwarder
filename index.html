@@ -318,6 +318,28 @@
     font-size: 10.5px; padding: 0 0 0 4px;
   }
   .att-guest-remove:hover{ color: var(--danger-bright); }
+
+  /* ---------- Attendance composition overview ---------- */
+  .att-comp-header{
+    font-family: 'Cinzel', serif; font-size: 15px; color: var(--gold-bright);
+    margin: 4px 0 10px;
+  }
+  .att-comp-grid{
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px; margin-bottom: 18px;
+  }
+  .att-comp-card{
+    background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 6px; padding: 10px 12px;
+  }
+  .att-comp-title{
+    font-family: 'Cinzel', serif; font-size: 12.5px; color: var(--gold-bright);
+    font-weight: 600; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border-soft);
+  }
+  .att-comp-row{ display: flex; align-items: center; gap: 7px; padding: 3px 0; font-size: 12.5px; }
+  .att-comp-icon{ width: 18px; height: 18px; border-radius: 3px; flex: none; background: var(--bg-panel-raised); }
+  .att-comp-name{ font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .att-comp-spec{ font-size: 10.5px; color: var(--text-faint); white-space: nowrap; margin-left: auto; }
+  .att-comp-empty{ color: var(--text-faint); font-size: 12px; font-style: italic; }
   .att-decline-note{ font-size: 12px; padding: 4px 8px; min-width: 140px; }
   .att-status-tag{
     display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 3px;
@@ -700,6 +722,8 @@
           <div id="attSessionInfo" class="attendance-session-info"></div>
           <span id="attAcceptedCount" class="att-accepted-count"></span>
         </div>
+        <div id="attCompositionTitle" class="att-comp-header"></div>
+        <div id="attCompositionWrap"></div>
         <div class="toolbar" id="attFillInRow">
           <select id="attFillInSelect" class="bygroup-filter"></select>
           <button type="button" class="btn btn-sm btn-ghost" id="attFillInAddBtn">+ Add as fill-in for this raid night</button>
@@ -986,6 +1010,11 @@
     { id: 'tongues', label: 'Curse of Tongues' }
   ];
   const SUBGROUPS = [1, 2, 3, 4, 5];
+  const CLASS_ICON_FILES = {
+    warrior: 'classicon_warrior', paladin: 'classicon_paladin', hunter: 'classicon_hunter',
+    rogue: 'classicon_rogue', priest: 'classicon_priest', shaman: 'classicon_shaman',
+    mage: 'classicon_mage', warlock: 'classicon_warlock', druid: 'classicon_druid'
+  };
   const ATT_STATUSES = [
     { id: 'pending', label: 'Pending' },
     { id: 'accepted', label: 'Accepted' },
@@ -1370,6 +1399,8 @@
     attCancelNewSessionBtn: document.getElementById('attCancelNewSessionBtn'),
     attSessionInfo: document.getElementById('attSessionInfo'),
     attAcceptedCount: document.getElementById('attAcceptedCount'),
+    attCompositionTitle: document.getElementById('attCompositionTitle'),
+    attCompositionWrap: document.getElementById('attCompositionWrap'),
     attFillInRow: document.getElementById('attFillInRow'),
     attFillInSelect: document.getElementById('attFillInSelect'),
     attFillInAddBtn: document.getElementById('attFillInAddBtn'),
@@ -2410,6 +2441,46 @@
     await saveData('raidSessions');
   }
 
+  function renderAttendanceComposition(session, groupId){
+    const group = groupById(groupId);
+    const characters = state.roster.filter(c => c.groupId === groupId || Object.prototype.hasOwnProperty.call(session.attendance, c.id));
+
+    const buckets = { 1: [], 2: [], 3: [], 4: [], 5: [], unassigned: [] };
+    characters.forEach(c => {
+      const a = session.attendance[c.id];
+      if (!a || a.status !== 'accepted') return;
+      const n = Number(a.subgroup);
+      const key = SUBGROUPS.includes(n) ? n : 'unassigned';
+      buckets[key].push(c);
+    });
+    Object.values(buckets).forEach(list => list.sort((a, b) => a.name.localeCompare(b.name)));
+
+    els.attCompositionTitle.textContent = group ? `${group.name} — ${session.date}` : session.date;
+
+    const cardHtml = (label, list) => {
+      const rows = list.length
+        ? list.map(c => {
+            const cls = CLASS_MAP[c.class] || CLASS_MAP.warrior;
+            const iconFile = CLASS_ICON_FILES[c.class];
+            const a = session.attendance[c.id];
+            const specLabel = (CLASS_SPECS[c.class] || []).find(s => s.id === a.spec)?.label;
+            return `<div class="att-comp-row">
+              ${iconFile ? `<img class="att-comp-icon" src="https://wow.zamimg.com/images/wow/icons/large/${iconFile}.jpg" alt="" />` : `<span class="att-comp-icon"></span>`}
+              <span class="att-comp-name" style="color:${cls.color}">${escapeHtml(c.name)}</span>
+              ${specLabel ? `<span class="att-comp-spec">${escapeHtml(specLabel)}</span>` : ''}
+            </div>`;
+          }).join('')
+        : `<div class="att-comp-empty">—</div>`;
+      return `<div class="att-comp-card"><div class="att-comp-title">${label}</div>${rows}</div>`;
+    };
+
+    let html = '<div class="att-comp-grid">';
+    SUBGROUPS.forEach(n => { html += cardHtml(`Group ${n}`, buckets[n]); });
+    if (buckets.unassigned.length) html += cardHtml('Unassigned', buckets.unassigned);
+    html += '</div>';
+    els.attCompositionWrap.innerHTML = html;
+  }
+
   function renderAttendanceView(){
     const editableGlobally = canEdit();
 
@@ -2447,6 +2518,8 @@
     if (!attSessionId){
       els.attSessionInfo.textContent = '';
       els.attAcceptedCount.textContent = '';
+      els.attCompositionTitle.textContent = '';
+      els.attCompositionWrap.innerHTML = '';
       els.attFillInRow.classList.add('role-hidden');
       els.attendanceTableWrap.innerHTML = `
         <div class="empty-state">
@@ -2469,6 +2542,8 @@
     const acceptedCount = Object.values(session.attendance).filter(a => a.status === 'accepted').length;
     els.attAcceptedCount.textContent = `${acceptedCount}/${RAID_CAP}`;
     els.attAcceptedCount.classList.toggle('att-over-limit', acceptedCount > RAID_CAP);
+
+    renderAttendanceComposition(session, attGroupId);
 
     els.attFillInRow.classList.toggle('role-hidden', !editable);
     if (editable){

@@ -241,6 +241,14 @@
 
   /* loot library */
   .lootlib-note{ font-size: 11.5px; color: var(--text-faint); padding: 2px 8px 10px; line-height: 1.5; }
+  .util-section{ padding: 8px 8px 10px; border-bottom: 1px solid var(--border-soft); }
+  .util-section:last-child{ border-bottom: none; }
+  .util-section-title{ font-family: 'Cinzel', serif; font-size: 12px; color: var(--gold-bright); font-weight: 600; margin-bottom: 3px; }
+  .util-note{ font-size: 10.5px; color: var(--text-faint); font-style: italic; margin-bottom: 5px; line-height: 1.4; }
+  .util-row{ display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 12px; }
+  .util-class-dot{ width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .util-class-name{ font-weight: 700; white-space: nowrap; }
+  .util-ability{ color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .boss-ref{ padding: 7px 9px; font-size: 13px; border-radius: 4px; }
   .boss-ref:hover{ background: var(--bg-panel-raised); }
   .boss-ref .boss-name{ font-weight: 600; color: var(--text); }
@@ -563,6 +571,7 @@
       <div class="sidebar-tabs">
         <div class="sidebar-tab active" data-tab="groups">Groups</div>
         <div class="sidebar-tab" data-tab="lootlib">Raids</div>
+        <div class="sidebar-tab" data-tab="utility">Utility</div>
       </div>
       <div id="sidebarBody"></div>
     </nav>
@@ -993,6 +1002,62 @@
     { id: 'druid', label: 'Druid', color: '#FF7D0A' }
   ];
   const CLASS_MAP = Object.fromEntries(CLASSES.map(c => [c.id, c]));
+
+  // Verified TBC class-utility reference, built with the guild's own knowledge
+  // plus web-verified corrections. Used for the Utility sidebar tab now, and
+  // will feed the future per-boss assignment feature ("who can do X").
+  const CLASS_UTILITY = [
+    { category: 'Interrupts — Physical (melee)', note: 'Melee-range, also locks that school briefly.',
+      entries: [['warrior', 'Pummel'], ['rogue', 'Kick']] },
+    { category: 'Interrupts — Magical / ranged', note: '',
+      entries: [['mage', 'Counterspell'], ['priest', 'Silence (Shadow talent)'], ['shaman', 'Earth Shock'], ['warlock', 'Spell Lock (needs Felhunter out)']] },
+    { category: 'Decurse', note: '',
+      entries: [['mage', 'Remove Curse'], ['druid', 'Remove Curse']] },
+    { category: 'Magic Dispel', note: 'Paladin\'s Cleanse covers Magic + Poison + Disease in one button.',
+      entries: [['priest', 'Dispel Magic'], ['paladin', 'Cleanse']] },
+    { category: 'Poison Dispel', note: '',
+      entries: [['shaman', 'Cure Poison'], ['paladin', 'Cleanse'], ['druid', 'Abolish/Cure Poison']] },
+    { category: 'Disease Cure', note: '',
+      entries: [['paladin', 'Cleanse'], ['priest', 'Cure Disease']] },
+    { category: 'Buff removal (Purge-type)', note: 'Mage\'s Spellsteal takes the buff for itself rather than just removing it.',
+      entries: [['shaman', 'Purge'], ['warlock', 'Devour Magic (needs Felhunter out)'], ['mage', 'Spellsteal']] },
+    { category: 'Mind Soothe (reduce pull range)', note: 'Humanoids only — a pulling aid, not an enrage removal.',
+      entries: [['priest', 'Mind Soothe']] },
+    { category: 'Enrage removal ("Soothe")', note: 'The Hunter is the actual "remove enrage" tool in TBC.',
+      entries: [['hunter', 'Tranquilizing Shot']] },
+    { category: 'Misdirection', note: '',
+      entries: [['hunter', 'Misdirection']] },
+    { category: 'Direct stuns', note: '',
+      entries: [['paladin', 'Hammer of Justice'], ['rogue', 'Cheap Shot / Kidney Shot'], ['druid', 'Bash (Feral)'], ['warrior', 'Concussion Blow (talent)']] },
+    { category: 'Healing-reduction debuffs', note: '',
+      entries: [['warrior', 'Mortal Strike (Arms)'], ['hunter', 'Aimed Shot (Marksmanship)']] },
+    { category: 'Crowd control — Humanoid', note: '',
+      entries: [['rogue', 'Sap (out of combat only)'], ['mage', 'Polymorph'], ['paladin', 'Repentance'], ['warlock', 'Seduction (needs Succubus out)']] },
+    { category: 'Crowd control — Undead', note: '',
+      entries: [['priest', 'Shackle Undead']] },
+    { category: 'Crowd control — Beast', note: '',
+      entries: [['hunter', 'Freezing Trap / Scare Beast'], ['druid', 'Hibernate']] },
+    { category: 'Crowd control — Demon / Elemental', note: '',
+      entries: [['warlock', 'Banish']] },
+    { category: 'Crowd control — Dragonkin', note: '',
+      entries: [['druid', 'Hibernate']] },
+    { category: 'Group slows / roots', note: '',
+      entries: [['shaman', 'Earthbind Totem'], ['mage', 'Frost Nova'], ['druid', 'Entangling Roots']] },
+    { category: 'Effect immunity / breaks', note: '',
+      entries: [['warrior', 'Berserker Rage (breaks Fear/Sap/Incapacitate)'], ['priest', 'Fear Ward (talent, prevents next Fear on an ally)']] },
+    { category: 'Soulstone', note: '',
+      entries: [['warlock', 'Create Soulstone']] },
+    { category: 'Combat resurrection', note: 'The only in-combat res in TBC.',
+      entries: [['druid', 'Rebirth']] },
+    { category: 'Bloodlust / Heroism', note: 'Horde-only in TBC.',
+      entries: [['shaman', 'Bloodlust']] },
+    { category: 'Power Infusion', note: 'Discipline talent only.',
+      entries: [['priest', 'Power Infusion']] },
+    { category: 'Innervate', note: '',
+      entries: [['druid', 'Innervate']] },
+    { category: 'Demoralizing Shout/Roar', note: '',
+      entries: [['warrior', 'Demoralizing Shout'], ['druid', 'Demoralizing Roar (Feral)']] }
+  ];
 
   // Full TBC talent trees per class, for the roster's Main/Off Spec fields.
   const CLASS_SPEC_OPTIONS = {
@@ -1613,7 +1678,28 @@
       t.classList.toggle('active', t.getAttribute('data-tab') === sidebarTab);
     });
     if (sidebarTab === 'groups') renderSidebarGroups();
+    else if (sidebarTab === 'utility') renderSidebarUtility();
     else renderSidebarLootLib();
+  }
+
+  function renderSidebarUtility(){
+    const html = CLASS_UTILITY.map(section => {
+      const tags = section.entries.map(([classId, ability]) => {
+        const cls = CLASS_MAP[classId];
+        if (!cls) return '';
+        return `<div class="util-row">
+          <span class="util-class-dot" style="background:${cls.color}"></span>
+          <span class="util-class-name" style="color:${cls.color}">${cls.label}</span>
+          <span class="util-ability">${escapeHtml(ability)}</span>
+        </div>`;
+      }).join('');
+      return `<div class="util-section">
+        <div class="util-section-title">${escapeHtml(section.category)}</div>
+        ${section.note ? `<div class="util-note">${escapeHtml(section.note)}</div>` : ''}
+        ${tags}
+      </div>`;
+    }).join('');
+    els.sidebarBody.innerHTML = `<div class="sidebar-title">CLASS UTILITY REFERENCE</div>${html}`;
   }
 
   function renderSidebarGroups(){

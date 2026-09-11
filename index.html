@@ -1571,6 +1571,7 @@
   let tacMapTool = 'select';
   let tacMapColor = '#ff3b3b';
   let tacMapLiveDrawing = null;
+  let tacMapFilled = true;
   const TAC_MAP_COLORS = ['#ff3b3b', '#ffb100', '#ffe94d', '#3fd956', '#3fa9f5', '#ffffff'];
   let sidebarTab = 'groups';
   let lootlibRaidId = DEFAULT_PHASE_RAID_IDS[0];
@@ -3202,6 +3203,7 @@
       return { x: clamp(((e.clientX - rect.left) / width) * 100), y: clamp(((e.clientY - rect.top) / height) * 100) };
     };
     el.addEventListener('pointerdown', (e) => {
+      if (e.target.closest && e.target.closest('.tac-map-remove')) return;
       dragging = true;
       el.classList.add('tac-map-dragging');
       try{ el.setPointerCapture(e.pointerId); }catch(err){}
@@ -3268,18 +3270,26 @@
           ctx.fill();
         }
       } else if (d.type === 'square'){
-        const p0 = toPx(d.points[0]);
-        const size = 24;
-        ctx.fillRect(p0.x - size / 2, p0.y - size / 2, size, size);
+        if (d.points.length < 2) return;
+        const p0 = toPx(d.points[0]), p1 = toPx(d.points[1]);
+        const x = Math.min(p0.x, p1.x), y = Math.min(p0.y, p1.y);
+        const bw = Math.abs(p1.x - p0.x), bh = Math.abs(p1.y - p0.y);
+        ctx.lineWidth = 3;
+        if (d.filled === false) ctx.strokeRect(x, y, bw, bh);
+        else ctx.fillRect(x, y, bw, bh);
       } else if (d.type === 'triangle'){
-        const p0 = toPx(d.points[0]);
-        const size = 15;
+        if (d.points.length < 2) return;
+        const p0 = toPx(d.points[0]), p1 = toPx(d.points[1]);
+        const x = Math.min(p0.x, p1.x), y = Math.min(p0.y, p1.y);
+        const bw = Math.abs(p1.x - p0.x), bh = Math.abs(p1.y - p0.y);
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(p0.x, p0.y - size);
-        ctx.lineTo(p0.x + size, p0.y + size);
-        ctx.lineTo(p0.x - size, p0.y + size);
+        ctx.moveTo(x + bw / 2, y);
+        ctx.lineTo(x + bw, y + bh);
+        ctx.lineTo(x, y + bh);
         ctx.closePath();
-        ctx.fill();
+        if (d.filled === false) ctx.stroke();
+        else ctx.fill();
       }
     }
 
@@ -3303,8 +3313,13 @@
         ['select', '↖ Select'], ['pen', '✏️ Pen'], ['line', '📏 Line'], ['arrow', '➡️ Arrow'],
         ['square', '⬛ Square'], ['triangle', '🔺 Triangle'], ['eraser', '🧹 Erase']
       ];
+      const isShapeTool = tacMapTool === 'square' || tacMapTool === 'triangle';
       els.tacMapDrawTools.innerHTML =
         tools.map(([id, label]) => `<button type="button" class="tac-map-tool-btn${tacMapTool === id ? ' active' : ''}" data-draw-tool="${id}">${label}</button>`).join('')
+        + (isShapeTool
+            ? `<button type="button" class="tac-map-tool-btn${tacMapFilled ? ' active' : ''}" data-draw-fillmode="filled">Filled</button>`
+              + `<button type="button" class="tac-map-tool-btn${!tacMapFilled ? ' active' : ''}" data-draw-fillmode="outline">Outline</button>`
+            : '')
         + TAC_MAP_COLORS.map(c => `<button type="button" class="tac-map-color-btn${tacMapColor === c ? ' active' : ''}" data-draw-color="${c}" style="background:${c};" title="${c}"></button>`).join('')
         + `<button type="button" class="btn btn-sm btn-ghost" id="tacMapClearDrawBtn">Clear drawings</button>`;
       els.tacMapDrawCanvas.classList.toggle('tac-draw-active', tacMapTool !== 'select');
@@ -3424,6 +3439,12 @@
       btn.addEventListener('click', () => {
         tacMapTool = btn.getAttribute('data-draw-tool');
         tacMapLiveDrawing = null;
+        renderBattlefieldMap(staticData, sessionData, accepted, editable);
+      });
+    });
+    els.tacMapDrawTools.querySelectorAll('[data-draw-fillmode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        tacMapFilled = btn.getAttribute('data-draw-fillmode') === 'filled';
         renderBattlefieldMap(staticData, sessionData, accepted, editable);
       });
     });
@@ -3831,13 +3852,7 @@
       }
       return;
     }
-    if (tacMapTool === 'square' || tacMapTool === 'triangle'){
-      staticData.battlefield.drawings.push({ type: tacMapTool, color: tacMapColor, points: [pos] });
-      saveStaticTactics();
-      return;
-    }
-
-    tacMapLiveDrawing = { type: tacMapTool, color: tacMapColor, points: [pos] };
+    tacMapLiveDrawing = { type: tacMapTool, color: tacMapColor, filled: tacMapFilled, points: [pos, pos] };
     try{ els.tacMapDrawCanvas.setPointerCapture(e.pointerId); }catch(err){}
     redrawDrawCanvas(els.tacMapDrawCanvas, staticData.battlefield.drawings, tacMapLiveDrawing);
   });
@@ -3855,6 +3870,17 @@
     if (!tacMapLiveDrawing){ return; }
     if (!tacRaidId || !tacBossName){ tacMapLiveDrawing = null; return; }
     const staticData = getStaticTacticsData(tacRaidId, tacBossName);
+    if (tacMapLiveDrawing.type === 'square' || tacMapLiveDrawing.type === 'triangle'){
+      const [p0, p1] = tacMapLiveDrawing.points;
+      if (Math.abs(p1.x - p0.x) < 3 && Math.abs(p1.y - p0.y) < 3){
+        // A plain click without dragging — give it a small default size
+        // instead of saving an invisible zero-size shape.
+        tacMapLiveDrawing.points = [
+          { x: Math.max(0, p0.x - 4), y: Math.max(0, p0.y - 4) },
+          { x: Math.min(100, p0.x + 4), y: Math.min(100, p0.y + 4) }
+        ];
+      }
+    }
     if (tacMapLiveDrawing.points.length >= 2) staticData.battlefield.drawings.push(tacMapLiveDrawing);
     tacMapLiveDrawing = null;
     await saveStaticTactics();

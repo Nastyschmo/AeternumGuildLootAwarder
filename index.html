@@ -378,6 +378,48 @@
   .tac-marker-preview-empty{ border: 1px dashed var(--border-soft); border-radius: 3px; }
   .tac-position-grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 14px; }
   .tac-row-label-wide{ min-width: 100px; font-weight: 700; }
+
+  /* ---------- Battlefield map ---------- */
+  .tac-map-card.role-hidden{ display: none; }
+  .tac-map-toolbar{ display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+  .tac-map-palette-btn{
+    display: flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+    background: var(--bg-panel-raised); border: 1px solid var(--border-soft); border-radius: 4px; cursor: pointer;
+  }
+  .tac-map-palette-btn:hover{ border-color: var(--gold); }
+  .tac-map-canvas{
+    position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 320px;
+    background-color: #1a2420; background-size: cover; background-position: center;
+    border: 1px solid var(--border-soft); border-radius: 6px; overflow: hidden; touch-action: none;
+  }
+  .tac-map-empty-hint{
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 20px; color: var(--text-faint); font-size: 12.5px; font-style: italic;
+  }
+  .tac-map-zone, .tac-map-healer, .tac-map-marker, .tac-map-note{
+    position: absolute; transform: translate(-50%, -50%); cursor: grab; user-select: none; touch-action: none;
+  }
+  .tac-map-dragging{ cursor: grabbing; z-index: 20; opacity: 0.85; }
+  .tac-map-zone{
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    background: rgba(255, 210, 60, 0.16); border: 1.5px dashed rgba(255, 210, 60, 0.6);
+    border-radius: 50%; width: 92px; height: 92px; justify-content: center; padding: 4px;
+  }
+  .tac-map-zone-label{ font-size: 10.5px; font-weight: 700; color: #fff; text-align: center; text-shadow: 0 1px 2px #000; }
+  .tac-map-healer{
+    background: rgba(63, 217, 86, 0.85); color: #06210c; font-weight: 700; font-size: 11px;
+    padding: 3px 8px; border-radius: 12px; border: 1px solid #1c7a34; white-space: nowrap;
+  }
+  .tac-map-marker{ padding: 3px; }
+  .tac-map-note{
+    background: rgba(20, 16, 8, 0.9); border: 1px solid var(--gold); color: var(--gold-bright);
+    font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 4px; max-width: 160px; text-align: center;
+  }
+  .tac-map-remove{
+    position: absolute; top: -8px; right: -8px; width: 16px; height: 16px; line-height: 14px;
+    background: var(--danger-bright); color: #fff; border: none; border-radius: 50%; font-size: 10px;
+    cursor: pointer; padding: 0;
+  }
   .btn-icon-remove{
     background: none; border: none; color: var(--text-faint); cursor: pointer;
     font-size: 13px; padding: 2px 4px; flex: none;
@@ -794,6 +836,15 @@
         <div id="tacBossHeader" class="tac-boss-header"></div>
         <div id="tacBossInfo" class="tac-boss-info"></div>
         <div id="tacAssignmentsWrap"></div>
+        <div id="tacMapCard" class="tac-card tac-card-wide tac-map-card">
+          <div class="tac-card-title">Battlefield map</div>
+          <div class="tac-card-note">Paste a link to a screenshot for the background (optional), then drag markers, position zones, and healer labels into place. Zones and healer labels come from the assignments above automatically.</div>
+          <div class="tac-row">
+            <input type="text" id="tacMapBgInput" class="tac-text-input" placeholder="Background image URL (optional)" />
+          </div>
+          <div class="tac-map-toolbar" id="tacMapPalette"></div>
+          <div class="tac-map-canvas" id="tacMapCanvas"></div>
+        </div>
       </div>
     </main>
   </div>
@@ -1480,7 +1531,7 @@
   const DEFAULT_PHASE_RAID_IDS = ['hyjal', 'bt'];
 
   function defaultState(){
-    return { groups: [], roster: [], loot: [], discordRoles: {}, raidSessions: {}, bossTactics: {}, settings: { currentPhaseRaidIds: DEFAULT_PHASE_RAID_IDS.slice() } };
+    return { groups: [], roster: [], loot: [], discordRoles: {}, raidSessions: {}, bossTactics: {}, bossStaticTactics: {}, settings: { currentPhaseRaidIds: DEFAULT_PHASE_RAID_IDS.slice() } };
   }
 
   let state = defaultState();
@@ -1609,6 +1660,10 @@
     tacBossHeader: document.getElementById('tacBossHeader'),
     tacBossInfo: document.getElementById('tacBossInfo'),
     tacAssignmentsWrap: document.getElementById('tacAssignmentsWrap'),
+    tacMapCard: document.getElementById('tacMapCard'),
+    tacMapBgInput: document.getElementById('tacMapBgInput'),
+    tacMapPalette: document.getElementById('tacMapPalette'),
+    tacMapCanvas: document.getElementById('tacMapCanvas'),
     saveStatus: document.getElementById('saveStatus'),
     setupScreen: document.getElementById('setupScreen'),
     mainLayout: document.getElementById('mainLayout')
@@ -1638,6 +1693,7 @@
       discordRoles: (parsed.discordRoles && typeof parsed.discordRoles === 'object') ? parsed.discordRoles : {},
       raidSessions: (parsed.raidSessions && typeof parsed.raidSessions === 'object') ? parsed.raidSessions : {},
       bossTactics: (parsed.bossTactics && typeof parsed.bossTactics === 'object') ? parsed.bossTactics : {},
+      bossStaticTactics: (parsed.bossStaticTactics && typeof parsed.bossStaticTactics === 'object') ? parsed.bossStaticTactics : {},
       settings: {
         currentPhaseRaidIds: (parsed.settings && Array.isArray(parsed.settings.currentPhaseRaidIds))
           ? parsed.settings.currentPhaseRaidIds
@@ -2725,11 +2781,34 @@
     if (!Array.isArray(d.groupHealers)) d.groupHealers = [];
     if (!Array.isArray(d.misdirects)) d.misdirects = [];
     if (!Array.isArray(d.innervates)) d.innervates = [];
-    if (!Array.isArray(d.positionGroups)) d.positionGroups = [];
     if (!d.positions || typeof d.positions !== 'object') d.positions = {};
     if (d.bloodlust === undefined) d.bloodlust = null;
     if (d.powerInfusion === undefined) d.powerInfusion = null;
     return d;
+  }
+
+  // Boss-level data — shared by EVERY raid night for this boss, not tied to
+  // a specific session. This is where the position group definitions and
+  // the battlefield map layout live, since re-drawing the map every single
+  // week would be pointless busywork. Who actually fills each role still
+  // comes from the session-scoped data above.
+  function getStaticTacticsData(raidId, bossName){
+    const key = tacticsKey(raidId, bossName);
+    if (!state.bossStaticTactics[key]) state.bossStaticTactics[key] = {};
+    const d = state.bossStaticTactics[key];
+    if (!Array.isArray(d.positionGroups)) d.positionGroups = [];
+    if (!d.battlefield || typeof d.battlefield !== 'object') d.battlefield = {};
+    if (typeof d.battlefield.backgroundUrl !== 'string') d.battlefield.backgroundUrl = '';
+    if (!Array.isArray(d.battlefield.markers)) d.battlefield.markers = [];
+    if (!Array.isArray(d.battlefield.notes)) d.battlefield.notes = [];
+    if (!d.battlefield.zonePositions || typeof d.battlefield.zonePositions !== 'object') d.battlefield.zonePositions = {};
+    if (!d.battlefield.healerPositions || typeof d.battlefield.healerPositions !== 'object') d.battlefield.healerPositions = {};
+    return d;
+  }
+
+  async function saveStaticTactics(){
+    renderTacticsView();
+    await saveData('bossStaticTactics');
   }
 
   function acceptedCharactersForSession(session, groupId){
@@ -2775,6 +2854,7 @@
       els.tacBossHeader.textContent = '';
       els.tacBossInfo.innerHTML = '';
       els.tacAssignmentsWrap.innerHTML = '';
+      els.tacMapCard.classList.add('role-hidden');
       return;
     }
 
@@ -2806,12 +2886,14 @@
           <h3>No raid night selected</h3>
           <p>Schedule or pick a raid night on the Attendance tab first — assignments are based on who's accepted for that night.</p>
         </div>`;
+      els.tacMapCard.classList.add('role-hidden');
       return;
     }
 
     const session = sessions.find(s => s.id === tacSessionId);
     const accepted = acceptedCharactersForSession(session, tacGroupId).sort((a, b) => a.name.localeCompare(b.name));
     const data = getTacticsData(tacGroupId, tacSessionId, tacRaidId, tacBossName);
+    const staticData = getStaticTacticsData(tacRaidId, tacBossName);
 
     const tankPool = accepted.filter(c => c.role === 'tank');
     const healPool = accepted.filter(c => c.role === 'heal');
@@ -2853,7 +2935,7 @@
       RAID_MARKERS.map(m => `<option value="${m.id}" ${m.id === selected ? 'selected' : ''}>${m.label}</option>`).join('');
 
     const positionGroupOptionsHtml = (selected, placeholder) => `<option value="">${escapeHtml(placeholder || 'Unassigned')}</option>` +
-      data.positionGroups.map(p => {
+      staticData.positionGroups.map(p => {
         const marker = RAID_MARKER_MAP[p.marker];
         const markerPrefix = marker ? marker.label + ' — ' : '';
         return `<option value="${p.id}" ${p.id === selected ? 'selected' : ''}>${escapeHtml(markerPrefix + (p.label || '(unnamed)'))}</option>`;
@@ -2862,7 +2944,8 @@
     // Positioning groups: named battlefield clusters (optionally tagged with
     // a raid marker), independent of raid subgroup. Both the raid-wide
     // position list and Group Healers below reference these same groups.
-    const positionGroupRowsHtml = data.positionGroups.map((pg, idx) => {
+    // Stored at the boss level (staticData) since these don't change weekly.
+    const positionGroupRowsHtml = staticData.positionGroups.map((pg, idx) => {
       const marker = RAID_MARKER_MAP[pg.marker];
       const icon = marker ? raidMarkerSvg(marker.id, 18) : null;
       return `
@@ -2876,7 +2959,8 @@
     }).join('');
 
     // Every accepted attendee gets placed into one of the groups above,
-    // regardless of their raid subgroup.
+    // regardless of their raid subgroup. This mapping IS session-scoped
+    // (data.positions), since who's attending changes week to week.
     const positionAssignRowsHtml = accepted.map(c => {
       const cls = CLASS_MAP[c.class] || CLASS_MAP.warrior;
       return `
@@ -2889,7 +2973,7 @@
     // Group healers: pick one of the defined positioning groups (not a raid
     // subgroup, not free text) and who watches it.
     const groupHealerRowsHtml = data.groupHealers.map((row, idx) => {
-      const pg = data.positionGroups.find(p => p.id === row.positionGroupId);
+      const pg = staticData.positionGroups.find(p => p.id === row.positionGroupId);
       const marker = pg && RAID_MARKER_MAP[pg.marker];
       const icon = marker ? raidMarkerSvg(marker.id, 16) : null;
       return `
@@ -2979,12 +3063,16 @@
         const field = el.getAttribute('data-tac-field');
         const idxAttr = el.getAttribute('data-tac-index');
         const value = e.target.value || null;
-        if (field === 'tanks' || field === 'tankHealers'){
-          data[field][Number(idxAttr)] = value;
-        } else if (field === 'posGroupLabel'){
-          data.positionGroups[Number(idxAttr)].label = e.target.value;
+        if (field === 'posGroupLabel'){
+          staticData.positionGroups[Number(idxAttr)].label = e.target.value;
+          await saveStaticTactics();
+          return;
         } else if (field === 'posGroupMarker'){
-          data.positionGroups[Number(idxAttr)].marker = value;
+          staticData.positionGroups[Number(idxAttr)].marker = value;
+          await saveStaticTactics();
+          return;
+        } else if (field === 'tanks' || field === 'tankHealers'){
+          data[field][Number(idxAttr)] = value;
         } else if (field === 'charPosition'){
           if (value) data.positions[idxAttr] = value;
           else delete data.positions[idxAttr];
@@ -3008,9 +3096,13 @@
     els.tacAssignmentsWrap.querySelectorAll('[data-tac-add-list]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const field = btn.getAttribute('data-tac-add-list');
+        if (field === 'positionGroups'){
+          staticData.positionGroups.push({ id: uid(), label: '', marker: null });
+          await saveStaticTactics();
+          return;
+        }
         if (field === 'misdirects') data.misdirects.push({ hunterId: null, targetTankId: null });
         else if (field === 'groupHealers') data.groupHealers.push({ positionGroupId: null, healerId: null });
-        else if (field === 'positionGroups') data.positionGroups.push({ id: uid(), label: '', marker: null });
         else data[field].push(null);
         await saveTactics();
       });
@@ -3018,10 +3110,171 @@
     els.tacAssignmentsWrap.querySelectorAll('[data-tac-remove-list]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const [field, idx] = btn.getAttribute('data-tac-remove-list').split(':');
+        if (field === 'positionGroups'){
+          staticData.positionGroups.splice(Number(idx), 1);
+          await saveStaticTactics();
+          return;
+        }
         data[field].splice(Number(idx), 1);
         await saveTactics();
       });
     });
+
+    els.tacMapCard.classList.remove('role-hidden');
+    renderBattlefieldMap(staticData, data, accepted, editable);
+  }
+
+  // Unifies mouse + touch dragging. onMove(xPercent, yPercent, isFinal) is
+  // called continuously while dragging (isFinal=false) and once more on
+  // release (isFinal=true, when the position should actually be saved).
+  function makeDraggable(el, canvas, onMove){
+    let dragging = false;
+    const clamp = (v) => Math.max(0, Math.min(100, v));
+    const posFromEvent = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const width = rect.width || 1;
+      const height = rect.height || 1;
+      return { x: clamp(((e.clientX - rect.left) / width) * 100), y: clamp(((e.clientY - rect.top) / height) * 100) };
+    };
+    el.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      el.classList.add('tac-map-dragging');
+      try{ el.setPointerCapture(e.pointerId); }catch(err){}
+      e.preventDefault();
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const { x, y } = posFromEvent(e);
+      el.style.left = x + '%';
+      el.style.top = y + '%';
+      onMove(x, y, false);
+    });
+    const finish = (e) => {
+      if (!dragging) return;
+      dragging = false;
+      el.classList.remove('tac-map-dragging');
+      const { x, y } = posFromEvent(e);
+      onMove(x, y, true);
+    };
+    el.addEventListener('pointerup', finish);
+    el.addEventListener('pointercancel', finish);
+  }
+
+  function renderBattlefieldMap(staticData, sessionData, accepted, editable){
+    els.tacMapBgInput.value = staticData.battlefield.backgroundUrl || '';
+    els.tacMapBgInput.disabled = !editable;
+    els.tacMapCanvas.style.backgroundImage = staticData.battlefield.backgroundUrl
+      ? `url('${staticData.battlefield.backgroundUrl.replace(/'/g, '%27')}')` : 'none';
+
+    els.tacMapPalette.innerHTML = editable
+      ? RAID_MARKERS.map(m => `<button type="button" class="tac-map-palette-btn" data-add-marker="${m.id}" title="Add ${escapeHtml(m.label)}">${raidMarkerSvg(m.id, 18)}</button>`).join('')
+        + `<button type="button" class="btn btn-sm btn-ghost" id="tacMapAddNoteBtn">+ Add note</button>`
+      : '';
+
+    let html = '';
+
+    // Zone definitions are boss-level (static), but which position group
+    // exists at all still comes from staticData — stable across sessions.
+    staticData.positionGroups.forEach((pg, idx) => {
+      const pos = staticData.battlefield.zonePositions[pg.id] || { x: 15 + (idx % 4) * 22, y: 15 + Math.floor(idx / 4) * 25 };
+      const marker = RAID_MARKER_MAP[pg.marker];
+      html += `<div class="tac-map-zone" data-zone-id="${pg.id}" style="left:${pos.x}%; top:${pos.y}%;">
+        ${marker ? raidMarkerSvg(marker.id, 20) : ''}
+        <span class="tac-map-zone-label">${escapeHtml(pg.label || 'Zone')}</span>
+      </div>`;
+    });
+
+    // Healer slot POSITIONS are static (boss-level, keyed by priority index
+    // 0,1,2...), but WHO fills each slot comes from this session's Tank
+    // Healer Priority list — so the name shown updates automatically as
+    // attendance changes week to week, without moving the label itself.
+    sessionData.tankHealers.forEach((healerId, idx) => {
+      const pos = staticData.battlefield.healerPositions[idx] || { x: 35 + idx * 10, y: 65 };
+      const healer = state.roster.find(c => c.id === healerId);
+      html += `<div class="tac-map-healer" data-healer-index="${idx}" style="left:${pos.x}%; top:${pos.y}%;">H${idx + 1}${healer ? ' ' + escapeHtml(healer.name) : ''}</div>`;
+    });
+
+    staticData.battlefield.markers.forEach(m => {
+      html += `<div class="tac-map-marker" data-marker-id="${m.id}" style="left:${m.x}%; top:${m.y}%;">
+        ${raidMarkerSvg(m.markerId, 24)}
+        ${editable ? `<button type="button" class="tac-map-remove" data-remove-marker="${m.id}">✕</button>` : ''}
+      </div>`;
+    });
+
+    staticData.battlefield.notes.forEach(n => {
+      html += `<div class="tac-map-note" data-note-id="${n.id}" style="left:${n.x}%; top:${n.y}%;">
+        ${escapeHtml(n.text)}
+        ${editable ? `<button type="button" class="tac-map-remove" data-remove-note="${n.id}">✕</button>` : ''}
+      </div>`;
+    });
+
+    els.tacMapCanvas.innerHTML = html || (editable
+      ? '<p class="tac-map-empty-hint">Add a background image above, then use the palette to drop markers, or drag the auto-placed zones/healers into position.</p>'
+      : '<p class="tac-map-empty-hint">Nothing placed on the map yet.</p>');
+
+    if (!editable) return;
+
+    els.tacMapCanvas.querySelectorAll('[data-zone-id]').forEach(el => {
+      makeDraggable(el, els.tacMapCanvas, async (x, y, final) => {
+        if (!final) return;
+        staticData.battlefield.zonePositions[el.getAttribute('data-zone-id')] = { x, y };
+        await saveStaticTactics();
+      });
+    });
+    els.tacMapCanvas.querySelectorAll('[data-healer-index]').forEach(el => {
+      makeDraggable(el, els.tacMapCanvas, async (x, y, final) => {
+        if (!final) return;
+        staticData.battlefield.healerPositions[el.getAttribute('data-healer-index')] = { x, y };
+        await saveStaticTactics();
+      });
+    });
+    els.tacMapCanvas.querySelectorAll('[data-marker-id]').forEach(el => {
+      makeDraggable(el, els.tacMapCanvas, async (x, y, final) => {
+        if (!final) return;
+        const m = staticData.battlefield.markers.find(mm => mm.id === el.getAttribute('data-marker-id'));
+        if (m){ m.x = x; m.y = y; await saveStaticTactics(); }
+      });
+    });
+    els.tacMapCanvas.querySelectorAll('[data-note-id]').forEach(el => {
+      makeDraggable(el, els.tacMapCanvas, async (x, y, final) => {
+        if (!final) return;
+        const n = staticData.battlefield.notes.find(nn => nn.id === el.getAttribute('data-note-id'));
+        if (n){ n.x = x; n.y = y; await saveStaticTactics(); }
+      });
+    });
+    els.tacMapCanvas.querySelectorAll('[data-remove-marker]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        staticData.battlefield.markers = staticData.battlefield.markers.filter(m => m.id !== btn.getAttribute('data-remove-marker'));
+        renderBattlefieldMap(staticData, sessionData, accepted, editable);
+        await saveStaticTactics();
+      });
+    });
+    els.tacMapCanvas.querySelectorAll('[data-remove-note]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        staticData.battlefield.notes = staticData.battlefield.notes.filter(n => n.id !== btn.getAttribute('data-remove-note'));
+        renderBattlefieldMap(staticData, sessionData, accepted, editable);
+        await saveStaticTactics();
+      });
+    });
+    els.tacMapPalette.querySelectorAll('[data-add-marker]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        staticData.battlefield.markers.push({ id: uid(), markerId: btn.getAttribute('data-add-marker'), x: 50, y: 50 });
+        renderBattlefieldMap(staticData, sessionData, accepted, editable);
+        await saveStaticTactics();
+      });
+    });
+    const addNoteBtn = document.getElementById('tacMapAddNoteBtn');
+    if (addNoteBtn){
+      addNoteBtn.addEventListener('click', async () => {
+        const text = window.prompt('Note text:');
+        if (!text) return;
+        staticData.battlefield.notes.push({ id: uid(), text, x: 50, y: 50 });
+        renderBattlefieldMap(staticData, sessionData, accepted, editable);
+        await saveStaticTactics();
+      });
+    }
   }
 
   function renderAttendanceComposition(session, groupId){
@@ -3372,6 +3625,13 @@
   els.tacBossFilter.addEventListener('change', () => {
     tacBossName = els.tacBossFilter.value || null;
     renderTacticsView();
+  });
+  els.tacMapBgInput.addEventListener('change', async (e) => {
+    if (!tacRaidId || !tacBossName) return;
+    const staticData = getStaticTacticsData(tacRaidId, tacBossName);
+    staticData.battlefield.backgroundUrl = e.target.value.trim();
+    renderTacticsView();
+    await saveStaticTactics();
   });
 
   els.attNewSessionBtn.addEventListener('click', () => {

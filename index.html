@@ -371,7 +371,9 @@
   .tac-ability-row{ display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border-soft); }
   .tac-ability-row:last-child{ border-bottom: none; }
   .tac-ability-icon{ flex: none; width: 24px; height: 24px; }
-  .tac-ability-icon-empty{ border: 1px dashed var(--border-soft); border-radius: 3px; }
+  .tac-card-title-icon{ display: flex; align-items: center; gap: 6px; }
+  .tac-card-title-icon-img{ flex: none; width: 20px; height: 20px; }
+  .tac-card-compact{ max-width: 340px; }
   .tac-ability-name{ font-family: 'Cinzel', serif; font-size: 12.5px; color: var(--gold-bright); font-weight: 600; margin-bottom: 2px; }
   .tac-ability-desc{ font-size: 12px; color: var(--text-muted); line-height: 1.5; }
   .tac-grid{ display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
@@ -403,6 +405,7 @@
     position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 320px;
     border: 1px solid var(--border-soft); border-radius: 6px; overflow: hidden;
   }
+  #ovMapWrapper{ max-width: 50%; min-height: 160px; }
   .tac-map-canvas{
     position: absolute; inset: 0; width: 100%; height: 100%;
     background-color: #1a2420; background-size: cover; background-position: center; touch-action: none;
@@ -1191,7 +1194,7 @@
   function abilityRowHtml(a){
     const iconHtml = a.icon ? iconImgHtml(a.icon, 24) : null;
     return `<div class="tac-ability-row">
-      ${iconHtml ? `<span class="tac-ability-icon">${iconHtml}</span>` : `<span class="tac-ability-icon tac-ability-icon-empty"></span>`}
+      ${iconHtml ? `<span class="tac-ability-icon">${iconHtml}</span>` : ''}
       <div class="tac-ability-text">
         <div class="tac-ability-name">${escapeHtml(a.name)}</div>
         <div class="tac-ability-desc">${escapeHtml(a.desc)}</div>
@@ -3174,21 +3177,21 @@
           ${editable ? `<button type="button" class="btn btn-sm btn-ghost" data-tac-add-list="groupHealers">+ Add position healer</button>` : ''}
         </div>
         <div class="tac-card">
-          <div class="tac-card-title">Bloodlust</div>
+          ${cardTitleWithIcon('spell_nature_bloodlust', 'Bloodlust')}
           <select class="tac-select" data-tac-field="bloodlust" ${!editable ? 'disabled' : ''}>${charOptionsHtml(shamanPool, data.bloodlust)}</select>
         </div>
         <div class="tac-card">
-          <div class="tac-card-title">Power Infusion</div>
+          ${cardTitleWithIcon('spell_holy_powerinfusion', 'Power Infusion')}
           <div class="tac-card-note">Discipline Priests only (main or off spec).</div>
           <select class="tac-select" data-tac-field="powerInfusion" ${!editable ? 'disabled' : ''}>${charOptionsHtml(priestDiscPool, data.powerInfusion)}</select>
         </div>
         <div class="tac-card">
-          <div class="tac-card-title">Innervates</div>
+          ${cardTitleWithIcon('spell_nature_lightning', 'Innervates')}
           <div class="tac-card-note">One row per accepted Druid, automatically — just pick who each one targets.</div>
           ${innervateRowsHtml || '<p class="lootlib-note">No Druids accepted for this raid night.</p>'}
         </div>
-        <div class="tac-card tac-card-wide">
-          <div class="tac-card-title">Misdirect rotation</div>
+        <div class="tac-card tac-card-compact">
+          ${cardTitleWithIcon('ability_hunter_misdirection', 'Misdirect rotation')}
           <div class="tac-card-note">Ordered — #1 opens, later ones follow once the previous Misdirect is used.</div>
           ${misdirectRowsHtml || '<p class="lootlib-note">No misdirects set yet.</p>'}
           ${editable ? `<button type="button" class="btn btn-sm btn-ghost" data-tac-add-list="misdirects">+ Add misdirect</button>` : ''}
@@ -3369,6 +3372,11 @@
 
     drawings.forEach(drawOne);
     if (liveDrawing) drawOne(liveDrawing);
+  }
+
+  function cardTitleWithIcon(icon, label){
+    const img = icon ? iconImgHtml(icon, 20) : null;
+    return `<div class="tac-card-title tac-card-title-icon">${img ? `<span class="tac-card-title-icon-img">${img}</span>` : ''}${escapeHtml(label)}</div>`;
   }
 
   function renderBattlefieldMap(staticData, sessionData, accepted, editable){
@@ -3620,29 +3628,34 @@
 
     const staticData = getStaticTacticsData(ovRaidId, ovBossName);
     const data = getTacticsData(ovGroupId, ovSessionId, ovRaidId, ovBossName);
-    const nameOf = (id) => { const c = state.roster.find(x => x.id === id); return c ? c.name : '—'; };
+    const nameOf = (id) => {
+      const c = state.roster.find(x => x.id === id);
+      if (!c) return '—';
+      const cls = CLASS_MAP[c.class] || CLASS_MAP.warrior;
+      return `<span style="color:${cls.color}">${escapeHtml(c.name)}</span>`;
+    };
 
     const rowsOrNote = (list, rowFn) => list.length ? list.map(rowFn).join('') : '<p class="lootlib-note">Not assigned yet.</p>';
 
     const tanksHtml = rowsOrNote(data.tanks, (id, i) =>
-      `<div class="ov-row"><span class="ov-label">${i === 0 ? 'Main Tank' : 'Off-Tank ' + i}</span><span>${escapeHtml(nameOf(id))}</span></div>`);
+      `<div class="ov-row"><span class="ov-label">${i === 0 ? 'Main Tank' : 'Off-Tank ' + i}</span><span>${nameOf(id)}</span></div>`);
 
     const tankHealersHtml = rowsOrNote(data.tankHealers, (id, i) =>
-      `<div class="ov-row"><span class="ov-label">Priority ${i + 1}</span><span>${escapeHtml(nameOf(id))}</span></div>`);
+      `<div class="ov-row"><span class="ov-label">Priority ${i + 1}</span><span>${nameOf(id)}</span></div>`);
 
     const groupHealersHtml = rowsOrNote(data.groupHealers, (row) => {
       const pg = staticData.positionGroups.find(p => p.id === row.positionGroupId);
-      return `<div class="ov-row"><span class="ov-label">${pg ? escapeHtml(pg.label || 'Position') : 'Position'}</span><span>${escapeHtml(nameOf(row.healerId))}</span></div>`;
+      return `<div class="ov-row"><span class="ov-label">${pg ? escapeHtml(pg.label || 'Position') : 'Position'}</span><span>${nameOf(row.healerId)}</span></div>`;
     });
 
-    const bloodlustHtml = data.bloodlust ? escapeHtml(nameOf(data.bloodlust)) : 'Not assigned yet.';
-    const piHtml = data.powerInfusion ? escapeHtml(nameOf(data.powerInfusion)) : 'Not assigned yet.';
+    const bloodlustHtml = data.bloodlust ? nameOf(data.bloodlust) : 'Not assigned yet.';
+    const piHtml = data.powerInfusion ? nameOf(data.powerInfusion) : 'Not assigned yet.';
 
     const innervatesHtml = rowsOrNote(data.innervates, (iv) =>
-      `<div class="ov-row"><span class="ov-label">${escapeHtml(nameOf(iv.giverId))}</span><span>→ ${escapeHtml(nameOf(iv.targetId))}</span></div>`);
+      `<div class="ov-row"><span class="ov-label">${nameOf(iv.giverId)}</span><span>→ ${nameOf(iv.targetId)}</span></div>`);
 
     const misdirectsHtml = rowsOrNote(data.misdirects, (md, i) =>
-      `<div class="ov-row"><span class="ov-label">${i + 1}.</span><span>${escapeHtml(nameOf(md.hunterId))} → ${escapeHtml(nameOf(md.targetTankId))}</span></div>`);
+      `<div class="ov-row"><span class="ov-label">${i + 1}.</span><span>${nameOf(md.hunterId)} → ${nameOf(md.targetTankId)}</span></div>`);
 
     const posBuckets = {};
     Object.entries(data.positions).forEach(([charId, pgId]) => {
@@ -3650,7 +3663,7 @@
     });
     const positionsHtml = staticData.positionGroups.length
       ? staticData.positionGroups.map(pg => {
-          const members = (posBuckets[pg.id] || []).map(id => escapeHtml(nameOf(id))).join(', ') || '—';
+          const members = (posBuckets[pg.id] || []).map(id => nameOf(id)).join(', ') || '—';
           const marker = RAID_MARKER_MAP[pg.marker];
           return `<div class="ov-row"><span class="ov-label">${marker ? raidMarkerSvg(marker.id, 14) : ''} ${escapeHtml(pg.label || 'Position')}</span><span>${members}</span></div>`;
         }).join('')
@@ -3661,11 +3674,11 @@
         <div class="tac-card"><div class="tac-card-title">Tanks</div>${tanksHtml}</div>
         <div class="tac-card"><div class="tac-card-title">Tank healer priority</div>${tankHealersHtml}</div>
         <div class="tac-card"><div class="tac-card-title">Group healers</div>${groupHealersHtml}</div>
-        <div class="tac-card"><div class="tac-card-title">Bloodlust</div><p class="ov-single">${bloodlustHtml}</p></div>
-        <div class="tac-card"><div class="tac-card-title">Power Infusion</div><p class="ov-single">${piHtml}</p></div>
-        <div class="tac-card"><div class="tac-card-title">Innervates</div>${innervatesHtml}</div>
-        <div class="tac-card tac-card-wide"><div class="tac-card-title">Misdirect rotation</div>${misdirectsHtml}</div>
-        <div class="tac-card tac-card-wide"><div class="tac-card-title">Raid positions</div>${positionsHtml}</div>
+        <div class="tac-card">${cardTitleWithIcon('spell_nature_bloodlust', 'Bloodlust')}<p class="ov-single">${bloodlustHtml}</p></div>
+        <div class="tac-card">${cardTitleWithIcon('spell_holy_powerinfusion', 'Power Infusion')}<p class="ov-single">${piHtml}</p></div>
+        <div class="tac-card">${cardTitleWithIcon('spell_nature_lightning', 'Innervates')}${innervatesHtml}</div>
+        <div class="tac-card tac-card-compact">${cardTitleWithIcon('ability_hunter_misdirection', 'Misdirect rotation')}${misdirectsHtml}</div>
+        <div class="tac-card tac-card-compact"><div class="tac-card-title">Raid positions</div>${positionsHtml}</div>
       </div>`;
 
     els.ovMapCard.classList.remove('role-hidden');

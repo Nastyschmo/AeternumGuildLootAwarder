@@ -893,6 +893,13 @@
         </div>
         <div id="ovBossInfo" class="tac-boss-info"></div>
         <div id="ovAssignmentsWrap"></div>
+        <div id="ovMapCard" class="tac-card tac-card-wide tac-map-card">
+          <div class="tac-card-title">Battlefield map</div>
+          <div class="tac-map-wrapper" id="ovMapWrapper">
+            <div class="tac-map-canvas" id="ovMapCanvas"></div>
+            <canvas id="ovMapDrawCanvas" class="tac-map-draw-canvas"></canvas>
+          </div>
+        </div>
       </div>
     </main>
   </div>
@@ -1758,6 +1765,10 @@
     ovBossHeader: document.getElementById('ovBossHeader'),
     ovBossInfo: document.getElementById('ovBossInfo'),
     ovAssignmentsWrap: document.getElementById('ovAssignmentsWrap'),
+    ovMapCard: document.getElementById('ovMapCard'),
+    ovMapWrapper: document.getElementById('ovMapWrapper'),
+    ovMapCanvas: document.getElementById('ovMapCanvas'),
+    ovMapDrawCanvas: document.getElementById('ovMapDrawCanvas'),
     tacMapDrawTools: document.getElementById('tacMapDrawTools'),
     saveStatus: document.getElementById('saveStatus'),
     setupScreen: document.getElementById('setupScreen'),
@@ -3528,6 +3539,38 @@
     }
   }
 
+  // Read-only version of the battlefield map for the Guild Member overview —
+  // shows the same background/zones/healers/markers/notes/drawings the
+  // officers set up, but with no palette, no drag, nothing clickable.
+  function renderOverviewMap(staticData, sessionData){
+    els.ovMapCanvas.style.backgroundImage = staticData.battlefield.backgroundUrl
+      ? `url('${staticData.battlefield.backgroundUrl.replace(/'/g, '%27')}')` : 'none';
+
+    let html = '';
+    staticData.positionGroups.forEach((pg, idx) => {
+      const pos = staticData.battlefield.zonePositions[pg.id] || { x: 15 + (idx % 4) * 22, y: 15 + Math.floor(idx / 4) * 25 };
+      const marker = RAID_MARKER_MAP[pg.marker];
+      html += `<div class="tac-map-zone" style="left:${pos.x}%; top:${pos.y}%;">
+        ${marker ? raidMarkerSvg(marker.id, 20) : ''}
+        <span class="tac-map-zone-label">${escapeHtml(pg.label || 'Zone')}</span>
+      </div>`;
+    });
+    sessionData.tankHealers.forEach((healerId, idx) => {
+      const pos = staticData.battlefield.healerPositions[idx] || { x: 35 + idx * 10, y: 65 };
+      const healer = state.roster.find(c => c.id === healerId);
+      html += `<div class="tac-map-healer" style="left:${pos.x}%; top:${pos.y}%;">H${idx + 1}${healer ? ' ' + escapeHtml(healer.name) : ''}</div>`;
+    });
+    staticData.battlefield.markers.forEach(m => {
+      html += `<div class="tac-map-marker" style="left:${m.x}%; top:${m.y}%;">${raidMarkerSvg(m.markerId, 24)}</div>`;
+    });
+    staticData.battlefield.notes.forEach(n => {
+      html += `<div class="tac-map-note" style="left:${n.x}%; top:${n.y}%;">${escapeHtml(n.text)}</div>`;
+    });
+
+    els.ovMapCanvas.innerHTML = html || '<p class="tac-map-empty-hint">Nothing placed on the map yet.</p>';
+    redrawDrawCanvas(els.ovMapDrawCanvas, staticData.battlefield.drawings, null);
+  }
+
   function renderOverviewView(){
     const hint = findNextUpcomingRaid();
     const ovGroupId = hint ? hint.groupId : null;
@@ -3551,6 +3594,7 @@
       els.ovAssignmentsWrap.innerHTML = '<div class="empty-state"><h3>No bosses available</h3></div>';
       els.ovPrevBtn.disabled = true;
       els.ovNextBtn.disabled = true;
+      els.ovMapCard.classList.add('role-hidden');
       return;
     }
 
@@ -3570,6 +3614,7 @@
           <h3>No raid night scheduled yet</h3>
           <p>Nothing's been scheduled for any raid group yet — check back closer to raid time.</p>
         </div>`;
+      els.ovMapCard.classList.add('role-hidden');
       return;
     }
 
@@ -3622,6 +3667,9 @@
         <div class="tac-card tac-card-wide"><div class="tac-card-title">Misdirect rotation</div>${misdirectsHtml}</div>
         <div class="tac-card tac-card-wide"><div class="tac-card-title">Raid positions</div>${positionsHtml}</div>
       </div>`;
+
+    els.ovMapCard.classList.remove('role-hidden');
+    renderOverviewMap(staticData, data);
   }
 
   function renderAttendanceComposition(session, groupId){

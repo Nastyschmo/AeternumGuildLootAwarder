@@ -1174,16 +1174,36 @@
   };
   // The 8 standard WoW raid target markers, real Blizzard icon files.
   const RAID_MARKERS = [
-    { id: 'star', label: 'Star', icon: 'ui_raidtargeting_icon_1' },
-    { id: 'circle', label: 'Circle', icon: 'ui_raidtargeting_icon_2' },
-    { id: 'diamond', label: 'Diamond', icon: 'ui_raidtargeting_icon_3' },
-    { id: 'triangle', label: 'Triangle', icon: 'ui_raidtargeting_icon_4' },
-    { id: 'moon', label: 'Moon', icon: 'ui_raidtargeting_icon_5' },
-    { id: 'square', label: 'Square', icon: 'ui_raidtargeting_icon_6' },
-    { id: 'cross', label: 'Cross', icon: 'ui_raidtargeting_icon_7' },
-    { id: 'skull', label: 'Skull', icon: 'ui_raidtargeting_icon_8' }
+    { id: 'star', label: 'Star' },
+    { id: 'circle', label: 'Circle' },
+    { id: 'diamond', label: 'Diamond' },
+    { id: 'triangle', label: 'Triangle' },
+    { id: 'moon', label: 'Moon' },
+    { id: 'square', label: 'Square' },
+    { id: 'cross', label: 'Cross' },
+    { id: 'skull', label: 'Skull' }
   ];
   const RAID_MARKER_MAP = Object.fromEntries(RAID_MARKERS.map(m => [m.id, m]));
+
+  // Drawn ourselves in the classic raid-marker colors rather than relying on
+  // an external icon file — guaranteed to render, no external dependency.
+  function raidMarkerSvg(markerId, size){
+    size = size || 18;
+    const shapes = {
+      star: `<polygon points="12,2 14.7,9 22,9.3 16.2,13.9 18.2,21 12,16.9 5.8,21 7.8,13.9 2,9.3 9.3,9" fill="#fef200" stroke="#7a6b00" stroke-width="0.8"/>`,
+      circle: `<circle cx="12" cy="12" r="9.5" fill="#ff8000" stroke="#7a3d00" stroke-width="0.8"/>`,
+      diamond: `<polygon points="12,2 22,12 12,22 2,12" fill="#a335ee" stroke="#4d1766" stroke-width="0.8"/>`,
+      triangle: `<polygon points="12,3 21.5,20 2.5,20" fill="#1eff00" stroke="#0a6600" stroke-width="0.8"/>`,
+      moon: `<path d="M16 2.5a9.5 9.5 0 1 0 0 19 7.5 7.5 0 0 1 0-19z" fill="#e8e8e8" stroke="#777" stroke-width="0.8"/>`,
+      square: `<rect x="2.5" y="2.5" width="19" height="19" fill="#0070dd" stroke="#00325e" stroke-width="0.8"/>`,
+      cross: `<g fill="#ff1414" stroke="#7a0000" stroke-width="0.6"><rect x="10.3" y="1" width="3.4" height="22" transform="rotate(45 12 12)"/><rect x="1" y="10.3" width="22" height="3.4" transform="rotate(45 12 12)"/></g>`,
+      skull: `<g><circle cx="12" cy="10.5" r="8.5" fill="#f5f5f5" stroke="#333" stroke-width="0.8"/><circle cx="8.7" cy="9.5" r="2.1" fill="#222"/><circle cx="15.3" cy="9.5" r="2.1" fill="#222"/><rect x="9.5" y="14.5" width="5" height="2.6" fill="#222"/></g>`
+    };
+    const shape = shapes[markerId];
+    if (!shape) return null;
+    return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" style="display:block;">${shape}</svg>`;
+  }
+
   const ATT_STATUSES = [
     { id: 'pending', label: 'Pending' },
     { id: 'accepted', label: 'Accepted' },
@@ -2844,7 +2864,7 @@
     // position list and Group Healers below reference these same groups.
     const positionGroupRowsHtml = data.positionGroups.map((pg, idx) => {
       const marker = RAID_MARKER_MAP[pg.marker];
-      const icon = marker ? iconImgHtml(marker.icon, 18) : null;
+      const icon = marker ? raidMarkerSvg(marker.id, 18) : null;
       return `
         <div class="tac-row">
           ${icon ? `<span class="tac-marker-preview">${icon}</span>` : `<span class="tac-marker-preview tac-marker-preview-empty"></span>`}
@@ -2871,7 +2891,7 @@
     const groupHealerRowsHtml = data.groupHealers.map((row, idx) => {
       const pg = data.positionGroups.find(p => p.id === row.positionGroupId);
       const marker = pg && RAID_MARKER_MAP[pg.marker];
-      const icon = marker ? iconImgHtml(marker.icon, 16) : null;
+      const icon = marker ? raidMarkerSvg(marker.id, 16) : null;
       return `
         <div class="tac-row">
           ${icon ? `<span class="tac-marker-preview">${icon}</span>` : `<span class="tac-marker-preview tac-marker-preview-empty"></span>`}

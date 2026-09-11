@@ -372,6 +372,7 @@
   .tac-row-label{ font-size: 11.5px; color: var(--text-faint); font-weight: 600; min-width: 78px; flex: none; }
   .tac-arrow{ color: var(--text-faint); flex: none; }
   .tac-select{ flex: 1; min-width: 0; font-size: 12.5px; padding: 5px 8px; }
+  .tac-text-input{ flex: 1; min-width: 0; font-size: 12.5px; padding: 5px 8px; }
   .btn-icon-remove{
     background: none; border: none; color: var(--text-faint); cursor: pointer;
     font-size: 13px; padding: 2px 4px; flex: none;
@@ -2678,8 +2679,10 @@
     const s = g[sessionId] = g[sessionId] || {};
     const key = tacticsKey(raidId, bossName);
     if (!s[key]){
-      s[key] = { tanks: [], tankHealers: [], groupHealers: {}, bloodlust: null, powerInfusion: null, innervateGiver: null, innervateTarget: null, misdirects: [] };
+      s[key] = { tanks: [], tankHealers: [], groupHealers: [], bloodlust: null, powerInfusion: null, innervates: [], misdirects: [] };
     }
+    if (!Array.isArray(s[key].groupHealers)) s[key].groupHealers = [];
+    if (!Array.isArray(s[key].innervates)) s[key].innervates = [];
     return s[key];
   }
 
@@ -2772,6 +2775,24 @@
     const hunterPool = accepted.filter(c => c.class === 'hunter');
     const tankChars = data.tanks.map(id => state.roster.find(c => c.id === id)).filter(Boolean);
 
+    // Innervates: one row per accepted Druid automatically, rather than a
+    // manually-added list — add a row for any newly-accepted Druid missing
+    // one, and drop rows for Druids who are no longer accepted.
+    let innervatesChanged = false;
+    druidPool.forEach(d => {
+      if (!data.innervates.some(iv => iv.giverId === d.id)){
+        data.innervates.push({ giverId: d.id, targetId: null });
+        innervatesChanged = true;
+      }
+    });
+    const keptInnervates = data.innervates.filter(iv => druidPool.some(d => d.id === iv.giverId));
+    if (keptInnervates.length !== data.innervates.length){ data.innervates = keptInnervates; innervatesChanged = true; }
+    data.innervates.sort((a, b) => {
+      const na = state.roster.find(c => c.id === a.giverId)?.name || '';
+      const nb = state.roster.find(c => c.id === b.giverId)?.name || '';
+      return na.localeCompare(nb);
+    });
+
     const orderedListHtml = (fieldName, list, pool, labelFor, addLabel) => {
       const rows = list.map((id, idx) => `
         <div class="tac-row">
@@ -2782,10 +2803,16 @@
       return `${rows}${editable ? `<button type="button" class="btn btn-sm btn-ghost" data-tac-add-list="${fieldName}">${addLabel}</button>` : ''}`;
     };
 
-    const groupHealerRowsHtml = SUBGROUPS.map(n => `
+    // Group healers: flexible labeled positions (e.g. "Ranged + Icebolt",
+    // "Melee stack", "Flex") rather than fixed raid-subgroup numbers — the
+    // officer names whatever positional clusters actually matter for this
+    // specific fight.
+    const groupHealerRowsHtml = data.groupHealers.map((row, idx) => `
       <div class="tac-row">
-        <span class="tac-row-label">Group ${n}</span>
-        <select class="tac-select" data-tac-field="groupHealers" data-tac-index="${n}" ${!editable ? 'disabled' : ''}>${charOptionsHtml(healPool, data.groupHealers[n])}</select>
+        <input type="text" class="tac-text-input" data-tac-field="groupHealerLabel" data-tac-index="${idx}"
+          value="${escapeHtml(row.label || '')}" placeholder="Position name (e.g. Ranged, Melee, Flex)" ${!editable ? 'disabled' : ''} />
+        <select class="tac-select" data-tac-field="groupHealerId" data-tac-index="${idx}" ${!editable ? 'disabled' : ''}>${charOptionsHtml(healPool, row.healerId)}</select>
+        ${editable ? `<button type="button" class="btn-icon-remove" data-tac-remove-list="groupHealers:${idx}">✕</button>` : ''}
       </div>`).join('');
 
     const misdirectRowsHtml = data.misdirects.map((md, idx) => `
@@ -2796,6 +2823,16 @@
         <select class="tac-select" data-tac-field="misdirectTarget" data-tac-index="${idx}" ${!editable ? 'disabled' : ''}>${charOptionsHtml(tankChars, md.targetTankId, 'Pick tank')}</select>
         ${editable ? `<button type="button" class="btn-icon-remove" data-tac-remove-list="misdirects:${idx}">✕</button>` : ''}
       </div>`).join('');
+
+    const innervateRowsHtml = data.innervates.map((iv) => {
+      const giver = state.roster.find(c => c.id === iv.giverId);
+      return `
+        <div class="tac-row tac-row-double">
+          <span class="tac-row-label">${giver ? escapeHtml(giver.name) : 'Unknown'}</span>
+          <span class="tac-arrow">→</span>
+          <select class="tac-select" data-tac-field="innervateTarget" data-tac-index="${iv.giverId}" ${!editable ? 'disabled' : ''}>${charOptionsHtml(accepted, iv.targetId, 'Pick target')}</select>
+        </div>`;
+    }).join('');
 
     els.tacAssignmentsWrap.innerHTML = `
       <div class="tac-grid">
@@ -2811,8 +2848,9 @@
         </div>
         <div class="tac-card">
           <div class="tac-card-title">Group healers</div>
-          <div class="tac-card-note">One healer watching each raid subgroup.</div>
+          <div class="tac-card-note">Named by battlefield position, not raid subgroup — e.g. "Ranged", "Melee", "Flex".</div>
           ${groupHealerRowsHtml}
+          ${editable ? `<button type="button" class="btn btn-sm btn-ghost" data-tac-add-list="groupHealers">+ Add position</button>` : ''}
         </div>
         <div class="tac-card">
           <div class="tac-card-title">Bloodlust</div>
@@ -2824,15 +2862,9 @@
           <select class="tac-select" data-tac-field="powerInfusion" ${!editable ? 'disabled' : ''}>${charOptionsHtml(priestDiscPool, data.powerInfusion)}</select>
         </div>
         <div class="tac-card">
-          <div class="tac-card-title">Innervate</div>
-          <div class="tac-row">
-            <span class="tac-row-label">From</span>
-            <select class="tac-select" data-tac-field="innervateGiver" ${!editable ? 'disabled' : ''}>${charOptionsHtml(druidPool, data.innervateGiver)}</select>
-          </div>
-          <div class="tac-row">
-            <span class="tac-row-label">To</span>
-            <select class="tac-select" data-tac-field="innervateTarget" ${!editable ? 'disabled' : ''}>${charOptionsHtml(accepted, data.innervateTarget)}</select>
-          </div>
+          <div class="tac-card-title">Innervates</div>
+          <div class="tac-card-note">One row per accepted Druid, automatically — just pick who each one targets.</div>
+          ${innervateRowsHtml || '<p class="lootlib-note">No Druids accepted for this raid night.</p>'}
         </div>
         <div class="tac-card tac-card-wide">
           <div class="tac-card-title">Misdirect rotation</div>
@@ -2842,21 +2874,27 @@
         </div>
       </div>`;
 
+    if (innervatesChanged) saveData('bossTactics');
     if (!editable) return;
 
-    els.tacAssignmentsWrap.querySelectorAll('[data-tac-field]').forEach(sel => {
-      sel.addEventListener('change', async (e) => {
-        const field = sel.getAttribute('data-tac-field');
-        const idxAttr = sel.getAttribute('data-tac-index');
+    els.tacAssignmentsWrap.querySelectorAll('[data-tac-field]').forEach(el => {
+      el.addEventListener('change', async (e) => {
+        const field = el.getAttribute('data-tac-field');
+        const idxAttr = el.getAttribute('data-tac-index');
         const value = e.target.value || null;
         if (field === 'tanks' || field === 'tankHealers'){
           data[field][Number(idxAttr)] = value;
-        } else if (field === 'groupHealers'){
-          data.groupHealers[idxAttr] = value;
+        } else if (field === 'groupHealerLabel'){
+          data.groupHealers[Number(idxAttr)].label = e.target.value;
+        } else if (field === 'groupHealerId'){
+          data.groupHealers[Number(idxAttr)].healerId = value;
         } else if (field === 'misdirectHunter'){
           data.misdirects[Number(idxAttr)].hunterId = value;
         } else if (field === 'misdirectTarget'){
           data.misdirects[Number(idxAttr)].targetTankId = value;
+        } else if (field === 'innervateTarget'){
+          const iv = data.innervates.find(x => x.giverId === idxAttr);
+          if (iv) iv.targetId = value;
         } else {
           data[field] = value;
         }
@@ -2867,6 +2905,7 @@
       btn.addEventListener('click', async () => {
         const field = btn.getAttribute('data-tac-add-list');
         if (field === 'misdirects') data.misdirects.push({ hunterId: null, targetTankId: null });
+        else if (field === 'groupHealers') data.groupHealers.push({ label: '', healerId: null });
         else data[field].push(null);
         await saveTactics();
       });

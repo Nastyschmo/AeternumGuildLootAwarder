@@ -2678,12 +2678,19 @@
     const g = state.bossTactics[groupId] = state.bossTactics[groupId] || {};
     const s = g[sessionId] = g[sessionId] || {};
     const key = tacticsKey(raidId, bossName);
-    if (!s[key]){
-      s[key] = { tanks: [], tankHealers: [], groupHealers: [], bloodlust: null, powerInfusion: null, innervates: [], misdirects: [] };
-    }
-    if (!Array.isArray(s[key].groupHealers)) s[key].groupHealers = [];
-    if (!Array.isArray(s[key].innervates)) s[key].innervates = [];
-    return s[key];
+    if (!s[key]) s[key] = {};
+    const d = s[key];
+    // Firebase drops empty arrays/objects entirely when saving, so any of
+    // these can legitimately come back as undefined after a sync — always
+    // coerce them back to the right shape rather than only doing it once.
+    if (!Array.isArray(d.tanks)) d.tanks = [];
+    if (!Array.isArray(d.tankHealers)) d.tankHealers = [];
+    if (!Array.isArray(d.groupHealers)) d.groupHealers = [];
+    if (!Array.isArray(d.misdirects)) d.misdirects = [];
+    if (!Array.isArray(d.innervates)) d.innervates = [];
+    if (d.bloodlust === undefined) d.bloodlust = null;
+    if (d.powerInfusion === undefined) d.powerInfusion = null;
+    return d;
   }
 
   function acceptedCharactersForSession(session, groupId){

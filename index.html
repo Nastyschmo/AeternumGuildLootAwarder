@@ -354,6 +354,12 @@
     font-family: 'Cinzel', serif; font-size: 20px; color: var(--gold-bright);
     margin: 6px 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border-soft);
   }
+  .tac-nav-row{ display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 6px 0 10px; }
+  .tac-boss-header-center{ flex: 1; text-align: center; margin: 0; border-bottom: none; padding-bottom: 0; }
+  .ov-row{ display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 13px; border-bottom: 1px solid var(--border-soft); }
+  .ov-row:last-child{ border-bottom: none; }
+  .ov-row .ov-label{ color: var(--text-faint); font-size: 11.5px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+  .ov-single{ font-size: 14px; font-weight: 700; color: var(--gold-bright); margin: 0; }
   .tac-info-block{
     background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 6px;
     padding: 14px 16px; margin-bottom: 18px;
@@ -362,6 +368,12 @@
   .tac-info-title:first-child{ margin-top: 0; }
   .tac-info-block ul{ margin: 0 0 4px; padding-left: 18px; }
   .tac-info-block li{ font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin-bottom: 4px; }
+  .tac-ability-row{ display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border-soft); }
+  .tac-ability-row:last-child{ border-bottom: none; }
+  .tac-ability-icon{ flex: none; width: 24px; height: 24px; }
+  .tac-ability-icon-empty{ border: 1px dashed var(--border-soft); border-radius: 3px; }
+  .tac-ability-name{ font-family: 'Cinzel', serif; font-size: 12.5px; color: var(--gold-bright); font-weight: 600; margin-bottom: 2px; }
+  .tac-ability-desc{ font-size: 12px; color: var(--text-muted); line-height: 1.5; }
   .tac-grid{ display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
   .tac-card{ background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 6px; padding: 12px 14px; }
   .tac-card-wide{ grid-column: 1 / -1; }
@@ -506,7 +518,7 @@
   }
   .content-tab.active{ color: var(--gold-bright); border-bottom-color: var(--gold); }
   .content-tab:hover:not(.active){ color: var(--text-muted); }
-  #ledgerView.hidden, #gearView.hidden, #byGroupView.hidden, #rosterView.hidden, #attendanceView.hidden, #tacticsView.hidden{ display: none; }
+  #ledgerView.hidden, #gearView.hidden, #byGroupView.hidden, #rosterView.hidden, #attendanceView.hidden, #tacticsView.hidden, #overviewView.hidden{ display: none; }
 
   /* ---------- Roster group assignment ---------- */
   .roster-controls{ display: flex; align-items: center; justify-content: space-between; gap: 6px; }
@@ -678,6 +690,7 @@
         <div class="content-tab" data-view="roster">Character Roster</div>
         <div class="content-tab" data-view="attendance" id="attendanceTabBtn">Attendance</div>
         <div class="content-tab" data-view="tactics" id="tacticsTabBtn">Boss Tactics</div>
+        <div class="content-tab" data-view="overview" id="overviewTabBtn">Tactics Overview</div>
       </div>
 
       <div id="ledgerView">
@@ -866,6 +879,20 @@
             <canvas id="tacMapDrawCanvas" class="tac-map-draw-canvas"></canvas>
           </div>
         </div>
+      </div>
+
+      <div id="overviewView" class="hidden">
+        <div class="toolbar">
+          <select id="ovInstanceFilter" class="bygroup-filter"></select>
+          <select id="ovBossFilter" class="bygroup-filter"></select>
+        </div>
+        <div class="tac-nav-row">
+          <button type="button" class="btn btn-ghost btn-sm" id="ovPrevBtn">← Previous</button>
+          <div id="ovBossHeader" class="tac-boss-header tac-boss-header-center"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="ovNextBtn">Next →</button>
+        </div>
+        <div id="ovBossInfo" class="tac-boss-info"></div>
+        <div id="ovAssignmentsWrap"></div>
       </div>
     </main>
   </div>
@@ -1130,12 +1157,21 @@
   // "raidId::bossName". Built up boss by boss as we go through each fight.
   const BOSS_TACTICS_INFO = {
     'hyjal::Rage Winterchill': {
-      mechanics: [
+      generalNotes: [
         'Single-phase fight. Only one tank is strictly required — a second is optional insurance. Tank class/gear doesn\'t matter much; boss damage to the tank is low, so the MT can run threat-focused gear.',
-        'Icebolt: hits a random raid member for heavy frost damage, stuns them briefly, and leaves a damage-over-time effect. Needs immediate healing attention — designate 1-2 healers to watch for it and react fast.',
-        'Frost Nova: roots everyone near the boss (including the tank) for several seconds. Needs a fast Magic dispel (Priest Dispel Magic or Paladin Cleanse) — this is the #1 priority, since a rooted tank standing in Death & Decay is how wipes happen.',
-        'Death & Decay: a damaging ground effect that appears under a random player. Not dispellable — everyone (especially the tank) needs to just step out of it immediately.',
         'Have Warlocks pre-Soulstone your healers as a safety net — losing healers is the main wipe risk on this otherwise simple fight.'
+      ],
+      // icon: a real Blizzard spell icon filename where I'm confident about it
+      // (base spells that have existed since Classic and are extremely well
+      // documented). Left null where I'm not confident enough to guess —
+      // better no icon than a broken one.
+      abilities: [
+        { name: 'Icebolt', icon: null,
+          desc: 'Hits a random raid member for heavy frost damage, stuns them briefly, and leaves a damage-over-time effect. Needs immediate healing — designate 1-2 healers to watch for it and react fast.' },
+        { name: 'Frost Nova', icon: 'spell_frost_frostnova',
+          desc: 'Roots everyone near the boss (including the tank) for several seconds. Needs a fast Magic dispel (Priest Dispel Magic or Paladin Cleanse) — top priority, since a rooted tank standing in Death & Decay is how wipes happen.' },
+        { name: 'Death & Decay', icon: 'spell_shadow_deathanddecay',
+          desc: 'A damaging ground effect that appears under a random player. Not dispellable — everyone (especially the tank) needs to just step out of it immediately.' }
       ],
       trash: [
         '8 trash waves of Undead precede this boss (part of the first 32-wave structure shared across the first four bosses).',
@@ -1144,6 +1180,26 @@
       ]
     }
   };
+
+  function abilityRowHtml(a){
+    const iconHtml = a.icon ? iconImgHtml(a.icon, 24) : null;
+    return `<div class="tac-ability-row">
+      ${iconHtml ? `<span class="tac-ability-icon">${iconHtml}</span>` : `<span class="tac-ability-icon tac-ability-icon-empty"></span>`}
+      <div class="tac-ability-text">
+        <div class="tac-ability-name">${escapeHtml(a.name)}</div>
+        <div class="tac-ability-desc">${escapeHtml(a.desc)}</div>
+      </div>
+    </div>`;
+  }
+
+  function bossInfoHtml(info){
+    if (!info) return `<div class="tac-info-block"><p class="lootlib-note">No tactics notes for this boss yet.</p></div>`;
+    return `<div class="tac-info-block">
+      ${info.generalNotes && info.generalNotes.length ? `<div class="tac-info-title">General notes</div><ul>${info.generalNotes.map(m => `<li>${escapeHtml(m)}</li>`).join('')}</ul>` : ''}
+      ${info.abilities && info.abilities.length ? `<div class="tac-info-title">Abilities to watch for</div>${info.abilities.map(abilityRowHtml).join('')}` : ''}
+      ${info.trash && info.trash.length ? `<div class="tac-info-title">Trash before this boss</div><ul>${info.trash.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>` : ''}
+    </div>`;
+  }
 
   const CLASS_UTILITY = [
     { category: 'Interrupts — Physical (melee)', note: 'Melee-range, also locks that school briefly.',
@@ -1572,6 +1628,8 @@
   let tacMapColor = '#ff3b3b';
   let tacMapLiveDrawing = null;
   let tacMapFilled = true;
+  let ovRaidId = null;
+  let ovBossName = null;
   const TAC_MAP_COLORS = ['#ff3b3b', '#ffb100', '#ffe94d', '#3fd956', '#3fa9f5', '#ffffff'];
   let sidebarTab = 'groups';
   let lootlibRaidId = DEFAULT_PHASE_RAID_IDS[0];
@@ -1692,6 +1750,14 @@
     tacMapCanvas: document.getElementById('tacMapCanvas'),
     tacMapWrapper: document.getElementById('tacMapWrapper'),
     tacMapDrawCanvas: document.getElementById('tacMapDrawCanvas'),
+    overviewView: document.getElementById('overviewView'),
+    ovInstanceFilter: document.getElementById('ovInstanceFilter'),
+    ovBossFilter: document.getElementById('ovBossFilter'),
+    ovPrevBtn: document.getElementById('ovPrevBtn'),
+    ovNextBtn: document.getElementById('ovNextBtn'),
+    ovBossHeader: document.getElementById('ovBossHeader'),
+    ovBossInfo: document.getElementById('ovBossInfo'),
+    ovAssignmentsWrap: document.getElementById('ovAssignmentsWrap'),
     tacMapDrawTools: document.getElementById('tacMapDrawTools'),
     saveStatus: document.getElementById('saveStatus'),
     setupScreen: document.getElementById('setupScreen'),
@@ -2429,7 +2495,9 @@
     }
     const seeAttendance = canSeeAttendance();
     els.attendanceTabBtn.classList.toggle('role-hidden', !seeAttendance);
+    els.tacticsTabBtn.classList.toggle('role-hidden', !seeAttendance);
     if (!seeAttendance && mainView === 'attendance') mainView = 'ledger';
+    if (!seeAttendance && mainView === 'tactics') mainView = 'overview';
   }
 
   function renderMainView(){
@@ -2440,11 +2508,13 @@
     els.rosterView.classList.toggle('hidden', mainView !== 'roster');
     els.attendanceView.classList.toggle('hidden', mainView !== 'attendance');
     els.tacticsView.classList.toggle('hidden', mainView !== 'tactics');
+    els.overviewView.classList.toggle('hidden', mainView !== 'overview');
     if (mainView === 'gear') renderGearOverview();
     else if (mainView === 'bygroup') renderGearByGroup();
     else if (mainView === 'roster') renderRosterView();
     else if (mainView === 'attendance') renderAttendanceView();
     else if (mainView === 'tactics') renderTacticsView();
+    else if (mainView === 'overview') renderOverviewView();
     else renderLedger();
   }
 
@@ -2937,14 +3007,7 @@
     els.tacBossHeader.textContent = `${tacBossName} — ${raid.name}`;
 
     const info = BOSS_TACTICS_INFO[tacticsKey(tacRaidId, tacBossName)];
-    els.tacBossInfo.innerHTML = info
-      ? `<div class="tac-info-block">
-           <div class="tac-info-title">Mechanics</div>
-           <ul>${info.mechanics.map(m => `<li>${escapeHtml(m)}</li>`).join('')}</ul>
-           <div class="tac-info-title">Trash before this boss</div>
-           <ul>${info.trash.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>
-         </div>`
-      : `<div class="tac-info-block"><p class="lootlib-note">No tactics notes for this boss yet — tell me the mechanics and we'll add them.</p></div>`;
+    els.tacBossInfo.innerHTML = bossInfoHtml(info);
 
     if (!tacSessionId){
       els.tacAssignmentsWrap.innerHTML = `
@@ -3465,6 +3528,102 @@
     }
   }
 
+  function renderOverviewView(){
+    const hint = findNextUpcomingRaid();
+    const ovGroupId = hint ? hint.groupId : null;
+    const ovSessionId = hint ? hint.sessionId : null;
+
+    const phaseRaids = RAID_DATA.filter(r => currentPhaseIds().includes(r.id));
+    const raidChoices = phaseRaids.length ? phaseRaids : RAID_DATA;
+    els.ovInstanceFilter.innerHTML = raidChoices.map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+    if (!ovRaidId || !raidChoices.some(r => r.id === ovRaidId)) ovRaidId = raidChoices[0].id;
+    els.ovInstanceFilter.value = ovRaidId;
+
+    const raid = RAID_MAP[ovRaidId];
+    const bossChoices = raid.bosses.filter(b => b.name !== 'Trash');
+    els.ovBossFilter.innerHTML = bossChoices.map(b => `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)}</option>`).join('');
+    if (!ovBossName || !bossChoices.some(b => b.name === ovBossName)) ovBossName = bossChoices.length ? bossChoices[0].name : null;
+    if (ovBossName) els.ovBossFilter.value = ovBossName;
+
+    if (!ovBossName){
+      els.ovBossHeader.textContent = '';
+      els.ovBossInfo.innerHTML = '';
+      els.ovAssignmentsWrap.innerHTML = '<div class="empty-state"><h3>No bosses available</h3></div>';
+      els.ovPrevBtn.disabled = true;
+      els.ovNextBtn.disabled = true;
+      return;
+    }
+
+    const bossIdx = bossChoices.findIndex(b => b.name === ovBossName);
+    els.ovPrevBtn.disabled = bossIdx <= 0;
+    els.ovNextBtn.disabled = bossIdx >= bossChoices.length - 1;
+
+    const group = groupById(ovGroupId);
+    els.ovBossHeader.textContent = `${ovBossName} — ${raid.name}${group ? ' · ' + group.name : ''}`;
+
+    const info = BOSS_TACTICS_INFO[tacticsKey(ovRaidId, ovBossName)];
+    els.ovBossInfo.innerHTML = bossInfoHtml(info);
+
+    if (!ovGroupId || !ovSessionId){
+      els.ovAssignmentsWrap.innerHTML = `
+        <div class="empty-state">
+          <h3>No raid night scheduled yet</h3>
+          <p>Nothing's been scheduled for any raid group yet — check back closer to raid time.</p>
+        </div>`;
+      return;
+    }
+
+    const staticData = getStaticTacticsData(ovRaidId, ovBossName);
+    const data = getTacticsData(ovGroupId, ovSessionId, ovRaidId, ovBossName);
+    const nameOf = (id) => { const c = state.roster.find(x => x.id === id); return c ? c.name : '—'; };
+
+    const rowsOrNote = (list, rowFn) => list.length ? list.map(rowFn).join('') : '<p class="lootlib-note">Not assigned yet.</p>';
+
+    const tanksHtml = rowsOrNote(data.tanks, (id, i) =>
+      `<div class="ov-row"><span class="ov-label">${i === 0 ? 'Main Tank' : 'Off-Tank ' + i}</span><span>${escapeHtml(nameOf(id))}</span></div>`);
+
+    const tankHealersHtml = rowsOrNote(data.tankHealers, (id, i) =>
+      `<div class="ov-row"><span class="ov-label">Priority ${i + 1}</span><span>${escapeHtml(nameOf(id))}</span></div>`);
+
+    const groupHealersHtml = rowsOrNote(data.groupHealers, (row) => {
+      const pg = staticData.positionGroups.find(p => p.id === row.positionGroupId);
+      return `<div class="ov-row"><span class="ov-label">${pg ? escapeHtml(pg.label || 'Position') : 'Position'}</span><span>${escapeHtml(nameOf(row.healerId))}</span></div>`;
+    });
+
+    const bloodlustHtml = data.bloodlust ? escapeHtml(nameOf(data.bloodlust)) : 'Not assigned yet.';
+    const piHtml = data.powerInfusion ? escapeHtml(nameOf(data.powerInfusion)) : 'Not assigned yet.';
+
+    const innervatesHtml = rowsOrNote(data.innervates, (iv) =>
+      `<div class="ov-row"><span class="ov-label">${escapeHtml(nameOf(iv.giverId))}</span><span>→ ${escapeHtml(nameOf(iv.targetId))}</span></div>`);
+
+    const misdirectsHtml = rowsOrNote(data.misdirects, (md, i) =>
+      `<div class="ov-row"><span class="ov-label">${i + 1}.</span><span>${escapeHtml(nameOf(md.hunterId))} → ${escapeHtml(nameOf(md.targetTankId))}</span></div>`);
+
+    const posBuckets = {};
+    Object.entries(data.positions).forEach(([charId, pgId]) => {
+      (posBuckets[pgId] = posBuckets[pgId] || []).push(charId);
+    });
+    const positionsHtml = staticData.positionGroups.length
+      ? staticData.positionGroups.map(pg => {
+          const members = (posBuckets[pg.id] || []).map(id => escapeHtml(nameOf(id))).join(', ') || '—';
+          const marker = RAID_MARKER_MAP[pg.marker];
+          return `<div class="ov-row"><span class="ov-label">${marker ? raidMarkerSvg(marker.id, 14) : ''} ${escapeHtml(pg.label || 'Position')}</span><span>${members}</span></div>`;
+        }).join('')
+      : '<p class="lootlib-note">No positioning groups defined yet.</p>';
+
+    els.ovAssignmentsWrap.innerHTML = `
+      <div class="tac-grid">
+        <div class="tac-card"><div class="tac-card-title">Tanks</div>${tanksHtml}</div>
+        <div class="tac-card"><div class="tac-card-title">Tank healer priority</div>${tankHealersHtml}</div>
+        <div class="tac-card"><div class="tac-card-title">Group healers</div>${groupHealersHtml}</div>
+        <div class="tac-card"><div class="tac-card-title">Bloodlust</div><p class="ov-single">${bloodlustHtml}</p></div>
+        <div class="tac-card"><div class="tac-card-title">Power Infusion</div><p class="ov-single">${piHtml}</p></div>
+        <div class="tac-card"><div class="tac-card-title">Innervates</div>${innervatesHtml}</div>
+        <div class="tac-card tac-card-wide"><div class="tac-card-title">Misdirect rotation</div>${misdirectsHtml}</div>
+        <div class="tac-card tac-card-wide"><div class="tac-card-title">Raid positions</div>${positionsHtml}</div>
+      </div>`;
+  }
+
   function renderAttendanceComposition(session, groupId){
     const group = groupById(groupId);
     const characters = state.roster.filter(c => c.groupId === groupId || Object.prototype.hasOwnProperty.call(session.attendance, c.id));
@@ -3816,6 +3975,29 @@
     tacBossName = els.tacBossFilter.value || null;
     renderTacticsView();
   });
+
+  els.ovInstanceFilter.addEventListener('change', () => {
+    ovRaidId = els.ovInstanceFilter.value || null;
+    ovBossName = null;
+    renderOverviewView();
+  });
+  els.ovBossFilter.addEventListener('change', () => {
+    ovBossName = els.ovBossFilter.value || null;
+    renderOverviewView();
+  });
+  els.ovPrevBtn.addEventListener('click', () => {
+    if (!ovRaidId) return;
+    const bossChoices = RAID_MAP[ovRaidId].bosses.filter(b => b.name !== 'Trash');
+    const idx = bossChoices.findIndex(b => b.name === ovBossName);
+    if (idx > 0){ ovBossName = bossChoices[idx - 1].name; renderOverviewView(); }
+  });
+  els.ovNextBtn.addEventListener('click', () => {
+    if (!ovRaidId) return;
+    const bossChoices = RAID_MAP[ovRaidId].bosses.filter(b => b.name !== 'Trash');
+    const idx = bossChoices.findIndex(b => b.name === ovBossName);
+    if (idx !== -1 && idx < bossChoices.length - 1){ ovBossName = bossChoices[idx + 1].name; renderOverviewView(); }
+  });
+
   els.tacMapBgInput.addEventListener('change', async (e) => {
     if (!tacRaidId || !tacBossName) return;
     const staticData = getStaticTacticsData(tacRaidId, tacBossName);

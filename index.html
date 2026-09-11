@@ -693,6 +693,14 @@
               <label for="cf-group">Raid group</label>
               <select id="cf-group"></select>
             </div>
+            <div class="field">
+              <label for="cf-mainspec">Main spec</label>
+              <select id="cf-mainspec"></select>
+            </div>
+            <div class="field">
+              <label for="cf-offspec">Off spec</label>
+              <select id="cf-offspec"></select>
+            </div>
           </div>
           <div class="form-error" id="charFormError"></div>
           <div class="log-form-actions">
@@ -985,6 +993,19 @@
     { id: 'druid', label: 'Druid', color: '#FF7D0A' }
   ];
   const CLASS_MAP = Object.fromEntries(CLASSES.map(c => [c.id, c]));
+
+  // Full TBC talent trees per class, for the roster's Main/Off Spec fields.
+  const CLASS_SPEC_OPTIONS = {
+    warrior: ['Arms', 'Fury', 'Protection'],
+    paladin: ['Holy', 'Protection', 'Retribution'],
+    hunter: ['Beast Mastery', 'Marksmanship', 'Survival'],
+    rogue: ['Assassination', 'Combat', 'Subtlety'],
+    priest: ['Discipline', 'Holy', 'Shadow'],
+    shaman: ['Elemental', 'Enhancement', 'Restoration'],
+    mage: ['Arcane', 'Fire', 'Frost'],
+    warlock: ['Affliction', 'Demonology', 'Destruction'],
+    druid: ['Balance', 'Feral Combat', 'Restoration']
+  };
 
   const SLOTS = ['Head', 'Neck', 'Shoulder', 'Back', 'Chest', 'Wrist', 'Hands', 'Waist', 'Legs', 'Feet', 'Ring', 'Trinket', 'Weapon', 'Off-Hand', 'Ranged', 'Relic'];
   // For the Gear by Slot overview specifically: characters can equip TWO rings
@@ -1387,6 +1408,8 @@
     cfClass: document.getElementById('cf-class'),
     cfRole: document.getElementById('cf-role'),
     cfGroup: document.getElementById('cf-group'),
+    cfMainSpec: document.getElementById('cf-mainspec'),
+    cfOffSpec: document.getElementById('cf-offspec'),
     charFormError: document.getElementById('charFormError'),
     cancelCharBtn: document.getElementById('cancelCharBtn'),
     charSubmitBtn: document.getElementById('charSubmitBtn'),
@@ -1727,11 +1750,14 @@
     await saveData('roster');
   }
 
-  async function addCharacter(name, classId, groupId, role){
+  async function addCharacter(name, classId, groupId, role, mainSpec, offSpec){
     const trimmed = name.trim();
     if (!trimmed) return;
     if (characterByName(trimmed)){ setStatus('That character is already on the roster', true); return; }
-    state.roster.push({ id: uid(), name: trimmed, class: classId, groupId: groupId || null, role: role || null });
+    state.roster.push({
+      id: uid(), name: trimmed, class: classId, groupId: groupId || null, role: role || null,
+      mainSpec: mainSpec || null, offSpec: offSpec || null
+    });
     renderAll();
     await saveData('roster');
   }
@@ -2282,6 +2308,13 @@
       </table>`;
   }
 
+  function specOptionsHtml(classId, selected){
+    const specs = CLASS_SPEC_OPTIONS[classId] || [];
+    return [`<option value="">No spec set</option>`]
+      .concat(specs.map(s => `<option value="${s}" ${s === selected ? 'selected' : ''}>${s}</option>`))
+      .join('');
+  }
+
   function renderRosterView(){
     const editable = canEdit();
 
@@ -2294,6 +2327,8 @@
     els.cfClass.innerHTML = classOptionsHtml('');
     els.cfRole.innerHTML = roleOptionsHtml('');
     els.cfGroup.innerHTML = groupOptionsHtml('');
+    els.cfMainSpec.innerHTML = specOptionsHtml(els.cfClass.value, els.cfMainSpec.value);
+    els.cfOffSpec.innerHTML = specOptionsHtml(els.cfClass.value, els.cfOffSpec.value);
 
     if (state.roster.length === 0){
       els.rosterTableWrap.innerHTML = `
@@ -2334,6 +2369,8 @@
           <td>${cls.label}</td>
           <td>${role ? `<span class="role-tag" style="color:${role.color};border-color:${role.color}">${role.label}</span>` : '—'}</td>
           <td>${group ? `<span class="group-tag">${escapeHtml(group.name)}</span>` : '—'}</td>
+          <td>${c.mainSpec ? escapeHtml(c.mainSpec) : '—'}</td>
+          <td>${c.offSpec ? escapeHtml(c.offSpec) : '—'}</td>
           <td class="row-actions">
             ${!editable ? '' : confirming
               ? `<button class="btn btn-sm btn-danger" data-confirm-chardel="${c.id}">Confirm</button>
@@ -2347,7 +2384,7 @@
 
     els.rosterTableWrap.innerHTML = `
       <table>
-        <thead><tr><th>Character</th><th>Class</th><th>Role</th><th>Raid group</th><th></th></tr></thead>
+        <thead><tr><th>Character</th><th>Class</th><th>Role</th><th>Raid group</th><th>Main spec</th><th>Off spec</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table>`;
 
@@ -2370,6 +2407,8 @@
     els.cfClass.value = CLASSES[0].id;
     els.cfRole.value = '';
     els.cfGroup.value = '';
+    els.cfMainSpec.innerHTML = specOptionsHtml(els.cfClass.value, '');
+    els.cfOffSpec.innerHTML = specOptionsHtml(els.cfClass.value, '');
     els.charFormError.classList.remove('visible');
   }
 
@@ -2386,6 +2425,8 @@
     els.cfClass.value = c.class;
     els.cfRole.value = c.role || '';
     els.cfGroup.value = c.groupId || '';
+    els.cfMainSpec.innerHTML = specOptionsHtml(c.class, c.mainSpec || '');
+    els.cfOffSpec.innerHTML = specOptionsHtml(c.class, c.offSpec || '');
     els.charEditBanner.classList.remove('hidden');
     els.charSubmitBtn.textContent = 'Save changes';
     if (typeof els.charForm.scrollIntoView === 'function'){
@@ -2844,6 +2885,11 @@
     resetForNewEntry();
   });
 
+  els.cfClass.addEventListener('change', () => {
+    els.cfMainSpec.innerHTML = specOptionsHtml(els.cfClass.value, '');
+    els.cfOffSpec.innerHTML = specOptionsHtml(els.cfClass.value, '');
+  });
+
   els.charToggleBtn.addEventListener('click', () => {
     const opening = els.charForm.classList.contains('hidden');
     els.charForm.classList.toggle('hidden');
@@ -2878,6 +2924,8 @@
     const classId = els.cfClass.value;
     const role = els.cfRole.value;
     const groupId = els.cfGroup.value;
+    const mainSpec = els.cfMainSpec.value;
+    const offSpec = els.cfOffSpec.value;
 
     if (!name){
       els.charFormError.textContent = 'Please enter a character name.';
@@ -2899,12 +2947,14 @@
         c.class = classId;
         c.role = role || null;
         c.groupId = groupId || null;
+        c.mainSpec = mainSpec || null;
+        c.offSpec = offSpec || null;
         renderAll();
         await saveData('roster');
       }
       exitCharacterEditMode();
     } else {
-      await addCharacter(name, classId, groupId, role);
+      await addCharacter(name, classId, groupId, role, mainSpec, offSpec);
     }
     els.charForm.classList.add('hidden');
     resetCharForm();

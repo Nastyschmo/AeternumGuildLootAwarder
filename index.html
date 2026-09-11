@@ -387,11 +387,28 @@
     background: var(--bg-panel-raised); border: 1px solid var(--border-soft); border-radius: 4px; cursor: pointer;
   }
   .tac-map-palette-btn:hover{ border-color: var(--gold); }
-  .tac-map-canvas{
+  .tac-map-wrapper{
     position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 320px;
-    background-color: #1a2420; background-size: cover; background-position: center;
-    border: 1px solid var(--border-soft); border-radius: 6px; overflow: hidden; touch-action: none;
+    border: 1px solid var(--border-soft); border-radius: 6px; overflow: hidden;
   }
+  .tac-map-canvas{
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    background-color: #1a2420; background-size: cover; background-position: center; touch-action: none;
+  }
+  .tac-map-draw-canvas{
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; touch-action: none;
+  }
+  .tac-map-draw-canvas.tac-draw-active{ pointer-events: auto; cursor: crosshair; z-index: 6; }
+  .tac-map-tool-btn{
+    display: flex; align-items: center; gap: 4px; padding: 5px 9px; font-size: 11px;
+    background: var(--bg-panel-raised); border: 1px solid var(--border-soft); border-radius: 4px; cursor: pointer; color: var(--text-muted);
+  }
+  .tac-map-tool-btn.active{ border-color: var(--gold); color: var(--gold-bright); }
+  .tac-map-color-btn{
+    width: 22px; height: 22px; border-radius: 4px; border: 2px solid transparent; cursor: pointer; padding: 0;
+  }
+  .tac-map-color-btn.active{ border-color: #fff; }
   .tac-map-empty-hint{
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     text-align: center; padding: 20px; color: var(--text-faint); font-size: 12.5px; font-style: italic;
@@ -843,7 +860,11 @@
             <input type="text" id="tacMapBgInput" class="tac-text-input" placeholder="Background image URL (optional)" />
           </div>
           <div class="tac-map-toolbar" id="tacMapPalette"></div>
-          <div class="tac-map-canvas" id="tacMapCanvas"></div>
+          <div class="tac-map-toolbar" id="tacMapDrawTools"></div>
+          <div class="tac-map-wrapper" id="tacMapWrapper">
+            <div class="tac-map-canvas" id="tacMapCanvas"></div>
+            <canvas id="tacMapDrawCanvas" class="tac-map-draw-canvas"></canvas>
+          </div>
         </div>
       </div>
     </main>
@@ -1547,6 +1568,10 @@
   let tacSessionId = null;
   let tacRaidId = null;
   let tacBossName = null;
+  let tacMapTool = 'select';
+  let tacMapColor = '#ff3b3b';
+  let tacMapLiveDrawing = null;
+  const TAC_MAP_COLORS = ['#ff3b3b', '#ffb100', '#ffe94d', '#3fd956', '#3fa9f5', '#ffffff'];
   let sidebarTab = 'groups';
   let lootlibRaidId = DEFAULT_PHASE_RAID_IDS[0];
   let searchTerm = '';
@@ -1664,6 +1689,9 @@
     tacMapBgInput: document.getElementById('tacMapBgInput'),
     tacMapPalette: document.getElementById('tacMapPalette'),
     tacMapCanvas: document.getElementById('tacMapCanvas'),
+    tacMapWrapper: document.getElementById('tacMapWrapper'),
+    tacMapDrawCanvas: document.getElementById('tacMapDrawCanvas'),
+    tacMapDrawTools: document.getElementById('tacMapDrawTools'),
     saveStatus: document.getElementById('saveStatus'),
     setupScreen: document.getElementById('setupScreen'),
     mainLayout: document.getElementById('mainLayout')
@@ -1672,7 +1700,16 @@
   function uid(){
     return (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2));
   }
-  function todayStr(){ return new Date().toISOString().slice(0,10); }
+  function toDateStr(d){
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  // Uses LOCAL date components, not .toISOString() (which is always UTC and
+  // can be a day off from the user's actual local date, especially for
+  // timezones ahead of UTC during early morning hours).
+  function todayStr(){ return toDateStr(new Date()); }
   function escapeHtml(str){
     return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
@@ -2702,11 +2739,34 @@
   function addDaysToDateStr(dateStr, days){
     const d = new Date(dateStr + 'T00:00:00');
     d.setDate(d.getDate() + days);
-    return d.toISOString().slice(0, 10);
+    return toDateStr(d);
   }
 
   function sessionsForGroup(groupId){
     return (state.raidSessions[groupId] || []).slice().sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  // Finds whichever raid group actually has the soonest upcoming session
+  // (today or later) across ALL groups — not just whichever group happens
+  // to be first in the list. Falls back to the most recent past session if
+  // nothing upcoming exists anywhere.
+  function findNextUpcomingRaid(){
+    const today = todayStr();
+    let bestFuture = null;
+    let bestPast = null;
+    state.groups.forEach(g => {
+      const sessions = sessionsForGroup(g.id);
+      if (!sessions.length) return;
+      const upcoming = sessions.filter(s => s.date >= today);
+      if (upcoming.length){
+        const candidate = upcoming[0];
+        if (!bestFuture || candidate.date < bestFuture.date) bestFuture = { groupId: g.id, sessionId: candidate.id, date: candidate.date };
+      } else {
+        const candidate = sessions[sessions.length - 1];
+        if (!bestPast || candidate.date > bestPast.date) bestPast = { groupId: g.id, sessionId: candidate.id, date: candidate.date };
+      }
+    });
+    return bestFuture || bestPast || null;
   }
 
   function suggestedNextSessionDate(groupId){
@@ -2803,6 +2863,7 @@
     if (!Array.isArray(d.battlefield.notes)) d.battlefield.notes = [];
     if (!d.battlefield.zonePositions || typeof d.battlefield.zonePositions !== 'object') d.battlefield.zonePositions = {};
     if (!d.battlefield.healerPositions || typeof d.battlefield.healerPositions !== 'object') d.battlefield.healerPositions = {};
+    if (!Array.isArray(d.battlefield.drawings)) d.battlefield.drawings = [];
     return d;
   }
 
@@ -2835,7 +2896,11 @@
 
     const groupOptions = state.groups.map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
     els.tacGroupFilter.innerHTML = groupOptions || '<option value="">No raid groups yet</option>';
-    if (!tacGroupId || !state.groups.some(g => g.id === tacGroupId)) tacGroupId = state.groups.length ? state.groups[0].id : null;
+    if (!tacGroupId || !state.groups.some(g => g.id === tacGroupId)){
+      const hint = findNextUpcomingRaid();
+      tacGroupId = hint ? hint.groupId : (state.groups.length ? state.groups[0].id : null);
+      if (hint) tacSessionId = hint.sessionId;
+    }
     if (tacGroupId) els.tacGroupFilter.value = tacGroupId;
 
     const phaseRaids = RAID_DATA.filter(r => currentPhaseIds().includes(r.id));
@@ -3160,6 +3225,68 @@
     el.addEventListener('pointercancel', finish);
   }
 
+  // Redraws every saved drawing (plus one in-progress stroke, if given) onto
+  // the persistent overlay canvas. Safe to call even where Canvas 2D isn't
+  // available (e.g. some test/embedded environments) — just no-ops.
+  function redrawDrawCanvas(canvasEl, drawings, liveDrawing){
+    const ctx = canvasEl.getContext && canvasEl.getContext('2d');
+    if (!ctx) return;
+    const rect = canvasEl.getBoundingClientRect();
+    const w = rect.width || canvasEl.clientWidth || 300;
+    const h = rect.height || canvasEl.clientHeight || 300;
+    const dpr = window.devicePixelRatio || 1;
+    canvasEl.width = Math.max(1, Math.round(w * dpr));
+    canvasEl.height = Math.max(1, Math.round(h * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const toPx = (p) => ({ x: (p.x / 100) * w, y: (p.y / 100) * h });
+
+    function drawOne(d){
+      if (!d || !d.points || !d.points.length) return;
+      ctx.strokeStyle = d.color; ctx.fillStyle = d.color;
+      ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      if (d.type === 'pen'){
+        if (d.points.length < 2) return;
+        ctx.beginPath();
+        const p0 = toPx(d.points[0]);
+        ctx.moveTo(p0.x, p0.y);
+        d.points.slice(1).forEach(p => { const px = toPx(p); ctx.lineTo(px.x, px.y); });
+        ctx.stroke();
+      } else if (d.type === 'line' || d.type === 'arrow'){
+        if (d.points.length < 2) return;
+        const p0 = toPx(d.points[0]), p1 = toPx(d.points[1]);
+        ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+        if (d.type === 'arrow'){
+          const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+          const headLen = 14;
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p1.x - headLen * Math.cos(angle - Math.PI / 6), p1.y - headLen * Math.sin(angle - Math.PI / 6));
+          ctx.lineTo(p1.x - headLen * Math.cos(angle + Math.PI / 6), p1.y - headLen * Math.sin(angle + Math.PI / 6));
+          ctx.closePath();
+          ctx.fill();
+        }
+      } else if (d.type === 'square'){
+        const p0 = toPx(d.points[0]);
+        const size = 24;
+        ctx.fillRect(p0.x - size / 2, p0.y - size / 2, size, size);
+      } else if (d.type === 'triangle'){
+        const p0 = toPx(d.points[0]);
+        const size = 15;
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y - size);
+        ctx.lineTo(p0.x + size, p0.y + size);
+        ctx.lineTo(p0.x - size, p0.y + size);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    drawings.forEach(drawOne);
+    if (liveDrawing) drawOne(liveDrawing);
+  }
+
   function renderBattlefieldMap(staticData, sessionData, accepted, editable){
     els.tacMapBgInput.value = staticData.battlefield.backgroundUrl || '';
     els.tacMapBgInput.disabled = !editable;
@@ -3170,6 +3297,21 @@
       ? RAID_MARKERS.map(m => `<button type="button" class="tac-map-palette-btn" data-add-marker="${m.id}" title="Add ${escapeHtml(m.label)}">${raidMarkerSvg(m.id, 18)}</button>`).join('')
         + `<button type="button" class="btn btn-sm btn-ghost" id="tacMapAddNoteBtn">+ Add note</button>`
       : '';
+
+    if (editable){
+      const tools = [
+        ['select', '↖ Select'], ['pen', '✏️ Pen'], ['line', '📏 Line'], ['arrow', '➡️ Arrow'],
+        ['square', '⬛ Square'], ['triangle', '🔺 Triangle'], ['eraser', '🧹 Erase']
+      ];
+      els.tacMapDrawTools.innerHTML =
+        tools.map(([id, label]) => `<button type="button" class="tac-map-tool-btn${tacMapTool === id ? ' active' : ''}" data-draw-tool="${id}">${label}</button>`).join('')
+        + TAC_MAP_COLORS.map(c => `<button type="button" class="tac-map-color-btn${tacMapColor === c ? ' active' : ''}" data-draw-color="${c}" style="background:${c};" title="${c}"></button>`).join('')
+        + `<button type="button" class="btn btn-sm btn-ghost" id="tacMapClearDrawBtn">Clear drawings</button>`;
+      els.tacMapDrawCanvas.classList.toggle('tac-draw-active', tacMapTool !== 'select');
+    } else {
+      els.tacMapDrawTools.innerHTML = '';
+      els.tacMapDrawCanvas.classList.remove('tac-draw-active');
+    }
 
     let html = '';
 
@@ -3211,6 +3353,8 @@
     els.tacMapCanvas.innerHTML = html || (editable
       ? '<p class="tac-map-empty-hint">Add a background image above, then use the palette to drop markers, or drag the auto-placed zones/healers into position.</p>'
       : '<p class="tac-map-empty-hint">Nothing placed on the map yet.</p>');
+
+    redrawDrawCanvas(els.tacMapDrawCanvas, staticData.battlefield.drawings, tacMapLiveDrawing);
 
     if (!editable) return;
 
@@ -3275,6 +3419,29 @@
         await saveStaticTactics();
       });
     }
+
+    els.tacMapDrawTools.querySelectorAll('[data-draw-tool]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        tacMapTool = btn.getAttribute('data-draw-tool');
+        tacMapLiveDrawing = null;
+        renderBattlefieldMap(staticData, sessionData, accepted, editable);
+      });
+    });
+    els.tacMapDrawTools.querySelectorAll('[data-draw-color]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        tacMapColor = btn.getAttribute('data-draw-color');
+        renderBattlefieldMap(staticData, sessionData, accepted, editable);
+      });
+    });
+    const clearDrawBtn = document.getElementById('tacMapClearDrawBtn');
+    if (clearDrawBtn){
+      clearDrawBtn.addEventListener('click', async () => {
+        if (!window.confirm('Clear all drawings on this map? This cannot be undone.')) return;
+        staticData.battlefield.drawings = [];
+        renderBattlefieldMap(staticData, sessionData, accepted, editable);
+        await saveStaticTactics();
+      });
+    }
   }
 
   function renderAttendanceComposition(session, groupId){
@@ -3323,7 +3490,9 @@
     const groupOptions = state.groups.map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
     els.attGroupFilter.innerHTML = groupOptions || '<option value="">No raid groups yet</option>';
     if (!attGroupId || !state.groups.some(g => g.id === attGroupId)){
-      attGroupId = state.groups.length ? state.groups[0].id : null;
+      const hint = findNextUpcomingRaid();
+      attGroupId = hint ? hint.groupId : (state.groups.length ? state.groups[0].id : null);
+      if (hint) attSessionId = hint.sessionId;
     }
     if (attGroupId) els.attGroupFilter.value = attGroupId;
 
@@ -3633,6 +3802,65 @@
     renderTacticsView();
     await saveStaticTactics();
   });
+
+  function tacMapPointToPercent(e){
+    const rect = els.tacMapDrawCanvas.getBoundingClientRect();
+    const w = rect.width || 1, h = rect.height || 1;
+    return {
+      x: Math.max(0, Math.min(100, ((e.clientX - rect.left) / w) * 100)),
+      y: Math.max(0, Math.min(100, ((e.clientY - rect.top) / h) * 100))
+    };
+  }
+
+  els.tacMapDrawCanvas.addEventListener('pointerdown', (e) => {
+    if (tacMapTool === 'select' || !tacRaidId || !tacBossName) return;
+    const staticData = getStaticTacticsData(tacRaidId, tacBossName);
+    const pos = tacMapPointToPercent(e);
+
+    if (tacMapTool === 'eraser'){
+      let bestIdx = -1, bestDist = 6;
+      staticData.battlefield.drawings.forEach((d, idx) => {
+        (d.points || []).forEach(p => {
+          const dist = Math.hypot(p.x - pos.x, p.y - pos.y);
+          if (dist < bestDist){ bestDist = dist; bestIdx = idx; }
+        });
+      });
+      if (bestIdx !== -1){
+        staticData.battlefield.drawings.splice(bestIdx, 1);
+        saveStaticTactics();
+      }
+      return;
+    }
+    if (tacMapTool === 'square' || tacMapTool === 'triangle'){
+      staticData.battlefield.drawings.push({ type: tacMapTool, color: tacMapColor, points: [pos] });
+      saveStaticTactics();
+      return;
+    }
+
+    tacMapLiveDrawing = { type: tacMapTool, color: tacMapColor, points: [pos] };
+    try{ els.tacMapDrawCanvas.setPointerCapture(e.pointerId); }catch(err){}
+    redrawDrawCanvas(els.tacMapDrawCanvas, staticData.battlefield.drawings, tacMapLiveDrawing);
+  });
+
+  els.tacMapDrawCanvas.addEventListener('pointermove', (e) => {
+    if (!tacMapLiveDrawing || !tacRaidId || !tacBossName) return;
+    const staticData = getStaticTacticsData(tacRaidId, tacBossName);
+    const pos = tacMapPointToPercent(e);
+    if (tacMapLiveDrawing.type === 'pen') tacMapLiveDrawing.points.push(pos);
+    else tacMapLiveDrawing.points[1] = pos;
+    redrawDrawCanvas(els.tacMapDrawCanvas, staticData.battlefield.drawings, tacMapLiveDrawing);
+  });
+
+  async function finalizeTacMapDrawing(){
+    if (!tacMapLiveDrawing){ return; }
+    if (!tacRaidId || !tacBossName){ tacMapLiveDrawing = null; return; }
+    const staticData = getStaticTacticsData(tacRaidId, tacBossName);
+    if (tacMapLiveDrawing.points.length >= 2) staticData.battlefield.drawings.push(tacMapLiveDrawing);
+    tacMapLiveDrawing = null;
+    await saveStaticTactics();
+  }
+  els.tacMapDrawCanvas.addEventListener('pointerup', finalizeTacMapDrawing);
+  els.tacMapDrawCanvas.addEventListener('pointercancel', () => { tacMapLiveDrawing = null; });
 
   els.attNewSessionBtn.addEventListener('click', () => {
     if (!attGroupId) return;

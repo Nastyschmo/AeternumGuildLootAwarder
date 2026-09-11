@@ -348,6 +348,35 @@
   .att-comp-name{ font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .att-comp-spec{ font-size: 10.5px; color: var(--text-faint); white-space: nowrap; margin-left: auto; }
   .att-comp-empty{ color: var(--text-faint); font-size: 12px; font-style: italic; }
+
+  /* ---------- Boss Tactics ---------- */
+  .tac-boss-header{
+    font-family: 'Cinzel', serif; font-size: 20px; color: var(--gold-bright);
+    margin: 6px 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border-soft);
+  }
+  .tac-info-block{
+    background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 6px;
+    padding: 14px 16px; margin-bottom: 18px;
+  }
+  .tac-info-title{ font-family: 'Cinzel', serif; font-size: 13px; color: var(--gold-bright); font-weight: 600; margin: 10px 0 4px; }
+  .tac-info-title:first-child{ margin-top: 0; }
+  .tac-info-block ul{ margin: 0 0 4px; padding-left: 18px; }
+  .tac-info-block li{ font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin-bottom: 4px; }
+  .tac-grid{ display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .tac-card{ background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 6px; padding: 12px 14px; }
+  .tac-card-wide{ grid-column: 1 / -1; }
+  .tac-card-title{ font-family: 'Cinzel', serif; font-size: 13px; color: var(--gold-bright); font-weight: 600; margin-bottom: 4px; }
+  .tac-card-note{ font-size: 11px; color: var(--text-faint); margin-bottom: 8px; line-height: 1.4; }
+  .tac-row{ display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .tac-row-double .tac-select{ flex: 1; min-width: 0; }
+  .tac-row-label{ font-size: 11.5px; color: var(--text-faint); font-weight: 600; min-width: 78px; flex: none; }
+  .tac-arrow{ color: var(--text-faint); flex: none; }
+  .tac-select{ flex: 1; min-width: 0; font-size: 12.5px; padding: 5px 8px; }
+  .btn-icon-remove{
+    background: none; border: none; color: var(--text-faint); cursor: pointer;
+    font-size: 13px; padding: 2px 4px; flex: none;
+  }
+  .btn-icon-remove:hover{ color: var(--danger-bright); }
   .att-decline-note{ font-size: 12px; padding: 4px 8px; min-width: 140px; }
   .att-status-tag{
     display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 3px;
@@ -412,7 +441,7 @@
   }
   .content-tab.active{ color: var(--gold-bright); border-bottom-color: var(--gold); }
   .content-tab:hover:not(.active){ color: var(--text-muted); }
-  #ledgerView.hidden, #gearView.hidden, #byGroupView.hidden, #rosterView.hidden, #attendanceView.hidden{ display: none; }
+  #ledgerView.hidden, #gearView.hidden, #byGroupView.hidden, #rosterView.hidden, #attendanceView.hidden, #tacticsView.hidden{ display: none; }
 
   /* ---------- Roster group assignment ---------- */
   .roster-controls{ display: flex; align-items: center; justify-content: space-between; gap: 6px; }
@@ -583,6 +612,7 @@
         <div class="content-tab" data-view="bygroup">Gear by Group</div>
         <div class="content-tab" data-view="roster">Character Roster</div>
         <div class="content-tab" data-view="attendance" id="attendanceTabBtn">Attendance</div>
+        <div class="content-tab" data-view="tactics" id="tacticsTabBtn">Boss Tactics</div>
       </div>
 
       <div id="ledgerView">
@@ -746,6 +776,18 @@
           <button type="button" class="btn btn-sm btn-ghost" id="attFillInAddBtn">+ Add as fill-in for this raid night</button>
         </div>
         <div class="ledger" id="attendanceTableWrap"></div>
+      </div>
+
+      <div id="tacticsView" class="hidden">
+        <div class="toolbar">
+          <select id="tacGroupFilter" class="bygroup-filter"></select>
+          <select id="tacSessionFilter" class="bygroup-filter"></select>
+          <select id="tacInstanceFilter" class="bygroup-filter"></select>
+          <select id="tacBossFilter" class="bygroup-filter"></select>
+        </div>
+        <div id="tacBossHeader" class="tac-boss-header"></div>
+        <div id="tacBossInfo" class="tac-boss-info"></div>
+        <div id="tacAssignmentsWrap"></div>
       </div>
     </main>
   </div>
@@ -1006,6 +1048,25 @@
   // Verified TBC class-utility reference, built with the guild's own knowledge
   // plus web-verified corrections. Used for the Utility sidebar tab now, and
   // will feed the future per-boss assignment feature ("who can do X").
+  // Boss-specific tactics reference: mechanics + trash summary. Keyed by
+  // "raidId::bossName". Built up boss by boss as we go through each fight.
+  const BOSS_TACTICS_INFO = {
+    'hyjal::Rage Winterchill': {
+      mechanics: [
+        'Single-phase fight. Only one tank is strictly required — a second is optional insurance. Tank class/gear doesn\'t matter much; boss damage to the tank is low, so the MT can run threat-focused gear.',
+        'Icebolt: hits a random raid member for heavy frost damage, stuns them briefly, and leaves a damage-over-time effect. Needs immediate healing attention — designate 1-2 healers to watch for it and react fast.',
+        'Frost Nova: roots everyone near the boss (including the tank) for several seconds. Needs a fast Magic dispel (Priest Dispel Magic or Paladin Cleanse) — this is the #1 priority, since a rooted tank standing in Death & Decay is how wipes happen.',
+        'Death & Decay: a damaging ground effect that appears under a random player. Not dispellable — everyone (especially the tank) needs to just step out of it immediately.',
+        'Have Warlocks pre-Soulstone your healers as a safety net — losing healers is the main wipe risk on this otherwise simple fight.'
+      ],
+      trash: [
+        '8 trash waves of Undead precede this boss (part of the first 32-wave structure shared across the first four bosses).',
+        'Known wave elements: Ghouls (weak basic melee, low threat), Necromancers (casters — need consistent interrupts), Banshees (casters with a magic immunity shield — CC or focus down carefully), and Abominations (worth crowd controlling to reduce tank pressure).',
+        'Exact wave-by-wave composition/order isn\'t fully verified here yet — fill in specifics from your own runs and we\'ll lock it in.'
+      ]
+    }
+  };
+
   const CLASS_UTILITY = [
     { category: 'Interrupts — Physical (melee)', note: 'Melee-range, also locks that school briefly.',
       entries: [['warrior', 'Pummel'], ['rogue', 'Kick']] },
@@ -1381,7 +1442,7 @@
   const DEFAULT_PHASE_RAID_IDS = ['hyjal', 'bt'];
 
   function defaultState(){
-    return { groups: [], roster: [], loot: [], discordRoles: {}, raidSessions: {}, settings: { currentPhaseRaidIds: DEFAULT_PHASE_RAID_IDS.slice() } };
+    return { groups: [], roster: [], loot: [], discordRoles: {}, raidSessions: {}, bossTactics: {}, settings: { currentPhaseRaidIds: DEFAULT_PHASE_RAID_IDS.slice() } };
   }
 
   let state = defaultState();
@@ -1393,6 +1454,10 @@
   let rosterGroupFilterVal = 'all';
   let attGroupId = null;
   let attSessionId = null;
+  let tacGroupId = null;
+  let tacSessionId = null;
+  let tacRaidId = null;
+  let tacBossName = null;
   let sidebarTab = 'groups';
   let lootlibRaidId = DEFAULT_PHASE_RAID_IDS[0];
   let searchTerm = '';
@@ -1497,6 +1562,15 @@
     attFillInSelect: document.getElementById('attFillInSelect'),
     attFillInAddBtn: document.getElementById('attFillInAddBtn'),
     attendanceTableWrap: document.getElementById('attendanceTableWrap'),
+    tacticsView: document.getElementById('tacticsView'),
+    tacticsTabBtn: document.getElementById('tacticsTabBtn'),
+    tacGroupFilter: document.getElementById('tacGroupFilter'),
+    tacSessionFilter: document.getElementById('tacSessionFilter'),
+    tacInstanceFilter: document.getElementById('tacInstanceFilter'),
+    tacBossFilter: document.getElementById('tacBossFilter'),
+    tacBossHeader: document.getElementById('tacBossHeader'),
+    tacBossInfo: document.getElementById('tacBossInfo'),
+    tacAssignmentsWrap: document.getElementById('tacAssignmentsWrap'),
     saveStatus: document.getElementById('saveStatus'),
     setupScreen: document.getElementById('setupScreen'),
     mainLayout: document.getElementById('mainLayout')
@@ -1525,6 +1599,7 @@
       loot: Array.isArray(parsed.loot) ? parsed.loot : [],
       discordRoles: (parsed.discordRoles && typeof parsed.discordRoles === 'object') ? parsed.discordRoles : {},
       raidSessions: (parsed.raidSessions && typeof parsed.raidSessions === 'object') ? parsed.raidSessions : {},
+      bossTactics: (parsed.bossTactics && typeof parsed.bossTactics === 'object') ? parsed.bossTactics : {},
       settings: {
         currentPhaseRaidIds: (parsed.settings && Array.isArray(parsed.settings.currentPhaseRaidIds))
           ? parsed.settings.currentPhaseRaidIds
@@ -2232,10 +2307,12 @@
     els.byGroupView.classList.toggle('hidden', mainView !== 'bygroup');
     els.rosterView.classList.toggle('hidden', mainView !== 'roster');
     els.attendanceView.classList.toggle('hidden', mainView !== 'attendance');
+    els.tacticsView.classList.toggle('hidden', mainView !== 'tactics');
     if (mainView === 'gear') renderGearOverview();
     else if (mainView === 'bygroup') renderGearByGroup();
     else if (mainView === 'roster') renderRosterView();
     else if (mainView === 'attendance') renderAttendanceView();
+    else if (mainView === 'tactics') renderTacticsView();
     else renderLedger();
   }
 
@@ -2592,6 +2669,217 @@
     await saveData('raidSessions');
   }
 
+  /* ---------------- Boss Tactics ---------------- */
+
+  function tacticsKey(raidId, bossName){ return raidId + '::' + bossName; }
+
+  function getTacticsData(groupId, sessionId, raidId, bossName){
+    const g = state.bossTactics[groupId] = state.bossTactics[groupId] || {};
+    const s = g[sessionId] = g[sessionId] || {};
+    const key = tacticsKey(raidId, bossName);
+    if (!s[key]){
+      s[key] = { tanks: [], tankHealers: [], groupHealers: {}, bloodlust: null, powerInfusion: null, innervateGiver: null, innervateTarget: null, misdirects: [] };
+    }
+    return s[key];
+  }
+
+  function acceptedCharactersForSession(session, groupId){
+    return state.roster.filter(c => {
+      const inSession = c.groupId === groupId || Object.prototype.hasOwnProperty.call(session.attendance, c.id);
+      if (!inSession) return false;
+      const a = session.attendance[c.id];
+      return a && a.status === 'accepted';
+    });
+  }
+
+  async function saveTactics(){
+    renderTacticsView();
+    await saveData('bossTactics');
+  }
+
+  function charOptionsHtml(chars, selectedId, placeholder){
+    return `<option value="">${escapeHtml(placeholder || 'Unassigned')}</option>` +
+      chars.map(c => `<option value="${c.id}" ${c.id === selectedId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('');
+  }
+
+  function renderTacticsView(){
+    const editable = canSeeAttendance(); // Officer/Admin only, same as Attendance
+
+    const groupOptions = state.groups.map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
+    els.tacGroupFilter.innerHTML = groupOptions || '<option value="">No raid groups yet</option>';
+    if (!tacGroupId || !state.groups.some(g => g.id === tacGroupId)) tacGroupId = state.groups.length ? state.groups[0].id : null;
+    if (tacGroupId) els.tacGroupFilter.value = tacGroupId;
+
+    const phaseRaids = RAID_DATA.filter(r => currentPhaseIds().includes(r.id));
+    const raidChoices = phaseRaids.length ? phaseRaids : RAID_DATA;
+    els.tacInstanceFilter.innerHTML = raidChoices.map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+    if (!tacRaidId || !raidChoices.some(r => r.id === tacRaidId)) tacRaidId = raidChoices[0].id;
+    els.tacInstanceFilter.value = tacRaidId;
+
+    const raid = RAID_MAP[tacRaidId];
+    const bossChoices = raid.bosses.filter(b => b.name !== 'Trash');
+    els.tacBossFilter.innerHTML = bossChoices.map(b => `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)}</option>`).join('');
+    if (!tacBossName || !bossChoices.some(b => b.name === tacBossName)) tacBossName = bossChoices.length ? bossChoices[0].name : null;
+    if (tacBossName) els.tacBossFilter.value = tacBossName;
+
+    if (!tacGroupId || !tacBossName){
+      els.tacBossHeader.textContent = '';
+      els.tacBossInfo.innerHTML = '';
+      els.tacAssignmentsWrap.innerHTML = '';
+      return;
+    }
+
+    const sessions = sessionsForGroup(tacGroupId);
+    const sessionOptions = sessions.slice().reverse().map(s =>
+      `<option value="${s.id}">${s.date}${s.date === todayStr() ? ' (today)' : ''}</option>`).join('');
+    els.tacSessionFilter.innerHTML = sessionOptions || '<option value="">No raid nights yet</option>';
+    if (!tacSessionId || !sessions.some(s => s.id === tacSessionId)){
+      const todaySession = sessions.find(s => s.date === todayStr());
+      tacSessionId = todaySession ? todaySession.id : (sessions.length ? sessions[sessions.length - 1].id : null);
+    }
+    if (tacSessionId) els.tacSessionFilter.value = tacSessionId;
+
+    els.tacBossHeader.textContent = `${tacBossName} — ${raid.name}`;
+
+    const info = BOSS_TACTICS_INFO[tacticsKey(tacRaidId, tacBossName)];
+    els.tacBossInfo.innerHTML = info
+      ? `<div class="tac-info-block">
+           <div class="tac-info-title">Mechanics</div>
+           <ul>${info.mechanics.map(m => `<li>${escapeHtml(m)}</li>`).join('')}</ul>
+           <div class="tac-info-title">Trash before this boss</div>
+           <ul>${info.trash.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>
+         </div>`
+      : `<div class="tac-info-block"><p class="lootlib-note">No tactics notes for this boss yet — tell me the mechanics and we'll add them.</p></div>`;
+
+    if (!tacSessionId){
+      els.tacAssignmentsWrap.innerHTML = `
+        <div class="empty-state">
+          <h3>No raid night selected</h3>
+          <p>Schedule or pick a raid night on the Attendance tab first — assignments are based on who's accepted for that night.</p>
+        </div>`;
+      return;
+    }
+
+    const session = sessions.find(s => s.id === tacSessionId);
+    const accepted = acceptedCharactersForSession(session, tacGroupId).sort((a, b) => a.name.localeCompare(b.name));
+    const data = getTacticsData(tacGroupId, tacSessionId, tacRaidId, tacBossName);
+
+    const tankPool = accepted.filter(c => c.role === 'tank');
+    const healPool = accepted.filter(c => c.role === 'heal');
+    const shamanPool = accepted.filter(c => c.class === 'shaman');
+    const priestDiscPool = accepted.filter(c => c.class === 'priest' && (c.mainSpec === 'Discipline' || c.offSpec === 'Discipline'));
+    const druidPool = accepted.filter(c => c.class === 'druid');
+    const hunterPool = accepted.filter(c => c.class === 'hunter');
+    const tankChars = data.tanks.map(id => state.roster.find(c => c.id === id)).filter(Boolean);
+
+    const orderedListHtml = (fieldName, list, pool, labelFor, addLabel) => {
+      const rows = list.map((id, idx) => `
+        <div class="tac-row">
+          <span class="tac-row-label">${labelFor(idx)}</span>
+          <select class="tac-select" data-tac-field="${fieldName}" data-tac-index="${idx}" ${!editable ? 'disabled' : ''}>${charOptionsHtml(pool, id)}</select>
+          ${editable ? `<button type="button" class="btn-icon-remove" data-tac-remove-list="${fieldName}:${idx}">✕</button>` : ''}
+        </div>`).join('');
+      return `${rows}${editable ? `<button type="button" class="btn btn-sm btn-ghost" data-tac-add-list="${fieldName}">${addLabel}</button>` : ''}`;
+    };
+
+    const groupHealerRowsHtml = SUBGROUPS.map(n => `
+      <div class="tac-row">
+        <span class="tac-row-label">Group ${n}</span>
+        <select class="tac-select" data-tac-field="groupHealers" data-tac-index="${n}" ${!editable ? 'disabled' : ''}>${charOptionsHtml(healPool, data.groupHealers[n])}</select>
+      </div>`).join('');
+
+    const misdirectRowsHtml = data.misdirects.map((md, idx) => `
+      <div class="tac-row tac-row-double">
+        <span class="tac-row-label">${idx + 1}.</span>
+        <select class="tac-select" data-tac-field="misdirectHunter" data-tac-index="${idx}" ${!editable ? 'disabled' : ''}>${charOptionsHtml(hunterPool, md.hunterId, 'Pick hunter')}</select>
+        <span class="tac-arrow">→</span>
+        <select class="tac-select" data-tac-field="misdirectTarget" data-tac-index="${idx}" ${!editable ? 'disabled' : ''}>${charOptionsHtml(tankChars, md.targetTankId, 'Pick tank')}</select>
+        ${editable ? `<button type="button" class="btn-icon-remove" data-tac-remove-list="misdirects:${idx}">✕</button>` : ''}
+      </div>`).join('');
+
+    els.tacAssignmentsWrap.innerHTML = `
+      <div class="tac-grid">
+        <div class="tac-card">
+          <div class="tac-card-title">Tank assignment</div>
+          <div class="tac-card-note">Only Accepted characters with the Tank role show up here.</div>
+          ${orderedListHtml('tanks', data.tanks, tankPool, i => i === 0 ? 'Main Tank' : 'Off-Tank ' + i, '+ Add tank')}
+        </div>
+        <div class="tac-card">
+          <div class="tac-card-title">Tank healer priority</div>
+          <div class="tac-card-note">Ranked — #1 is first priority on the tank.</div>
+          ${orderedListHtml('tankHealers', data.tankHealers, healPool, i => 'Priority ' + (i + 1), '+ Add tank healer')}
+        </div>
+        <div class="tac-card">
+          <div class="tac-card-title">Group healers</div>
+          <div class="tac-card-note">One healer watching each raid subgroup.</div>
+          ${groupHealerRowsHtml}
+        </div>
+        <div class="tac-card">
+          <div class="tac-card-title">Bloodlust</div>
+          <select class="tac-select" data-tac-field="bloodlust" ${!editable ? 'disabled' : ''}>${charOptionsHtml(shamanPool, data.bloodlust)}</select>
+        </div>
+        <div class="tac-card">
+          <div class="tac-card-title">Power Infusion</div>
+          <div class="tac-card-note">Discipline Priests only (main or off spec).</div>
+          <select class="tac-select" data-tac-field="powerInfusion" ${!editable ? 'disabled' : ''}>${charOptionsHtml(priestDiscPool, data.powerInfusion)}</select>
+        </div>
+        <div class="tac-card">
+          <div class="tac-card-title">Innervate</div>
+          <div class="tac-row">
+            <span class="tac-row-label">From</span>
+            <select class="tac-select" data-tac-field="innervateGiver" ${!editable ? 'disabled' : ''}>${charOptionsHtml(druidPool, data.innervateGiver)}</select>
+          </div>
+          <div class="tac-row">
+            <span class="tac-row-label">To</span>
+            <select class="tac-select" data-tac-field="innervateTarget" ${!editable ? 'disabled' : ''}>${charOptionsHtml(accepted, data.innervateTarget)}</select>
+          </div>
+        </div>
+        <div class="tac-card tac-card-wide">
+          <div class="tac-card-title">Misdirect rotation</div>
+          <div class="tac-card-note">Ordered — #1 opens, later ones follow once the previous Misdirect is used.</div>
+          ${misdirectRowsHtml || '<p class="lootlib-note">No misdirects set yet.</p>'}
+          ${editable ? `<button type="button" class="btn btn-sm btn-ghost" data-tac-add-list="misdirects">+ Add misdirect</button>` : ''}
+        </div>
+      </div>`;
+
+    if (!editable) return;
+
+    els.tacAssignmentsWrap.querySelectorAll('[data-tac-field]').forEach(sel => {
+      sel.addEventListener('change', async (e) => {
+        const field = sel.getAttribute('data-tac-field');
+        const idxAttr = sel.getAttribute('data-tac-index');
+        const value = e.target.value || null;
+        if (field === 'tanks' || field === 'tankHealers'){
+          data[field][Number(idxAttr)] = value;
+        } else if (field === 'groupHealers'){
+          data.groupHealers[idxAttr] = value;
+        } else if (field === 'misdirectHunter'){
+          data.misdirects[Number(idxAttr)].hunterId = value;
+        } else if (field === 'misdirectTarget'){
+          data.misdirects[Number(idxAttr)].targetTankId = value;
+        } else {
+          data[field] = value;
+        }
+        await saveTactics();
+      });
+    });
+    els.tacAssignmentsWrap.querySelectorAll('[data-tac-add-list]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const field = btn.getAttribute('data-tac-add-list');
+        if (field === 'misdirects') data.misdirects.push({ hunterId: null, targetTankId: null });
+        else data[field].push(null);
+        await saveTactics();
+      });
+    });
+    els.tacAssignmentsWrap.querySelectorAll('[data-tac-remove-list]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const [field, idx] = btn.getAttribute('data-tac-remove-list').split(':');
+        data[field].splice(Number(idx), 1);
+        await saveTactics();
+      });
+    });
+  }
+
   function renderAttendanceComposition(session, groupId){
     const group = groupById(groupId);
     const characters = state.roster.filter(c => c.groupId === groupId || Object.prototype.hasOwnProperty.call(session.attendance, c.id));
@@ -2922,6 +3210,26 @@
     attSessionId = els.attSessionFilter.value || null;
     renderAttendanceView();
   });
+
+  els.tacGroupFilter.addEventListener('change', () => {
+    tacGroupId = els.tacGroupFilter.value || null;
+    tacSessionId = null;
+    renderTacticsView();
+  });
+  els.tacSessionFilter.addEventListener('change', () => {
+    tacSessionId = els.tacSessionFilter.value || null;
+    renderTacticsView();
+  });
+  els.tacInstanceFilter.addEventListener('change', () => {
+    tacRaidId = els.tacInstanceFilter.value || null;
+    tacBossName = null;
+    renderTacticsView();
+  });
+  els.tacBossFilter.addEventListener('change', () => {
+    tacBossName = els.tacBossFilter.value || null;
+    renderTacticsView();
+  });
+
   els.attNewSessionBtn.addEventListener('click', () => {
     if (!attGroupId) return;
     els.attNewSessionDate.value = suggestedNextSessionDate(attGroupId);

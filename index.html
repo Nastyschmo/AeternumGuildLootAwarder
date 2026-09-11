@@ -429,20 +429,34 @@
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     text-align: center; padding: 20px; color: var(--text-faint); font-size: 12.5px; font-style: italic;
   }
-  .tac-map-zone, .tac-map-healer, .tac-map-marker, .tac-map-note{
+  .tac-map-zone, .tac-map-healer, .tac-map-marker, .tac-map-note, .tac-map-tank, .tac-map-boss{
     position: absolute; transform: translate(-50%, -50%); cursor: grab; user-select: none; touch-action: none;
   }
   .tac-map-dragging{ cursor: grabbing; z-index: 20; opacity: 0.85; }
   .tac-map-zone{
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px; justify-content: center; padding: 4px;
     background: rgba(255, 210, 60, 0.16); border: 1.5px dashed rgba(255, 210, 60, 0.6);
-    border-radius: 50%; width: 92px; height: 92px; justify-content: center; padding: 4px;
+    border-radius: 50%; min-width: 40px; min-height: 40px;
   }
   .tac-map-zone-label{ font-size: 10.5px; font-weight: 700; color: #fff; text-align: center; text-shadow: 0 1px 2px #000; }
+  .tac-map-resize-handle{
+    position: absolute; right: -3px; bottom: -3px; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--gold-bright); border: 2px solid #1a1204; cursor: nwse-resize; touch-action: none;
+  }
   .tac-map-healer{
     background: rgba(63, 217, 86, 0.85); color: #06210c; font-weight: 700; font-size: 11px;
     padding: 3px 8px; border-radius: 12px; border: 1px solid #1c7a34; white-space: nowrap;
   }
+  .tac-map-tank{
+    background: rgba(255, 90, 90, 0.85); color: #2c0505; font-weight: 700; font-size: 11px;
+    padding: 3px 8px; border-radius: 12px; border: 1px solid #7a1c1c; white-space: nowrap;
+  }
+  .tac-map-boss{
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    background: rgba(20, 16, 8, 0.9); border: 2px solid #b91c1c; border-radius: 50%;
+    width: 54px; height: 54px; justify-content: center; padding: 2px;
+  }
+  .tac-map-boss-label{ font-size: 9px; font-weight: 700; color: #ff6b6b; text-align: center; max-width: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tac-map-marker{ padding: 3px; }
   .tac-map-note{
     background: rgba(20, 16, 8, 0.9); border: 1px solid var(--gold); color: var(--gold-bright);
@@ -2949,6 +2963,9 @@
     if (!Array.isArray(d.battlefield.notes)) d.battlefield.notes = [];
     if (!d.battlefield.zonePositions || typeof d.battlefield.zonePositions !== 'object') d.battlefield.zonePositions = {};
     if (!d.battlefield.healerPositions || typeof d.battlefield.healerPositions !== 'object') d.battlefield.healerPositions = {};
+    if (!d.battlefield.zoneSizes || typeof d.battlefield.zoneSizes !== 'object') d.battlefield.zoneSizes = {};
+    if (!d.battlefield.tankPositions || typeof d.battlefield.tankPositions !== 'object') d.battlefield.tankPositions = {};
+    if (!d.battlefield.bossPosition || typeof d.battlefield.bossPosition !== 'object') d.battlefield.bossPosition = { x: 50, y: 45 };
     if (!Array.isArray(d.battlefield.drawings)) d.battlefield.drawings = [];
     return d;
   }
@@ -3287,7 +3304,7 @@
       return { x: clamp(((e.clientX - rect.left) / width) * 100), y: clamp(((e.clientY - rect.top) / height) * 100) };
     };
     el.addEventListener('pointerdown', (e) => {
-      if (e.target.closest && e.target.closest('.tac-map-remove')) return;
+      if (e.target.closest && (e.target.closest('.tac-map-remove') || e.target.closest('.tac-map-resize-handle'))) return;
       dragging = true;
       el.classList.add('tac-map-dragging');
       try{ el.setPointerCapture(e.pointerId); }catch(err){}
@@ -3309,6 +3326,43 @@
     };
     el.addEventListener('pointerup', finish);
     el.addEventListener('pointercancel', finish);
+  }
+
+  // Drags the resize handle to resize its parent zone. Dragging mostly
+  // sideways widens it, mostly downward makes it taller — so a diagonal
+  // drag grows it as a bigger circle, while an asymmetric drag (e.g. mostly
+  // down) stretches it into an oval.
+  function makeResizable(handle, zoneEl, canvas, onResize){
+    let resizing = false;
+    handle.addEventListener('pointerdown', (e) => {
+      resizing = true;
+      try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    const update = (e, final) => {
+      if (!resizing) return;
+      const zoneRect = zoneEl.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      const cw = canvasRect.width || 1, ch = canvasRect.height || 1;
+      const centerX = zoneRect.left + zoneRect.width / 2;
+      const centerY = zoneRect.top + zoneRect.height / 2;
+      const newWidthPx = Math.max(20, (e.clientX - centerX) * 2);
+      const newHeightPx = Math.max(20, (e.clientY - centerY) * 2);
+      const wPct = Math.max(4, Math.min(90, (newWidthPx / cw) * 100));
+      const hPct = Math.max(4, Math.min(90, (newHeightPx / ch) * 100));
+      zoneEl.style.width = wPct + '%';
+      zoneEl.style.height = hPct + '%';
+      onResize(wPct, hPct, final);
+    };
+    handle.addEventListener('pointermove', (e) => update(e, false));
+    const finish = (e) => {
+      if (!resizing) return;
+      update(e, true);
+      resizing = false;
+    };
+    handle.addEventListener('pointerup', finish);
+    handle.addEventListener('pointercancel', finish);
   }
 
   // Redraws every saved drawing (plus one in-progress stroke, if given) onto
@@ -3423,10 +3477,12 @@
     // exists at all still comes from staticData — stable across sessions.
     staticData.positionGroups.forEach((pg, idx) => {
       const pos = staticData.battlefield.zonePositions[pg.id] || { x: 15 + (idx % 4) * 22, y: 15 + Math.floor(idx / 4) * 25 };
+      const size = staticData.battlefield.zoneSizes[pg.id] || { w: 16, h: 16 };
       const marker = RAID_MARKER_MAP[pg.marker];
-      html += `<div class="tac-map-zone" data-zone-id="${pg.id}" style="left:${pos.x}%; top:${pos.y}%;">
+      html += `<div class="tac-map-zone" data-zone-id="${pg.id}" style="left:${pos.x}%; top:${pos.y}%; width:${size.w}%; height:${size.h}%;">
         ${marker ? raidMarkerSvg(marker.id, 20) : ''}
         <span class="tac-map-zone-label">${escapeHtml(pg.label || 'Zone')}</span>
+        ${editable ? `<span class="tac-map-resize-handle" data-resize-zone="${pg.id}" title="Drag to resize — sideways for wider, down for taller"></span>` : ''}
       </div>`;
     });
 
@@ -3439,6 +3495,21 @@
       const healer = state.roster.find(c => c.id === healerId);
       html += `<div class="tac-map-healer" data-healer-index="${idx}" style="left:${pos.x}%; top:${pos.y}%;">H${idx + 1}${healer ? ' ' + escapeHtml(healer.name) : ''}</div>`;
     });
+
+    // Same pattern as healer slots — the position is a stable, boss-level
+    // slot (MT, OT1...), the name shown comes from this session's tanks.
+    sessionData.tanks.forEach((tankId, idx) => {
+      const pos = staticData.battlefield.tankPositions[idx] || { x: 45 + idx * 8, y: 40 };
+      const tank = state.roster.find(c => c.id === tankId);
+      html += `<div class="tac-map-tank" data-tank-index="${idx}" style="left:${pos.x}%; top:${pos.y}%;">${idx === 0 ? 'MT' : 'OT' + idx}${tank ? ' ' + escapeHtml(tank.name) : ''}</div>`;
+    });
+
+    // The boss marker is always present (one boss per encounter) so it's
+    // there to drag into place right away, rather than needing to be added.
+    html += `<div class="tac-map-boss" data-boss-marker="1" style="left:${staticData.battlefield.bossPosition.x}%; top:${staticData.battlefield.bossPosition.y}%;">
+      ${raidMarkerSvg('skull', 22)}
+      <span class="tac-map-boss-label">${escapeHtml(tacBossName || 'Boss')}</span>
+    </div>`;
 
     staticData.battlefield.markers.forEach(m => {
       html += `<div class="tac-map-marker" data-marker-id="${m.id}" style="left:${m.x}%; top:${m.y}%;">
@@ -3466,6 +3537,28 @@
       makeDraggable(el, els.tacMapCanvas, async (x, y, final) => {
         if (!final) return;
         staticData.battlefield.zonePositions[el.getAttribute('data-zone-id')] = { x, y };
+        await saveStaticTactics();
+      });
+    });
+    els.tacMapCanvas.querySelectorAll('[data-resize-zone]').forEach(handle => {
+      const zoneEl = handle.closest('[data-zone-id]');
+      makeResizable(handle, zoneEl, els.tacMapCanvas, async (w, h, final) => {
+        if (!final) return;
+        staticData.battlefield.zoneSizes[handle.getAttribute('data-resize-zone')] = { w, h };
+        await saveStaticTactics();
+      });
+    });
+    els.tacMapCanvas.querySelectorAll('[data-tank-index]').forEach(el => {
+      makeDraggable(el, els.tacMapCanvas, async (x, y, final) => {
+        if (!final) return;
+        staticData.battlefield.tankPositions[el.getAttribute('data-tank-index')] = { x, y };
+        await saveStaticTactics();
+      });
+    });
+    els.tacMapCanvas.querySelectorAll('[data-boss-marker]').forEach(el => {
+      makeDraggable(el, els.tacMapCanvas, async (x, y, final) => {
+        if (!final) return;
+        staticData.battlefield.bossPosition = { x, y };
         await saveStaticTactics();
       });
     });
@@ -3564,8 +3657,9 @@
     let html = '';
     staticData.positionGroups.forEach((pg, idx) => {
       const pos = staticData.battlefield.zonePositions[pg.id] || { x: 15 + (idx % 4) * 22, y: 15 + Math.floor(idx / 4) * 25 };
+      const size = staticData.battlefield.zoneSizes[pg.id] || { w: 16, h: 16 };
       const marker = RAID_MARKER_MAP[pg.marker];
-      html += `<div class="tac-map-zone" style="left:${pos.x}%; top:${pos.y}%;">
+      html += `<div class="tac-map-zone" style="left:${pos.x}%; top:${pos.y}%; width:${size.w}%; height:${size.h}%;">
         ${marker ? raidMarkerSvg(marker.id, 20) : ''}
         <span class="tac-map-zone-label">${escapeHtml(pg.label || 'Zone')}</span>
       </div>`;
@@ -3575,6 +3669,15 @@
       const healer = state.roster.find(c => c.id === healerId);
       html += `<div class="tac-map-healer" style="left:${pos.x}%; top:${pos.y}%;">H${idx + 1}${healer ? ' ' + escapeHtml(healer.name) : ''}</div>`;
     });
+    sessionData.tanks.forEach((tankId, idx) => {
+      const pos = staticData.battlefield.tankPositions[idx] || { x: 45 + idx * 8, y: 40 };
+      const tank = state.roster.find(c => c.id === tankId);
+      html += `<div class="tac-map-tank" style="left:${pos.x}%; top:${pos.y}%;">${idx === 0 ? 'MT' : 'OT' + idx}${tank ? ' ' + escapeHtml(tank.name) : ''}</div>`;
+    });
+    html += `<div class="tac-map-boss" style="left:${staticData.battlefield.bossPosition.x}%; top:${staticData.battlefield.bossPosition.y}%;">
+      ${raidMarkerSvg('skull', 22)}
+      <span class="tac-map-boss-label">${escapeHtml(ovBossName || 'Boss')}</span>
+    </div>`;
     staticData.battlefield.markers.forEach(m => {
       html += `<div class="tac-map-marker" style="left:${m.x}%; top:${m.y}%;">${raidMarkerSvg(m.markerId, 24)}</div>`;
     });

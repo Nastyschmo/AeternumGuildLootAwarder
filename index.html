@@ -373,6 +373,11 @@
   .tac-arrow{ color: var(--text-faint); flex: none; }
   .tac-select{ flex: 1; min-width: 0; font-size: 12.5px; padding: 5px 8px; }
   .tac-text-input{ flex: 1; min-width: 0; font-size: 12.5px; padding: 5px 8px; }
+  .tac-select-narrow{ flex: 0 0 110px; }
+  .tac-marker-preview{ display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex: none; }
+  .tac-marker-preview-empty{ border: 1px dashed var(--border-soft); border-radius: 3px; }
+  .tac-position-grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 14px; }
+  .tac-row-label-wide{ min-width: 100px; font-weight: 700; }
   .btn-icon-remove{
     background: none; border: none; color: var(--text-faint); cursor: pointer;
     font-size: 13px; padding: 2px 4px; flex: none;
@@ -1167,6 +1172,18 @@
     rogue: 'classicon_rogue', priest: 'classicon_priest', shaman: 'classicon_shaman',
     mage: 'classicon_mage', warlock: 'classicon_warlock', druid: 'classicon_druid'
   };
+  // The 8 standard WoW raid target markers, real Blizzard icon files.
+  const RAID_MARKERS = [
+    { id: 'star', label: 'Star', icon: 'ui_raidtargeting_icon_1' },
+    { id: 'circle', label: 'Circle', icon: 'ui_raidtargeting_icon_2' },
+    { id: 'diamond', label: 'Diamond', icon: 'ui_raidtargeting_icon_3' },
+    { id: 'triangle', label: 'Triangle', icon: 'ui_raidtargeting_icon_4' },
+    { id: 'moon', label: 'Moon', icon: 'ui_raidtargeting_icon_5' },
+    { id: 'square', label: 'Square', icon: 'ui_raidtargeting_icon_6' },
+    { id: 'cross', label: 'Cross', icon: 'ui_raidtargeting_icon_7' },
+    { id: 'skull', label: 'Skull', icon: 'ui_raidtargeting_icon_8' }
+  ];
+  const RAID_MARKER_MAP = Object.fromEntries(RAID_MARKERS.map(m => [m.id, m]));
   const ATT_STATUSES = [
     { id: 'pending', label: 'Pending' },
     { id: 'accepted', label: 'Accepted' },
@@ -2688,6 +2705,8 @@
     if (!Array.isArray(d.groupHealers)) d.groupHealers = [];
     if (!Array.isArray(d.misdirects)) d.misdirects = [];
     if (!Array.isArray(d.innervates)) d.innervates = [];
+    if (!Array.isArray(d.positionGroups)) d.positionGroups = [];
+    if (!d.positions || typeof d.positions !== 'object') d.positions = {};
     if (d.bloodlust === undefined) d.bloodlust = null;
     if (d.powerInfusion === undefined) d.powerInfusion = null;
     return d;
@@ -2810,17 +2829,57 @@
       return `${rows}${editable ? `<button type="button" class="btn btn-sm btn-ghost" data-tac-add-list="${fieldName}">${addLabel}</button>` : ''}`;
     };
 
-    // Group healers: flexible labeled positions (e.g. "Ranged + Icebolt",
-    // "Melee stack", "Flex") rather than fixed raid-subgroup numbers — the
-    // officer names whatever positional clusters actually matter for this
-    // specific fight.
-    const groupHealerRowsHtml = data.groupHealers.map((row, idx) => `
-      <div class="tac-row">
-        <input type="text" class="tac-text-input" data-tac-field="groupHealerLabel" data-tac-index="${idx}"
-          value="${escapeHtml(row.label || '')}" placeholder="Position name (e.g. Ranged, Melee, Flex)" ${!editable ? 'disabled' : ''} />
-        <select class="tac-select" data-tac-field="groupHealerId" data-tac-index="${idx}" ${!editable ? 'disabled' : ''}>${charOptionsHtml(healPool, row.healerId)}</select>
-        ${editable ? `<button type="button" class="btn-icon-remove" data-tac-remove-list="groupHealers:${idx}">✕</button>` : ''}
-      </div>`).join('');
+    const markerOptionsHtml = (selected) => `<option value="">No marker</option>` +
+      RAID_MARKERS.map(m => `<option value="${m.id}" ${m.id === selected ? 'selected' : ''}>${m.label}</option>`).join('');
+
+    const positionGroupOptionsHtml = (selected, placeholder) => `<option value="">${escapeHtml(placeholder || 'Unassigned')}</option>` +
+      data.positionGroups.map(p => {
+        const marker = RAID_MARKER_MAP[p.marker];
+        const markerPrefix = marker ? marker.label + ' — ' : '';
+        return `<option value="${p.id}" ${p.id === selected ? 'selected' : ''}>${escapeHtml(markerPrefix + (p.label || '(unnamed)'))}</option>`;
+      }).join('');
+
+    // Positioning groups: named battlefield clusters (optionally tagged with
+    // a raid marker), independent of raid subgroup. Both the raid-wide
+    // position list and Group Healers below reference these same groups.
+    const positionGroupRowsHtml = data.positionGroups.map((pg, idx) => {
+      const marker = RAID_MARKER_MAP[pg.marker];
+      const icon = marker ? iconImgHtml(marker.icon, 18) : null;
+      return `
+        <div class="tac-row">
+          ${icon ? `<span class="tac-marker-preview">${icon}</span>` : `<span class="tac-marker-preview tac-marker-preview-empty"></span>`}
+          <select class="tac-select tac-select-narrow" data-tac-field="posGroupMarker" data-tac-index="${idx}" ${!editable ? 'disabled' : ''}>${markerOptionsHtml(pg.marker)}</select>
+          <input type="text" class="tac-text-input" data-tac-field="posGroupLabel" data-tac-index="${idx}"
+            value="${escapeHtml(pg.label || '')}" placeholder="Position name" ${!editable ? 'disabled' : ''} />
+          ${editable ? `<button type="button" class="btn-icon-remove" data-tac-remove-list="positionGroups:${idx}">✕</button>` : ''}
+        </div>`;
+    }).join('');
+
+    // Every accepted attendee gets placed into one of the groups above,
+    // regardless of their raid subgroup.
+    const positionAssignRowsHtml = accepted.map(c => {
+      const cls = CLASS_MAP[c.class] || CLASS_MAP.warrior;
+      return `
+        <div class="tac-row">
+          <span class="tac-row-label tac-row-label-wide" style="color:${cls.color}">${escapeHtml(c.name)}</span>
+          <select class="tac-select" data-tac-field="charPosition" data-tac-index="${c.id}" ${!editable ? 'disabled' : ''}>${positionGroupOptionsHtml(data.positions[c.id])}</select>
+        </div>`;
+    }).join('');
+
+    // Group healers: pick one of the defined positioning groups (not a raid
+    // subgroup, not free text) and who watches it.
+    const groupHealerRowsHtml = data.groupHealers.map((row, idx) => {
+      const pg = data.positionGroups.find(p => p.id === row.positionGroupId);
+      const marker = pg && RAID_MARKER_MAP[pg.marker];
+      const icon = marker ? iconImgHtml(marker.icon, 16) : null;
+      return `
+        <div class="tac-row">
+          ${icon ? `<span class="tac-marker-preview">${icon}</span>` : `<span class="tac-marker-preview tac-marker-preview-empty"></span>`}
+          <select class="tac-select" data-tac-field="groupHealerPosition" data-tac-index="${idx}" ${!editable ? 'disabled' : ''}>${positionGroupOptionsHtml(row.positionGroupId, 'Pick position')}</select>
+          <select class="tac-select" data-tac-field="groupHealerId" data-tac-index="${idx}" ${!editable ? 'disabled' : ''}>${charOptionsHtml(healPool, row.healerId)}</select>
+          ${editable ? `<button type="button" class="btn-icon-remove" data-tac-remove-list="groupHealers:${idx}">✕</button>` : ''}
+        </div>`;
+    }).join('');
 
     const misdirectRowsHtml = data.misdirects.map((md, idx) => `
       <div class="tac-row tac-row-double">
@@ -2843,6 +2902,17 @@
 
     els.tacAssignmentsWrap.innerHTML = `
       <div class="tac-grid">
+        <div class="tac-card tac-card-wide">
+          <div class="tac-card-title">Positioning groups</div>
+          <div class="tac-card-note">Define battlefield clusters for this fight — optionally tag each with a raid marker. These feed both the raid position list and Group Healers below.</div>
+          ${positionGroupRowsHtml}
+          ${editable ? `<button type="button" class="btn btn-sm btn-ghost" data-tac-add-list="positionGroups">+ Add position group</button>` : ''}
+        </div>
+        <div class="tac-card tac-card-wide">
+          <div class="tac-card-title">Raid positions</div>
+          <div class="tac-card-note">Every accepted attendee, placed by battlefield position — independent of their raid subgroup.</div>
+          <div class="tac-position-grid">${positionAssignRowsHtml || '<p class="lootlib-note">No one accepted for this raid night yet.</p>'}</div>
+        </div>
         <div class="tac-card">
           <div class="tac-card-title">Tank assignment</div>
           <div class="tac-card-note">Only Accepted characters with the Tank role show up here.</div>
@@ -2855,9 +2925,9 @@
         </div>
         <div class="tac-card">
           <div class="tac-card-title">Group healers</div>
-          <div class="tac-card-note">Named by battlefield position, not raid subgroup — e.g. "Ranged", "Melee", "Flex".</div>
+          <div class="tac-card-note">Pick one of the positioning groups above and who watches it.</div>
           ${groupHealerRowsHtml}
-          ${editable ? `<button type="button" class="btn btn-sm btn-ghost" data-tac-add-list="groupHealers">+ Add position</button>` : ''}
+          ${editable ? `<button type="button" class="btn btn-sm btn-ghost" data-tac-add-list="groupHealers">+ Add position healer</button>` : ''}
         </div>
         <div class="tac-card">
           <div class="tac-card-title">Bloodlust</div>
@@ -2891,8 +2961,15 @@
         const value = e.target.value || null;
         if (field === 'tanks' || field === 'tankHealers'){
           data[field][Number(idxAttr)] = value;
-        } else if (field === 'groupHealerLabel'){
-          data.groupHealers[Number(idxAttr)].label = e.target.value;
+        } else if (field === 'posGroupLabel'){
+          data.positionGroups[Number(idxAttr)].label = e.target.value;
+        } else if (field === 'posGroupMarker'){
+          data.positionGroups[Number(idxAttr)].marker = value;
+        } else if (field === 'charPosition'){
+          if (value) data.positions[idxAttr] = value;
+          else delete data.positions[idxAttr];
+        } else if (field === 'groupHealerPosition'){
+          data.groupHealers[Number(idxAttr)].positionGroupId = value;
         } else if (field === 'groupHealerId'){
           data.groupHealers[Number(idxAttr)].healerId = value;
         } else if (field === 'misdirectHunter'){
@@ -2912,7 +2989,8 @@
       btn.addEventListener('click', async () => {
         const field = btn.getAttribute('data-tac-add-list');
         if (field === 'misdirects') data.misdirects.push({ hunterId: null, targetTankId: null });
-        else if (field === 'groupHealers') data.groupHealers.push({ label: '', healerId: null });
+        else if (field === 'groupHealers') data.groupHealers.push({ positionGroupId: null, healerId: null });
+        else if (field === 'positionGroups') data.positionGroups.push({ id: uid(), label: '', marker: null });
         else data[field].push(null);
         await saveTactics();
       });

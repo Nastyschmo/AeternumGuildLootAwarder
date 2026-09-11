@@ -374,6 +374,7 @@
   .tac-card-title-icon{ display: flex; align-items: center; gap: 6px; }
   .tac-card-title-icon-img{ flex: none; width: 20px; height: 20px; }
   .tac-card-compact{ max-width: 340px; }
+  .tac-card-double{ max-width: 680px; }
   .tac-ability-name{ font-family: 'Cinzel', serif; font-size: 12.5px; color: var(--gold-bright); font-weight: 600; margin-bottom: 2px; }
   .tac-ability-desc{ font-size: 12px; color: var(--text-muted); line-height: 1.5; }
   .tac-grid{ display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
@@ -894,7 +895,6 @@
           <div id="ovBossHeader" class="tac-boss-header tac-boss-header-center"></div>
           <button type="button" class="btn btn-ghost btn-sm" id="ovNextBtn">Next →</button>
         </div>
-        <div id="ovBossInfo" class="tac-boss-info"></div>
         <div id="ovAssignmentsWrap"></div>
         <div id="ovMapCard" class="tac-card tac-card-wide tac-map-card">
           <div class="tac-card-title">Battlefield map</div>
@@ -903,6 +903,7 @@
             <canvas id="ovMapDrawCanvas" class="tac-map-draw-canvas"></canvas>
           </div>
         </div>
+        <div id="ovBossInfo" class="tac-boss-info"></div>
       </div>
     </main>
   </div>
@@ -3128,14 +3129,20 @@
         </div>`;
     }).join('');
 
-    const misdirectRowsHtml = data.misdirects.map((md, idx) => `
+    const misdirectRowsHtml = data.misdirects.map((md, idx) => {
+      // A hunter already picked for a different row in the rotation shouldn't
+      // be offered again — each hunter's misdirect is a once-per-rotation
+      // cooldown-style resource, not something to double up on.
+      const availableHunters = hunterPool.filter(h => h.id === md.hunterId || !data.misdirects.some((other, oi) => oi !== idx && other.hunterId === h.id));
+      return `
       <div class="tac-row tac-row-double">
         <span class="tac-row-label">${idx + 1}.</span>
-        <select class="tac-select" data-tac-field="misdirectHunter" data-tac-index="${idx}" ${!editable ? 'disabled' : ''}>${charOptionsHtml(hunterPool, md.hunterId, 'Pick hunter')}</select>
+        <select class="tac-select" data-tac-field="misdirectHunter" data-tac-index="${idx}" ${!editable ? 'disabled' : ''}>${charOptionsHtml(availableHunters, md.hunterId, 'Pick hunter')}</select>
         <span class="tac-arrow">→</span>
         <select class="tac-select" data-tac-field="misdirectTarget" data-tac-index="${idx}" ${!editable ? 'disabled' : ''}>${charOptionsHtml(tankChars, md.targetTankId, 'Pick tank')}</select>
         ${editable ? `<button type="button" class="btn-icon-remove" data-tac-remove-list="misdirects:${idx}">✕</button>` : ''}
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
     const innervateRowsHtml = data.innervates.map((iv) => {
       const giver = state.roster.find(c => c.id === iv.giverId);
@@ -3190,7 +3197,7 @@
           <div class="tac-card-note">One row per accepted Druid, automatically — just pick who each one targets.</div>
           ${innervateRowsHtml || '<p class="lootlib-note">No Druids accepted for this raid night.</p>'}
         </div>
-        <div class="tac-card tac-card-compact">
+        <div class="tac-card tac-card-double">
           ${cardTitleWithIcon('ability_hunter_misdirection', 'Misdirect rotation')}
           <div class="tac-card-note">Ordered — #1 opens, later ones follow once the previous Misdirect is used.</div>
           ${misdirectRowsHtml || '<p class="lootlib-note">No misdirects set yet.</p>'}
@@ -3678,7 +3685,7 @@
         <div class="tac-card">${cardTitleWithIcon('spell_holy_powerinfusion', 'Power Infusion')}<p class="ov-single">${piHtml}</p></div>
         <div class="tac-card">${cardTitleWithIcon('spell_nature_lightning', 'Innervates')}${innervatesHtml}</div>
         <div class="tac-card tac-card-compact">${cardTitleWithIcon('ability_hunter_misdirection', 'Misdirect rotation')}${misdirectsHtml}</div>
-        <div class="tac-card tac-card-compact"><div class="tac-card-title">Raid positions</div>${positionsHtml}</div>
+        <div class="tac-card tac-card-double"><div class="tac-card-title">Raid positions</div>${positionsHtml}</div>
       </div>`;
 
     els.ovMapCard.classList.remove('role-hidden');

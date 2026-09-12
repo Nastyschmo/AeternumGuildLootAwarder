@@ -4427,6 +4427,32 @@
       }
       if (!els.cfName.value) els.cfName.value = characterName.charAt(0).toUpperCase() + characterName.slice(1);
 
+      // Each spec group lists every talent tree with points in it — the tree
+      // with the most points spent is effectively "the spec" for that group.
+      // is_active tells us which group is the current main spec vs off-spec.
+      const specGroups = data.specializations && Array.isArray(data.specializations.specialization_groups)
+        ? data.specializations.specialization_groups : [];
+      const dominantSpecOf = (group) => {
+        if (!group || !Array.isArray(group.specializations) || !group.specializations.length) return null;
+        const top = group.specializations.reduce((best, s) =>
+          (!best || (s.spent_points || 0) > (best.spent_points || 0)) ? s : best, null);
+        return top ? top.specialization_name : null;
+      };
+      const activeGroup = specGroups.find(g => g.is_active);
+      const inactiveGroup = specGroups.find(g => !g.is_active);
+      const mainSpecName = dominantSpecOf(activeGroup);
+      const offSpecName = dominantSpecOf(inactiveGroup);
+      if (mainSpecName && [...els.cfMainSpec.options].some(o => o.value === mainSpecName)){
+        els.cfMainSpec.value = mainSpecName;
+        filledSomething = true;
+      }
+      if (offSpecName && [...els.cfOffSpec.options].some(o => o.value === offSpecName)){
+        els.cfOffSpec.value = offSpecName;
+        filledSomething = true;
+      }
+
+      const guildName = localized(data.summary && data.summary.guild && data.summary.guild.name);
+
       if (data.professions && Array.isArray(data.professions.primaries)){
         const profNames = data.professions.primaries
           .map(p => localized(p.profession && p.profession.name))
@@ -4444,8 +4470,9 @@
       window.__lastArmoryLookup = data;
       els.cfArmoryRaw.value = JSON.stringify(data.specializations, null, 2);
       els.cfArmoryRaw.classList.remove('hidden');
+      const guildNote = guildName ? ` (guild: ${guildName})` : '';
       els.cfArmoryStatus.textContent = filledSomething
-        ? 'Filled in what we could recognize — please double check before saving. (Talent data shown below — click it, Ctrl/Cmd+A, copy, and share it so I can wire that up too.)'
+        ? `Filled in Class, Main Spec, and Off Spec where recognized${guildNote} — please double check before saving.`
         : "Got a response but couldn't confidently map it to fields — the raw data is shown below, click it and copy it to share.";
       els.cfArmoryStatus.className = filledSomething ? 'armory-status armory-status-ok' : 'armory-status';
     } catch (err) {

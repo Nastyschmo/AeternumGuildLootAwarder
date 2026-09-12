@@ -298,6 +298,11 @@
   .armory-status-error{ color: var(--danger-bright); }
   .armory-note{ font-size: 11px; color: var(--text-faint); font-style: italic; margin: -8px 0 14px; }
   .bnet-attribution{ font-size: 11px; color: var(--text-faint); margin-bottom: 12px; }
+  .armory-raw-debug{
+    width: 100%; font-family: monospace; font-size: 11px; color: var(--text-muted);
+    background: #0c0a06; border: 1px solid var(--border-soft); border-radius: 4px; padding: 8px; margin-bottom: 10px;
+  }
+  .armory-raw-debug.hidden{ display: none; }
   .edit-banner button{
     background: none; border: none; padding: 0; color: var(--gold-bright); text-decoration: underline;
     font-size: 12.5px; font-weight: 700; cursor: pointer;
@@ -828,6 +833,7 @@
             <button type="button" class="btn btn-sm btn-ghost" id="cf-armory-lookup-btn">🔍 Look up via Armory</button>
             <span id="cf-armory-status" class="armory-status"></span>
           </div>
+          <textarea id="cf-armory-raw" class="armory-raw-debug hidden" readonly rows="6" onclick="this.select()"></textarea>
           <p class="armory-note">One-time snapshot from Blizzard's public character data at the moment you look it up — not a live sync. Edit the fields below freely; re-run the lookup any time to refresh.</p>
           <div class="log-form-grid">
             <div class="field">
@@ -1776,6 +1782,7 @@
     cfArmoryRealm: document.getElementById('cf-armory-realm'),
     cfArmoryLookupBtn: document.getElementById('cf-armory-lookup-btn'),
     cfArmoryStatus: document.getElementById('cf-armory-status'),
+    cfArmoryRaw: document.getElementById('cf-armory-raw'),
     charFormError: document.getElementById('charFormError'),
     cancelCharBtn: document.getElementById('cancelCharBtn'),
     charSubmitBtn: document.getElementById('charSubmitBtn'),
@@ -4435,10 +4442,11 @@
       }
 
       window.__lastArmoryLookup = data;
-      console.log('Armory lookup raw response saved to window.__lastArmoryLookup — try: copy(JSON.stringify(window.__lastArmoryLookup.specializations, null, 2))');
+      els.cfArmoryRaw.value = JSON.stringify(data.specializations, null, 2);
+      els.cfArmoryRaw.classList.remove('hidden');
       els.cfArmoryStatus.textContent = filledSomething
-        ? 'Filled in what we could recognize — please double check before saving.'
-        : "Got a response but couldn't confidently map it to fields — check the browser console (F12) for the raw data.";
+        ? 'Filled in what we could recognize — please double check before saving. (Talent data shown below — click it, Ctrl/Cmd+A, copy, and share it so I can wire that up too.)'
+        : "Got a response but couldn't confidently map it to fields — the raw data is shown below, click it and copy it to share.";
       els.cfArmoryStatus.className = filledSomething ? 'armory-status armory-status-ok' : 'armory-status';
     } catch (err) {
       els.cfArmoryStatus.textContent = err.message;

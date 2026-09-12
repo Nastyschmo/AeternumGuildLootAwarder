@@ -288,6 +288,16 @@
     color: var(--gold-bright); font-size: 12.5px; font-weight: 600;
   }
   .edit-banner.hidden{ display: none; }
+  .armory-lookup-row{
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; padding: 10px 12px;
+    background: var(--bg-panel-raised); border: 1px dashed var(--border-soft); border-radius: 6px;
+  }
+  .armory-lookup-row input{ flex: 1; min-width: 140px; }
+  .armory-status{ font-size: 12px; color: var(--text-faint); }
+  .armory-status-ok{ color: #3fd956; }
+  .armory-status-error{ color: var(--danger-bright); }
+  .armory-note{ font-size: 11px; color: var(--text-faint); font-style: italic; margin: -8px 0 14px; }
+  .bnet-attribution{ font-size: 11px; color: var(--text-faint); margin-bottom: 12px; }
   .edit-banner button{
     background: none; border: none; padding: 0; color: var(--gold-bright); text-decoration: underline;
     font-size: 12.5px; font-weight: 700; cursor: pointer;
@@ -805,12 +815,20 @@
       </div>
 
       <div id="rosterView" class="hidden">
+        <p class="bnet-attribution">Character lookups use data from Blizzard Entertainment's World of Warcraft APIs. This tool is not created by, affiliated with, or endorsed by Blizzard Entertainment.</p>
         <div class="log-toggle-row" id="charToggleRow">
           <button class="btn btn-primary" id="charToggleBtn">+ Add character</button>
         </div>
 
         <form class="log-form hidden" id="charForm">
           <div class="edit-banner hidden" id="charEditBanner">Editing an existing character — <button type="button" id="cancelCharEditLink">cancel edit</button> to add a new one instead.</div>
+          <div class="armory-lookup-row">
+            <input type="text" id="cf-armory-name" placeholder="Character name" class="tac-text-input" />
+            <input type="text" id="cf-armory-realm" placeholder="Realm (e.g. earthshaker)" class="tac-text-input" />
+            <button type="button" class="btn btn-sm btn-ghost" id="cf-armory-lookup-btn">🔍 Look up via Armory</button>
+            <span id="cf-armory-status" class="armory-status"></span>
+          </div>
+          <p class="armory-note">One-time snapshot from Blizzard's public character data at the moment you look it up — not a live sync. Edit the fields below freely; re-run the lookup any time to refresh.</p>
           <div class="log-form-grid">
             <div class="field">
               <label for="cf-name">Character name</label>
@@ -835,6 +853,14 @@
             <div class="field">
               <label for="cf-offspec">Off spec</label>
               <select id="cf-offspec"></select>
+            </div>
+            <div class="field">
+              <label for="cf-prof1">Profession 1</label>
+              <select id="cf-prof1"></select>
+            </div>
+            <div class="field">
+              <label for="cf-prof2">Profession 2</label>
+              <select id="cf-prof2"></select>
             </div>
           </div>
           <div class="form-error" id="charFormError"></div>
@@ -967,6 +993,7 @@
     clientId: '1547344145960407081'
   };
   const WORKER_URL = 'https://guildlootdiscordworker.sebastian-spiehs.workers.dev/mint-token';
+  const ARMORY_URL = WORKER_URL.replace(/\/mint-token$/, '/armory-lookup');
   const DISCORD_REDIRECT_URI = window.location.origin + window.location.pathname;
   const DISCORD_IDENTITY_KEY = 'guild-loot-discord-identity';
   const DISCORD_PKCE_VERIFIER_KEY = 'guild-loot-discord-pkce-verifier';
@@ -1291,6 +1318,11 @@
     warlock: ['Affliction', 'Demonology', 'Destruction'],
     druid: ['Balance', 'Feral Combat', 'Restoration']
   };
+
+  const PROFESSIONS = [
+    'Alchemy', 'Blacksmithing', 'Enchanting', 'Engineering', 'Herbalism',
+    'Jewelcrafting', 'Leatherworking', 'Mining', 'Skinning', 'Tailoring'
+  ];
 
   const SLOTS = ['Head', 'Neck', 'Shoulder', 'Back', 'Chest', 'Wrist', 'Hands', 'Waist', 'Legs', 'Feet', 'Ring', 'Trinket', 'Weapon', 'Off-Hand', 'Ranged', 'Relic'];
   // For the Gear by Slot overview specifically: characters can equip TWO rings
@@ -1738,6 +1770,12 @@
     cfGroup: document.getElementById('cf-group'),
     cfMainSpec: document.getElementById('cf-mainspec'),
     cfOffSpec: document.getElementById('cf-offspec'),
+    cfProf1: document.getElementById('cf-prof1'),
+    cfProf2: document.getElementById('cf-prof2'),
+    cfArmoryName: document.getElementById('cf-armory-name'),
+    cfArmoryRealm: document.getElementById('cf-armory-realm'),
+    cfArmoryLookupBtn: document.getElementById('cf-armory-lookup-btn'),
+    cfArmoryStatus: document.getElementById('cf-armory-status'),
     charFormError: document.getElementById('charFormError'),
     cancelCharBtn: document.getElementById('cancelCharBtn'),
     charSubmitBtn: document.getElementById('charSubmitBtn'),
@@ -2138,13 +2176,13 @@
     await saveData('roster');
   }
 
-  async function addCharacter(name, classId, groupId, role, mainSpec, offSpec){
+  async function addCharacter(name, classId, groupId, role, mainSpec, offSpec, professions){
     const trimmed = name.trim();
     if (!trimmed) return;
     if (characterByName(trimmed)){ setStatus('That character is already on the roster', true); return; }
     state.roster.push({
       id: uid(), name: trimmed, class: classId, groupId: groupId || null, role: role || null,
-      mainSpec: mainSpec || null, offSpec: offSpec || null
+      mainSpec: mainSpec || null, offSpec: offSpec || null, professions: professions || []
     });
     renderAll();
     await saveData('roster');
@@ -2709,6 +2747,12 @@
       .join('');
   }
 
+  function professionOptionsHtml(selected){
+    return [`<option value="">None</option>`]
+      .concat(PROFESSIONS.map(p => `<option value="${p}" ${p === selected ? 'selected' : ''}>${p}</option>`))
+      .join('');
+  }
+
   function renderRosterView(){
     const editable = canEdit();
 
@@ -2723,6 +2767,8 @@
     els.cfGroup.innerHTML = groupOptionsHtml('');
     els.cfMainSpec.innerHTML = specOptionsHtml(els.cfClass.value, els.cfMainSpec.value);
     els.cfOffSpec.innerHTML = specOptionsHtml(els.cfClass.value, els.cfOffSpec.value);
+    if (!els.cfProf1.innerHTML) els.cfProf1.innerHTML = professionOptionsHtml('');
+    if (!els.cfProf2.innerHTML) els.cfProf2.innerHTML = professionOptionsHtml('');
 
     if (state.roster.length === 0){
       els.rosterTableWrap.innerHTML = `
@@ -2765,6 +2811,7 @@
           <td>${group ? `<span class="group-tag">${escapeHtml(group.name)}</span>` : '—'}</td>
           <td>${c.mainSpec ? escapeHtml(c.mainSpec) : '—'}</td>
           <td>${c.offSpec ? escapeHtml(c.offSpec) : '—'}</td>
+          <td>${(c.professions && c.professions.length) ? escapeHtml(c.professions.join(' / ')) : '—'}</td>
           <td class="row-actions">
             ${!editable ? '' : confirming
               ? `<button class="btn btn-sm btn-danger" data-confirm-chardel="${c.id}">Confirm</button>
@@ -2778,7 +2825,7 @@
 
     els.rosterTableWrap.innerHTML = `
       <table>
-        <thead><tr><th>Character</th><th>Class</th><th>Role</th><th>Raid group</th><th>Main spec</th><th>Off spec</th><th></th></tr></thead>
+        <thead><tr><th>Character</th><th>Class</th><th>Role</th><th>Raid group</th><th>Main spec</th><th>Off spec</th><th>Professions</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table>`;
 
@@ -2803,6 +2850,11 @@
     els.cfGroup.value = '';
     els.cfMainSpec.innerHTML = specOptionsHtml(els.cfClass.value, '');
     els.cfOffSpec.innerHTML = specOptionsHtml(els.cfClass.value, '');
+    els.cfProf1.innerHTML = professionOptionsHtml('');
+    els.cfProf2.innerHTML = professionOptionsHtml('');
+    els.cfArmoryName.value = '';
+    els.cfArmoryRealm.value = '';
+    els.cfArmoryStatus.textContent = '';
     els.charFormError.classList.remove('visible');
   }
 
@@ -2821,6 +2873,11 @@
     els.cfGroup.value = c.groupId || '';
     els.cfMainSpec.innerHTML = specOptionsHtml(c.class, c.mainSpec || '');
     els.cfOffSpec.innerHTML = specOptionsHtml(c.class, c.offSpec || '');
+    els.cfProf1.innerHTML = professionOptionsHtml((c.professions || [])[0] || '');
+    els.cfProf2.innerHTML = professionOptionsHtml((c.professions || [])[1] || '');
+    els.cfArmoryName.value = '';
+    els.cfArmoryRealm.value = '';
+    els.cfArmoryStatus.textContent = '';
     els.charEditBanner.classList.remove('hidden');
     els.charSubmitBtn.textContent = 'Save changes';
     if (typeof els.charForm.scrollIntoView === 'function'){
@@ -4323,6 +4380,73 @@
     renderRosterView();
   });
 
+  // Blizzard's exact Classic API response shape hasn't been verified against
+  // a live character yet (documented mainly from retail-equivalent
+  // endpoints), so this parses defensively: it tries the documented field
+  // paths and quietly leaves a field alone rather than guessing wrong if
+  // something doesn't match what's expected.
+  els.cfArmoryLookupBtn.addEventListener('click', async () => {
+    const characterName = els.cfArmoryName.value.trim();
+    const realmSlug = els.cfArmoryRealm.value.trim();
+    if (!characterName || !realmSlug){
+      els.cfArmoryStatus.textContent = 'Enter both a character name and realm.';
+      els.cfArmoryStatus.className = 'armory-status armory-status-error';
+      return;
+    }
+    els.cfArmoryStatus.textContent = 'Looking up…';
+    els.cfArmoryStatus.className = 'armory-status';
+    els.cfArmoryLookupBtn.disabled = true;
+    try {
+      const res = await fetch(ARMORY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ characterName, realmSlug })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Lookup failed');
+
+      let filledSomething = false;
+      const localized = (val) => typeof val === 'string' ? val : (val && (val.en_US || Object.values(val)[0]));
+
+      const className = localized(data.summary && data.summary.character_class && data.summary.character_class.name);
+      if (className){
+        const match = CLASSES.find(c => c.label.toLowerCase() === String(className).toLowerCase());
+        if (match){
+          els.cfClass.value = match.id;
+          els.cfMainSpec.innerHTML = specOptionsHtml(match.id, '');
+          els.cfOffSpec.innerHTML = specOptionsHtml(match.id, '');
+          filledSomething = true;
+        }
+      }
+      if (!els.cfName.value) els.cfName.value = characterName.charAt(0).toUpperCase() + characterName.slice(1);
+
+      if (data.professions && Array.isArray(data.professions.primaries)){
+        const profNames = data.professions.primaries
+          .map(p => localized(p.profession && p.profession.name))
+          .filter(Boolean);
+        if (profNames[0]){
+          const m = PROFESSIONS.find(p => p.toLowerCase() === profNames[0].toLowerCase());
+          if (m){ els.cfProf1.innerHTML = professionOptionsHtml(m); filledSomething = true; }
+        }
+        if (profNames[1]){
+          const m = PROFESSIONS.find(p => p.toLowerCase() === profNames[1].toLowerCase());
+          if (m){ els.cfProf2.innerHTML = professionOptionsHtml(m); filledSomething = true; }
+        }
+      }
+
+      console.log('Armory lookup raw response (useful if fields above look wrong):', data);
+      els.cfArmoryStatus.textContent = filledSomething
+        ? 'Filled in what we could recognize — please double check before saving.'
+        : "Got a response but couldn't confidently map it to fields — check the browser console (F12) for the raw data.";
+      els.cfArmoryStatus.className = filledSomething ? 'armory-status armory-status-ok' : 'armory-status';
+    } catch (err) {
+      els.cfArmoryStatus.textContent = err.message;
+      els.cfArmoryStatus.className = 'armory-status armory-status-error';
+    } finally {
+      els.cfArmoryLookupBtn.disabled = false;
+    }
+  });
+
   els.charForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = els.cfName.value.trim();
@@ -4331,6 +4455,7 @@
     const groupId = els.cfGroup.value;
     const mainSpec = els.cfMainSpec.value;
     const offSpec = els.cfOffSpec.value;
+    const professions = [els.cfProf1.value, els.cfProf2.value].filter(Boolean);
 
     if (!name){
       els.charFormError.textContent = 'Please enter a character name.';
@@ -4354,12 +4479,13 @@
         c.groupId = groupId || null;
         c.mainSpec = mainSpec || null;
         c.offSpec = offSpec || null;
+        c.professions = professions;
         renderAll();
         await saveData('roster');
       }
       exitCharacterEditMode();
     } else {
-      await addCharacter(name, classId, groupId, role, mainSpec, offSpec);
+      await addCharacter(name, classId, groupId, role, mainSpec, offSpec, professions);
     }
     els.charForm.classList.add('hidden');
     resetCharForm();

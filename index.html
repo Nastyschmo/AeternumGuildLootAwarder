@@ -4434,7 +4434,8 @@
         }
       }
 
-      console.log('Armory lookup raw response (useful if fields above look wrong):\n' + JSON.stringify(data, null, 2));
+      window.__lastArmoryLookup = data;
+      console.log('Armory lookup raw response saved to window.__lastArmoryLookup — try: copy(JSON.stringify(window.__lastArmoryLookup.specializations, null, 2))');
       els.cfArmoryStatus.textContent = filledSomething
         ? 'Filled in what we could recognize — please double check before saving.'
         : "Got a response but couldn't confidently map it to fields — check the browser console (F12) for the raw data.";

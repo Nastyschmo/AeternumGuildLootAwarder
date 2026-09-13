@@ -4229,6 +4229,38 @@
     }).join('');
   }
 
+  // Death events' exact field names for the killing ability aren't
+  // independently confirmed, so this tries a few plausible paths. If NONE
+  // of several deaths yield a recognized ability, treat it as "couldn't
+  // parse this shape" (return null) so the raw debug view shows up rather
+  // than silently shipping a list of "Unknown ability" for everyone.
+  function wclParseDeathEvents(eventsData, actorMap){
+    const rows = eventsData && Array.isArray(eventsData.data) ? eventsData.data : null;
+    if (!rows) return null;
+    if (!rows.length) return [];
+    const parsed = rows.map(e => {
+      const name = actorMap[e.targetID] || (e.targetID != null ? `Actor ${e.targetID}` : 'Unknown');
+      const abilityName = (e.killingAbility && e.killingAbility.name)
+        || (e.ability && e.ability.name)
+        || (e.killingAttack && e.killingAttack.name)
+        || (e.abilityGameID != null ? `Ability #${e.abilityGameID}` : null)
+        || null;
+      return { name, ability: abilityName, timestamp: e.timestamp };
+    });
+    const anyAbilityFound = parsed.some(d => d.ability);
+    return (anyAbilityFound || !parsed.length) ? parsed : null;
+  }
+
+  function wclDeathDetailsHtml(deathDetails){
+    if (!deathDetails) return null;
+    if (!deathDetails.length) return '<p class="lootlib-note">No deaths — clean fight.</p>';
+    return deathDetails.map(d => `
+      <div class="ov-row">
+        <span class="ov-label" style="color:${wclNameColor(d.name)}">${escapeHtml(d.name)}</span>
+        <span>${d.ability ? escapeHtml(d.ability) : '<em>Unrecognized ability</em>'}</span>
+      </div>`).join('');
+  }
+
   function wclTalkingPointsHtml(parses){
     if (!parses || !parses.length) return '';
     const high = parses.filter(p => p.percent != null && p.percent >= 75).map(p => p.name);
@@ -4267,6 +4299,9 @@
               interrupts: table(fightIDs: $fightId, dataType: Interrupts)
               dispels: table(fightIDs: $fightId, dataType: Dispels)
               rankings(fightIDs: $fightId)
+              threat: table(fightIDs: $fightId, dataType: Threat)
+              deathEvents: events(fightIDs: $fightId, dataType: Deaths, limit: 100)
+              masterData { actors(type: "Player") { id name } }
             }
           }
         }`,
@@ -4280,6 +4315,13 @@
       const dispelsHtml = report && wclCountRowsHtml(report.dispels);
       const parses = report && wclParseRankings(report.rankings);
       const parsesHtml = parses && wclParseRowsHtml(parses);
+      const actorMap = {};
+      if (report && report.masterData && Array.isArray(report.masterData.actors)){
+        report.masterData.actors.forEach(a => { actorMap[a.id] = a.name; });
+      }
+      const deathDetails = report && wclParseDeathEvents(report.deathEvents, actorMap);
+      const deathDetailsHtml = deathDetails && wclDeathDetailsHtml(deathDetails);
+      const threatHtml = report && wclCountRowsHtml(report.threat);
 
       if (dpsHtml === null && hpsHtml === null && deathsHtml === null && parsesHtml === null){
         els.wclRawDebug.value = JSON.stringify(report, null, 2);
@@ -4287,18 +4329,35 @@
         els.wclBossStats.innerHTML = `<div class="tac-card tac-card-wide"><p class="lootlib-note">Got a response but couldn't recognize the stats shape — raw data is in the debug box above the report list. Paste it back and I'll fix the parsing.</p></div>`;
         return;
       }
+      const debugPieces = [];
       if (parsesHtml === null && report && report.rankings !== undefined){
-        els.wclRawDebug.value = JSON.stringify(report.rankings, null, 2);
+        debugPieces.push({ label: 'rankings', value: report.rankings });
+      }
+      if (deathDetailsHtml === null && report && report.deathEvents !== undefined){
+        debugPieces.push({ label: 'deathEvents', value: report.deathEvents });
+      }
+      if (debugPieces.length){
+        els.wclRawDebug.value = debugPieces.map(p => `// ${p.label}\n${JSON.stringify(p.value, null, 2)}`).join('\n\n');
         els.wclRawDebug.classList.remove('hidden');
       }
 
       els.wclBossStats.innerHTML = `
-        <div class="tac-card tac-card-wide"><div class="tac-card-title">Parse rankings</div>${parsesHtml || '<p class="lootlib-note">Not available for this fight (parse rankings usually need a completed kill).</p>'}</div>
+        <div class="tac-card tac-card-double"><div class="tac-card-title">Parse rankings</div>${parsesHtml || '<p class="lootlib-note">Not available for this fight (parse rankings usually need a completed kill).</p>'}</div>
         <div class="tac-card"><div class="tac-card-title">Damage done</div>${dpsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
         <div class="tac-card"><div class="tac-card-title">Healing done</div>${hpsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
-        <div class="tac-card"><div class="tac-card-title">Deaths</div>${deathsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
+        <div class="tac-card"><div class="tac-card-title">Deaths (count)</div>${deathsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
+        <div class="tac-card tac-card-double">
+          <div class="tac-card-title">Death details — who died to what</div>
+          <div class="tac-card-note">Killing ability per death. Use this to judge: was it an avoidable mechanic (positioning/dodge), a healing gap, or just unlucky?</div>
+          ${deathDetailsHtml || '<p class="lootlib-note">No deaths, or the ability detail could not be recognized — check the debug box above the report list.</p>'}
+        </div>
         <div class="tac-card"><div class="tac-card-title">Interrupts</div>${interruptsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
         <div class="tac-card"><div class="tac-card-title">Dispels</div>${dispelsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
+        <div class="tac-card">
+          <div class="tac-card-title">Threat (experimental)</div>
+          <div class="tac-card-note">Total threat generated — useful as a rough check for aggro issues, but WCL's threat tracking for Classic-era content isn't always fully reliable.</div>
+          ${threatHtml || '<p class="lootlib-note">Not available for this fight.</p>'}
+        </div>
         ${wclTalkingPointsHtml(parses)}`;
     } catch (err) {
       els.wclBossStats.innerHTML = `<div class="tac-card tac-card-wide"><p class="lootlib-note">${escapeHtml(err.message)}</p></div>`;

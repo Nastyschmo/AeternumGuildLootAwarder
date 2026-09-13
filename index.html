@@ -303,6 +303,25 @@
     background: #0c0a06; border: 1px solid var(--border-soft); border-radius: 4px; padding: 8px; margin-bottom: 10px;
   }
   .armory-raw-debug.hidden{ display: none; }
+
+  /* ---------- Logs Analysis ---------- */
+  .log-config-row{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .log-config-row input{ flex: 1; min-width: 140px; }
+  .log-config-row select{ padding: 6px 8px; }
+  .log-reports-list, .log-fights-list{ display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .log-report-row, .log-fight-row{
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px;
+    background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 6px; cursor: pointer;
+  }
+  .log-report-row:hover, .log-fight-row:hover{ border-color: var(--gold); }
+  .log-report-title, .log-fight-name{ font-weight: 700; color: var(--gold-bright); }
+  .log-report-meta{ font-size: 11.5px; color: var(--text-faint); }
+  .log-fight-result{ font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+  .log-fight-kill{ background: rgba(63,217,86,0.18); color: #3fd956; }
+  .log-fight-wipe{ background: rgba(255,90,90,0.18); color: #ff5a5a; }
+  .log-review-grid{ display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .log-review-grid textarea{ width: 100%; resize: vertical; }
+  .wcl-bar{ display: inline-block; height: 6px; background: var(--gold); border-radius: 3px; vertical-align: middle; margin-left: 6px; }
   .edit-banner button{
     background: none; border: none; padding: 0; color: var(--gold-bright); text-decoration: underline;
     font-size: 12.5px; font-weight: 700; cursor: pointer;
@@ -551,7 +570,7 @@
   }
   .content-tab.active{ color: var(--gold-bright); border-bottom-color: var(--gold); }
   .content-tab:hover:not(.active){ color: var(--text-muted); }
-  #ledgerView.hidden, #gearView.hidden, #byGroupView.hidden, #rosterView.hidden, #attendanceView.hidden, #tacticsView.hidden, #overviewView.hidden{ display: none; }
+  #ledgerView.hidden, #gearView.hidden, #byGroupView.hidden, #rosterView.hidden, #attendanceView.hidden, #tacticsView.hidden, #overviewView.hidden, #logsView.hidden{ display: none; }
 
   /* ---------- Roster group assignment ---------- */
   .roster-controls{ display: flex; align-items: center; justify-content: space-between; gap: 6px; }
@@ -724,6 +743,7 @@
         <div class="content-tab" data-view="attendance" id="attendanceTabBtn">Attendance</div>
         <div class="content-tab" data-view="tactics" id="tacticsTabBtn">Boss Tactics</div>
         <div class="content-tab" data-view="overview" id="overviewTabBtn">Tactics Overview</div>
+        <div class="content-tab" data-view="logs" id="logsTabBtn">Logs Analysis</div>
       </div>
 
       <div id="ledgerView">
@@ -951,6 +971,70 @@
         </div>
         <div id="ovBossInfo" class="tac-boss-info"></div>
       </div>
+
+      <div id="logsView" class="hidden">
+        <div class="bnet-attribution">Combat log data comes from WarcraftLogs. This tool is not created by, affiliated with, or endorsed by WarcraftLogs.</div>
+        <div class="log-config-row" id="logConfigRow">
+          <input type="text" id="wclGuildName" placeholder="Guild name (e.g. Aeternum)" class="tac-text-input" />
+          <input type="text" id="wclServerSlug" placeholder="Server slug (e.g. spineshatter)" class="tac-text-input" />
+          <select id="wclServerRegion">
+            <option value="eu">EU</option>
+            <option value="us">US</option>
+            <option value="kr">KR</option>
+            <option value="tw">TW</option>
+          </select>
+          <button type="button" class="btn btn-sm btn-primary" id="wclFetchReportsBtn">Fetch recent reports</button>
+          <span id="wclConfigStatus" class="armory-status"></span>
+        </div>
+        <textarea id="wclRawDebug" class="armory-raw-debug hidden" readonly rows="8" onclick="this.select()"></textarea>
+
+        <div id="wclReportsList" class="log-reports-list"></div>
+
+        <div id="wclFightPanel" class="hidden">
+          <div class="tac-nav-row">
+            <button type="button" class="btn btn-ghost btn-sm" id="wclBackToReportsBtn">← Back to reports</button>
+            <div id="wclReportHeader" class="tac-boss-header tac-boss-header-center"></div>
+            <span></span>
+          </div>
+          <div id="wclFightsList" class="log-fights-list"></div>
+        </div>
+
+        <div id="wclBossPanel" class="hidden">
+          <div class="tac-nav-row">
+            <button type="button" class="btn btn-ghost btn-sm" id="wclBackToFightsBtn">← Back to boss list</button>
+            <div id="wclBossHeader" class="tac-boss-header tac-boss-header-center"></div>
+            <span></span>
+          </div>
+          <div id="wclBossStats" class="tac-grid"></div>
+          <div class="tac-card tac-card-wide">
+            <div class="tac-card-title">Officer review</div>
+            <div class="log-review-grid">
+              <div class="field">
+                <label for="wclRevExceeded">Who exceeded expectations?</label>
+                <textarea id="wclRevExceeded" rows="3"></textarea>
+              </div>
+              <div class="field">
+                <label for="wclRevStruggled">Who struggled with their class or mechanics?</label>
+                <textarea id="wclRevStruggled" rows="3"></textarea>
+              </div>
+              <div class="field">
+                <label for="wclRevOverall">How was the boss played overall?</label>
+                <textarea id="wclRevOverall" rows="3"></textarea>
+              </div>
+              <div class="field">
+                <label for="wclRevImprove">What could we do better?</label>
+                <textarea id="wclRevImprove" rows="3"></textarea>
+              </div>
+              <div class="field">
+                <label for="wclRevWentWell">What was exceedingly good?</label>
+                <textarea id="wclRevWentWell" rows="3"></textarea>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary" id="wclSaveReviewBtn">Save review</button>
+            <span id="wclReviewStatus" class="armory-status"></span>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 </div>
@@ -1000,6 +1084,7 @@
   };
   const WORKER_URL = 'https://guildlootdiscordworker.sebastian-spiehs.workers.dev/mint-token';
   const ARMORY_URL = WORKER_URL.replace(/\/mint-token$/, '/armory-lookup');
+  const WCL_URL = WORKER_URL.replace(/\/mint-token$/, '/wcl-query');
   const DISCORD_REDIRECT_URI = window.location.origin + window.location.pathname;
   const DISCORD_IDENTITY_KEY = 'guild-loot-discord-identity';
   const DISCORD_PKCE_VERIFIER_KEY = 'guild-loot-discord-pkce-verifier';
@@ -1671,7 +1756,11 @@
   const DEFAULT_PHASE_RAID_IDS = ['hyjal', 'bt'];
 
   function defaultState(){
-    return { groups: [], roster: [], loot: [], discordRoles: {}, raidSessions: {}, bossTactics: {}, bossStaticTactics: {}, settings: { currentPhaseRaidIds: DEFAULT_PHASE_RAID_IDS.slice() } };
+    return {
+      groups: [], roster: [], loot: [], discordRoles: {}, raidSessions: {}, bossTactics: {}, bossStaticTactics: {},
+      logReviews: {},
+      settings: { currentPhaseRaidIds: DEFAULT_PHASE_RAID_IDS.slice(), wclGuildName: '', wclServerSlug: '', wclServerRegion: 'eu' }
+    };
   }
 
   let state = defaultState();
@@ -1693,6 +1782,10 @@
   let tacMapFilled = true;
   let ovRaidId = null;
   let ovBossName = null;
+  let wclCurrentReportCode = null;
+  let wclCurrentReportTitle = '';
+  let wclCurrentFights = [];
+  let wclCurrentFightId = null;
   const TAC_MAP_COLORS = ['#ff3b3b', '#ffb100', '#ffe94d', '#3fd956', '#3fa9f5', '#ffffff'];
   let sidebarTab = 'groups';
   let lootlibRaidId = DEFAULT_PHASE_RAID_IDS[0];
@@ -1807,6 +1900,7 @@
     attendanceTableWrap: document.getElementById('attendanceTableWrap'),
     tacticsView: document.getElementById('tacticsView'),
     tacticsTabBtn: document.getElementById('tacticsTabBtn'),
+    logsTabBtn: document.getElementById('logsTabBtn'),
     tacGroupFilter: document.getElementById('tacGroupFilter'),
     tacSessionFilter: document.getElementById('tacSessionFilter'),
     tacInstanceFilter: document.getElementById('tacInstanceFilter'),
@@ -1827,6 +1921,29 @@
     ovNextBtn: document.getElementById('ovNextBtn'),
     ovBossHeader: document.getElementById('ovBossHeader'),
     ovBossInfo: document.getElementById('ovBossInfo'),
+    logsView: document.getElementById('logsView'),
+    wclGuildName: document.getElementById('wclGuildName'),
+    wclServerSlug: document.getElementById('wclServerSlug'),
+    wclServerRegion: document.getElementById('wclServerRegion'),
+    wclFetchReportsBtn: document.getElementById('wclFetchReportsBtn'),
+    wclConfigStatus: document.getElementById('wclConfigStatus'),
+    wclRawDebug: document.getElementById('wclRawDebug'),
+    wclReportsList: document.getElementById('wclReportsList'),
+    wclFightPanel: document.getElementById('wclFightPanel'),
+    wclBackToReportsBtn: document.getElementById('wclBackToReportsBtn'),
+    wclReportHeader: document.getElementById('wclReportHeader'),
+    wclFightsList: document.getElementById('wclFightsList'),
+    wclBossPanel: document.getElementById('wclBossPanel'),
+    wclBackToFightsBtn: document.getElementById('wclBackToFightsBtn'),
+    wclBossHeader: document.getElementById('wclBossHeader'),
+    wclBossStats: document.getElementById('wclBossStats'),
+    wclRevExceeded: document.getElementById('wclRevExceeded'),
+    wclRevStruggled: document.getElementById('wclRevStruggled'),
+    wclRevOverall: document.getElementById('wclRevOverall'),
+    wclRevImprove: document.getElementById('wclRevImprove'),
+    wclRevWentWell: document.getElementById('wclRevWentWell'),
+    wclSaveReviewBtn: document.getElementById('wclSaveReviewBtn'),
+    wclReviewStatus: document.getElementById('wclReviewStatus'),
     ovAssignmentsWrap: document.getElementById('ovAssignmentsWrap'),
     ovMapCard: document.getElementById('ovMapCard'),
     ovMapWrapper: document.getElementById('ovMapWrapper'),
@@ -1872,10 +1989,14 @@
       raidSessions: (parsed.raidSessions && typeof parsed.raidSessions === 'object') ? parsed.raidSessions : {},
       bossTactics: (parsed.bossTactics && typeof parsed.bossTactics === 'object') ? parsed.bossTactics : {},
       bossStaticTactics: (parsed.bossStaticTactics && typeof parsed.bossStaticTactics === 'object') ? parsed.bossStaticTactics : {},
+      logReviews: (parsed.logReviews && typeof parsed.logReviews === 'object') ? parsed.logReviews : {},
       settings: {
         currentPhaseRaidIds: (parsed.settings && Array.isArray(parsed.settings.currentPhaseRaidIds))
           ? parsed.settings.currentPhaseRaidIds
-          : DEFAULT_PHASE_RAID_IDS.slice()
+          : DEFAULT_PHASE_RAID_IDS.slice(),
+        wclGuildName: (parsed.settings && typeof parsed.settings.wclGuildName === 'string') ? parsed.settings.wclGuildName : '',
+        wclServerSlug: (parsed.settings && typeof parsed.settings.wclServerSlug === 'string') ? parsed.settings.wclServerSlug : '',
+        wclServerRegion: (parsed.settings && typeof parsed.settings.wclServerRegion === 'string') ? parsed.settings.wclServerRegion : 'eu'
       }
     };
   }
@@ -2570,8 +2691,10 @@
     const seeAttendance = canSeeAttendance();
     els.attendanceTabBtn.classList.toggle('role-hidden', !seeAttendance);
     els.tacticsTabBtn.classList.toggle('role-hidden', !seeAttendance);
+    els.logsTabBtn.classList.toggle('role-hidden', !seeAttendance);
     if (!seeAttendance && mainView === 'attendance') mainView = 'ledger';
     if (!seeAttendance && mainView === 'tactics') mainView = 'overview';
+    if (!seeAttendance && mainView === 'logs') mainView = 'overview';
   }
 
   function renderMainView(){
@@ -2583,12 +2706,14 @@
     els.attendanceView.classList.toggle('hidden', mainView !== 'attendance');
     els.tacticsView.classList.toggle('hidden', mainView !== 'tactics');
     els.overviewView.classList.toggle('hidden', mainView !== 'overview');
+    els.logsView.classList.toggle('hidden', mainView !== 'logs');
     if (mainView === 'gear') renderGearOverview();
     else if (mainView === 'bygroup') renderGearByGroup();
     else if (mainView === 'roster') renderRosterView();
     else if (mainView === 'attendance') renderAttendanceView();
     else if (mainView === 'tactics') renderTacticsView();
     else if (mainView === 'overview') renderOverviewView();
+    else if (mainView === 'logs') renderLogsView();
     else renderLedger();
   }
 
@@ -3859,6 +3984,230 @@
     renderOverviewMap(staticData, data);
   }
 
+  async function wclGraphQL(query, variables){
+    const res = await fetch(WCL_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, variables })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'WarcraftLogs request failed');
+    if (data.errors) throw new Error(data.errors.map(e => e.message).join('; '));
+    return data.data;
+  }
+
+  function renderLogsView(){
+    els.wclGuildName.value = state.settings.wclGuildName || '';
+    els.wclServerSlug.value = state.settings.wclServerSlug || '';
+    els.wclServerRegion.value = state.settings.wclServerRegion || 'eu';
+    if (!wclCurrentReportCode){
+      els.wclFightPanel.classList.add('hidden');
+      els.wclBossPanel.classList.add('hidden');
+    }
+  }
+
+  async function fetchWclReports(){
+    const guildName = els.wclGuildName.value.trim();
+    const serverSlug = els.wclServerSlug.value.trim();
+    const serverRegion = els.wclServerRegion.value;
+    if (!guildName || !serverSlug){
+      els.wclConfigStatus.textContent = 'Enter a guild name and server slug.';
+      els.wclConfigStatus.className = 'armory-status armory-status-error';
+      return;
+    }
+    state.settings.wclGuildName = guildName;
+    state.settings.wclServerSlug = serverSlug;
+    state.settings.wclServerRegion = serverRegion;
+    await saveData('settings');
+
+    els.wclConfigStatus.textContent = 'Fetching recent reports…';
+    els.wclConfigStatus.className = 'armory-status';
+    els.wclFetchReportsBtn.disabled = true;
+    try {
+      const data = await wclGraphQL(
+        `query($guildName: String!, $serverSlug: String!, $serverRegion: String!) {
+          reportData {
+            reports(guildName: $guildName, guildServerSlug: $serverSlug, guildServerRegion: $serverRegion, limit: 15) {
+              data { code title startTime zone { name } }
+            }
+          }
+        }`,
+        { guildName, serverSlug, serverRegion }
+      );
+      const reports = data && data.reportData && data.reportData.reports && data.reportData.reports.data;
+      if (!Array.isArray(reports)){
+        els.wclRawDebug.value = JSON.stringify(data, null, 2);
+        els.wclRawDebug.classList.remove('hidden');
+        els.wclConfigStatus.textContent = "Got a response but couldn't find the reports list — raw data shown below.";
+        els.wclConfigStatus.className = 'armory-status';
+        return;
+      }
+      els.wclConfigStatus.textContent = reports.length ? `Found ${reports.length} recent report(s).` : 'No reports found for that guild.';
+      els.wclConfigStatus.className = 'armory-status armory-status-ok';
+      renderWclReportsList(reports);
+    } catch (err) {
+      els.wclConfigStatus.textContent = err.message;
+      els.wclConfigStatus.className = 'armory-status armory-status-error';
+    } finally {
+      els.wclFetchReportsBtn.disabled = false;
+    }
+  }
+
+  function renderWclReportsList(reports){
+    els.wclReportsList.innerHTML = reports.map(r => {
+      const date = r.startTime ? new Date(r.startTime).toLocaleDateString() : '';
+      const zoneName = r.zone && r.zone.name ? r.zone.name : '';
+      return `<div class="log-report-row" data-report-code="${r.code}">
+        <span class="log-report-title">${escapeHtml(r.title || r.code)}</span>
+        <span class="log-report-meta">${escapeHtml(zoneName)} ${date ? '· ' + date : ''}</span>
+      </div>`;
+    }).join('') || '<p class="lootlib-note">No reports to show yet.</p>';
+
+    els.wclReportsList.querySelectorAll('[data-report-code]').forEach(row => {
+      row.addEventListener('click', () => selectWclReport(row.getAttribute('data-report-code')));
+    });
+  }
+
+  async function selectWclReport(code){
+    wclCurrentReportCode = code;
+    els.wclFightPanel.classList.remove('hidden');
+    els.wclBossPanel.classList.add('hidden');
+    els.wclFightsList.innerHTML = '<p class="lootlib-note">Loading fights…</p>';
+    try {
+      const data = await wclGraphQL(
+        `query($code: String!) {
+          reportData {
+            report(code: $code) {
+              title
+              fights { id name kill difficulty encounterID bossPercentage }
+            }
+          }
+        }`,
+        { code }
+      );
+      const report = data && data.reportData && data.reportData.report;
+      if (!report){
+        els.wclFightsList.innerHTML = '<p class="lootlib-note">Could not load this report.</p>';
+        return;
+      }
+      wclCurrentReportTitle = report.title || code;
+      els.wclReportHeader.textContent = wclCurrentReportTitle;
+      const bossFights = (report.fights || []).filter(f => f.encounterID && f.encounterID !== 0);
+      wclCurrentFights = bossFights;
+      renderWclFightsList(bossFights);
+    } catch (err) {
+      els.wclFightsList.innerHTML = `<p class="lootlib-note">${escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  function renderWclFightsList(fights){
+    els.wclFightsList.innerHTML = fights.map(f => `
+      <div class="log-fight-row" data-fight-id="${f.id}">
+        <span class="log-fight-name">${escapeHtml(f.name)}</span>
+        <span class="log-fight-result ${f.kill ? 'log-fight-kill' : 'log-fight-wipe'}">${f.kill ? 'Kill' : `Wipe (${f.bossPercentage != null ? (f.bossPercentage / 100).toFixed(1) + '%' : '?'})`}</span>
+      </div>`).join('') || '<p class="lootlib-note">No boss fights found in this report.</p>';
+
+    els.wclFightsList.querySelectorAll('[data-fight-id]').forEach(row => {
+      row.addEventListener('click', () => selectWclFight(Number(row.getAttribute('data-fight-id'))));
+    });
+  }
+
+  function wclNameColor(name){
+    const c = state.roster.find(x => x.name.toLowerCase() === String(name || '').toLowerCase());
+    const cls = c ? (CLASS_MAP[c.class] || CLASS_MAP.warrior) : null;
+    return cls ? cls.color : '#c9b98d';
+  }
+
+  function wclRankingRowsHtml(tableData){
+    const entries = tableData && (tableData.entries || (tableData.data && tableData.data.entries));
+    if (!Array.isArray(entries) || !entries.length) return null;
+    const sorted = entries.slice().sort((a, b) => (b.total || 0) - (a.total || 0));
+    const max = sorted[0].total || 1;
+    return sorted.map(e => `
+      <div class="ov-row">
+        <span class="ov-label" style="color:${wclNameColor(e.name)}">${escapeHtml(e.name || '?')}</span>
+        <span>${(e.total || 0).toLocaleString()} <span class="wcl-bar" style="width:${Math.max(4, ((e.total || 0) / max) * 60)}px"></span></span>
+      </div>`).join('');
+  }
+
+  function wclDeathRowsHtml(tableData){
+    const entries = tableData && (tableData.entries || (tableData.data && tableData.data.entries));
+    if (!Array.isArray(entries)) return null;
+    if (!entries.length) return '<p class="lootlib-note">No deaths — clean fight.</p>';
+    return entries.map(e => `
+      <div class="ov-row">
+        <span class="ov-label" style="color:${wclNameColor(e.name)}">${escapeHtml(e.name || '?')}</span>
+        <span>${e.deathCount != null ? e.deathCount + '×' : ''}</span>
+      </div>`).join('');
+  }
+
+  async function selectWclFight(fightId){
+    wclCurrentFightId = fightId;
+    const fight = wclCurrentFights.find(f => f.id === fightId);
+    els.wclBossPanel.classList.remove('hidden');
+    els.wclBossHeader.textContent = fight ? fight.name : 'Boss';
+    els.wclBossStats.innerHTML = '<p class="lootlib-note">Loading stats…</p>';
+
+    const existing = (state.logReviews[wclCurrentReportCode] && state.logReviews[wclCurrentReportCode][fightId]) || {};
+    els.wclRevExceeded.value = existing.exceeded || '';
+    els.wclRevStruggled.value = existing.struggled || '';
+    els.wclRevOverall.value = existing.overall || '';
+    els.wclRevImprove.value = existing.improve || '';
+    els.wclRevWentWell.value = existing.wentWell || '';
+    els.wclReviewStatus.textContent = '';
+
+    try {
+      const data = await wclGraphQL(
+        `query($code: String!, $fightId: [Int]) {
+          reportData {
+            report(code: $code) {
+              dps: table(fightIDs: $fightId, dataType: DamageDone)
+              hps: table(fightIDs: $fightId, dataType: Healing)
+              deaths: table(fightIDs: $fightId, dataType: Deaths)
+            }
+          }
+        }`,
+        { code: wclCurrentReportCode, fightId: [fightId] }
+      );
+      const report = data && data.reportData && data.reportData.report;
+      const dpsHtml = report && wclRankingRowsHtml(report.dps);
+      const hpsHtml = report && wclRankingRowsHtml(report.hps);
+      const deathsHtml = report && wclDeathRowsHtml(report.deaths);
+
+      if (dpsHtml === null && hpsHtml === null && deathsHtml === null){
+        els.wclRawDebug.value = JSON.stringify(report, null, 2);
+        els.wclRawDebug.classList.remove('hidden');
+        els.wclBossStats.innerHTML = `<div class="tac-card tac-card-wide"><p class="lootlib-note">Got a response but couldn't recognize the stats shape — raw data is in the debug box above the report list. Paste it back and I'll fix the parsing.</p></div>`;
+        return;
+      }
+
+      els.wclBossStats.innerHTML = `
+        <div class="tac-card"><div class="tac-card-title">Damage done</div>${dpsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
+        <div class="tac-card"><div class="tac-card-title">Healing done</div>${hpsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
+        <div class="tac-card"><div class="tac-card-title">Deaths</div>${deathsHtml || '<p class="lootlib-note">Not available.</p>'}</div>`;
+    } catch (err) {
+      els.wclBossStats.innerHTML = `<div class="tac-card tac-card-wide"><p class="lootlib-note">${escapeHtml(err.message)}</p></div>`;
+    }
+  }
+
+  async function saveWclReview(){
+    if (!wclCurrentReportCode || wclCurrentFightId == null) return;
+    const fight = wclCurrentFights.find(f => f.id === wclCurrentFightId);
+    state.logReviews[wclCurrentReportCode] = state.logReviews[wclCurrentReportCode] || {};
+    state.logReviews[wclCurrentReportCode][wclCurrentFightId] = {
+      bossName: fight ? fight.name : '',
+      exceeded: els.wclRevExceeded.value.trim(),
+      struggled: els.wclRevStruggled.value.trim(),
+      overall: els.wclRevOverall.value.trim(),
+      improve: els.wclRevImprove.value.trim(),
+      wentWell: els.wclRevWentWell.value.trim(),
+      savedAt: todayStr()
+    };
+    els.wclReviewStatus.textContent = 'Saved.';
+    els.wclReviewStatus.className = 'armory-status armory-status-ok';
+    await saveData('logReviews');
+  }
+
   function renderAttendanceComposition(session, groupId){
     const group = groupById(groupId);
     const characters = state.roster.filter(c => c.groupId === groupId || Object.prototype.hasOwnProperty.call(session.attendance, c.id));
@@ -4232,6 +4581,18 @@
     const idx = bossChoices.findIndex(b => b.name === ovBossName);
     if (idx !== -1 && idx < bossChoices.length - 1){ ovBossName = bossChoices[idx + 1].name; renderOverviewView(); }
   });
+
+  els.wclFetchReportsBtn.addEventListener('click', fetchWclReports);
+  els.wclBackToReportsBtn.addEventListener('click', () => {
+    wclCurrentReportCode = null;
+    els.wclFightPanel.classList.add('hidden');
+    els.wclBossPanel.classList.add('hidden');
+  });
+  els.wclBackToFightsBtn.addEventListener('click', () => {
+    wclCurrentFightId = null;
+    els.wclBossPanel.classList.add('hidden');
+  });
+  els.wclSaveReviewBtn.addEventListener('click', saveWclReview);
 
   els.tacMapBgInput.addEventListener('change', async (e) => {
     if (!tacRaidId || !tacBossName) return;

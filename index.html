@@ -322,6 +322,9 @@
   .log-review-grid{ display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 12px; }
   .log-review-grid textarea{ width: 100%; resize: vertical; }
   .wcl-bar{ display: inline-block; height: 6px; background: var(--gold); border-radius: 3px; vertical-align: middle; margin-left: 6px; }
+  .wcl-parse-role-group{ margin-bottom: 10px; }
+  .wcl-parse-role-label{ font-family: 'Cinzel', serif; font-size: 12px; color: var(--gold-bright); font-weight: 700; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .wcl-parse-spec{ font-size: 10.5px; color: var(--text-faint); font-weight: 400; }
   .edit-banner button{
     background: none; border: none; padding: 0; color: var(--gold-bright); text-decoration: underline;
     font-size: 12.5px; font-weight: 700; cursor: pointer;
@@ -4178,22 +4181,24 @@
   // can tell "no parses on this fight" apart from "couldn't parse the shape".
   function wclParseRankings(rankingsData){
     if (!rankingsData) return null;
-    const candidates = [
-      rankingsData.data,
-      rankingsData.roles && rankingsData.roles.dps && rankingsData.roles.dps.characters,
-      rankingsData.roles && rankingsData.roles.healers && rankingsData.roles.healers.characters,
-      rankingsData.characters
-    ].filter(Array.isArray);
-    for (const c of candidates){
-      if (c.length && (c[0].rankPercent !== undefined || c[0].rank !== undefined)){
-        return c.map(p => ({
+    const fightEntry = Array.isArray(rankingsData.data) ? rankingsData.data[0] : null;
+    const roles = fightEntry && fightEntry.roles;
+    if (!roles) return null;
+    const all = [];
+    ['tanks', 'healers', 'dps'].forEach(roleKey => {
+      const chars = roles[roleKey] && roles[roleKey].characters;
+      if (Array.isArray(chars)){
+        chars.forEach(p => all.push({
           name: p.name,
-          percent: p.rankPercent != null ? p.rankPercent : p.rank,
-          amount: p.amount
+          class: p.class,
+          spec: p.spec,
+          percent: p.rankPercent,
+          amount: p.amount,
+          role: roleKey
         }));
       }
-    }
-    return null;
+    });
+    return all.length ? all : null;
   }
 
   function wclParseTierColor(pct){
@@ -4208,12 +4213,20 @@
 
   function wclParseRowsHtml(parses){
     if (!parses || !parses.length) return null;
-    const sorted = parses.slice().sort((a, b) => (b.percent || 0) - (a.percent || 0));
-    return `<div class="log-review-grid">` + sorted.map(p => `
-      <div class="ov-row">
-        <span class="ov-label" style="color:${wclNameColor(p.name)}">${escapeHtml(p.name || '?')}</span>
-        <span style="color:${wclParseTierColor(p.percent)}; font-weight:700;">${p.percent != null ? Math.round(p.percent) + '%' : '?'}</span>
-      </div>`).join('') + `</div>`;
+    const roleLabels = { tanks: 'Tanks', healers: 'Healers', dps: 'DPS' };
+    const groups = { tanks: [], healers: [], dps: [] };
+    parses.forEach(p => { (groups[p.role] || groups.dps).push(p); });
+    return Object.keys(groups).filter(k => groups[k].length).map(k => {
+      const sorted = groups[k].slice().sort((a, b) => (b.percent || 0) - (a.percent || 0));
+      return `<div class="wcl-parse-role-group">
+        <div class="wcl-parse-role-label">${roleLabels[k]}</div>
+        ${sorted.map(p => `
+          <div class="ov-row">
+            <span class="ov-label" style="color:${wclNameColor(p.name)}">${escapeHtml(p.name || '?')}${p.spec ? ` <span class="wcl-parse-spec">(${escapeHtml(p.spec)})</span>` : ''}</span>
+            <span style="color:${wclParseTierColor(p.percent)}; font-weight:700;">${p.percent != null ? Math.round(p.percent) + '%' : '?'}</span>
+          </div>`).join('')}
+      </div>`;
+    }).join('');
   }
 
   function wclTalkingPointsHtml(parses){

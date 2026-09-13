@@ -975,6 +975,10 @@
       <div id="logsView" class="hidden">
         <div class="bnet-attribution">Combat log data comes from WarcraftLogs. This tool is not created by, affiliated with, or endorsed by WarcraftLogs.</div>
         <div class="log-config-row" id="logConfigRow">
+          <input type="text" id="wclGuildId" placeholder="Guild ID (from your WCL guild URL, e.g. 803638) — most reliable" class="tac-text-input" />
+        </div>
+        <p class="armory-note">Find this in your guild's WarcraftLogs URL: warcraftlogs.com/guild/id/<strong>803638</strong>. If you don't have it, fill in the fields below instead.</p>
+        <div class="log-config-row">
           <input type="text" id="wclGuildName" placeholder="Guild name (e.g. Aeternum)" class="tac-text-input" />
           <input type="text" id="wclServerSlug" placeholder="Server slug (e.g. spineshatter)" class="tac-text-input" />
           <select id="wclServerRegion">
@@ -983,6 +987,8 @@
             <option value="kr">KR</option>
             <option value="tw">TW</option>
           </select>
+        </div>
+        <div class="log-config-row">
           <button type="button" class="btn btn-sm btn-primary" id="wclFetchReportsBtn">Fetch recent reports</button>
           <span id="wclConfigStatus" class="armory-status"></span>
         </div>
@@ -1759,7 +1765,7 @@
     return {
       groups: [], roster: [], loot: [], discordRoles: {}, raidSessions: {}, bossTactics: {}, bossStaticTactics: {},
       logReviews: {},
-      settings: { currentPhaseRaidIds: DEFAULT_PHASE_RAID_IDS.slice(), wclGuildName: '', wclServerSlug: '', wclServerRegion: 'eu' }
+      settings: { currentPhaseRaidIds: DEFAULT_PHASE_RAID_IDS.slice(), wclGuildId: '', wclGuildName: '', wclServerSlug: '', wclServerRegion: 'eu' }
     };
   }
 
@@ -1922,6 +1928,7 @@
     ovBossHeader: document.getElementById('ovBossHeader'),
     ovBossInfo: document.getElementById('ovBossInfo'),
     logsView: document.getElementById('logsView'),
+    wclGuildId: document.getElementById('wclGuildId'),
     wclGuildName: document.getElementById('wclGuildName'),
     wclServerSlug: document.getElementById('wclServerSlug'),
     wclServerRegion: document.getElementById('wclServerRegion'),
@@ -1996,7 +2003,8 @@
           : DEFAULT_PHASE_RAID_IDS.slice(),
         wclGuildName: (parsed.settings && typeof parsed.settings.wclGuildName === 'string') ? parsed.settings.wclGuildName : '',
         wclServerSlug: (parsed.settings && typeof parsed.settings.wclServerSlug === 'string') ? parsed.settings.wclServerSlug : '',
-        wclServerRegion: (parsed.settings && typeof parsed.settings.wclServerRegion === 'string') ? parsed.settings.wclServerRegion : 'eu'
+        wclServerRegion: (parsed.settings && typeof parsed.settings.wclServerRegion === 'string') ? parsed.settings.wclServerRegion : 'eu',
+        wclGuildId: (parsed.settings && typeof parsed.settings.wclGuildId === 'string') ? parsed.settings.wclGuildId : ''
       }
     };
   }
@@ -3997,6 +4005,7 @@
   }
 
   function renderLogsView(){
+    els.wclGuildId.value = state.settings.wclGuildId || '';
     els.wclGuildName.value = state.settings.wclGuildName || '';
     els.wclServerSlug.value = state.settings.wclServerSlug || '';
     els.wclServerRegion.value = state.settings.wclServerRegion || 'eu';
@@ -4007,14 +4016,16 @@
   }
 
   async function fetchWclReports(){
+    const guildId = els.wclGuildId.value.trim();
     const guildName = els.wclGuildName.value.trim();
     const serverSlug = els.wclServerSlug.value.trim();
     const serverRegion = els.wclServerRegion.value;
-    if (!guildName || !serverSlug){
-      els.wclConfigStatus.textContent = 'Enter a guild name and server slug.';
+    if (!guildId && (!guildName || !serverSlug)){
+      els.wclConfigStatus.textContent = 'Enter a Guild ID, or a guild name and server slug.';
       els.wclConfigStatus.className = 'armory-status armory-status-error';
       return;
     }
+    state.settings.wclGuildId = guildId;
     state.settings.wclGuildName = guildName;
     state.settings.wclServerSlug = serverSlug;
     state.settings.wclServerRegion = serverRegion;
@@ -4024,16 +4035,25 @@
     els.wclConfigStatus.className = 'armory-status';
     els.wclFetchReportsBtn.disabled = true;
     try {
-      const data = await wclGraphQL(
-        `query($guildName: String!, $serverSlug: String!, $serverRegion: String!) {
-          reportData {
-            reports(guildName: $guildName, guildServerSlug: $serverSlug, guildServerRegion: $serverRegion, limit: 15) {
-              data { code title startTime zone { name } }
+      const query = guildId
+        ? `query($guildId: Int!) {
+            reportData {
+              reports(guildID: $guildId, limit: 15) {
+                data { code title startTime zone { name } }
+              }
             }
-          }
-        }`,
-        { guildName, serverSlug, serverRegion }
-      );
+          }`
+        : `query($guildName: String!, $serverSlug: String!, $serverRegion: String!) {
+            reportData {
+              reports(guildName: $guildName, guildServerSlug: $serverSlug, guildServerRegion: $serverRegion, limit: 15) {
+                data { code title startTime zone { name } }
+              }
+            }
+          }`;
+      const variables = guildId
+        ? { guildId: Number(guildId) }
+        : { guildName, serverSlug, serverRegion: serverRegion.toUpperCase() };
+      const data = await wclGraphQL(query, variables);
       const reports = data && data.reportData && data.reportData.reports && data.reportData.reports.data;
       if (!Array.isArray(reports)){
         els.wclRawDebug.value = JSON.stringify(data, null, 2);

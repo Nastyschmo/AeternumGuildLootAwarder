@@ -4161,6 +4161,73 @@
       </div>`).join('');
   }
 
+  function wclCountRowsHtml(tableData){
+    const entries = tableData && (tableData.entries || (tableData.data && tableData.data.entries));
+    if (!Array.isArray(entries)) return null;
+    if (!entries.length) return '<p class="lootlib-note">None recorded.</p>';
+    return entries.slice().sort((a, b) => (b.total || 0) - (a.total || 0)).map(e => `
+      <div class="ov-row">
+        <span class="ov-label" style="color:${wclNameColor(e.name)}">${escapeHtml(e.name || '?')}</span>
+        <span>${e.total != null ? e.total : ''}</span>
+      </div>`).join('');
+  }
+
+  // WCL's exact rankings response shape isn't independently confirmed, so
+  // this tries a few plausible paths rather than assuming one. Returns null
+  // (not an empty array) if nothing recognizable was found, so the caller
+  // can tell "no parses on this fight" apart from "couldn't parse the shape".
+  function wclParseRankings(rankingsData){
+    if (!rankingsData) return null;
+    const candidates = [
+      rankingsData.data,
+      rankingsData.roles && rankingsData.roles.dps && rankingsData.roles.dps.characters,
+      rankingsData.roles && rankingsData.roles.healers && rankingsData.roles.healers.characters,
+      rankingsData.characters
+    ].filter(Array.isArray);
+    for (const c of candidates){
+      if (c.length && (c[0].rankPercent !== undefined || c[0].rank !== undefined)){
+        return c.map(p => ({
+          name: p.name,
+          percent: p.rankPercent != null ? p.rankPercent : p.rank,
+          amount: p.amount
+        }));
+      }
+    }
+    return null;
+  }
+
+  function wclParseTierColor(pct){
+    if (pct == null) return '#999999';
+    if (pct >= 99) return '#ff8000';
+    if (pct >= 95) return '#e268a8';
+    if (pct >= 75) return '#a335ee';
+    if (pct >= 50) return '#0070dd';
+    if (pct >= 25) return '#1eff00';
+    return '#999999';
+  }
+
+  function wclParseRowsHtml(parses){
+    if (!parses || !parses.length) return null;
+    const sorted = parses.slice().sort((a, b) => (b.percent || 0) - (a.percent || 0));
+    return `<div class="log-review-grid">` + sorted.map(p => `
+      <div class="ov-row">
+        <span class="ov-label" style="color:${wclNameColor(p.name)}">${escapeHtml(p.name || '?')}</span>
+        <span style="color:${wclParseTierColor(p.percent)}; font-weight:700;">${p.percent != null ? Math.round(p.percent) + '%' : '?'}</span>
+      </div>`).join('') + `</div>`;
+  }
+
+  function wclTalkingPointsHtml(parses){
+    if (!parses || !parses.length) return '';
+    const high = parses.filter(p => p.percent != null && p.percent >= 75).map(p => p.name);
+    const low = parses.filter(p => p.percent != null && p.percent < 25).map(p => p.name);
+    if (!high.length && !low.length) return '';
+    return `<div class="tac-card tac-card-wide">
+      <div class="tac-card-title">Suggested talking points (from parse data — use your judgment, not a verdict)</div>
+      ${high.length ? `<p class="lootlib-note">✅ Strong parses (75th percentile+): ${escapeHtml(high.join(', '))}</p>` : ''}
+      ${low.length ? `<p class="lootlib-note">⚠️ Worth checking in on (below 25th percentile): ${escapeHtml(low.join(', '))}</p>` : ''}
+    </div>`;
+  }
+
   async function selectWclFight(fightId){
     wclCurrentFightId = fightId;
     const fight = wclCurrentFights.find(f => f.id === fightId);
@@ -4184,6 +4251,9 @@
               dps: table(fightIDs: $fightId, dataType: DamageDone)
               hps: table(fightIDs: $fightId, dataType: Healing)
               deaths: table(fightIDs: $fightId, dataType: Deaths)
+              interrupts: table(fightIDs: $fightId, dataType: Interrupts)
+              dispels: table(fightIDs: $fightId, dataType: Dispels)
+              rankings(fightIDs: $fightId)
             }
           }
         }`,
@@ -4193,18 +4263,30 @@
       const dpsHtml = report && wclRankingRowsHtml(report.dps);
       const hpsHtml = report && wclRankingRowsHtml(report.hps);
       const deathsHtml = report && wclDeathRowsHtml(report.deaths);
+      const interruptsHtml = report && wclCountRowsHtml(report.interrupts);
+      const dispelsHtml = report && wclCountRowsHtml(report.dispels);
+      const parses = report && wclParseRankings(report.rankings);
+      const parsesHtml = parses && wclParseRowsHtml(parses);
 
-      if (dpsHtml === null && hpsHtml === null && deathsHtml === null){
+      if (dpsHtml === null && hpsHtml === null && deathsHtml === null && parsesHtml === null){
         els.wclRawDebug.value = JSON.stringify(report, null, 2);
         els.wclRawDebug.classList.remove('hidden');
         els.wclBossStats.innerHTML = `<div class="tac-card tac-card-wide"><p class="lootlib-note">Got a response but couldn't recognize the stats shape — raw data is in the debug box above the report list. Paste it back and I'll fix the parsing.</p></div>`;
         return;
       }
+      if (parsesHtml === null && report && report.rankings !== undefined){
+        els.wclRawDebug.value = JSON.stringify(report.rankings, null, 2);
+        els.wclRawDebug.classList.remove('hidden');
+      }
 
       els.wclBossStats.innerHTML = `
+        <div class="tac-card tac-card-wide"><div class="tac-card-title">Parse rankings</div>${parsesHtml || '<p class="lootlib-note">Not available for this fight (parse rankings usually need a completed kill).</p>'}</div>
         <div class="tac-card"><div class="tac-card-title">Damage done</div>${dpsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
         <div class="tac-card"><div class="tac-card-title">Healing done</div>${hpsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
-        <div class="tac-card"><div class="tac-card-title">Deaths</div>${deathsHtml || '<p class="lootlib-note">Not available.</p>'}</div>`;
+        <div class="tac-card"><div class="tac-card-title">Deaths</div>${deathsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
+        <div class="tac-card"><div class="tac-card-title">Interrupts</div>${interruptsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
+        <div class="tac-card"><div class="tac-card-title">Dispels</div>${dispelsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
+        ${wclTalkingPointsHtml(parses)}`;
     } catch (err) {
       els.wclBossStats.innerHTML = `<div class="tac-card tac-card-wide"><p class="lootlib-note">${escapeHtml(err.message)}</p></div>`;
     }

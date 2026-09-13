@@ -1005,6 +1005,13 @@
             <div id="wclReportHeader" class="tac-boss-header tac-boss-header-center"></div>
             <span></span>
           </div>
+          <div class="tac-card tac-card-wide">
+            <div class="tac-card-title">Overall — this raid night</div>
+            <div class="tac-card-note">General mood, communication, cross-boss notes — not tied to a specific fight.</div>
+            <textarea id="wclOverallNotes" rows="4" placeholder="e.g. Bis auf Council war der Raid top von den Kills her, aber insgesamt zu unruhig..."></textarea>
+            <button type="button" class="btn btn-primary btn-sm" id="wclSaveOverallBtn">Save</button>
+            <span id="wclOverallStatus" class="armory-status"></span>
+          </div>
           <div id="wclFightsList" class="log-fights-list"></div>
         </div>
 
@@ -1017,28 +1024,7 @@
           <div id="wclBossStats" class="tac-grid"></div>
           <div class="tac-card tac-card-wide">
             <div class="tac-card-title">Officer review</div>
-            <div class="log-review-grid">
-              <div class="field">
-                <label for="wclRevExceeded">Who exceeded expectations?</label>
-                <textarea id="wclRevExceeded" rows="3"></textarea>
-              </div>
-              <div class="field">
-                <label for="wclRevStruggled">Who struggled with their class or mechanics?</label>
-                <textarea id="wclRevStruggled" rows="3"></textarea>
-              </div>
-              <div class="field">
-                <label for="wclRevOverall">How was the boss played overall?</label>
-                <textarea id="wclRevOverall" rows="3"></textarea>
-              </div>
-              <div class="field">
-                <label for="wclRevImprove">What could we do better?</label>
-                <textarea id="wclRevImprove" rows="3"></textarea>
-              </div>
-              <div class="field">
-                <label for="wclRevWentWell">What was exceedingly good?</label>
-                <textarea id="wclRevWentWell" rows="3"></textarea>
-              </div>
-            </div>
+            <textarea id="wclRevNotes" rows="8" placeholder="e.g. Coffin & Slickzie: Aggro gezogen. Achtet auf euer Threatmeter..."></textarea>
             <button type="button" class="btn btn-primary" id="wclSaveReviewBtn">Save review</button>
             <span id="wclReviewStatus" class="armory-status"></span>
           </div>
@@ -1947,11 +1933,10 @@
     wclBackToFightsBtn: document.getElementById('wclBackToFightsBtn'),
     wclBossHeader: document.getElementById('wclBossHeader'),
     wclBossStats: document.getElementById('wclBossStats'),
-    wclRevExceeded: document.getElementById('wclRevExceeded'),
-    wclRevStruggled: document.getElementById('wclRevStruggled'),
-    wclRevOverall: document.getElementById('wclRevOverall'),
-    wclRevImprove: document.getElementById('wclRevImprove'),
-    wclRevWentWell: document.getElementById('wclRevWentWell'),
+    wclOverallNotes: document.getElementById('wclOverallNotes'),
+    wclSaveOverallBtn: document.getElementById('wclSaveOverallBtn'),
+    wclOverallStatus: document.getElementById('wclOverallStatus'),
+    wclRevNotes: document.getElementById('wclRevNotes'),
     wclSaveReviewBtn: document.getElementById('wclSaveReviewBtn'),
     wclReviewStatus: document.getElementById('wclReviewStatus'),
     ovAssignmentsWrap: document.getElementById('ovAssignmentsWrap'),
@@ -4096,6 +4081,8 @@
     els.wclFightPanel.classList.remove('hidden');
     els.wclBossPanel.classList.add('hidden');
     els.wclFightsList.innerHTML = '<p class="lootlib-note">Loading fights…</p>';
+    els.wclOverallNotes.value = (state.logReviews[code] && state.logReviews[code].overall) || '';
+    els.wclOverallStatus.textContent = '';
     try {
       const data = await wclGraphQL(
         `query($code: String!) {
@@ -4281,11 +4268,7 @@
     els.wclBossStats.innerHTML = '<p class="lootlib-note">Loading stats…</p>';
 
     const existing = (state.logReviews[wclCurrentReportCode] && state.logReviews[wclCurrentReportCode][fightId]) || {};
-    els.wclRevExceeded.value = existing.exceeded || '';
-    els.wclRevStruggled.value = existing.struggled || '';
-    els.wclRevOverall.value = existing.overall || '';
-    els.wclRevImprove.value = existing.improve || '';
-    els.wclRevWentWell.value = existing.wentWell || '';
+    els.wclRevNotes.value = existing.notes || '';
     els.wclReviewStatus.textContent = '';
 
     try {
@@ -4320,6 +4303,12 @@
         report.masterData.actors.forEach(a => { actorMap[a.id] = a.name; });
       }
       const deathDetails = report && wclParseDeathEvents(report.deathEvents, actorMap);
+      if (!els.wclRevNotes.value.trim() && deathDetails && deathDetails.length){
+        const draftLines = deathDetails
+          .filter(d => d.ability)
+          .map(d => `${d.name}: died to ${d.ability}.`);
+        if (draftLines.length) els.wclRevNotes.value = draftLines.join('\n');
+      }
       const deathDetailsHtml = deathDetails && wclDeathDetailsHtml(deathDetails);
       const threatHtml = report && wclCountRowsHtml(report.threat);
 
@@ -4370,15 +4359,20 @@
     state.logReviews[wclCurrentReportCode] = state.logReviews[wclCurrentReportCode] || {};
     state.logReviews[wclCurrentReportCode][wclCurrentFightId] = {
       bossName: fight ? fight.name : '',
-      exceeded: els.wclRevExceeded.value.trim(),
-      struggled: els.wclRevStruggled.value.trim(),
-      overall: els.wclRevOverall.value.trim(),
-      improve: els.wclRevImprove.value.trim(),
-      wentWell: els.wclRevWentWell.value.trim(),
+      notes: els.wclRevNotes.value.trim(),
       savedAt: todayStr()
     };
     els.wclReviewStatus.textContent = 'Saved.';
     els.wclReviewStatus.className = 'armory-status armory-status-ok';
+    await saveData('logReviews');
+  }
+
+  async function saveWclOverall(){
+    if (!wclCurrentReportCode) return;
+    state.logReviews[wclCurrentReportCode] = state.logReviews[wclCurrentReportCode] || {};
+    state.logReviews[wclCurrentReportCode].overall = els.wclOverallNotes.value.trim();
+    els.wclOverallStatus.textContent = 'Saved.';
+    els.wclOverallStatus.className = 'armory-status armory-status-ok';
     await saveData('logReviews');
   }
 
@@ -4767,6 +4761,7 @@
     els.wclBossPanel.classList.add('hidden');
   });
   els.wclSaveReviewBtn.addEventListener('click', saveWclReview);
+  els.wclSaveOverallBtn.addEventListener('click', saveWclOverall);
 
   els.tacMapBgInput.addEventListener('change', async (e) => {
     if (!tacRaidId || !tacBossName) return;

@@ -4300,7 +4300,7 @@
               dispels: table(fightIDs: $fightId, dataType: Dispels)
               rankings(fightIDs: $fightId)
               threat: table(fightIDs: $fightId, dataType: Threat)
-              deathEvents: events(fightIDs: $fightId, dataType: Deaths, limit: 100)
+              deathEvents: events(fightIDs: $fightId, dataType: Deaths, limit: 100) { data nextPageTimestamp }
               masterData { actors(type: "Player") { id name } }
             }
           }

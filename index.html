@@ -4179,6 +4179,28 @@
       </div>`).join('');
   }
 
+  // Each ability group also carries spellsBegun/spellsInterrupted counts —
+  // "how many times did the boss attempt this, and how many did we stop" —
+  // a genuinely richer per-mechanic signal than the per-player totals above.
+  function wclMechanicCompletionHtml(tableData, verb){
+    const groups = tableData && tableData.data && Array.isArray(tableData.data.entries) && tableData.data.entries[0]
+      ? tableData.data.entries[0].entries : null;
+    if (!Array.isArray(groups) || !groups.length) return null;
+    const rows = groups.map(g => {
+      const begun = g.spellsBegun || 0;
+      const stopped = g.spellsInterrupted || 0;
+      const pct = begun ? Math.round((stopped / begun) * 100) : 0;
+      const color = pct >= 90 ? '#3fd956' : pct >= 60 ? '#0070dd' : pct >= 30 ? '#ffb100' : '#ff5a5a';
+      return { name: g.name, begun, stopped, pct, color };
+    }).filter(r => r.begun > 0);
+    if (!rows.length) return null;
+    return rows.sort((a, b) => a.pct - b.pct).map(r => `
+      <div class="ov-row">
+        <span class="ov-label">${escapeHtml(r.name)}</span>
+        <span style="color:${r.color}; font-weight:700;">${verb} ${r.stopped}/${r.begun} (${r.pct}%)</span>
+      </div>`).join('');
+  }
+
 
   // Threat's real shape (confirmed against real data) is entirely
   // different from the other count-style tables: data.threat[] (not
@@ -4329,6 +4351,20 @@
         <span>${escapeHtml(categoryUsage[name].join(', '))}</span>
       </div>`).join('');
   }
+
+  // A raid-wide "X/Y raiders" snapshot — how prepared was the group overall,
+  // at a glance, before drilling into who specifically didn't use anything.
+  function wclConsumableAggregateHtml(consumableCategories, totalRaiders){
+    if (!consumableCategories || !totalRaiders) return '';
+    const summarize = (key, label) => {
+      const n = Object.keys(consumableCategories[key] || {}).length;
+      const pct = Math.round((n / totalRaiders) * 100);
+      const color = pct >= 90 ? '#3fd956' : pct >= 60 ? '#ffb100' : '#ff5a5a';
+      return `<div class="ov-row"><span class="ov-label">${label}</span><span style="color:${color}; font-weight:700;">${n}/${totalRaiders} (${pct}%)</span></div>`;
+    };
+    return summarize('healthstone', 'Used a Healthstone') + summarize('potions', 'Used a Buff Potion') + summarize('utility', 'Used a Utility item');
+  }
+
 
   function wclDeathDetailsHtml(deathDetails, consumableUsage){
     if (!deathDetails) return null;
@@ -4486,6 +4522,9 @@
       const deathDetails = report && wclParseDeathEvents(report.deathEvents, actorMap, abilityMap);
       const consumableUsage = report ? wclConsumableUsageByName(report.casts) : {};
       const consumableCategories = report ? wclParseConsumableCategories(report.casts) : null;
+      const totalRaiders = Object.keys(actorMap).length;
+      const interruptCompletionHtml = report && wclMechanicCompletionHtml(report.interrupts, 'Interrupted');
+      const dispelCompletionHtml = report && wclMechanicCompletionHtml(report.dispels, 'Dispelled');
       const deathDetailsHtml = deathDetails && wclDeathDetailsHtml(deathDetails, consumableUsage);
       const threatHtml = report && wclThreatRowsHtml(report.threat);
       const verdicts = wclComputeVerdicts(parses, deathDetails);
@@ -4527,8 +4566,16 @@
           <div class="tac-card-note">Killing ability per death. Use this to judge: was it an avoidable mechanic (positioning/dodge), a healing gap, or just unlucky?</div>
           ${deathDetailsHtml || '<p class="lootlib-note">No deaths, or the ability detail could not be recognized — check the debug box above the report list.</p>'}
         </div>
-        <div class="tac-card"><div class="tac-card-title">Interrupts</div>${interruptsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
-        <div class="tac-card"><div class="tac-card-title">Dispels</div>${dispelsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
+        <div class="tac-card">
+          <div class="tac-card-title">Interrupts</div>
+          ${interruptCompletionHtml ? `<div class="wcl-parse-role-group"><div class="wcl-parse-role-label">Per boss ability</div>${interruptCompletionHtml}</div>` : ''}
+          <div class="wcl-parse-role-group"><div class="wcl-parse-role-label">Per player</div>${interruptsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
+        </div>
+        <div class="tac-card">
+          <div class="tac-card-title">Dispels</div>
+          ${dispelCompletionHtml ? `<div class="wcl-parse-role-group"><div class="wcl-parse-role-label">Per boss ability</div>${dispelCompletionHtml}</div>` : ''}
+          <div class="wcl-parse-role-group"><div class="wcl-parse-role-label">Per player</div>${dispelsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
+        </div>
         <div class="tac-card">
           <div class="tac-card-title">Tanking uptime</div>
           <div class="tac-card-note">Time each player spent holding top threat on the boss. Classic logs don't expose raw threat point totals, so this is the closest real signal for aggro issues — a DPS showing meaningful tanking time is worth a look.</div>
@@ -4536,8 +4583,9 @@
         </div>
         <div class="tac-card tac-card-double">
           <div class="tac-card-title">Consumables &amp; utility used</div>
-          <div class="tac-card-note">Loose keyword matching (a Health Potion may show under both Healthstones and Potions) — this is for spotting who didn't pop anything, not a precise audit.</div>
+          <div class="tac-card-note">Loose keyword matching (a Health Potion may show under both Healthstones and Potions) — this is for spotting who didn't pop anything, not a precise audit. Raider count is everyone seen anywhere in this report, so treat the ratio as approximate.</div>
           ${consumableCategories ? `
+            <div class="wcl-parse-role-group"><div class="wcl-parse-role-label">Raid-wide</div>${wclConsumableAggregateHtml(consumableCategories, totalRaiders)}</div>
             <div class="wcl-parse-role-group"><div class="wcl-parse-role-label">Healthstones</div>${wclConsumableCategoryRowsHtml(consumableCategories.healthstone)}</div>
             <div class="wcl-parse-role-group"><div class="wcl-parse-role-label">Buff Potions</div>${wclConsumableCategoryRowsHtml(consumableCategories.potions)}</div>
             <div class="wcl-parse-role-group"><div class="wcl-parse-role-label">Utility items</div>${wclConsumableCategoryRowsHtml(consumableCategories.utility)}</div>

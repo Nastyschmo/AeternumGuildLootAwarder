@@ -4294,6 +4294,42 @@
     return usage;
   }
 
+  // Loose, overlap-tolerant keyword buckets — this is a discovery/awareness
+  // view (did people use their stuff), not a precise taxonomy, so a Health
+  // Potion showing under "Buff Potions" too isn't worth guarding against.
+  const CONSUMABLE_CATEGORIES = [
+    { key: 'healthstone', label: 'Healthstones', keywords: ['healthstone'] },
+    { key: 'potions', label: 'Buff Potions', keywords: ['potion', 'elixir', 'flask'] },
+    { key: 'utility', label: 'Utility items', keywords: ['rune', 'thistle tea', 'noggenfogger', 'protection'] }
+  ];
+
+  function wclParseConsumableCategories(castsData){
+    const entries = castsData && castsData.data && Array.isArray(castsData.data.entries) ? castsData.data.entries : null;
+    if (!entries) return null;
+    const byCategory = { healthstone: {}, potions: {}, utility: {} };
+    entries.forEach(p => {
+      (p.abilities || []).forEach(a => {
+        const lname = (a.name || '').toLowerCase();
+        CONSUMABLE_CATEGORIES.forEach(cat => {
+          if (cat.keywords.some(k => lname.includes(k))){
+            (byCategory[cat.key][p.name] = byCategory[cat.key][p.name] || []).push(`${a.name} ×${a.total}`);
+          }
+        });
+      });
+    });
+    return byCategory;
+  }
+
+  function wclConsumableCategoryRowsHtml(categoryUsage){
+    const names = Object.keys(categoryUsage || {});
+    if (!names.length) return '<p class="lootlib-note">None used.</p>';
+    return names.map(name => `
+      <div class="ov-row">
+        <span class="ov-label" style="color:${wclNameColor(name)}">${escapeHtml(name)}</span>
+        <span>${escapeHtml(categoryUsage[name].join(', '))}</span>
+      </div>`).join('');
+  }
+
   function wclDeathDetailsHtml(deathDetails, consumableUsage){
     if (!deathDetails) return null;
     if (!deathDetails.length) return '<p class="lootlib-note">No deaths — clean fight.</p>';
@@ -4449,6 +4485,7 @@
       }
       const deathDetails = report && wclParseDeathEvents(report.deathEvents, actorMap, abilityMap);
       const consumableUsage = report ? wclConsumableUsageByName(report.casts) : {};
+      const consumableCategories = report ? wclParseConsumableCategories(report.casts) : null;
       const deathDetailsHtml = deathDetails && wclDeathDetailsHtml(deathDetails, consumableUsage);
       const threatHtml = report && wclThreatRowsHtml(report.threat);
       const verdicts = wclComputeVerdicts(parses, deathDetails);
@@ -4477,7 +4514,7 @@
 
       els.wclBossStats.innerHTML = `
         <div class="tac-card tac-card-double"><div class="tac-card-title">Parse rankings</div>${parsesHtml || '<p class="lootlib-note">Not available for this fight (parse rankings usually need a completed kill).</p>'}</div>
-        <div class="tac-card tac-card-wide">
+        <div class="tac-card tac-card-double">
           <div class="tac-card-title">Performance verdicts (rule-based first pass — not the final word)</div>
           <div class="tac-card-note">Built from parse percentile + death cause only. Doesn't know about gear, assignments, or bad luck — use it as a starting point, override freely.</div>
           ${verdictsHtml || '<p class="lootlib-note">Not enough data to compute verdicts for this fight.</p>'}
@@ -4496,6 +4533,15 @@
           <div class="tac-card-title">Tanking uptime</div>
           <div class="tac-card-note">Time each player spent holding top threat on the boss. Classic logs don't expose raw threat point totals, so this is the closest real signal for aggro issues — a DPS showing meaningful tanking time is worth a look.</div>
           ${threatHtml || '<p class="lootlib-note">Not available for this fight.</p>'}
+        </div>
+        <div class="tac-card tac-card-double">
+          <div class="tac-card-title">Consumables &amp; utility used</div>
+          <div class="tac-card-note">Loose keyword matching (a Health Potion may show under both Healthstones and Potions) — this is for spotting who didn't pop anything, not a precise audit.</div>
+          ${consumableCategories ? `
+            <div class="wcl-parse-role-group"><div class="wcl-parse-role-label">Healthstones</div>${wclConsumableCategoryRowsHtml(consumableCategories.healthstone)}</div>
+            <div class="wcl-parse-role-group"><div class="wcl-parse-role-label">Buff Potions</div>${wclConsumableCategoryRowsHtml(consumableCategories.potions)}</div>
+            <div class="wcl-parse-role-group"><div class="wcl-parse-role-label">Utility items</div>${wclConsumableCategoryRowsHtml(consumableCategories.utility)}</div>
+          ` : '<p class="lootlib-note">Not available for this fight.</p>'}
         </div>
         ${wclTalkingPointsHtml(parses)}`;
     } catch (err) {

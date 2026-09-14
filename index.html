@@ -4154,14 +4154,45 @@
       </div>`).join('');
   }
 
-  function wclCountRowsHtml(tableData){
-    const entries = tableData && (tableData.entries || (tableData.data && tableData.data.entries));
+  // Interrupts/Dispels are organized by WHICH boss ability got
+  // interrupted/dispelled, each with a nested details[] list of players who
+  // did it and how many times — confirmed against real Reliquary of Souls
+  // data. To show "who did the most," we aggregate details[].total across
+  // every ability group, per player.
+  function wclInterruptDispelRowsHtml(tableData){
+    const groups = tableData && tableData.data && Array.isArray(tableData.data.entries) && tableData.data.entries[0]
+      ? tableData.data.entries[0].entries : null;
+    if (!Array.isArray(groups)) return null;
+    if (!groups.length) return '<p class="lootlib-note">None recorded.</p>';
+    const perPlayer = {};
+    groups.forEach(abilityGroup => {
+      (abilityGroup.details || []).forEach(d => {
+        perPlayer[d.name] = (perPlayer[d.name] || 0) + (d.total || 0);
+      });
+    });
+    const rows = Object.entries(perPlayer).sort((a, b) => b[1] - a[1]);
+    if (!rows.length) return '<p class="lootlib-note">None recorded.</p>';
+    return rows.map(([name, count]) => `
+      <div class="ov-row">
+        <span class="ov-label" style="color:${wclNameColor(name)}">${escapeHtml(name)}</span>
+        <span>${count}</span>
+      </div>`).join('');
+  }
+
+
+  // Threat's real shape (confirmed against real data) is entirely
+  // different from the other count-style tables: data.threat[] (not
+  // data.entries[]), and the meaningful number per player is totalUptime
+  // (time spent holding top threat / tanking, in ms) rather than a raw
+  // threat point total — Classic-era logs don't reliably expose the latter.
+  function wclThreatRowsHtml(tableData){
+    const entries = tableData && tableData.data && Array.isArray(tableData.data.threat) ? tableData.data.threat : null;
     if (!Array.isArray(entries)) return null;
-    if (!entries.length) return '<p class="lootlib-note">None recorded.</p>';
-    return entries.slice().sort((a, b) => (b.total || 0) - (a.total || 0)).map(e => `
+    if (!entries.length) return '<p class="lootlib-note">No threat data recorded.</p>';
+    return entries.slice().sort((a, b) => (b.totalUptime || 0) - (a.totalUptime || 0)).map(e => `
       <div class="ov-row">
         <span class="ov-label" style="color:${wclNameColor(e.name)}">${escapeHtml(e.name || '?')}</span>
-        <span>${e.total != null ? e.total : ''}</span>
+        <span>${e.totalUptime != null ? (e.totalUptime / 1000).toFixed(1) + 's tanking' : ''}</span>
       </div>`).join('');
   }
 
@@ -4246,14 +4277,34 @@
     return (anyRealNameFound || !parsed.length) ? parsed : null;
   }
 
-  function wclDeathDetailsHtml(deathDetails){
+  // Whether someone used a Healthstone/Health Potion ANYWHERE in the fight
+  // — confirmed via real data that consumables do show up in the Casts
+  // table's per-player abilities list when used. This can't tell us if one
+  // was available/off-cooldown at the moment of death, but "never used one
+  // all fight" is still a genuinely useful coaching signal.
+  const HEALTH_CONSUMABLE_KEYWORDS = ['healthstone', 'health potion', 'healing potion', 'free action potion'];
+  function wclConsumableUsageByName(castsData){
+    const entries = castsData && castsData.data && Array.isArray(castsData.data.entries) ? castsData.data.entries : null;
+    if (!entries) return {};
+    const usage = {};
+    entries.forEach(p => {
+      const used = (p.abilities || []).filter(a => HEALTH_CONSUMABLE_KEYWORDS.some(k => (a.name || '').toLowerCase().includes(k)));
+      if (used.length) usage[p.name] = used.map(a => `${a.name} ×${a.total}`).join(', ');
+    });
+    return usage;
+  }
+
+  function wclDeathDetailsHtml(deathDetails, consumableUsage){
     if (!deathDetails) return null;
     if (!deathDetails.length) return '<p class="lootlib-note">No deaths — clean fight.</p>';
-    return deathDetails.map(d => `
+    return deathDetails.map(d => {
+      const used = consumableUsage && consumableUsage[d.name];
+      return `
       <div class="ov-row">
         <span class="ov-label" style="color:${wclNameColor(d.name)}">${escapeHtml(d.name)}</span>
-        <span>${d.ability ? escapeHtml(d.ability) : '<em>Unrecognized ability</em>'}</span>
-      </div>`).join('');
+        <span>${d.ability ? escapeHtml(d.ability) : '<em>Unrecognized ability</em>'} <span class="wcl-parse-spec">(${used ? 'used ' + escapeHtml(used) + ' this fight' : 'never used a Healthstone/Potion this fight'})</span></span>
+      </div>`;
+    }).join('');
   }
 
   // A transparent, rule-based first pass at "how did this person do" —
@@ -4370,6 +4421,7 @@
               deaths: table(fightIDs: $fightId, dataType: Deaths)
               interrupts: table(fightIDs: $fightId, dataType: Interrupts)
               dispels: table(fightIDs: $fightId, dataType: Dispels)
+              casts: table(fightIDs: $fightId, dataType: Casts)
               rankings(fightIDs: $fightId)
               threat: table(fightIDs: $fightId, dataType: Threat)
               deathEvents: events(fightIDs: $fightId, dataType: Deaths, limit: 100) { data nextPageTimestamp }
@@ -4383,8 +4435,8 @@
       const dpsHtml = report && wclRankingRowsHtml(report.dps);
       const hpsHtml = report && wclRankingRowsHtml(report.hps);
       const deathsHtml = report && wclDeathRowsHtml(report.deaths);
-      const interruptsHtml = report && wclCountRowsHtml(report.interrupts);
-      const dispelsHtml = report && wclCountRowsHtml(report.dispels);
+      const interruptsHtml = report && wclInterruptDispelRowsHtml(report.interrupts);
+      const dispelsHtml = report && wclInterruptDispelRowsHtml(report.dispels);
       const parses = report && wclParseRankings(report.rankings);
       const parsesHtml = parses && wclParseRowsHtml(parses);
       const actorMap = {};
@@ -4396,8 +4448,9 @@
         report.masterData.abilities.forEach(a => { abilityMap[a.gameID] = a.name; });
       }
       const deathDetails = report && wclParseDeathEvents(report.deathEvents, actorMap, abilityMap);
-      const deathDetailsHtml = deathDetails && wclDeathDetailsHtml(deathDetails);
-      const threatHtml = report && wclCountRowsHtml(report.threat);
+      const consumableUsage = report ? wclConsumableUsageByName(report.casts) : {};
+      const deathDetailsHtml = deathDetails && wclDeathDetailsHtml(deathDetails, consumableUsage);
+      const threatHtml = report && wclThreatRowsHtml(report.threat);
       const verdicts = wclComputeVerdicts(parses, deathDetails);
       const verdictsHtml = wclVerdictRowsHtml(verdicts);
       if (!els.wclRevNotes.value.trim() && verdicts && verdicts.length){
@@ -4440,8 +4493,8 @@
         <div class="tac-card"><div class="tac-card-title">Interrupts</div>${interruptsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
         <div class="tac-card"><div class="tac-card-title">Dispels</div>${dispelsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
         <div class="tac-card">
-          <div class="tac-card-title">Threat (experimental)</div>
-          <div class="tac-card-note">Total threat generated — useful as a rough check for aggro issues, but WCL's threat tracking for Classic-era content isn't always fully reliable.</div>
+          <div class="tac-card-title">Tanking uptime</div>
+          <div class="tac-card-note">Time each player spent holding top threat on the boss. Classic logs don't expose raw threat point totals, so this is the closest real signal for aggro issues — a DPS showing meaningful tanking time is worth a look.</div>
           ${threatHtml || '<p class="lootlib-note">Not available for this fight.</p>'}
         </div>
         ${wclTalkingPointsHtml(parses)}`;

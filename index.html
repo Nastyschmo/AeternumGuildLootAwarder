@@ -325,6 +325,8 @@
   .wcl-parse-role-group{ margin-bottom: 10px; }
   .wcl-parse-role-label{ font-family: 'Cinzel', serif; font-size: 12px; color: var(--gold-bright); font-weight: 700; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
   .wcl-parse-spec{ font-size: 10.5px; color: var(--text-faint); font-weight: 400; }
+  .wcl-tier-badge{ font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-right: 6px; white-space: nowrap; }
+  .wcl-verdict-reason{ font-size: 11px; color: var(--text-faint); }
   .edit-banner button{
     background: none; border: none; padding: 0; color: var(--gold-bright); text-decoration: underline;
     font-size: 12.5px; font-weight: 700; cursor: pointer;
@@ -4227,15 +4229,17 @@
     if (!rows.length) return [];
     const parsed = rows.map(e => {
       const name = actorMap[e.targetID] || (e.targetID != null ? `Actor ${e.targetID}` : 'Unknown');
-      const abilityName = (e.killingAbility && e.killingAbility.name)
+      const realAbilityName = (e.killingAbility && e.killingAbility.name)
         || (e.ability && e.ability.name)
         || (e.killingAttack && e.killingAttack.name)
-        || (e.abilityGameID != null ? `Ability #${e.abilityGameID}` : null)
         || null;
-      return { name, ability: abilityName, timestamp: e.timestamp };
+      return { name, ability: realAbilityName, timestamp: e.timestamp };
     });
-    const anyAbilityFound = parsed.some(d => d.ability);
-    return (anyAbilityFound || !parsed.length) ? parsed : null;
+    // A real ability *name* is what makes this useful — a bare numeric ID
+    // fallback isn't worth showing and shouldn't count as "we parsed this
+    // correctly," or the debug view would never appear when it should.
+    const anyRealNameFound = parsed.some(d => d.ability);
+    return (anyRealNameFound || !parsed.length) ? parsed : null;
   }
 
   function wclDeathDetailsHtml(deathDetails){
@@ -4246,6 +4250,87 @@
         <span class="ov-label" style="color:${wclNameColor(d.name)}">${escapeHtml(d.name)}</span>
         <span>${d.ability ? escapeHtml(d.ability) : '<em>Unrecognized ability</em>'}</span>
       </div>`).join('');
+  }
+
+  // A transparent, rule-based first pass at "how did this person do" —
+  // not a black box. Every verdict is built from two concrete signals we
+  // actually have (parse percentile, death cause), with the reasoning
+  // spelled out so an officer can immediately see WHY a tier was assigned
+  // and override it if the numbers don't tell the whole story (e.g. bad
+  // gear, RNG, an assigned duty that doesn't show up in raw parse data).
+  function wclComputeVerdicts(parses, deathDetails){
+    if (!parses || !parses.length) return null;
+    const deathsByName = {};
+    (deathDetails || []).forEach(d => {
+      (deathsByName[d.name] = deathsByName[d.name] || []).push(d.ability || 'an unclear cause');
+    });
+    const tierOrder = ['excelled', 'solid', 'below', 'struggled'];
+
+    return parses.map(p => {
+      const deaths = deathsByName[p.name] || [];
+      const reasons = [];
+      let tier = 'solid';
+
+      if (p.percent != null){
+        const pct = Math.round(p.percent);
+        if (p.percent >= 95){ tier = 'excelled'; reasons.push(`${pct}th percentile parse`); }
+        else if (p.percent >= 50){ tier = 'solid'; reasons.push(`${pct}th percentile — around the middle of the pack`); }
+        else if (p.percent >= 25){ tier = 'below'; reasons.push(`${pct}th percentile — trailing the group somewhat`); }
+        else { tier = 'struggled'; reasons.push(`${pct}th percentile — well behind the group`); }
+      } else {
+        reasons.push('no parse data available (tank or utility role)');
+      }
+
+      if (deaths.length){
+        reasons.push(`died (${deaths.join(', ')})`);
+        const idx = tierOrder.indexOf(tier);
+        tier = tierOrder[Math.min(idx + 1, tierOrder.length - 1)];
+      } else if (tier === 'excelled' || tier === 'solid'){
+        reasons.push('no deaths');
+      }
+
+      return { name: p.name, spec: p.spec, role: p.role, percent: p.percent, tier, reasons };
+    });
+  }
+
+  function wclVerdictTierMeta(tier){
+    return {
+      excelled: { label: 'Excelled', color: '#3fd956' },
+      solid: { label: 'Solid', color: '#0070dd' },
+      below: { label: 'Below expectations', color: '#ffb100' },
+      struggled: { label: 'Struggled', color: '#ff5a5a' }
+    }[tier] || { label: tier, color: '#999999' };
+  }
+
+  function wclVerdictRowsHtml(verdicts){
+    if (!verdicts || !verdicts.length) return null;
+    const order = ['struggled', 'below', 'solid', 'excelled'];
+    return verdicts.slice().sort((a, b) => order.indexOf(a.tier) - order.indexOf(b.tier)).map(v => {
+      const meta = wclVerdictTierMeta(v.tier);
+      return `<div class="ov-row">
+        <span class="ov-label" style="color:${wclNameColor(v.name)}">${escapeHtml(v.name)}</span>
+        <span><span class="wcl-tier-badge" style="background:${meta.color}22; color:${meta.color};">${meta.label}</span>
+        <span class="wcl-verdict-reason">${escapeHtml(v.reasons.join('; '))}</span></span>
+      </div>`;
+    }).join('');
+  }
+
+  // Builds the auto-drafted starting text for the review box — organized
+  // into the same buckets you actually think in (what went well / wrong /
+  // to improve / to keep). The last two are left as prompts since they
+  // need judgment across the bigger picture that raw parse data can't see.
+  function wclDraftSummary(verdicts){
+    if (!verdicts || !verdicts.length) return '';
+    const byTier = { excelled: [], solid: [], below: [], struggled: [] };
+    verdicts.forEach(v => byTier[v.tier].push(v));
+    const lines = [];
+    if (byTier.excelled.length) lines.push(`What went well: ${byTier.excelled.map(v => v.name).join(', ')} had standout performances.`);
+    if (byTier.solid.length) lines.push(`Played as expected: ${byTier.solid.map(v => v.name).join(', ')}.`);
+    if (byTier.below.length) lines.push(`Worth a look: ${byTier.below.map(v => `${v.name} (${v.reasons.join('; ')})`).join(' | ')}.`);
+    if (byTier.struggled.length) lines.push(`What went wrong: ${byTier.struggled.map(v => `${v.name} (${v.reasons.join('; ')})`).join(' | ')}.`);
+    lines.push('What to improve:');
+    lines.push('What to keep doing:');
+    return lines.join('\n');
   }
 
   function wclTalkingPointsHtml(parses){
@@ -4303,14 +4388,13 @@
         report.masterData.actors.forEach(a => { actorMap[a.id] = a.name; });
       }
       const deathDetails = report && wclParseDeathEvents(report.deathEvents, actorMap);
-      if (!els.wclRevNotes.value.trim() && deathDetails && deathDetails.length){
-        const draftLines = deathDetails
-          .filter(d => d.ability)
-          .map(d => `${d.name}: died to ${d.ability}.`);
-        if (draftLines.length) els.wclRevNotes.value = draftLines.join('\n');
-      }
       const deathDetailsHtml = deathDetails && wclDeathDetailsHtml(deathDetails);
       const threatHtml = report && wclCountRowsHtml(report.threat);
+      const verdicts = wclComputeVerdicts(parses, deathDetails);
+      const verdictsHtml = wclVerdictRowsHtml(verdicts);
+      if (!els.wclRevNotes.value.trim() && verdicts && verdicts.length){
+        els.wclRevNotes.value = wclDraftSummary(verdicts);
+      }
 
       if (dpsHtml === null && hpsHtml === null && deathsHtml === null && parsesHtml === null){
         els.wclRawDebug.value = JSON.stringify(report, null, 2);
@@ -4332,6 +4416,11 @@
 
       els.wclBossStats.innerHTML = `
         <div class="tac-card tac-card-double"><div class="tac-card-title">Parse rankings</div>${parsesHtml || '<p class="lootlib-note">Not available for this fight (parse rankings usually need a completed kill).</p>'}</div>
+        <div class="tac-card tac-card-wide">
+          <div class="tac-card-title">Performance verdicts (rule-based first pass — not the final word)</div>
+          <div class="tac-card-note">Built from parse percentile + death cause only. Doesn't know about gear, assignments, or bad luck — use it as a starting point, override freely.</div>
+          ${verdictsHtml || '<p class="lootlib-note">Not enough data to compute verdicts for this fight.</p>'}
+        </div>
         <div class="tac-card"><div class="tac-card-title">Damage done</div>${dpsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
         <div class="tac-card"><div class="tac-card-title">Healing done</div>${hpsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
         <div class="tac-card"><div class="tac-card-title">Deaths (count)</div>${deathsHtml || '<p class="lootlib-note">Not available.</p>'}</div>

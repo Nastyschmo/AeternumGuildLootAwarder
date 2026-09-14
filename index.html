@@ -303,6 +303,11 @@
     background: #0c0a06; border: 1px solid var(--border-soft); border-radius: 4px; padding: 8px; margin-bottom: 10px;
   }
   .armory-raw-debug.hidden{ display: none; }
+  .wcl-share-summary{
+    width: 100%; font-family: monospace; font-size: 12px; color: var(--gold-bright);
+    background: #0c0a06; border: 1px solid var(--gold); border-radius: 4px; padding: 10px; margin-top: 8px;
+  }
+  .wcl-share-summary.hidden{ display: none; }
 
   /* ---------- Logs Analysis ---------- */
   .log-config-row{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -1024,6 +1029,12 @@
             <button type="button" class="btn btn-ghost btn-sm" id="wclExportFullBtn">Export full raw data</button>
           </div>
           <div id="wclBossStats" class="tac-grid"></div>
+          <div class="tac-card tac-card-wide">
+            <div class="tac-card-title">Shareable summary — copy/paste to guild chat</div>
+            <div class="tac-card-note">Auto-generated from the data above. Read it over before sharing — it doesn't know your guild's tone or history the way you do.</div>
+            <button type="button" class="btn btn-sm btn-ghost" id="wclGenerateSummaryBtn">Generate summary</button>
+            <textarea id="wclShareSummary" rows="10" class="wcl-share-summary hidden" onclick="this.select()"></textarea>
+          </div>
           <div class="tac-card tac-card-wide">
             <div class="tac-card-title">Officer review</div>
             <textarea id="wclRevNotes" rows="8" placeholder="e.g. Coffin & Slickzie: Aggro gezogen. Achtet auf euer Threatmeter..."></textarea>
@@ -1783,6 +1794,7 @@
   let wclCurrentReportTitle = '';
   let wclCurrentFights = [];
   let wclCurrentFightId = null;
+  let wclLastAnalysis = null;
   const TAC_MAP_COLORS = ['#ff3b3b', '#ffb100', '#ffe94d', '#3fd956', '#3fa9f5', '#ffffff'];
   let sidebarTab = 'groups';
   let lootlibRaidId = DEFAULT_PHASE_RAID_IDS[0];
@@ -1934,6 +1946,8 @@
     wclBossPanel: document.getElementById('wclBossPanel'),
     wclBackToFightsBtn: document.getElementById('wclBackToFightsBtn'),
     wclExportFullBtn: document.getElementById('wclExportFullBtn'),
+    wclGenerateSummaryBtn: document.getElementById('wclGenerateSummaryBtn'),
+    wclShareSummary: document.getElementById('wclShareSummary'),
     wclBossHeader: document.getElementById('wclBossHeader'),
     wclBossStats: document.getElementById('wclBossStats'),
     wclOverallNotes: document.getElementById('wclOverallNotes'),
@@ -4182,7 +4196,7 @@
   // Each ability group also carries spellsBegun/spellsInterrupted counts —
   // "how many times did the boss attempt this, and how many did we stop" —
   // a genuinely richer per-mechanic signal than the per-player totals above.
-  function wclMechanicCompletionHtml(tableData, verb){
+  function wclComputeMechanicCompletion(tableData){
     const groups = tableData && tableData.data && Array.isArray(tableData.data.entries) && tableData.data.entries[0]
       ? tableData.data.entries[0].entries : null;
     if (!Array.isArray(groups) || !groups.length) return null;
@@ -4190,15 +4204,21 @@
       const begun = g.spellsBegun || 0;
       const stopped = g.spellsInterrupted || 0;
       const pct = begun ? Math.round((stopped / begun) * 100) : 0;
-      const color = pct >= 90 ? '#3fd956' : pct >= 60 ? '#0070dd' : pct >= 30 ? '#ffb100' : '#ff5a5a';
-      return { name: g.name, begun, stopped, pct, color };
+      return { name: g.name, begun, stopped, pct };
     }).filter(r => r.begun > 0);
-    if (!rows.length) return null;
-    return rows.sort((a, b) => a.pct - b.pct).map(r => `
-      <div class="ov-row">
+    return rows.length ? rows.sort((a, b) => a.pct - b.pct) : null;
+  }
+
+  function wclMechanicCompletionHtml(tableData, verb){
+    const rows = wclComputeMechanicCompletion(tableData);
+    if (!rows) return null;
+    return rows.map(r => {
+      const color = r.pct >= 90 ? '#3fd956' : r.pct >= 60 ? '#0070dd' : r.pct >= 30 ? '#ffb100' : '#ff5a5a';
+      return `<div class="ov-row">
         <span class="ov-label">${escapeHtml(r.name)}</span>
-        <span style="color:${r.color}; font-weight:700;">${verb} ${r.stopped}/${r.begun} (${r.pct}%)</span>
-      </div>`).join('');
+        <span style="color:${color}; font-weight:700;">${verb} ${r.stopped}/${r.begun} (${r.pct}%)</span>
+      </div>`;
+    }).join('');
   }
 
 
@@ -4481,6 +4501,8 @@
 
     const existing = (state.logReviews[wclCurrentReportCode] && state.logReviews[wclCurrentReportCode][fightId]) || {};
     els.wclRevNotes.value = existing.notes || '';
+    els.wclShareSummary.classList.add('hidden');
+    els.wclShareSummary.value = '';
     els.wclReviewStatus.textContent = '';
 
     try {
@@ -4523,8 +4545,10 @@
       const consumableUsage = report ? wclConsumableUsageByName(report.casts) : {};
       const consumableCategories = report ? wclParseConsumableCategories(report.casts) : null;
       const totalRaiders = Object.keys(actorMap).length;
-      const interruptCompletionHtml = report && wclMechanicCompletionHtml(report.interrupts, 'Interrupted');
-      const dispelCompletionHtml = report && wclMechanicCompletionHtml(report.dispels, 'Dispelled');
+      const interruptCompletion = report && wclComputeMechanicCompletion(report.interrupts);
+      const dispelCompletion = report && wclComputeMechanicCompletion(report.dispels);
+      const interruptCompletionHtml = interruptCompletion && wclMechanicCompletionHtml(report.interrupts, 'Interrupted');
+      const dispelCompletionHtml = dispelCompletion && wclMechanicCompletionHtml(report.dispels, 'Dispelled');
       const deathDetailsHtml = deathDetails && wclDeathDetailsHtml(deathDetails, consumableUsage);
       const threatHtml = report && wclThreatRowsHtml(report.threat);
       const verdicts = wclComputeVerdicts(parses, deathDetails);
@@ -4568,11 +4592,13 @@
         </div>
         <div class="tac-card">
           <div class="tac-card-title">Interrupts</div>
+          <div class="tac-card-note">WCL's own categorization — occasionally includes abilities that aren't actually interruptible in-game (e.g. positioning/teleport mechanics). Sanity-check against known boss mechanics before treating a low % as a real miss.</div>
           ${interruptCompletionHtml ? `<div class="wcl-parse-role-group"><div class="wcl-parse-role-label">Per boss ability</div>${interruptCompletionHtml}</div>` : ''}
           <div class="wcl-parse-role-group"><div class="wcl-parse-role-label">Per player</div>${interruptsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
         </div>
         <div class="tac-card">
           <div class="tac-card-title">Dispels</div>
+          <div class="tac-card-note">Same caveat as Interrupts — WCL's categorization isn't always a perfect match for what's actually dispellable/interruptible in-game.</div>
           ${dispelCompletionHtml ? `<div class="wcl-parse-role-group"><div class="wcl-parse-role-label">Per boss ability</div>${dispelCompletionHtml}</div>` : ''}
           <div class="wcl-parse-role-group"><div class="wcl-parse-role-label">Per player</div>${dispelsHtml || '<p class="lootlib-note">Not available.</p>'}</div>
         </div>
@@ -4592,8 +4618,14 @@
           ` : '<p class="lootlib-note">Not available for this fight.</p>'}
         </div>
         ${wclTalkingPointsHtml(parses)}`;
+
+      wclLastAnalysis = {
+        fight, verdicts, deathDetails, interruptCompletion, dispelCompletion,
+        consumableCategories, totalRaiders, consumableUsage
+      };
     } catch (err) {
       els.wclBossStats.innerHTML = `<div class="tac-card tac-card-wide"><p class="lootlib-note">${escapeHtml(err.message)}</p></div>`;
+      wclLastAnalysis = null;
     }
   }
 
@@ -4602,6 +4634,62 @@
   // casts, buff/debuff uptime) — and dumps it all into the debug box.
   // Purely for figuring out real field shapes; nothing here is parsed or
   // rendered automatically.
+  // Turns everything we've computed for a boss into a clean, readable block
+  // meant to be copy-pasted straight into guild chat — organized the same
+  // way the officer review buckets already work (good / wrong / improve),
+  // but written as prose bullets instead of a data dump.
+  function buildBossSummaryText(analysis){
+    if (!analysis) return 'No data available — open a boss first.';
+    const { fight, verdicts, deathDetails, interruptCompletion, dispelCompletion, consumableCategories, totalRaiders } = analysis;
+    const good = [];
+    const bad = [];
+    const improve = [];
+
+    if (interruptCompletion){
+      const clean = interruptCompletion.filter(r => r.pct >= 90).map(r => `${r.name} ${r.stopped}/${r.begun}`);
+      const missed = interruptCompletion.filter(r => r.pct < 90).map(r => `${r.name} ${r.stopped}/${r.begun} (${r.pct}%)`);
+      if (clean.length) good.push(`Interrupts on point: ${clean.join(', ')}.`);
+      if (missed.length) bad.push(`Interrupts missed: ${missed.join(', ')}.`);
+    }
+    if (dispelCompletion){
+      const clean = dispelCompletion.filter(r => r.pct >= 90).map(r => `${r.name} ${r.stopped}/${r.begun}`);
+      const missed = dispelCompletion.filter(r => r.pct < 90).map(r => `${r.name} ${r.stopped}/${r.begun} (${r.pct}%)`);
+      if (clean.length) good.push(`Dispels on point: ${clean.join(', ')}.`);
+      if (missed.length) bad.push(`Dispels missed: ${missed.join(', ')}.`);
+    }
+    if (verdicts && verdicts.length){
+      const excelled = verdicts.filter(v => v.tier === 'excelled').map(v => v.name);
+      const struggled = verdicts.filter(v => v.tier === 'struggled').map(v => `${v.name} (${v.reasons.join('; ')})`);
+      const below = verdicts.filter(v => v.tier === 'below').map(v => `${v.name} (${v.reasons.join('; ')})`);
+      if (excelled.length) good.push(`Standout performances: ${excelled.join(', ')}.`);
+      if (struggled.length) bad.push(`Struggled: ${struggled.join(', ')}.`);
+      if (below.length) improve.push(`Below expectations: ${below.join(', ')}.`);
+    }
+    if (deathDetails){
+      if (deathDetails.length) bad.push(`${deathDetails.length} death(s): ${deathDetails.map(d => `${d.name} (${d.ability || 'cause unclear'})`).join(', ')}.`);
+      else good.push('Zero deaths — clean execution.');
+    }
+    if (consumableCategories && totalRaiders){
+      const missingPotions = totalRaiders - Object.keys(consumableCategories.potions || {}).length;
+      const missingStones = totalRaiders - Object.keys(consumableCategories.healthstone || {}).length;
+      if (missingPotions > 0) improve.push(`${missingPotions} of ${totalRaiders} raiders didn't use a Buff Potion this pull.`);
+      if (missingStones === totalRaiders) improve.push('Nobody used a Healthstone this pull.');
+    }
+
+    const resultLabel = fight && fight.kill
+      ? 'Kill'
+      : `Wipe${fight && fight.bossPercentage != null ? ` (${(fight.bossPercentage / 100).toFixed(1)}% boss health remaining)` : ''}`;
+    const lines = [`=== ${fight ? fight.name : 'Boss'} — ${resultLabel} ===`, ''];
+    if (good.length){ lines.push('✅ What went well:'); good.forEach(g => lines.push('- ' + g)); lines.push(''); }
+    if (bad.length){ lines.push('⚠️ What went wrong:'); bad.forEach(b => lines.push('- ' + b)); lines.push(''); }
+    if (improve.length){ lines.push('🔧 Worth improving:'); improve.forEach(i => lines.push('- ' + i)); lines.push(''); }
+    if (!good.length && !bad.length && !improve.length) lines.push('Not enough data to summarize this fight yet.');
+    if ((interruptCompletion && interruptCompletion.length) || (dispelCompletion && dispelCompletion.length)){
+      lines.push('(Interrupt/dispel numbers come from WCL\'s own categorization, which occasionally includes non-interruptible mechanics — double check against known boss abilities before treating a low % as a real miss.)');
+    }
+    return lines.join('\n').trim();
+  }
+
   async function exportWclFullData(){
     if (!wclCurrentReportCode || wclCurrentFightId == null) return;
     els.wclExportFullBtn.disabled = true;
@@ -5051,6 +5139,10 @@
   els.wclSaveReviewBtn.addEventListener('click', saveWclReview);
   els.wclSaveOverallBtn.addEventListener('click', saveWclOverall);
   els.wclExportFullBtn.addEventListener('click', exportWclFullData);
+  els.wclGenerateSummaryBtn.addEventListener('click', () => {
+    els.wclShareSummary.value = buildBossSummaryText(wclLastAnalysis);
+    els.wclShareSummary.classList.remove('hidden');
+  });
 
   els.tacMapBgInput.addEventListener('change', async (e) => {
     if (!tacRaidId || !tacBossName) return;

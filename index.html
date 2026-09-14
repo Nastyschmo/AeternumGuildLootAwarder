@@ -4224,15 +4224,18 @@
   // of several deaths yield a recognized ability, treat it as "couldn't
   // parse this shape" (return null) so the raw debug view shows up rather
   // than silently shipping a list of "Unknown ability" for everyone.
-  function wclParseDeathEvents(eventsData, actorMap){
+  function wclParseDeathEvents(eventsData, actorMap, abilityMap){
     const rows = eventsData && Array.isArray(eventsData.data) ? eventsData.data : null;
     if (!rows) return null;
     if (!rows.length) return [];
     const parsed = rows.map(e => {
       const name = actorMap[e.targetID] || (e.targetID != null ? `Actor ${e.targetID}` : 'Unknown');
-      const realAbilityName = (e.killingAbility && e.killingAbility.name)
+      // Confirmed via real data: the killing ability is a bare spell ID
+      // (killingAbilityGameID), not a nested name field — needs a lookup
+      // against masterData.abilities to become a readable name.
+      const realAbilityName = (e.killingAbilityGameID != null && abilityMap && abilityMap[e.killingAbilityGameID])
+        || (e.killingAbility && e.killingAbility.name)
         || (e.ability && e.ability.name)
-        || (e.killingAttack && e.killingAttack.name)
         || null;
       return { name, ability: realAbilityName, timestamp: e.timestamp };
     });
@@ -4370,7 +4373,7 @@
               rankings(fightIDs: $fightId)
               threat: table(fightIDs: $fightId, dataType: Threat)
               deathEvents: events(fightIDs: $fightId, dataType: Deaths, limit: 100) { data nextPageTimestamp }
-              masterData { actors(type: "Player") { id name } }
+              masterData { actors(type: "Player") { id name } abilities { gameID name } }
             }
           }
         }`,
@@ -4388,7 +4391,11 @@
       if (report && report.masterData && Array.isArray(report.masterData.actors)){
         report.masterData.actors.forEach(a => { actorMap[a.id] = a.name; });
       }
-      const deathDetails = report && wclParseDeathEvents(report.deathEvents, actorMap);
+      const abilityMap = {};
+      if (report && report.masterData && Array.isArray(report.masterData.abilities)){
+        report.masterData.abilities.forEach(a => { abilityMap[a.gameID] = a.name; });
+      }
+      const deathDetails = report && wclParseDeathEvents(report.deathEvents, actorMap, abilityMap);
       const deathDetailsHtml = deathDetails && wclDeathDetailsHtml(deathDetails);
       const threatHtml = report && wclCountRowsHtml(report.threat);
       const verdicts = wclComputeVerdicts(parses, deathDetails);
@@ -4469,7 +4476,7 @@
               threat: table(fightIDs: $fightId, dataType: Threat)
               rankings(fightIDs: $fightId)
               deathEvents: events(fightIDs: $fightId, dataType: Deaths, limit: 100) { data nextPageTimestamp }
-              masterData { actors(type: "Player") { id name } }
+              masterData { actors(type: "Player") { id name } abilities { gameID name } }
             }
           }
         }`,

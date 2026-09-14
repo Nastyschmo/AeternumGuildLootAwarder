@@ -1021,7 +1021,7 @@
           <div class="tac-nav-row">
             <button type="button" class="btn btn-ghost btn-sm" id="wclBackToFightsBtn">← Back to boss list</button>
             <div id="wclBossHeader" class="tac-boss-header tac-boss-header-center"></div>
-            <span></span>
+            <button type="button" class="btn btn-ghost btn-sm" id="wclExportFullBtn">Export full raw data</button>
           </div>
           <div id="wclBossStats" class="tac-grid"></div>
           <div class="tac-card tac-card-wide">
@@ -1933,6 +1933,7 @@
     wclFightsList: document.getElementById('wclFightsList'),
     wclBossPanel: document.getElementById('wclBossPanel'),
     wclBackToFightsBtn: document.getElementById('wclBackToFightsBtn'),
+    wclExportFullBtn: document.getElementById('wclExportFullBtn'),
     wclBossHeader: document.getElementById('wclBossHeader'),
     wclBossStats: document.getElementById('wclBossStats'),
     wclOverallNotes: document.getElementById('wclOverallNotes'),
@@ -4442,6 +4443,50 @@
     }
   }
 
+  // Pulls everything we can think of for one fight — including a few
+  // fields we don't currently use in the UI (damage taken by ability,
+  // casts, buff/debuff uptime) — and dumps it all into the debug box.
+  // Purely for figuring out real field shapes; nothing here is parsed or
+  // rendered automatically.
+  async function exportWclFullData(){
+    if (!wclCurrentReportCode || wclCurrentFightId == null) return;
+    els.wclExportFullBtn.disabled = true;
+    els.wclExportFullBtn.textContent = 'Exporting…';
+    try {
+      const data = await wclGraphQL(
+        `query($code: String!, $fightId: [Int]) {
+          reportData {
+            report(code: $code) {
+              dps: table(fightIDs: $fightId, dataType: DamageDone)
+              hps: table(fightIDs: $fightId, dataType: Healing)
+              deaths: table(fightIDs: $fightId, dataType: Deaths)
+              interrupts: table(fightIDs: $fightId, dataType: Interrupts)
+              dispels: table(fightIDs: $fightId, dataType: Dispels)
+              damageTaken: table(fightIDs: $fightId, dataType: DamageTaken)
+              casts: table(fightIDs: $fightId, dataType: Casts)
+              buffs: table(fightIDs: $fightId, dataType: Buffs)
+              debuffs: table(fightIDs: $fightId, dataType: Debuffs)
+              threat: table(fightIDs: $fightId, dataType: Threat)
+              rankings(fightIDs: $fightId)
+              deathEvents: events(fightIDs: $fightId, dataType: Deaths, limit: 100) { data nextPageTimestamp }
+              masterData { actors(type: "Player") { id name } }
+            }
+          }
+        }`,
+        { code: wclCurrentReportCode, fightId: [wclCurrentFightId] }
+      );
+      els.wclRawDebug.value = JSON.stringify(data, null, 2);
+      els.wclRawDebug.classList.remove('hidden');
+      try { els.wclRawDebug.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (scrollErr) { /* cosmetic only, never let this affect the data above */ }
+    } catch (err) {
+      els.wclRawDebug.value = 'Export failed: ' + err.message;
+      els.wclRawDebug.classList.remove('hidden');
+    } finally {
+      els.wclExportFullBtn.disabled = false;
+      els.wclExportFullBtn.textContent = 'Export full raw data';
+    }
+  }
+
   async function saveWclReview(){
     if (!wclCurrentReportCode || wclCurrentFightId == null) return;
     const fight = wclCurrentFights.find(f => f.id === wclCurrentFightId);
@@ -4851,6 +4896,7 @@
   });
   els.wclSaveReviewBtn.addEventListener('click', saveWclReview);
   els.wclSaveOverallBtn.addEventListener('click', saveWclOverall);
+  els.wclExportFullBtn.addEventListener('click', exportWclFullData);
 
   els.tacMapBgInput.addEventListener('change', async (e) => {
     if (!tacRaidId || !tacBossName) return;

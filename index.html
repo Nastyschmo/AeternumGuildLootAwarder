@@ -413,6 +413,45 @@
   .forever-ov-legend-item{ display: flex; align-items: center; gap: 5px; }
   .forever-ov-legend-dot{ width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
 
+  /* ---------- Custom polls — a generic Offi-built voting tool (separate
+     from the hard-coded WoW Forever class/spec survey above). Reuses the
+     .voting-card / .tac-card shells. ---------- */
+  .poll-option-input-row{ display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .poll-option-input-row input[type="text"]{ flex: 1; }
+  .poll-option-remove-btn{
+    flex: none; width: 30px; height: 30px; padding: 0; font-size: 14px; line-height: 1;
+    background: transparent; border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text-faint); cursor: pointer;
+  }
+  .poll-option-remove-btn:hover{ color: var(--danger-bright); border-color: var(--danger); }
+  .poll-add-option-btn{
+    margin: 2px 0 14px; padding: 6px 10px; font-size: 12px; font-weight: 600; font-family: 'Karla', sans-serif;
+    color: var(--gold-bright); background: rgba(240,207,107,0.08); border: 1px dashed var(--gold);
+    border-radius: 5px; cursor: pointer;
+  }
+  .poll-add-option-btn:hover{ background: rgba(240,207,107,0.16); }
+  .poll-config-grid{ display: flex; flex-wrap: wrap; gap: 20px 28px; margin: 14px 0 16px; }
+  .poll-config-field{ display: flex; flex-direction: column; gap: 6px; }
+  .poll-config-field-label{ font-size: 11.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; }
+  .poll-config-field input[type="number"]{ width: 90px; }
+  .poll-radio-group{ display: flex; gap: 16px; }
+  .poll-radio-option{ display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); cursor: pointer; }
+  .poll-checkbox-field{ display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; }
+
+  .poll-card-meta-line{ font-size: 12px; color: var(--text-faint); margin-bottom: 14px; }
+  .poll-options-list{ display: flex; flex-direction: column; }
+  .poll-option-row{ display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border-soft); }
+  .poll-option-row:last-child{ border-bottom: none; }
+  .poll-option-control{ flex: none; width: 17px; height: 17px; accent-color: var(--gold-bright); cursor: pointer; }
+  .poll-option-control:disabled{ cursor: not-allowed; }
+  .poll-option-label{ flex: 0 1 200px; font-size: 13.5px; color: var(--text); }
+  .poll-option-bar-wrap{ flex: 1; min-width: 100px; display: flex; align-items: center; gap: 10px; }
+  .poll-option-bar-track{ flex: 1; height: 14px; border-radius: 4px; background: rgba(255,255,255,0.05); overflow: hidden; }
+  .poll-option-bar-fill{ height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--gold), var(--gold-bright)); }
+  .poll-option-count{ flex: none; min-width: 78px; text-align: right; font-size: 11.5px; color: var(--text-faint); }
+  .poll-hidden-results-note{ font-size: 12px; color: var(--text-faint); font-style: italic; margin-top: 10px; }
+  .poll-voters-note{ font-size: 11.5px; color: var(--text-faint); margin-top: 10px; line-height: 1.5; }
+
   /* ---------- Setup screens (shown only until the admin configures Firebase/Discord/Worker) ---------- */
   .setup-wrap{ max-width: 720px; margin: 60px auto; padding: 0 6vw; }
   .setup-screen{ background: var(--bg-panel); border: 1px solid var(--gold); border-radius: 6px; padding: 24px 26px; margin-bottom: 22px; }
@@ -556,9 +595,9 @@
         <section class="page-section hidden" id="page-forever">
           <header class="hero hero-sub">
             <div class="hero-content">
-              <p class="hero-eyebrow">Klassen-Umfrage</p>
-              <h1 class="hero-title hero-title-sm">WOW FOREVER</h1>
-              <p class="hero-desc">Bis zu 2 Klassen wählen, pro Klasse eine Spezialisierung — hilft uns bei der Planung, wer künftig noch gebraucht wird.</p>
+              <p class="hero-eyebrow">Gilden-Abstimmungen</p>
+              <h1 class="hero-title hero-title-sm">ABSTIMMUNGEN</h1>
+              <p class="hero-desc">Hier findet ihr alle offenen und vergangenen Abstimmungen der Gilde — inklusive der WoW-Forever-Klassen-Umfrage weiter unten.</p>
             </div>
           </header>
 
@@ -570,6 +609,40 @@
             </div>
 
             <div id="foreverLoggedIn" class="hidden">
+              <div class="tac-card hidden" id="pollComposer">
+                <div class="tac-card-title">Neue Abstimmung erstellen</div>
+                <div class="tac-card-note">Nur für Admins/Offiziere sichtbar. Wird nach dem Veröffentlichen sofort oben in der Liste angezeigt.</div>
+                <input type="text" id="pollTitleInput" class="announce-title-input" placeholder="Titel der Abstimmung…" maxlength="150">
+                <div id="pollOptionInputs"></div>
+                <button type="button" class="poll-add-option-btn" id="pollAddOptionBtn">+ Option hinzufügen</button>
+                <div class="poll-config-grid">
+                  <div class="poll-config-field">
+                    <span class="poll-config-field-label">Abstimmungsart</span>
+                    <div class="poll-radio-group">
+                      <label class="poll-radio-option"><input type="radio" name="pollChoiceMode" value="single" checked> Single Vote</label>
+                      <label class="poll-radio-option"><input type="radio" name="pollChoiceMode" value="multiple"> Multiple Choice</label>
+                    </div>
+                  </div>
+                  <div class="poll-config-field">
+                    <span class="poll-config-field-label">Laufzeit (Tage)</span>
+                    <input type="number" id="pollDurationInput" min="1" max="90" value="7">
+                  </div>
+                  <div class="poll-config-field">
+                    <span class="poll-config-field-label">Sichtbarkeit</span>
+                    <label class="poll-checkbox-field"><input type="checkbox" id="pollResultsVisibleInput" checked> Ergebnisse während der Abstimmung für alle sichtbar</label>
+                  </div>
+                  <div class="poll-config-field">
+                    <span class="poll-config-field-label">Teilnehmer</span>
+                    <label class="poll-checkbox-field"><input type="checkbox" id="pollAnonymousInput"> Anonym abstimmen (keine Namen anzeigen)</label>
+                  </div>
+                </div>
+                <div class="forever-actions">
+                  <button type="button" class="btn btn-teal btn-sm" id="pollPublishBtn">Abstimmung veröffentlichen</button>
+                  <span id="pollPublishStatus" class="armory-status"></span>
+                </div>
+              </div>
+              <div id="pollList"></div>
+
               <div class="voting-card" id="votingCard-forever" data-voting-id="forever">
                 <button type="button" class="voting-card-header" id="votingToggle-forever">
                   <span class="voting-card-chevron">
@@ -993,7 +1066,7 @@
   }
 
   function defaultState(){
-    return { discordRoles: {}, foreverSurvey: {}, votingStatus: {}, announcements: {} };
+    return { discordRoles: {}, foreverSurvey: {}, votingStatus: {}, announcements: {}, polls: {} };
   }
 
   // Announcements store a small allow-listed subset of formatted HTML (so
@@ -1062,6 +1135,116 @@
     };
   }
 
+  // ---------------------------------------------------------------------
+  // Custom polls — a generic tool for Admins/Officers to build their own
+  // votings (title + arbitrary options + single/multiple choice + a
+  // duration + visibility/anonymity settings). Deliberately separate from
+  // the hard-coded WoW Forever class/spec survey above, which stays a
+  // one-off, code-defined thing.
+  // ---------------------------------------------------------------------
+  const POLL_MIN_OPTIONS = 2;
+  const POLL_MAX_OPTIONS = 10;
+  const POLL_MIN_DURATION_DAYS = 1;
+  const POLL_MAX_DURATION_DAYS = 90;
+  const POLL_DAY_MS = 24 * 60 * 60 * 1000;
+
+  // Defensive coercion for one poll — re-validates every field on every
+  // load, same reasoning as normalizeAnnouncement/normalizeForeverEntry.
+  function normalizePoll(p){
+    if (!p || typeof p.title !== 'string' || !p.title.trim()) return null;
+    const title = p.title.trim().slice(0, 150);
+
+    const rawOptions = Array.isArray(p.options) ? p.options : [];
+    const seenIds = new Set();
+    const options = [];
+    for (const o of rawOptions){
+      if (!o || typeof o.id !== 'string' || !o.id || typeof o.label !== 'string' || !o.label.trim()) continue;
+      if (seenIds.has(o.id)) continue;
+      seenIds.add(o.id);
+      options.push({ id: o.id, label: o.label.trim().slice(0, 80) });
+      if (options.length >= POLL_MAX_OPTIONS) break;
+    }
+    if (options.length < POLL_MIN_OPTIONS) return null;
+    const validOptionIds = new Set(options.map(o => o.id));
+
+    const multipleChoice = !!p.multipleChoice;
+    const resultsVisible = p.resultsVisible !== false; // default true
+    const anonymous = !!p.anonymous;
+    let durationDays = Number(p.durationDays);
+    if (!Number.isFinite(durationDays) || durationDays < POLL_MIN_DURATION_DAYS) durationDays = POLL_MIN_DURATION_DAYS;
+    if (durationDays > POLL_MAX_DURATION_DAYS) durationDays = POLL_MAX_DURATION_DAYS;
+    const createdAt = (typeof p.createdAt === 'number' && p.createdAt > 0) ? p.createdAt : 0;
+    const expiresAt = (typeof p.expiresAt === 'number' && p.expiresAt > 0) ? p.expiresAt : (createdAt ? createdAt + durationDays * POLL_DAY_MS : 0);
+
+    const rawVotes = (p.votes && typeof p.votes === 'object') ? p.votes : {};
+    const votes = {};
+    for (const uid of Object.keys(rawVotes)){
+      const v = rawVotes[uid];
+      if (!v) continue;
+      const rawChoices = Array.isArray(v.choices) ? v.choices : [];
+      let choices = rawChoices.filter(c => typeof c === 'string' && validOptionIds.has(c));
+      choices = Array.from(new Set(choices));
+      if (!multipleChoice) choices = choices.slice(0, 1);
+      if (!choices.length) continue;
+      votes[uid] = {
+        username: (typeof v.username === 'string' && v.username) ? v.username : 'Unbekannt',
+        choices
+      };
+    }
+
+    return {
+      title, options, multipleChoice, resultsVisible, anonymous, durationDays, createdAt, expiresAt,
+      closed: !!p.closed,
+      createdByName: (typeof p.createdByName === 'string' && p.createdByName) ? p.createdByName : 'Unbekannt',
+      createdById: typeof p.createdById === 'string' ? p.createdById : '',
+      votes
+    };
+  }
+
+  function pollIsExpired(poll){
+    return !!(poll.expiresAt && Date.now() >= poll.expiresAt);
+  }
+  function pollIsClosed(poll){
+    return !!poll.closed || pollIsExpired(poll);
+  }
+  // Live results are visible to everyone once the poll allows it or has
+  // ended; Officers/Admins can always see live results so they can judge
+  // when to step in or close it early.
+  function pollCanSeeResults(poll){
+    return !!poll.resultsVisible || pollIsClosed(poll) || isOfficerOrAdmin();
+  }
+  function pollDaysLeftLabel(poll){
+    if (pollIsClosed(poll)) return 'beendet';
+    const msLeft = poll.expiresAt - Date.now();
+    const daysLeft = Math.max(0, Math.ceil(msLeft / POLL_DAY_MS));
+    if (daysLeft <= 0) return 'endet heute';
+    return daysLeft === 1 ? 'noch 1 Tag' : `noch ${daysLeft} Tage`;
+  }
+  function pollResults(poll){
+    const counts = {};
+    const namesByOption = {};
+    poll.options.forEach(o => { counts[o.id] = 0; namesByOption[o.id] = []; });
+    let voterCount = 0;
+    Object.values(poll.votes).forEach(v => {
+      voterCount++;
+      v.choices.forEach(optId => {
+        if (counts[optId] === undefined) return;
+        counts[optId]++;
+        namesByOption[optId].push(v.username);
+      });
+    });
+    return { counts, namesByOption, voterCount };
+  }
+  function pollUserChoices(poll){
+    if (!discordIdentity || !poll.votes[discordIdentity.id]) return [];
+    return poll.votes[discordIdentity.id].choices;
+  }
+  function sortedPolls(){
+    return Object.keys(state.polls || {})
+      .map(id => Object.assign({ id }, state.polls[id]))
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }
+
   function normalizeState(parsed){
     return {
       discordRoles: (parsed.discordRoles && typeof parsed.discordRoles === 'object') ? parsed.discordRoles : {},
@@ -1088,6 +1271,15 @@
           if (norm) out[id] = norm;
         }
         return out;
+      })(),
+      polls: (() => {
+        const raw = (parsed.polls && typeof parsed.polls === 'object') ? parsed.polls : {};
+        const out = {};
+        for (const id of Object.keys(raw)){
+          const norm = normalizePoll(raw[id]);
+          if (norm) out[id] = norm;
+        }
+        return out;
       })()
     };
   }
@@ -1098,6 +1290,9 @@
 
   let state = defaultState();
   let foreverDraft = null; // null = not yet initialized from saved data this session
+  let pollComposerOptionDrafts = ['', '']; // composer's in-progress option text inputs, always >= POLL_MIN_OPTIONS
+  let pollVoteDrafts = {}; // { [pollId]: [optionId, ...] } — per-poll in-progress selection before "Absenden"
+  let pollCardManualOpen = {}; // { [pollId]: true|false } — same collapse-override convention as votings/announcements
 
   const els = {
     sidebar: document.getElementById('sidebar'),
@@ -1147,6 +1342,16 @@
     announceSaveBtn: document.getElementById('announceSaveBtn'),
     announceSaveStatus: document.getElementById('announceSaveStatus'),
     announceList: document.getElementById('announceList'),
+    pollComposer: document.getElementById('pollComposer'),
+    pollTitleInput: document.getElementById('pollTitleInput'),
+    pollOptionInputs: document.getElementById('pollOptionInputs'),
+    pollAddOptionBtn: document.getElementById('pollAddOptionBtn'),
+    pollDurationInput: document.getElementById('pollDurationInput'),
+    pollResultsVisibleInput: document.getElementById('pollResultsVisibleInput'),
+    pollAnonymousInput: document.getElementById('pollAnonymousInput'),
+    pollPublishBtn: document.getElementById('pollPublishBtn'),
+    pollPublishStatus: document.getElementById('pollPublishStatus'),
+    pollList: document.getElementById('pollList'),
     setupScreen: document.getElementById('setupScreen'),
     discordSetupScreen: document.getElementById('discordSetupScreen'),
     workerSetupScreen: document.getElementById('workerSetupScreen'),
@@ -1694,6 +1899,304 @@
     }
   }
 
+  // ---------------------------------------------------------------------
+  // Custom polls — rendering, composer, voting, and Officer moderation.
+  // ---------------------------------------------------------------------
+  function renderPollComposerOptions(){
+    els.pollOptionInputs.innerHTML = pollComposerOptionDrafts.map((val, i) => `
+      <div class="poll-option-input-row">
+        <input type="text" data-poll-option-index="${i}" placeholder="Option ${i + 1}…" maxlength="80" value="${escapeHtml(val)}">
+        ${pollComposerOptionDrafts.length > POLL_MIN_OPTIONS ? `<button type="button" class="poll-option-remove-btn" data-poll-option-remove="${i}" title="Entfernen">✕</button>` : ''}
+      </div>
+    `).join('');
+    els.pollOptionInputs.querySelectorAll('input[data-poll-option-index]').forEach(input => {
+      input.addEventListener('input', () => {
+        const idx = Number(input.getAttribute('data-poll-option-index'));
+        pollComposerOptionDrafts[idx] = input.value;
+      });
+    });
+    els.pollOptionInputs.querySelectorAll('[data-poll-option-remove]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.getAttribute('data-poll-option-remove'));
+        if (pollComposerOptionDrafts.length <= POLL_MIN_OPTIONS) return;
+        pollComposerOptionDrafts.splice(idx, 1);
+        renderPollComposerOptions();
+      });
+    });
+    els.pollAddOptionBtn.classList.toggle('hidden', pollComposerOptionDrafts.length >= POLL_MAX_OPTIONS);
+  }
+
+  function addPollComposerOption(){
+    if (pollComposerOptionDrafts.length >= POLL_MAX_OPTIONS) return;
+    pollComposerOptionDrafts.push('');
+    renderPollComposerOptions();
+  }
+
+  function resetPollComposer(){
+    pollComposerOptionDrafts = ['', ''];
+    els.pollTitleInput.value = '';
+    els.pollDurationInput.value = '7';
+    els.pollResultsVisibleInput.checked = true;
+    els.pollAnonymousInput.checked = false;
+    const singleRadio = document.querySelector('input[name="pollChoiceMode"][value="single"]');
+    if (singleRadio) singleRadio.checked = true;
+    renderPollComposerOptions();
+  }
+
+  async function publishPoll(){
+    if (!discordIdentity || !isOfficerOrAdmin()) return;
+    const title = els.pollTitleInput.value.trim().slice(0, 150);
+    if (!title) return;
+    const rawOptions = pollComposerOptionDrafts.map(v => v.trim()).filter(Boolean);
+    if (rawOptions.length < POLL_MIN_OPTIONS) return;
+    const options = rawOptions.slice(0, POLL_MAX_OPTIONS).map((label, i) =>
+      ({ id: 'o' + i + '_' + Math.random().toString(36).slice(2, 7), label: label.slice(0, 80) }));
+    const modeInput = document.querySelector('input[name="pollChoiceMode"]:checked');
+    const multipleChoice = !!modeInput && modeInput.value === 'multiple';
+    let durationDays = Number(els.pollDurationInput.value);
+    if (!Number.isFinite(durationDays) || durationDays < POLL_MIN_DURATION_DAYS) durationDays = POLL_MIN_DURATION_DAYS;
+    if (durationDays > POLL_MAX_DURATION_DAYS) durationDays = POLL_MAX_DURATION_DAYS;
+    const resultsVisible = !!els.pollResultsVisibleInput.checked;
+    const anonymous = !!els.pollAnonymousInput.checked;
+
+    let id = null;
+    try{ id = db ? db.ref(DB_PATH + '/polls').push().key : null; }catch(e){}
+    if (!id) id = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const createdAt = Date.now();
+    if (!state.polls) state.polls = {};
+    state.polls[id] = {
+      title, options, multipleChoice, resultsVisible, anonymous, durationDays,
+      createdAt, expiresAt: createdAt + durationDays * POLL_DAY_MS,
+      closed: false,
+      createdByName: discordIdentity.username,
+      createdById: discordIdentity.id,
+      votes: {}
+    };
+    els.pollPublishStatus.textContent = 'Saving…';
+    els.pollPublishStatus.className = 'armory-status';
+    renderAll();
+    const ok = await saveData('polls/' + id);
+    if (ok){
+      resetPollComposer();
+      els.pollPublishStatus.textContent = 'Veröffentlicht!';
+      els.pollPublishStatus.className = 'armory-status armory-status-ok';
+      setTimeout(() => { if (els.pollPublishStatus.textContent === 'Veröffentlicht!') els.pollPublishStatus.textContent = ''; }, 2000);
+    } else {
+      // Write failed (most likely: the Firebase rules haven't been updated
+      // to allow poll writes yet — see the README). Roll back so the UI
+      // never claims the poll was posted when it wasn't.
+      delete state.polls[id];
+      els.pollPublishStatus.textContent = 'Konnte nicht speichern — Firebase-Regeln prüfen (siehe README)';
+      els.pollPublishStatus.className = 'armory-status armory-status-error';
+      renderAll();
+    }
+  }
+
+  function togglePollDraftOption(pollId, optionId, multipleChoice){
+    const current = pollVoteDrafts[pollId] || [];
+    let next;
+    if (multipleChoice){
+      next = current.includes(optionId) ? current.filter(id => id !== optionId) : current.concat(optionId);
+    } else {
+      next = current.includes(optionId) ? [] : [optionId];
+    }
+    pollVoteDrafts[pollId] = next;
+    renderPollList();
+  }
+
+  async function savePollVote(pollId){
+    if (!discordIdentity || !state.polls || !state.polls[pollId]) return;
+    const poll = state.polls[pollId];
+    if (pollIsClosed(poll)) return;
+    const choices = pollVoteDrafts[pollId] || pollUserChoices(poll);
+    if (!choices.length) return;
+    const previous = poll.votes[discordIdentity.id];
+    poll.votes[discordIdentity.id] = { username: discordIdentity.username, choices: choices.slice() };
+    let statusEl = document.getElementById('pollVoteStatus-' + pollId);
+    if (statusEl){ statusEl.textContent = 'Saving…'; statusEl.className = 'armory-status'; }
+    renderPollList();
+    const ok = await saveData('polls/' + pollId + '/votes/' + discordIdentity.id);
+    if (!ok){
+      if (previous) poll.votes[discordIdentity.id] = previous;
+      else delete poll.votes[discordIdentity.id];
+      renderPollList();
+      statusEl = document.getElementById('pollVoteStatus-' + pollId);
+      if (statusEl){
+        statusEl.textContent = 'Konnte nicht speichern — Firebase-Regeln prüfen (siehe README)';
+        statusEl.className = 'armory-status armory-status-error';
+      }
+    }
+  }
+
+  async function togglePollClosed(pollId){
+    if (!isOfficerOrAdmin() || !state.polls || !state.polls[pollId]) return;
+    const poll = state.polls[pollId];
+    const previous = poll.closed;
+    poll.closed = !previous;
+    renderPollList();
+    const ok = await saveData('polls/' + pollId + '/closed');
+    if (!ok){
+      poll.closed = previous;
+      renderPollList();
+    }
+  }
+
+  async function deletePoll(pollId){
+    if (!isOfficerOrAdmin() || !state.polls || !state.polls[pollId]) return;
+    const previous = state.polls[pollId];
+    delete state.polls[pollId];
+    delete pollVoteDrafts[pollId];
+    renderPollList();
+    const ok = await saveData('polls/' + pollId);
+    if (!ok){
+      state.polls[pollId] = previous;
+      renderPollList();
+    }
+  }
+
+  function togglePollCard(id){
+    const body = document.getElementById('pollBody-' + id);
+    if (!body) return;
+    const currentlyOpen = !body.classList.contains('hidden');
+    pollCardManualOpen[id] = !currentlyOpen;
+    applyCardCollapsedUi('pollCard-' + id, 'pollBody-' + id, currentlyOpen);
+  }
+
+  function renderPollList(){
+    if (!els.pollComposer) return;
+    els.pollComposer.classList.toggle('hidden', !isOfficerOrAdmin());
+
+    const polls = sortedPolls();
+    if (!polls.length){
+      els.pollList.innerHTML = `<div class="lootlib-note">Noch keine Abstimmungen.</div>`;
+      return;
+    }
+
+    const canManage = isOfficerOrAdmin();
+    els.pollList.innerHTML = polls.map(poll => {
+      const closed = pollIsClosed(poll);
+      const canSeeResults = pollCanSeeResults(poll);
+      const results = canSeeResults ? pollResults(poll) : null;
+      const maxCount = results ? Math.max(1, ...Object.values(results.counts)) : 1;
+      const userChoices = pollVoteDrafts[poll.id] !== undefined ? pollVoteDrafts[poll.id] : pollUserChoices(poll);
+      const hasVoted = pollUserChoices(poll).length > 0;
+
+      const adminControlsHtml = canManage
+        ? `<div class="voting-admin-controls">
+            <span class="lootlib-note">Nur für Admins/Offiziere sichtbar.</span>
+            <div class="voting-admin-controls-actions">
+              <span id="pollAdminStatus-${poll.id}" class="armory-status"></span>
+              <button type="button" class="btn btn-sm btn-outline-gold" data-poll-toggle-closed="${poll.id}">${poll.closed ? 'Wieder öffnen' : 'Abstimmung schließen'}</button>
+              <button type="button" class="btn btn-sm btn-outline-gold" data-poll-delete="${poll.id}">Löschen</button>
+            </div>
+          </div>`
+        : '';
+
+      const closedNoteHtml = closed
+        ? `<div class="voting-closed-note">Diese Abstimmung ist beendet — es kann nicht mehr abgestimmt werden.</div>`
+        : '';
+
+      const optionsHtml = poll.options.map(opt => {
+        const selected = userChoices.includes(opt.id);
+        const inputType = poll.multipleChoice ? 'checkbox' : 'radio';
+        const inputName = poll.multipleChoice ? '' : `name="pollChoice-${poll.id}"`;
+        const disabled = (closed || !discordIdentity) ? 'disabled' : '';
+        const controlHtml = `<input type="${inputType}" ${inputName} class="poll-option-control" data-poll-option="${poll.id}|${opt.id}" ${selected ? 'checked' : ''} ${disabled}>`;
+
+        let barHtml = '';
+        if (canSeeResults){
+          const count = results.counts[opt.id] || 0;
+          const pct = (count / maxCount) * 100;
+          const names = results.namesByOption[opt.id];
+          const title = poll.anonymous ? `${count} Stimme(n)` : `${count} Stimme(n)${names.length ? ':\n' + names.join('\n') : ''}`;
+          barHtml = `<div class="poll-option-bar-wrap">
+            <div class="poll-option-bar-track"><div class="poll-option-bar-fill" style="width:${pct}%" title="${escapeHtml(title)}"></div></div>
+            <span class="poll-option-count">${count} Stimme${count === 1 ? '' : 'n'}</span>
+          </div>`;
+        }
+
+        return `<div class="poll-option-row">
+          <label>${controlHtml}</label>
+          <span class="poll-option-label">${escapeHtml(opt.label)}</span>
+          ${barHtml}
+        </div>`;
+      }).join('');
+
+      const resultsNoteHtml = !canSeeResults
+        ? `<div class="poll-hidden-results-note">Die Ergebnisse werden erst sichtbar, sobald die Abstimmung beendet ist.</div>`
+        : '';
+      const voterCountLine = canSeeResults
+        ? `<div class="poll-voters-note">${results.voterCount} Mitglied${results.voterCount === 1 ? '' : 'er'} ${results.voterCount === 1 ? 'hat' : 'haben'} bisher abgestimmt.</div>`
+        : '';
+
+      const metaBits = [
+        'von ' + escapeHtml(poll.createdByName),
+        poll.multipleChoice ? 'Mehrfachauswahl' : 'Einfachauswahl',
+        pollDaysLeftLabel(poll)
+      ];
+
+      return `<div class="voting-card" id="pollCard-${poll.id}" data-poll-id="${poll.id}">
+        <button type="button" class="voting-card-header" data-poll-toggle="${poll.id}">
+          <span class="voting-card-chevron">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>
+          </span>
+          <span class="voting-card-title announce-card-title">${escapeHtml(poll.title)}</span>
+          <span class="voting-status-badge ${closed ? 'closed' : ''}">${closed ? 'Geschlossen' : 'Offen'}</span>
+        </button>
+        <div class="voting-card-body" id="pollBody-${poll.id}">
+          ${adminControlsHtml}
+          ${closedNoteHtml}
+          <div class="poll-card-meta-line">${metaBits.join(' · ')}</div>
+          <div class="poll-options-list">${optionsHtml}</div>
+          ${resultsNoteHtml}
+          ${voterCountLine}
+          <div class="forever-actions">
+            <button type="button" class="btn btn-teal btn-sm" data-poll-submit="${poll.id}" ${(closed || !discordIdentity) ? 'disabled' : ''}>${hasVoted ? 'Auswahl aktualisieren' : 'Abstimmen'}</button>
+            <span id="pollVoteStatus-${poll.id}" class="armory-status"></span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Default: only the newest poll starts expanded, same convention as
+    // announcements/votings — the viewer's own manual toggle always wins.
+    polls.forEach((poll, idx) => {
+      if (pollCardManualOpen[poll.id] === undefined){
+        applyCardCollapsedUi('pollCard-' + poll.id, 'pollBody-' + poll.id, idx !== 0);
+      }
+    });
+
+    els.pollList.querySelectorAll('[data-poll-toggle]').forEach(btn => {
+      btn.addEventListener('click', () => togglePollCard(btn.getAttribute('data-poll-toggle')));
+    });
+    els.pollList.querySelectorAll('[data-poll-option]').forEach(input => {
+      input.addEventListener('click', (e) => e.stopPropagation());
+      input.addEventListener('change', () => {
+        const [pollId, optionId] = input.getAttribute('data-poll-option').split('|');
+        const poll = state.polls[pollId];
+        togglePollDraftOption(pollId, optionId, poll ? poll.multipleChoice : false);
+      });
+    });
+    els.pollList.querySelectorAll('[data-poll-submit]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        savePollVote(btn.getAttribute('data-poll-submit'));
+      });
+    });
+    els.pollList.querySelectorAll('[data-poll-toggle-closed]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        togglePollClosed(btn.getAttribute('data-poll-toggle-closed'));
+      });
+    });
+    els.pollList.querySelectorAll('[data-poll-delete]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deletePoll(btn.getAttribute('data-poll-delete'));
+      });
+    });
+  }
+
   function renderForeverView(){
     const loggedIn = !!discordIdentity;
     els.foreverLoggedOut.classList.toggle('hidden', loggedIn);
@@ -1928,9 +2431,13 @@
   els.announceSaveBtn.addEventListener('click', saveAnnouncement);
   els.announceToolbar.innerHTML = announceToolbarMarkup();
   wireAnnounceToolbar(els.announceToolbar, els.announceEditor);
+  els.pollAddOptionBtn.addEventListener('click', addPollComposerOption);
+  els.pollPublishBtn.addEventListener('click', publishPoll);
+  renderPollComposerOptions();
 
   function renderAll(){
     applyAccessControl();
+    renderPollList();
     renderForeverView();
     renderAnnouncementsView();
   }

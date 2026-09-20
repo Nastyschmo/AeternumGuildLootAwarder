@@ -310,6 +310,37 @@
   .wcl-share-summary.hidden{ display: none; }
 
   /* ---------- Logs Analysis ---------- */
+  .forever-class-grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-top: 12px; }
+  .forever-class-card{
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 8px; cursor: pointer; transition: border-color .15s, background .15s;
+    background: var(--panel-2, rgba(255,255,255,0.02));
+  }
+  .forever-class-card:hover{ border-color: var(--gold); }
+  .forever-class-card.picked{ border-color: var(--gold-bright); background: rgba(212, 175, 55, 0.08); }
+  .forever-class-card.disabled{ opacity: .4; cursor: not-allowed; }
+  .forever-class-name{ font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .forever-class-dot{ width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .forever-class-card select{ width: 100%; padding: 5px 6px; font-size: 13px; }
+  .forever-my-picks{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .forever-pick-chip{
+    display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
+    border: 1px solid var(--border); font-size: 13px;
+  }
+  .forever-pick-chip button{ background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
+  .forever-pick-chip button:hover{ color: var(--danger-bright); }
+  .forever-actions{ display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+  .forever-ov-row{
+    display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .forever-ov-row:last-child{ border-bottom: none; }
+  .forever-ov-class{ width: 110px; flex-shrink: 0; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .forever-ov-bars{ flex: 1; display: flex; gap: 4px; height: 18px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.05); }
+  .forever-ov-bar{ height: 100%; }
+  .forever-ov-total{ width: 90px; flex-shrink: 0; text-align: right; font-size: 12px; color: var(--text-faint); }
+  .forever-ov-legend{ display: flex; gap: 14px; margin-bottom: 10px; font-size: 12px; color: var(--text-faint); flex-wrap: wrap; }
+  .forever-ov-legend-item{ display: flex; align-items: center; gap: 5px; }
+  .forever-ov-legend-dot{ width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
   .log-config-row{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
   .log-config-row input{ flex: 1; min-width: 140px; }
   .log-config-row select{ padding: 6px 8px; }
@@ -754,6 +785,7 @@
         <div class="content-tab" data-view="tactics" id="tacticsTabBtn">Boss Tactics</div>
         <div class="content-tab" data-view="overview" id="overviewTabBtn">Tactics Overview</div>
         <div class="content-tab" data-view="logs" id="logsTabBtn">Logs Analysis</div>
+        <div class="content-tab" data-view="forever" id="foreverTabBtn">WoW Forever</div>
       </div>
 
       <div id="ledgerView">
@@ -1041,6 +1073,24 @@
             <button type="button" class="btn btn-primary" id="wclSaveReviewBtn">Save review</button>
             <span id="wclReviewStatus" class="armory-status"></span>
           </div>
+        </div>
+      </div>
+
+      <div id="foreverView" class="hidden">
+        <div class="tac-card tac-card-wide">
+          <div class="tac-card-title">Your picks</div>
+          <div class="tac-card-note">WoW Forever launches Nov 4 2026 — Blizzard hasn't published an official class/role system yet, so this uses classic vanilla WoW's role conventions (only Warrior &amp; Druid can tank). Pick up to 2 classes you'd want to play, with a role for each. You can change your picks any time.</div>
+          <div id="foreverMyPicks" class="forever-my-picks"></div>
+          <div id="foreverClassPicker" class="forever-class-grid"></div>
+          <div class="forever-actions">
+            <button type="button" class="btn btn-primary btn-sm" id="foreverSaveBtn">Save my picks</button>
+            <span id="foreverSaveStatus" class="armory-status"></span>
+          </div>
+        </div>
+        <div class="tac-card tac-card-wide">
+          <div class="tac-card-title">Guild overview — class &amp; role totals</div>
+          <div class="tac-card-note">Aggregated across everyone who has voted so far. Use this to spot gaps (e.g. too few Tanks or Support) for future recruitment.</div>
+          <div id="foreverOverview"></div>
         </div>
       </div>
     </main>
@@ -1418,6 +1468,57 @@
     druid: ['Balance', 'Feral Combat', 'Restoration']
   };
 
+  // --- WoW Forever class survey ---
+  // WoW Forever (announced BlizzCon 2026, launches Nov 4 2026) has no
+  // published class/role system yet since it hasn't shipped. This models
+  // the survey on classic vanilla WoW's role conventions (the game it's
+  // based on): only Warrior and Druid can tank, and "Support" here means
+  // primarily-healing/buff specs. Easy to adjust once Blizzard confirms
+  // the real system.
+  const FOREVER_ROLES = [
+    { id: 'tank', label: 'Tank' },
+    { id: 'support', label: 'Support' },
+    { id: 'damage', label: 'Damage' }
+  ];
+  const FOREVER_ROLE_MAP = Object.fromEntries(FOREVER_ROLES.map(r => [r.id, r]));
+  const FOREVER_CLASS_ROLES = {
+    warrior: ['tank', 'damage'],
+    paladin: ['support', 'damage'],
+    hunter: ['damage'],
+    rogue: ['damage'],
+    priest: ['support', 'damage'],
+    shaman: ['support', 'damage'],
+    mage: ['damage'],
+    warlock: ['damage'],
+    druid: ['tank', 'support', 'damage']
+  };
+  const FOREVER_MAX_PICKS = 2;
+
+  function foreverRolesForClass(classId){
+    return FOREVER_CLASS_ROLES[classId] || [];
+  }
+
+  // Defensive coercion for one user's survey entry — re-validates every
+  // field on every load (Firebase drops empty arrays, and a class/role
+  // pairing that was valid once could become stale if this map changes).
+  function normalizeForeverEntry(entry){
+    const username = (entry && typeof entry.username === 'string') ? entry.username : '';
+    const rawPicks = (entry && Array.isArray(entry.picks)) ? entry.picks : [];
+    const seen = new Set();
+    const picks = [];
+    for (const p of rawPicks){
+      if (picks.length >= FOREVER_MAX_PICKS) break;
+      if (!p || typeof p.classId !== 'string' || !CLASS_MAP[p.classId]) continue;
+      if (seen.has(p.classId)) continue;
+      const validRoles = foreverRolesForClass(p.classId);
+      if (!validRoles.length) continue;
+      const role = (typeof p.role === 'string' && validRoles.includes(p.role)) ? p.role : validRoles[0];
+      seen.add(p.classId);
+      picks.push({ classId: p.classId, role });
+    }
+    return { username, picks };
+  }
+
   const PROFESSIONS = [
     'Alchemy', 'Blacksmithing', 'Enchanting', 'Engineering', 'Herbalism',
     'Jewelcrafting', 'Leatherworking', 'Mining', 'Skinning', 'Tailoring'
@@ -1766,7 +1867,7 @@
   function defaultState(){
     return {
       groups: [], roster: [], loot: [], discordRoles: {}, raidSessions: {}, bossTactics: {}, bossStaticTactics: {},
-      logReviews: {},
+      logReviews: {}, foreverSurvey: {},
       settings: { currentPhaseRaidIds: DEFAULT_PHASE_RAID_IDS.slice(), wclGuildId: '', wclGuildName: '', wclServerSlug: '', wclServerRegion: 'eu' }
     };
   }
@@ -1962,6 +2063,13 @@
     ovMapCanvas: document.getElementById('ovMapCanvas'),
     ovMapDrawCanvas: document.getElementById('ovMapDrawCanvas'),
     tacMapDrawTools: document.getElementById('tacMapDrawTools'),
+    foreverTabBtn: document.getElementById('foreverTabBtn'),
+    foreverView: document.getElementById('foreverView'),
+    foreverMyPicks: document.getElementById('foreverMyPicks'),
+    foreverClassPicker: document.getElementById('foreverClassPicker'),
+    foreverSaveBtn: document.getElementById('foreverSaveBtn'),
+    foreverSaveStatus: document.getElementById('foreverSaveStatus'),
+    foreverOverview: document.getElementById('foreverOverview'),
     saveStatus: document.getElementById('saveStatus'),
     setupScreen: document.getElementById('setupScreen'),
     mainLayout: document.getElementById('mainLayout')
@@ -2002,6 +2110,12 @@
       bossTactics: (parsed.bossTactics && typeof parsed.bossTactics === 'object') ? parsed.bossTactics : {},
       bossStaticTactics: (parsed.bossStaticTactics && typeof parsed.bossStaticTactics === 'object') ? parsed.bossStaticTactics : {},
       logReviews: (parsed.logReviews && typeof parsed.logReviews === 'object') ? parsed.logReviews : {},
+      foreverSurvey: (() => {
+        const raw = (parsed.foreverSurvey && typeof parsed.foreverSurvey === 'object') ? parsed.foreverSurvey : {};
+        const out = {};
+        for (const uid of Object.keys(raw)) out[uid] = normalizeForeverEntry(raw[uid]);
+        return out;
+      })(),
       settings: {
         currentPhaseRaidIds: (parsed.settings && Array.isArray(parsed.settings.currentPhaseRaidIds))
           ? parsed.settings.currentPhaseRaidIds
@@ -2080,6 +2194,7 @@
       } else {
         try{ localStorage.removeItem(DISCORD_IDENTITY_KEY); }catch(e){}
         discordIdentity = null;
+        foreverDraft = null;
         showDiscordLoginScreen();
       }
     });
@@ -2720,6 +2835,7 @@
     els.tacticsView.classList.toggle('hidden', mainView !== 'tactics');
     els.overviewView.classList.toggle('hidden', mainView !== 'overview');
     els.logsView.classList.toggle('hidden', mainView !== 'logs');
+    els.foreverView.classList.toggle('hidden', mainView !== 'forever');
     if (mainView === 'gear') renderGearOverview();
     else if (mainView === 'bygroup') renderGearByGroup();
     else if (mainView === 'roster') renderRosterView();
@@ -2727,6 +2843,7 @@
     else if (mainView === 'tactics') renderTacticsView();
     else if (mainView === 'overview') renderOverviewView();
     else if (mainView === 'logs') renderLogsView();
+    else if (mainView === 'forever') renderForeverView();
     else renderLedger();
   }
 
@@ -4009,6 +4126,166 @@
     return data.data;
   }
 
+  // --- WoW Forever class survey ---
+  const FOREVER_ROLE_COLORS = { tank: '#e05252', support: '#4da6ff', damage: '#b7b7b7' };
+  let foreverDraft = null; // null = not yet initialized from saved data this session
+
+  function foreverSavedEntry(){
+    if (!discordIdentity) return null;
+    return state.foreverSurvey[discordIdentity.id] || null;
+  }
+
+  function renderForeverView(){
+    if (!discordIdentity){
+      els.foreverMyPicks.innerHTML = '';
+      els.foreverClassPicker.innerHTML = `<div class="lootlib-note">Log in with Discord to vote.</div>`;
+      els.foreverSaveBtn.classList.add('hidden');
+      renderForeverOverview();
+      return;
+    }
+    els.foreverSaveBtn.classList.remove('hidden');
+    if (foreverDraft === null){
+      const saved = foreverSavedEntry();
+      foreverDraft = saved ? saved.picks.map(p => ({ classId: p.classId, role: p.role })) : [];
+    }
+    renderForeverPicksChips();
+    renderForeverClassPicker();
+    renderForeverOverview();
+  }
+
+  function renderForeverPicksChips(){
+    if (!foreverDraft.length){
+      els.foreverMyPicks.innerHTML = `<div class="lootlib-note">No classes picked yet — choose up to ${FOREVER_MAX_PICKS} below.</div>`;
+      return;
+    }
+    els.foreverMyPicks.innerHTML = foreverDraft.map(p => {
+      const cls = CLASS_MAP[p.classId];
+      const roleLabel = (FOREVER_ROLE_MAP[p.role] || {}).label || p.role;
+      return `<span class="forever-pick-chip" style="border-color:${cls.color}">
+        <span class="forever-class-dot" style="background:${cls.color}"></span>
+        ${escapeHtml(cls.label)} — ${escapeHtml(roleLabel)}
+        <button type="button" data-remove-class="${cls.id}" title="Remove">✕</button>
+      </span>`;
+    }).join('');
+    els.foreverMyPicks.querySelectorAll('[data-remove-class]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        foreverRemovePick(btn.getAttribute('data-remove-class'));
+      });
+    });
+  }
+
+  function renderForeverClassPicker(){
+    const pickedIds = new Set(foreverDraft.map(p => p.classId));
+    const atCap = foreverDraft.length >= FOREVER_MAX_PICKS;
+    els.foreverClassPicker.innerHTML = CLASSES.map(cls => {
+      const picked = pickedIds.has(cls.id);
+      const disabled = !picked && atCap;
+      const validRoles = foreverRolesForClass(cls.id);
+      const currentPick = foreverDraft.find(p => p.classId === cls.id);
+      const roleSelectHtml = picked
+        ? `<select data-role-for="${cls.id}">${validRoles.map(rid => `<option value="${rid}" ${currentPick && currentPick.role === rid ? 'selected' : ''}>${escapeHtml(FOREVER_ROLE_MAP[rid].label)}</option>`).join('')}</select>`
+        : `<div class="lootlib-note" style="margin:0;">${validRoles.map(rid => FOREVER_ROLE_MAP[rid].label).join(' / ')}</div>`;
+      return `<div class="forever-class-card ${picked ? 'picked' : ''} ${disabled ? 'disabled' : ''}" data-class-card="${cls.id}">
+        <div class="forever-class-name"><span class="forever-class-dot" style="background:${cls.color}"></span>${escapeHtml(cls.label)}</div>
+        ${roleSelectHtml}
+      </div>`;
+    }).join('');
+    els.foreverClassPicker.querySelectorAll('[data-class-card]').forEach(card => {
+      const classId = card.getAttribute('data-class-card');
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('select')) return;
+        const picked = foreverDraft.some(p => p.classId === classId);
+        if (picked) return; // use the ✕ chip or the select — clicking the card body doesn't remove
+        if (foreverDraft.length >= FOREVER_MAX_PICKS) return;
+        const validRoles = foreverRolesForClass(classId);
+        if (!validRoles.length) return;
+        foreverDraft.push({ classId, role: validRoles[0] });
+        renderForeverPicksChips();
+        renderForeverClassPicker();
+      });
+      const select = card.querySelector('select[data-role-for]');
+      if (select){
+        select.addEventListener('click', e => e.stopPropagation());
+        select.addEventListener('change', () => {
+          const entry = foreverDraft.find(p => p.classId === classId);
+          if (entry) entry.role = select.value;
+          renderForeverPicksChips();
+        });
+      }
+    });
+  }
+
+  function foreverRemovePick(classId){
+    foreverDraft = foreverDraft.filter(p => p.classId !== classId);
+    renderForeverPicksChips();
+    renderForeverClassPicker();
+  }
+
+  async function saveForeverPicks(){
+    if (!discordIdentity) return;
+    state.foreverSurvey[discordIdentity.id] = {
+      username: discordIdentity.username,
+      picks: foreverDraft.map(p => ({ classId: p.classId, role: p.role }))
+    };
+    els.foreverSaveStatus.textContent = 'Saving…';
+    els.foreverSaveStatus.className = 'armory-status';
+    await saveData('foreverSurvey/' + discordIdentity.id);
+    els.foreverSaveStatus.textContent = 'Saved!';
+    els.foreverSaveStatus.className = 'armory-status armory-status-ok';
+    setTimeout(() => { if (els.foreverSaveStatus.textContent === 'Saved!') els.foreverSaveStatus.textContent = ''; }, 2000);
+    renderForeverOverview();
+  }
+
+  function foreverAggregate(){
+    // classId -> { total, roles: { tank, support, damage } }
+    const agg = {};
+    CLASSES.forEach(c => { agg[c.id] = { total: 0, roles: { tank: 0, support: 0, damage: 0 } }; });
+    let voterCount = 0;
+    Object.values(state.foreverSurvey).forEach(entry => {
+      if (!entry || !Array.isArray(entry.picks) || !entry.picks.length) return;
+      voterCount++;
+      entry.picks.forEach(p => {
+        if (!agg[p.classId]) return;
+        agg[p.classId].total++;
+        if (agg[p.classId].roles[p.role] !== undefined) agg[p.classId].roles[p.role]++;
+      });
+    });
+    return { agg, voterCount };
+  }
+
+  function renderForeverOverview(){
+    const { agg, voterCount } = foreverAggregate();
+    const maxTotal = Math.max(1, ...CLASSES.map(c => agg[c.id].total));
+    const legendHtml = `<div class="forever-ov-legend">
+      ${FOREVER_ROLES.map(r => `<span class="forever-ov-legend-item"><span class="forever-ov-legend-dot" style="background:${FOREVER_ROLE_COLORS[r.id]}"></span>${escapeHtml(r.label)}</span>`).join('')}
+    </div>`;
+    if (!voterCount){
+      els.foreverOverview.innerHTML = legendHtml + `<div class="lootlib-note">No votes yet.</div>`;
+      return;
+    }
+    const rowsHtml = CLASSES.map(cls => {
+      const data = agg[cls.id];
+      const barsHtml = FOREVER_ROLES.map(r => {
+        const count = data.roles[r.id];
+        if (!count) return '';
+        const pct = (count / maxTotal) * 100;
+        return `<span class="forever-ov-bar" style="width:${pct}%;background:${FOREVER_ROLE_COLORS[r.id]}" title="${escapeHtml(r.label)}: ${count}"></span>`;
+      }).join('');
+      const breakdown = FOREVER_ROLES
+        .filter(r => foreverRolesForClass(cls.id).includes(r.id))
+        .map(r => `${r.label} ${data.roles[r.id]}`)
+        .join(' · ');
+      return `<div class="forever-ov-row">
+        <div class="forever-ov-class"><span class="forever-class-dot" style="background:${cls.color}"></span>${escapeHtml(cls.label)}</div>
+        <div class="forever-ov-bars">${barsHtml}</div>
+        <div class="forever-ov-total">${data.total} — ${escapeHtml(breakdown)}</div>
+      </div>`;
+    }).join('');
+    els.foreverOverview.innerHTML = legendHtml +
+      `<div class="lootlib-note" style="margin-bottom:8px;">${voterCount} member${voterCount === 1 ? '' : 's'} voted so far.</div>` +
+      rowsHtml;
+  }
+
   function renderLogsView(){
     els.wclGuildId.value = state.settings.wclGuildId || '';
     els.wclGuildName.value = state.settings.wclGuildName || '';
@@ -5138,6 +5415,7 @@
   });
   els.wclSaveReviewBtn.addEventListener('click', saveWclReview);
   els.wclSaveOverallBtn.addEventListener('click', saveWclOverall);
+  els.foreverSaveBtn.addEventListener('click', saveForeverPicks);
   els.wclExportFullBtn.addEventListener('click', exportWclFullData);
   els.wclGenerateSummaryBtn.addEventListener('click', () => {
     els.wclShareSummary.value = buildBossSummaryText(wclLastAnalysis);

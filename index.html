@@ -93,15 +93,18 @@
     width: 240px; flex: none; overflow: hidden;
     background: var(--bg-panel); border-right: 1px solid var(--border-soft);
     transition: width .2s ease, border-color .2s ease;
+    /* Pinned in place while the page scrolls, so the nav (and the
+       burger toggle) stays reachable even when scrolled to the bottom. */
+    position: sticky; top: 0; height: 100vh; align-self: flex-start;
   }
   /* Collapsed = a slim icon-only rail rather than nothing, so navigation
      stays reachable without expanding the full sidebar. */
   .sidebar.collapsed{ width: 64px; }
-  .sidebar-inner{ width: 240px; padding: 20px 16px; height: 100%; }
+  .sidebar-inner{ width: 240px; padding: 20px 16px; height: 100%; overflow-y: auto; }
   .sidebar.collapsed .sidebar-inner{ display: none; }
   .sidebar-inner-mini{
     display: none; width: 64px; height: 100%; padding: 20px 0;
-    flex-direction: column; align-items: center; gap: 18px;
+    flex-direction: column; align-items: center; gap: 18px; overflow-y: auto;
   }
   .sidebar.collapsed .sidebar-inner-mini{ display: flex; }
   .sidebar-brand{ display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 26px; }
@@ -300,14 +303,55 @@
 
   /* ---------- Announcements — reuse the same .voting-card collapsible
      shell (see above); only the header content and body differ. ---------- */
-  .announce-textarea{
-    width: 100%; min-height: 96px; resize: vertical; padding: 10px 12px; font-size: 13.5px;
+  .announce-card-title{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .announce-card-meta{ flex: none; font-size: 11.5px; color: var(--text-faint); white-space: nowrap; }
+  .announce-card-meta .announce-edited-tag{ font-style: italic; opacity: .8; }
+  .announce-card-text{ font-size: 14px; line-height: 1.6; color: var(--text); margin: 0 0 14px; }
+  .announce-card-text h1{ font-family: 'Cinzel', serif; font-size: 22px; color: var(--gold-bright); margin: 4px 0 10px; line-height: 1.3; }
+  .announce-card-text h2{ font-family: 'Cinzel', serif; font-size: 17px; color: var(--gold-bright); margin: 4px 0 8px; line-height: 1.3; }
+  .announce-card-text p{ margin: 0 0 10px; }
+  .announce-card-text ul{ margin: 0 0 10px; padding-left: 22px; }
+  .announce-card-text li{ margin-bottom: 4px; }
+
+  .announce-title-input{
+    font-family: 'Cinzel', serif; font-size: 15.5px; font-weight: 600; letter-spacing: .3px;
+    padding: 9px 12px; margin-bottom: 10px; background: var(--bg-panel-raised);
+    color: var(--text); border: 1px solid var(--border); border-radius: 6px; width: 100%;
+  }
+  .announce-title-input:focus{ outline: none; border-color: var(--gold); }
+  .announce-title-input::placeholder{ color: var(--text-faint); font-weight: 400; }
+
+  /* Rich-text editor: a contenteditable div standing in for a textarea, plus
+     a small formatting toolbar above it. Reused for both the "new
+     announcement" composer and inline per-card editing. */
+  .announce-toolbar{
+    display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+    padding: 6px; margin-bottom: 8px; background: var(--bg-panel-raised);
+    border: 1px solid var(--border); border-radius: 6px;
+  }
+  .announce-toolbar button{
+    min-width: 30px; height: 28px; padding: 0 8px; font-size: 13px; font-family: 'Karla', sans-serif;
+    background: transparent; border: 1px solid transparent; border-radius: 4px;
+    color: var(--text-muted); cursor: pointer;
+  }
+  .announce-toolbar button:hover{ color: var(--text); background: rgba(255,255,255,0.06); border-color: var(--border); }
+  .announce-toolbar-sep{ width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+  .announce-toolbar select{
+    width: auto; padding: 5px 8px; font-size: 12.5px; height: 28px;
+    background: #14111f; border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted);
+  }
+  .announce-editor{
+    width: 100%; min-height: 96px; max-height: 340px; overflow-y: auto; resize: vertical;
+    padding: 10px 12px; font-size: 13.5px; line-height: 1.6;
     font-family: 'Karla', sans-serif; background: var(--bg-panel-raised); color: var(--text);
     border: 1px solid var(--border); border-radius: 6px; margin-bottom: 12px;
   }
-  .announce-card-title{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .announce-card-meta{ flex: none; font-size: 11.5px; color: var(--text-faint); white-space: nowrap; }
-  .announce-card-text{ white-space: pre-wrap; font-size: 14px; line-height: 1.6; color: var(--text); margin: 0 0 14px; }
+  .announce-editor:focus{ outline: none; border-color: var(--gold); }
+  .announce-editor:empty::before{ content: attr(data-placeholder); color: var(--text-faint); }
+  .announce-editor h1{ font-family: 'Cinzel', serif; font-size: 22px; color: var(--gold-bright); margin: 4px 0 10px; }
+  .announce-editor h2{ font-family: 'Cinzel', serif; font-size: 17px; color: var(--gold-bright); margin: 4px 0 8px; }
+  .announce-editor p{ margin: 0 0 10px; }
+  .announce-card-edit-actions{ display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 
   /* ---------- WoW Forever survey ---------- */
   .tac-card{ background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 8px; padding: 20px 22px; margin-bottom: 18px; }
@@ -483,7 +527,7 @@
               <p class="hero-eyebrow">Vorbereitung läuft</p>
               <h1 class="hero-title" id="heroTitle">AETERNUM</h1>
               <p class="hero-tagline" id="heroTagline">Spineshatter-EU</p>
-              <p class="hero-desc" id="heroDesc">Wir bereiten uns auf World of Warcraft: Forever vor. Diese Seite wächst mit — als erstes: eine Umfrage, wer welche Klasse und Rolle spielen möchte.</p>
+              <p class="hero-desc" id="heroDesc">Wir bereiten uns auf World of Warcraft: Forever vor. Diese Seite wächst mit — als erstes: eine Umfrage, wer welche Klasse und Spezialisierung spielen möchte.</p>
               <div class="hero-actions">
                 <button type="button" class="btn btn-teal" id="heroCtaBtn">Zur Klassen-Umfrage</button>
               </div>
@@ -514,7 +558,7 @@
             <div class="hero-content">
               <p class="hero-eyebrow">Klassen-Umfrage</p>
               <h1 class="hero-title hero-title-sm">WOW FOREVER</h1>
-              <p class="hero-desc">Bis zu 2 Klassen wählen, pro Klasse eine Rolle — hilft uns bei der Planung, wer künftig noch gebraucht wird.</p>
+              <p class="hero-desc">Bis zu 2 Klassen wählen, pro Klasse eine Spezialisierung — hilft uns bei der Planung, wer künftig noch gebraucht wird.</p>
             </div>
           </header>
 
@@ -545,7 +589,7 @@
                   <div class="voting-closed-note hidden" id="votingClosedNote-forever">Diese Abstimmung wurde geschlossen — es kann nicht mehr abgestimmt werden. Die bisherigen Ergebnisse bleiben unten sichtbar.</div>
                   <div class="tac-card">
                     <div class="tac-card-title">Deine Auswahl</div>
-                    <div class="tac-card-note">WoW Forever launcht am 4. November 2026 — Blizzard hat noch kein offizielles Klassen-/Rollensystem veröffentlicht, daher ist diese Liste eine an die Gilde angepasste Einschätzung und kann sich noch ändern. Wähle bis zu 2 Picks — das können 2 verschiedene Klassen sein, oder 2x dieselbe Klasse mit unterschiedlicher Rolle (z.B. Druide Tank + Druide Heal). Klicke eine Klasse zum Auswählen an — sobald sie ausgewählt ist, erscheint bei ihr ein Button „+ weitere Rolle", falls eine zweite Rolle für sie noch möglich ist. Du kannst deine Auswahl jederzeit ändern.</div>
+                    <div class="tac-card-note">WoW Forever launcht am 4. November 2026 — Blizzard hat noch kein offizielles Klassen-/Talentsystem veröffentlicht, daher orientiert sich diese Liste an den klassischen WoW-Classic-Spezialisierungen und kann sich noch ändern. Wähle bis zu 2 Picks — das können 2 verschiedene Klassen sein, oder 2x dieselbe Klasse mit unterschiedlicher Spezialisierung (z.B. Druide Balance + Druide Wiederherstellung). Klicke eine Klasse zum Auswählen an — sobald sie ausgewählt ist, erscheint bei ihr ein Button „+ weitere Spezialisierung", falls eine zweite Spezialisierung für sie noch möglich ist. Du kannst deine Auswahl jederzeit ändern.</div>
                     <div id="foreverMyPicks" class="forever-my-picks"></div>
                     <div id="foreverClassPicker" class="forever-class-grid"></div>
                     <div class="forever-actions">
@@ -554,7 +598,7 @@
                     </div>
                   </div>
                   <div class="tac-card">
-                    <div class="tac-card-title">Gilden-Übersicht — Klassen &amp; Rollen gesamt</div>
+                    <div class="tac-card-title">Gilden-Übersicht — Klassen &amp; Spezialisierungen gesamt</div>
                     <div class="tac-card-note">Aggregiert über alle, die bisher abgestimmt haben. Nützlich, um Lücken (z.B. zu wenige Tanks oder Heiler) für künftiges Recruiting zu erkennen. Fahr mit der Maus über ein Balkensegment, um zu sehen, wer dort abgestimmt hat.</div>
                     <div id="foreverOverview"></div>
                   </div>
@@ -583,7 +627,9 @@
               <div class="tac-card hidden" id="announceComposer">
                 <div class="tac-card-title">Neue Ankündigung</div>
                 <div class="tac-card-note">Nur für Admins/Offiziere sichtbar. Wird beim Veröffentlichen automatisch oben aufgeklappt angezeigt — ältere Ankündigungen klappen dabei automatisch ein.</div>
-                <textarea id="announceText" class="announce-textarea" rows="4" placeholder="Text der Ankündigung…"></textarea>
+                <input type="text" id="announceTitleInput" class="announce-title-input" placeholder="Titel der Ankündigung…" maxlength="120">
+                <div id="announceToolbar" class="announce-toolbar"></div>
+                <div id="announceEditor" class="announce-editor" contenteditable="true" data-placeholder="Text der Ankündigung…"></div>
                 <div class="forever-actions">
                   <button type="button" class="btn btn-teal btn-sm" id="announceSaveBtn">Ankündigung veröffentlichen</button>
                   <span id="announceSaveStatus" class="armory-status"></span>
@@ -625,7 +671,7 @@
   const GUILD_NAME = 'Aeternum';
   const GUILD_TAGLINE = 'Spineshatter-EU';
   const GUILD_CREST_LETTER = 'A';
-  const HERO_DESC = 'Wir bereiten uns auf World of Warcraft: Forever vor. Diese Seite wächst mit — als erstes: eine Umfrage, wer welche Klasse und Rolle spielen möchte.';
+  const HERO_DESC = 'Wir bereiten uns auf World of Warcraft: Forever vor. Diese Seite wächst mit — als erstes: eine Umfrage, wer welche Klasse und Spezialisierung spielen möchte.';
   const INTRO_TITLE = 'Bereit für ein neues Kapitel';
   const INTRO_TEXT = 'Diese Seite ist der Startpunkt für alles rund um WoW: Forever — von der Klassen-Umfrage bis zu künftigen Ankündigungen und Guides. Schaut regelmäßig vorbei.';
   // Add a real image URL per item once you have screenshots/artwork —
@@ -890,53 +936,58 @@
   ];
   const CLASS_MAP = Object.fromEntries(CLASSES.map(c => [c.id, c]));
 
-  // Role id 'support' is kept as-is internally (so already-saved votes stay
-  // valid) — only its display label changed to "Heal" per guild feedback.
-  const FOREVER_ROLES = [
-    { id: 'tank', label: 'Tank' },
-    { id: 'support', label: 'Heal' },
-    { id: 'damage', label: 'Damage' }
-  ];
-  const FOREVER_ROLE_MAP = Object.fromEntries(FOREVER_ROLES.map(r => [r.id, r]));
-  const FOREVER_CLASS_ROLES = {
-    warrior: ['tank', 'damage'],
-    paladin: ['tank', 'support', 'damage'],
-    hunter: ['damage'],
-    rogue: ['damage'],
-    priest: ['support', 'damage'],
-    shaman: ['support', 'damage'],
-    mage: ['damage'],
-    warlock: ['damage'],
-    druid: ['tank', 'support', 'damage']
+  // Real WoW Classic talent specializations, 3 per class. Spec ids are only
+  // ever looked up scoped to their own class (via foreverSpecsForClass /
+  // foreverSpecLabel) — several classes reuse the same id (e.g. 'holy' for
+  // both Paladin and Priest, 'protection' for Warrior and Paladin,
+  // 'restoration' for Shaman and Druid), so there is deliberately no single
+  // global spec map.
+  const FOREVER_SPECS = {
+    warrior: [{ id: 'arms', label: 'Arms' }, { id: 'fury', label: 'Fury' }, { id: 'protection', label: 'Protection' }],
+    paladin: [{ id: 'holy', label: 'Holy' }, { id: 'protection', label: 'Protection' }, { id: 'retribution', label: 'Retribution' }],
+    hunter: [{ id: 'beast_mastery', label: 'Beast Mastery' }, { id: 'marksmanship', label: 'Marksmanship' }, { id: 'survival', label: 'Survival' }],
+    rogue: [{ id: 'assassination', label: 'Assassination' }, { id: 'combat', label: 'Combat' }, { id: 'subtlety', label: 'Subtlety' }],
+    priest: [{ id: 'discipline', label: 'Discipline' }, { id: 'holy', label: 'Holy' }, { id: 'shadow', label: 'Shadow' }],
+    shaman: [{ id: 'elemental', label: 'Elemental' }, { id: 'enhancement', label: 'Enhancement' }, { id: 'restoration', label: 'Restoration' }],
+    mage: [{ id: 'arcane', label: 'Arcane' }, { id: 'fire', label: 'Fire' }, { id: 'frost', label: 'Frost' }],
+    warlock: [{ id: 'affliction', label: 'Affliction' }, { id: 'demonology', label: 'Demonology' }, { id: 'destruction', label: 'Destruction' }],
+    druid: [{ id: 'balance', label: 'Balance' }, { id: 'feral', label: 'Feral Combat' }, { id: 'restoration', label: 'Restoration' }]
   };
   const FOREVER_MAX_PICKS = 2;
-  const FOREVER_ROLE_COLORS = { tank: '#e05252', support: '#4da6ff', damage: '#b7b7b7' };
+  // Specs don't map to a uniform tank/heal/damage role across all 9 classes,
+  // so bars/legend use fixed per-slot colors (1st/2nd/3rd spec of a class)
+  // instead of trying to force every spec into one of three global buckets.
+  const FOREVER_SLOT_COLORS = ['#e0b243', '#4da6ff', '#e05252'];
 
-  function foreverRolesForClass(classId){
-    return FOREVER_CLASS_ROLES[classId] || [];
+  function foreverSpecsForClass(classId){
+    return FOREVER_SPECS[classId] || [];
+  }
+  function foreverSpecLabel(classId, specId){
+    const found = foreverSpecsForClass(classId).find(s => s.id === specId);
+    return found ? found.label : specId;
   }
 
   // Defensive coercion for one user's survey entry — re-validates every
-  // field on every load (Firebase drops empty arrays, and a class/role
+  // field on every load (Firebase drops empty arrays, and a class/spec
   // pairing that was valid once could become stale if this map changes).
   function normalizeForeverEntry(entry){
     const username = (entry && typeof entry.username === 'string') ? entry.username : '';
     const rawPicks = (entry && Array.isArray(entry.picks)) ? entry.picks : [];
-    // Dedupe by classId+role, not by classId alone — the same class is
-    // allowed twice with two different roles (e.g. Druid Tank + Druid Heal),
-    // just never the same class+role combination twice.
+    // Dedupe by classId+spec, not by classId alone — the same class is
+    // allowed twice with two different specs (e.g. Druid Balance + Druid
+    // Restoration), just never the same class+spec combination twice.
     const seen = new Set();
     const picks = [];
     for (const p of rawPicks){
       if (picks.length >= FOREVER_MAX_PICKS) break;
       if (!p || typeof p.classId !== 'string' || !CLASS_MAP[p.classId]) continue;
-      const validRoles = foreverRolesForClass(p.classId);
-      if (!validRoles.length) continue;
-      const role = (typeof p.role === 'string' && validRoles.includes(p.role)) ? p.role : validRoles[0];
-      const key = p.classId + '|' + role;
+      const validSpecIds = foreverSpecsForClass(p.classId).map(s => s.id);
+      if (!validSpecIds.length) continue;
+      const spec = (typeof p.spec === 'string' && validSpecIds.includes(p.spec)) ? p.spec : validSpecIds[0];
+      const key = p.classId + '|' + spec;
       if (seen.has(key)) continue;
       seen.add(key);
-      picks.push({ classId: p.classId, role });
+      picks.push({ classId: p.classId, spec });
     }
     return { username, picks };
   }
@@ -945,13 +996,69 @@
     return { discordRoles: {}, foreverSurvey: {}, votingStatus: {}, announcements: {} };
   }
 
+  // Announcements store a small allow-listed subset of formatted HTML (so
+  // Offis can use H1/H2/bold/italic/underline/size/lists), never raw
+  // attacker-controlled markup. This sanitizer re-runs on every load (not
+  // just at save time) as defense in depth against anything written
+  // directly to Firebase, bypassing the app's own editor.
+  const ANNOUNCE_ALLOWED_TAGS = new Set(['H1', 'H2', 'B', 'STRONG', 'I', 'EM', 'U', 'BR', 'DIV', 'P', 'UL', 'OL', 'LI', 'FONT', 'SPAN']);
+  function sanitizeRichText(html){
+    const container = document.createElement('div');
+    container.innerHTML = String(html ?? '');
+    (function clean(node){
+      Array.from(node.childNodes).forEach(child => {
+        if (child.nodeType === 3) return; // plain text — always fine
+        if (child.nodeType !== 1){ node.removeChild(child); return; }
+        if (!ANNOUNCE_ALLOWED_TAGS.has(child.tagName)){
+          // Drop script/style entirely (content included); unwrap anything
+          // else so the text survives even if the wrapping tag doesn't.
+          if (child.tagName === 'SCRIPT' || child.tagName === 'STYLE'){
+            node.removeChild(child);
+            return;
+          }
+          while (child.firstChild) node.insertBefore(child.firstChild, child);
+          node.removeChild(child);
+          return;
+        }
+        Array.from(child.attributes).forEach(attr => {
+          if (child.tagName === 'FONT' && attr.name === 'size' && /^[1-7]$/.test(attr.value)) return;
+          child.removeAttribute(attr.name);
+        });
+        clean(child);
+      });
+    })(container);
+    return container.innerHTML;
+  }
+  function stripHtmlToText(html){
+    const container = document.createElement('div');
+    container.innerHTML = String(html ?? '');
+    return container.textContent || '';
+  }
+  function looksLikeHtml(str){
+    return /<\/?[a-z][\s\S]*>/i.test(str);
+  }
+  // Announcements saved before this feature existed are plain text — keep
+  // showing those correctly by wrapping them into a paragraph instead of
+  // losing their line breaks.
+  function legacyPlainTextToHtml(str){
+    return '<p>' + escapeHtml(str).replace(/\n/g, '<br>') + '</p>';
+  }
+
   function normalizeAnnouncement(a){
     if (!a || typeof a.text !== 'string' || !a.text.trim()) return null;
+    const html = looksLikeHtml(a.text) ? sanitizeRichText(a.text) : legacyPlainTextToHtml(a.text);
+    if (!stripHtmlToText(html).trim()) return null;
+    // Title is plain text (shown escaped, never as HTML) — optional, since
+    // announcements posted before this feature existed have none; those
+    // fall back to a snippet of the body when rendered.
+    const title = (typeof a.title === 'string') ? a.title.trim().slice(0, 120) : '';
     return {
-      text: a.text,
+      text: html,
+      title,
       authorName: (typeof a.authorName === 'string' && a.authorName) ? a.authorName : 'Unbekannt',
       authorId: typeof a.authorId === 'string' ? a.authorId : '',
-      createdAt: (typeof a.createdAt === 'number' && a.createdAt > 0) ? a.createdAt : 0
+      createdAt: (typeof a.createdAt === 'number' && a.createdAt > 0) ? a.createdAt : 0,
+      editedAt: (typeof a.editedAt === 'number' && a.editedAt > 0) ? a.editedAt : 0
     };
   }
 
@@ -1034,7 +1141,9 @@
     announceLoggedIn: document.getElementById('announceLoggedIn'),
     announceLoginBtn: document.getElementById('announceLoginBtn'),
     announceComposer: document.getElementById('announceComposer'),
-    announceText: document.getElementById('announceText'),
+    announceTitleInput: document.getElementById('announceTitleInput'),
+    announceToolbar: document.getElementById('announceToolbar'),
+    announceEditor: document.getElementById('announceEditor'),
     announceSaveBtn: document.getElementById('announceSaveBtn'),
     announceSaveStatus: document.getElementById('announceSaveStatus'),
     announceList: document.getElementById('announceList'),
@@ -1083,12 +1192,12 @@
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>'
     },
     {
-      id: 'forever', label: 'Abstimmungen',
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="m8 12 3 3 5-6"/></svg>'
-    },
-    {
       id: 'announcements', label: 'Ankündigungen',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a2 2 0 0 0 2 2h1l3 5V4L6 9H5a2 2 0 0 0-2 2Z"/><path d="M14 8a4 4 0 0 1 0 8"/><path d="M17 5a8 8 0 0 1 0 14"/></svg>'
+    },
+    {
+      id: 'forever', label: 'Abstimmungen',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="m8 12 3 3 5-6"/></svg>'
     }
   ];
   const SIDEBAR_COLLAPSED_KEY = 'rude-guild-sidebar-collapsed';
@@ -1303,6 +1412,56 @@
   // ---------------------------------------------------------------------
   let announceCardManualOpen = {}; // { [announceId]: true|false }
   let announceLastNewestId; // undefined = not yet rendered once
+  let announceEditingId = null; // id of the announcement currently being edited inline, or null
+
+  // Small formatting toolbar shared by the "new announcement" composer and
+  // by inline per-card editing. Plain buttons (not a <select>) on purpose —
+  // a button can use mousedown.preventDefault() to keep the contenteditable
+  // selection alive across the click, which a native <select> can't do
+  // reliably, so sizing is 4 buttons rather than a dropdown.
+  function announceToolbarMarkup(){
+    return `
+      <button type="button" data-cmd="h1" title="Überschrift 1">H1</button>
+      <button type="button" data-cmd="h2" title="Überschrift 2">H2</button>
+      <button type="button" data-cmd="p" title="Normaler Text">¶</button>
+      <span class="announce-toolbar-sep"></span>
+      <button type="button" data-cmd="bold" title="Fett"><b>F</b></button>
+      <button type="button" data-cmd="italic" title="Kursiv"><i>K</i></button>
+      <button type="button" data-cmd="underline" title="Unterstrichen"><u>U</u></button>
+      <span class="announce-toolbar-sep"></span>
+      <button type="button" data-cmd="ul" title="Aufzählung">• Liste</button>
+      <span class="announce-toolbar-sep"></span>
+      <button type="button" data-size="2" title="Kleine Schrift">A⁻</button>
+      <button type="button" data-size="3" title="Normale Schrift">A</button>
+      <button type="button" data-size="5" title="Große Schrift">A⁺</button>
+      <button type="button" data-size="7" title="Sehr große Schrift">A⁺⁺</button>
+    `;
+  }
+  function execAnnounceFormatCmd(editorEl, cmd){
+    editorEl.focus();
+    const blockTag = { h1: 'H1', h2: 'H2', p: 'P' }[cmd];
+    if (blockTag) document.execCommand('formatBlock', false, blockTag);
+    else if (cmd === 'bold') document.execCommand('bold');
+    else if (cmd === 'italic') document.execCommand('italic');
+    else if (cmd === 'underline') document.execCommand('underline');
+    else if (cmd === 'ul') document.execCommand('insertUnorderedList');
+  }
+  function wireAnnounceToolbar(toolbarEl, editorEl){
+    if (!toolbarEl || !editorEl) return;
+    toolbarEl.querySelectorAll('button').forEach(btn => {
+      // Without this, clicking the button would move focus off the editor
+      // first, collapsing/losing the text selection the command should
+      // apply to.
+      btn.addEventListener('mousedown', (e) => e.preventDefault());
+      btn.addEventListener('click', () => {
+        editorEl.focus();
+        const cmd = btn.getAttribute('data-cmd');
+        const size = btn.getAttribute('data-size');
+        if (cmd) execAnnounceFormatCmd(editorEl, cmd);
+        else if (size) document.execCommand('fontSize', false, size);
+      });
+    });
+  }
 
   function sortedAnnouncements(){
     return Object.keys(state.announcements || {})
@@ -1352,35 +1511,69 @@
     const canManage = isOfficerOrAdmin();
     els.announceList.innerHTML = list.map((a, idx) => {
       const dateStr = formatAnnounceDate(a.createdAt);
-      const snippet = a.text.length > 70 ? a.text.slice(0, 70).trim() + '…' : a.text;
+      // Announcements from before the title field existed have none — fall
+      // back to a snippet of the body so the header never shows blank.
+      let headerTitle = a.title;
+      if (!headerTitle){
+        const plainText = stripHtmlToText(a.text);
+        headerTitle = plainText.length > 70 ? plainText.slice(0, 70).trim() + '…' : plainText;
+      }
+      const editedTag = a.editedAt ? ' · <span class="announce-edited-tag">bearbeitet</span>' : '';
+      const isEditing = canManage && announceEditingId === a.id;
+
       const adminControlsHtml = canManage
         ? `<div class="voting-admin-controls">
             <span class="lootlib-note">Nur für Admins/Offiziere sichtbar.</span>
-            <button type="button" class="btn btn-sm btn-outline-gold" data-announce-delete="${a.id}">Löschen</button>
+            <div class="voting-admin-controls-actions">
+              <button type="button" class="btn btn-sm btn-outline-gold" data-announce-edit="${a.id}">Bearbeiten</button>
+              <button type="button" class="btn btn-sm btn-outline-gold" data-announce-delete="${a.id}">Löschen</button>
+            </div>
           </div>`
         : '';
+
+      const bodyHtml = isEditing
+        ? `<input type="text" class="announce-title-input" id="announceEditTitle-${a.id}" placeholder="Titel der Ankündigung…" maxlength="120" value="${escapeHtml(a.title)}">
+           <div class="announce-toolbar" id="announceEditToolbar-${a.id}">${announceToolbarMarkup()}</div>
+           <div class="announce-editor" id="announceEditEditor-${a.id}" contenteditable="true" data-placeholder="Text der Ankündigung…">${a.text}</div>
+           <div class="announce-card-edit-actions">
+             <button type="button" class="btn btn-teal btn-sm" data-announce-save-edit="${a.id}">Speichern</button>
+             <button type="button" class="btn btn-sm btn-ghost" data-announce-cancel-edit="${a.id}">Abbrechen</button>
+             <span id="announceEditStatus-${a.id}" class="armory-status"></span>
+           </div>`
+        : `${adminControlsHtml}<div class="announce-card-text">${a.text}</div>`;
+
       return `<div class="voting-card announce-card" id="announceCard-${a.id}" data-announce-id="${a.id}">
         <button type="button" class="voting-card-header" data-announce-toggle="${a.id}">
           <span class="voting-card-chevron">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>
           </span>
-          <span class="voting-card-title announce-card-title">${escapeHtml(snippet)}</span>
-          <span class="announce-card-meta">${escapeHtml(a.authorName)}${dateStr ? ' · ' + escapeHtml(dateStr) : ''}</span>
+          <span class="voting-card-title announce-card-title">${escapeHtml(headerTitle)}</span>
+          <span class="announce-card-meta">${escapeHtml(a.authorName)}${dateStr ? ' · ' + escapeHtml(dateStr) : ''}${editedTag}</span>
         </button>
         <div class="voting-card-body" id="announceBody-${a.id}">
-          ${adminControlsHtml}
-          <p class="announce-card-text">${escapeHtml(a.text).replace(/\n/g, '<br>')}</p>
+          ${bodyHtml}
         </div>
       </div>`;
     }).join('');
 
     // Default: only the newest announcement (idx 0) starts expanded, unless
     // the viewer already manually toggled this specific card this session.
+    // A card currently being edited is always forced open (see
+    // startEditAnnouncement) so this loop naturally leaves it as-is.
     list.forEach((a, idx) => {
       if (announceCardManualOpen[a.id] === undefined){
         applyCardCollapsedUi('announceCard-' + a.id, 'announceBody-' + a.id, idx !== 0);
       }
     });
+
+    if (canManage && announceEditingId){
+      const toolbarEl = document.getElementById('announceEditToolbar-' + announceEditingId);
+      const editorEl = document.getElementById('announceEditEditor-' + announceEditingId);
+      if (toolbarEl && editorEl){
+        wireAnnounceToolbar(toolbarEl, editorEl);
+        editorEl.focus();
+      }
+    }
 
     els.announceList.querySelectorAll('[data-announce-toggle]').forEach(btn => {
       btn.addEventListener('click', () => toggleAnnounceCard(btn.getAttribute('data-announce-toggle')));
@@ -1391,18 +1584,78 @@
         deleteAnnouncement(btn.getAttribute('data-announce-delete'));
       });
     });
+    els.announceList.querySelectorAll('[data-announce-edit]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startEditAnnouncement(btn.getAttribute('data-announce-edit'));
+      });
+    });
+    els.announceList.querySelectorAll('[data-announce-save-edit]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        saveAnnouncementEdit(btn.getAttribute('data-announce-save-edit'));
+      });
+    });
+    els.announceList.querySelectorAll('[data-announce-cancel-edit]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cancelEditAnnouncement();
+      });
+    });
+  }
+
+  function startEditAnnouncement(id){
+    if (!isOfficerOrAdmin() || !state.announcements || !state.announcements[id]) return;
+    announceEditingId = id;
+    // Editing must stay visible regardless of the card's collapsed state.
+    announceCardManualOpen[id] = true;
+    renderAnnouncementsView();
+  }
+
+  function cancelEditAnnouncement(){
+    announceEditingId = null;
+    renderAnnouncementsView();
+  }
+
+  async function saveAnnouncementEdit(id){
+    if (!isOfficerOrAdmin() || !state.announcements || !state.announcements[id]) return;
+    const editorEl = document.getElementById('announceEditEditor-' + id);
+    const titleEl = document.getElementById('announceEditTitle-' + id);
+    const statusEl = document.getElementById('announceEditStatus-' + id);
+    if (!editorEl) return;
+    const html = sanitizeRichText(editorEl.innerHTML);
+    if (!stripHtmlToText(html).trim()) return;
+    const title = titleEl ? titleEl.value.trim().slice(0, 120) : '';
+    const previous = state.announcements[id];
+    state.announcements[id] = Object.assign({}, previous, { text: html, title, editedAt: Date.now() });
+    if (statusEl){ statusEl.textContent = 'Saving…'; statusEl.className = 'armory-status'; }
+    const ok = await saveData('announcements/' + id);
+    if (ok){
+      announceEditingId = null;
+      renderAnnouncementsView();
+    } else {
+      // Roll the optimistic update back, but leave the editor and the
+      // viewer's in-progress edit alone so nothing gets lost.
+      state.announcements[id] = previous;
+      if (statusEl){
+        statusEl.textContent = 'Konnte nicht speichern — Firebase-Regeln prüfen (siehe README)';
+        statusEl.className = 'armory-status armory-status-error';
+      }
+    }
   }
 
   async function saveAnnouncement(){
     if (!discordIdentity || !isOfficerOrAdmin()) return;
-    const text = els.announceText.value.trim();
-    if (!text) return;
+    const html = sanitizeRichText(els.announceEditor.innerHTML);
+    if (!stripHtmlToText(html).trim()) return;
+    const title = els.announceTitleInput.value.trim().slice(0, 120);
     let id = null;
     try{ id = db ? db.ref(DB_PATH + '/announcements').push().key : null; }catch(e){}
     if (!id) id = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     if (!state.announcements) state.announcements = {};
     state.announcements[id] = {
-      text,
+      text: html,
+      title,
       authorName: discordIdentity.username,
       authorId: discordIdentity.id,
       createdAt: Date.now()
@@ -1412,7 +1665,8 @@
     renderAll();
     const ok = await saveData('announcements/' + id);
     if (ok){
-      els.announceText.value = '';
+      els.announceEditor.innerHTML = '';
+      els.announceTitleInput.value = '';
       els.announceSaveStatus.textContent = 'Veröffentlicht!';
       els.announceSaveStatus.className = 'armory-status armory-status-ok';
       setTimeout(() => { if (els.announceSaveStatus.textContent === 'Veröffentlicht!') els.announceSaveStatus.textContent = ''; }, 2000);
@@ -1431,6 +1685,7 @@
     if (!isOfficerOrAdmin() || !state.announcements || !state.announcements[id]) return;
     const previous = state.announcements[id];
     delete state.announcements[id];
+    if (announceEditingId === id) announceEditingId = null;
     renderAll();
     const ok = await saveData('announcements/' + id);
     if (!ok){
@@ -1452,7 +1707,7 @@
     els.foreverSaveBtn.title = closed ? 'Diese Abstimmung ist geschlossen' : '';
     if (foreverDraft === null){
       const saved = foreverSavedEntry();
-      foreverDraft = saved ? saved.picks.map(p => ({ classId: p.classId, role: p.role })) : [];
+      foreverDraft = saved ? saved.picks.map(p => ({ classId: p.classId, spec: p.spec })) : [];
     }
     renderForeverPicksChips();
     renderForeverClassPicker();
@@ -1466,10 +1721,10 @@
     }
     els.foreverMyPicks.innerHTML = foreverDraft.map((p, i) => {
       const cls = CLASS_MAP[p.classId];
-      const roleLabel = (FOREVER_ROLE_MAP[p.role] || {}).label || p.role;
+      const specLabel = foreverSpecLabel(p.classId, p.spec);
       return `<span class="forever-pick-chip" style="border-color:${cls.color}">
         <span class="forever-class-dot" style="background:${cls.color}"></span>
-        ${escapeHtml(cls.label)} — ${escapeHtml(roleLabel)}
+        ${escapeHtml(cls.label)} — ${escapeHtml(specLabel)}
         <button type="button" data-remove-index="${i}" title="Remove">✕</button>
       </span>`;
     }).join('');
@@ -1480,42 +1735,42 @@
     });
   }
 
-  // Each class card can hold up to one row per valid role for that class —
+  // Each class card can hold up to one row per valid spec for that class —
   // the same class can be picked twice, as long as the two picks use
-  // different roles (e.g. Druid Tank + Druid Heal). Clicking the card body
-  // adds a new pick using the next role not already taken for that class;
-  // each row's own <select> can only be changed to a role that isn't
-  // already used by another pick of the same class.
+  // different specs (e.g. Druid Balance + Druid Restoration). Clicking the
+  // card body adds a new pick using the next spec not already taken for
+  // that class; each row's own <select> can only be changed to a spec that
+  // isn't already used by another pick of the same class.
   function renderForeverClassPicker(){
     const atCap = foreverDraft.length >= FOREVER_MAX_PICKS;
     els.foreverClassPicker.innerHTML = CLASSES.map(cls => {
-      const validRoles = foreverRolesForClass(cls.id);
+      const validSpecs = foreverSpecsForClass(cls.id);
       const classPicks = [];
       foreverDraft.forEach((p, i) => { if (p.classId === cls.id) classPicks.push({ ...p, i }); });
       const picked = classPicks.length > 0;
-      const takenRoles = new Set(classPicks.map(p => p.role));
-      const canAddMore = !atCap && validRoles.some(r => !takenRoles.has(r));
-      const disabled = !picked && (atCap || !validRoles.length);
+      const takenSpecs = new Set(classPicks.map(p => p.spec));
+      const canAddMore = !atCap && validSpecs.some(s => !takenSpecs.has(s.id));
+      const disabled = !picked && (atCap || !validSpecs.length);
 
       const rowsHtml = picked
         ? classPicks.map(p => {
-            const options = validRoles.map(rid => {
-              const takenByOther = classPicks.some(cp => cp.i !== p.i && cp.role === rid);
-              return `<option value="${rid}" ${p.role === rid ? 'selected' : ''} ${takenByOther ? 'disabled' : ''}>${escapeHtml(FOREVER_ROLE_MAP[rid].label)}</option>`;
+            const options = validSpecs.map(s => {
+              const takenByOther = classPicks.some(cp => cp.i !== p.i && cp.spec === s.id);
+              return `<option value="${s.id}" ${p.spec === s.id ? 'selected' : ''} ${takenByOther ? 'disabled' : ''}>${escapeHtml(s.label)}</option>`;
             }).join('');
             return `<div class="forever-role-row">
-              <select data-role-for="${cls.id}" data-pick-index="${p.i}">${options}</select>
+              <select data-spec-for="${cls.id}" data-pick-index="${p.i}">${options}</select>
               <button type="button" class="forever-role-remove" data-remove-index="${p.i}" title="Entfernen">✕</button>
             </div>`;
           }).join('')
-        : `<div class="lootlib-note" style="margin:0;">${validRoles.map(rid => FOREVER_ROLE_MAP[rid].label).join(' / ')}</div>`;
+        : `<div class="lootlib-note" style="margin:0;">${validSpecs.map(s => s.label).join(' / ')}</div>`;
 
       // Once a class already has a pick, the row (select + ✕) fills almost
       // the whole card, so "click the card again" is unreliable — most
       // clicks land on the select instead of empty card space. Use an
-      // explicit, unambiguous button for adding a second role instead.
+      // explicit, unambiguous button for adding a second spec instead.
       const addBtnHtml = (picked && canAddMore)
-        ? `<button type="button" class="forever-add-role-btn" data-add-role="${cls.id}">+ weitere Rolle für ${escapeHtml(cls.label)}</button>`
+        ? `<button type="button" class="forever-add-role-btn" data-add-role="${cls.id}">+ weitere Spezialisierung für ${escapeHtml(cls.label)}</button>`
         : '';
 
       return `<div class="forever-class-card ${picked ? 'picked' : ''} ${disabled ? 'disabled' : ''}" data-class-card="${cls.id}">
@@ -1528,17 +1783,17 @@
       const classId = card.getAttribute('data-class-card');
       function addPick(){
         if (isVotingClosed('forever')) return;
-        const takenRoles = new Set(foreverDraft.filter(p => p.classId === classId).map(p => p.role));
-        const availableRoles = foreverRolesForClass(classId).filter(r => !takenRoles.has(r));
-        if (foreverDraft.length >= FOREVER_MAX_PICKS || !availableRoles.length) return;
-        foreverDraft.push({ classId, role: availableRoles[0] });
+        const takenSpecs = new Set(foreverDraft.filter(p => p.classId === classId).map(p => p.spec));
+        const availableSpecs = foreverSpecsForClass(classId).map(s => s.id).filter(id => !takenSpecs.has(id));
+        if (foreverDraft.length >= FOREVER_MAX_PICKS || !availableSpecs.length) return;
+        foreverDraft.push({ classId, spec: availableSpecs[0] });
         renderForeverPicksChips();
         renderForeverClassPicker();
       }
       card.addEventListener('click', (e) => {
         if (e.target.closest('select') || e.target.closest('[data-remove-index]') || e.target.closest('[data-add-role]')) return;
         // Whole-card click only adds the FIRST pick for this class — once
-        // it already has a pick, use the explicit "+ weitere Rolle" button
+        // it already has a pick, use the explicit "+ weitere Spezialisierung" button
         // below (see comment above) so clicks land reliably.
         if (foreverDraft.some(p => p.classId === classId)) return;
         addPick();
@@ -1549,13 +1804,13 @@
           addPick();
         });
       });
-      card.querySelectorAll('select[data-role-for]').forEach(select => {
+      card.querySelectorAll('select[data-spec-for]').forEach(select => {
         select.addEventListener('click', e => e.stopPropagation());
         select.addEventListener('change', () => {
           if (isVotingClosed('forever')) { renderForeverClassPicker(); return; }
           const idx = Number(select.getAttribute('data-pick-index'));
           const entry = foreverDraft[idx];
-          if (entry) entry.role = select.value;
+          if (entry) entry.spec = select.value;
           renderForeverPicksChips();
           renderForeverClassPicker();
         });
@@ -1581,7 +1836,7 @@
     const previous = state.foreverSurvey[discordIdentity.id];
     state.foreverSurvey[discordIdentity.id] = {
       username: discordIdentity.username,
-      picks: foreverDraft.map(p => ({ classId: p.classId, role: p.role }))
+      picks: foreverDraft.map(p => ({ classId: p.classId, spec: p.spec }))
     };
     els.foreverSaveStatus.textContent = 'Saving…';
     els.foreverSaveStatus.className = 'armory-status';
@@ -1604,9 +1859,13 @@
   }
 
   function foreverAggregate(){
-    // classId -> { total, roles: { tank, support, damage }, namesByRole: { tank: [...], ... } }
+    // classId -> { total, specs: { <specId>: count }, namesBySpec: { <specId>: [...] } }
     const agg = {};
-    CLASSES.forEach(c => { agg[c.id] = { total: 0, roles: { tank: 0, support: 0, damage: 0 }, namesByRole: { tank: [], support: [], damage: [] } }; });
+    CLASSES.forEach(c => {
+      const specs = {}, namesBySpec = {};
+      foreverSpecsForClass(c.id).forEach(s => { specs[s.id] = 0; namesBySpec[s.id] = []; });
+      agg[c.id] = { total: 0, specs, namesBySpec };
+    });
     let voterCount = 0;
     Object.values(state.foreverSurvey).forEach(entry => {
       if (!entry || !Array.isArray(entry.picks) || !entry.picks.length) return;
@@ -1615,9 +1874,9 @@
       entry.picks.forEach(p => {
         if (!agg[p.classId]) return;
         agg[p.classId].total++;
-        if (agg[p.classId].roles[p.role] !== undefined){
-          agg[p.classId].roles[p.role]++;
-          agg[p.classId].namesByRole[p.role].push(name);
+        if (agg[p.classId].specs[p.spec] !== undefined){
+          agg[p.classId].specs[p.spec]++;
+          agg[p.classId].namesBySpec[p.spec].push(name);
         }
       });
     });
@@ -1627,8 +1886,11 @@
   function renderForeverOverview(){
     const { agg, voterCount } = foreverAggregate();
     const maxTotal = Math.max(1, ...CLASSES.map(c => agg[c.id].total));
+    // Specs aren't shared across classes, so the legend just marks which
+    // color is the 1st/2nd/3rd spec slot of a class — the actual spec
+    // names are shown per-class in the count lines and bar tooltips below.
     const legendHtml = `<div class="forever-ov-legend">
-      ${FOREVER_ROLES.map(r => `<span class="forever-ov-legend-item"><span class="forever-ov-legend-dot" style="background:${FOREVER_ROLE_COLORS[r.id]}"></span>${escapeHtml(r.label)}</span>`).join('')}
+      ${FOREVER_SLOT_COLORS.map((color, i) => `<span class="forever-ov-legend-item"><span class="forever-ov-legend-dot" style="background:${color}"></span>Spez. ${i + 1}</span>`).join('')}
     </div>`;
     if (!voterCount){
       els.foreverOverview.innerHTML = legendHtml + `<div class="lootlib-note">Noch keine Stimmen.</div>`;
@@ -1636,17 +1898,17 @@
     }
     const rowsHtml = CLASSES.map(cls => {
       const data = agg[cls.id];
-      const barsHtml = FOREVER_ROLES.map(r => {
-        const count = data.roles[r.id];
+      const specs = foreverSpecsForClass(cls.id);
+      const barsHtml = specs.map((s, i) => {
+        const count = data.specs[s.id];
         if (!count) return '';
         const pct = (count / maxTotal) * 100;
-        const names = data.namesByRole[r.id];
-        const title = `${r.label}: ${count}\n${names.join('\n')}`;
-        return `<span class="forever-ov-bar" style="width:${pct}%;background:${FOREVER_ROLE_COLORS[r.id]}" title="${escapeHtml(title)}"></span>`;
+        const names = data.namesBySpec[s.id];
+        const title = `${s.label}: ${count}\n${names.join('\n')}`;
+        return `<span class="forever-ov-bar" style="width:${pct}%;background:${FOREVER_SLOT_COLORS[i % FOREVER_SLOT_COLORS.length]}" title="${escapeHtml(title)}"></span>`;
       }).join('');
-      const countLines = FOREVER_ROLES
-        .filter(r => foreverRolesForClass(cls.id).includes(r.id))
-        .map(r => `<div>${escapeHtml(r.label)}: ${data.roles[r.id]}</div>`)
+      const countLines = specs
+        .map(s => `<div>${escapeHtml(s.label)}: ${data.specs[s.id]}</div>`)
         .join('');
       return `<div class="forever-ov-row">
         <div class="forever-ov-class"><span class="forever-class-dot" style="background:${cls.color}"></span>${escapeHtml(cls.label)}</div>
@@ -1664,6 +1926,8 @@
   document.getElementById('votingCloseBtn-forever').addEventListener('click', () => toggleVotingClosed('forever'));
   els.announceLoginBtn.addEventListener('click', () => startDiscordLogin());
   els.announceSaveBtn.addEventListener('click', saveAnnouncement);
+  els.announceToolbar.innerHTML = announceToolbarMarkup();
+  wireAnnounceToolbar(els.announceToolbar, els.announceEditor);
 
   function renderAll(){
     applyAccessControl();

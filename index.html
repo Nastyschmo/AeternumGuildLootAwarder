@@ -824,19 +824,30 @@
   // the browser can't call Wowhead's feed directly (CORS); fails silently
   // if the Worker isn't deployed/reachable — the rest of the page must
   // keep working fine either way.
+  //
+  // Alongside it, a second, separate card for official Blizzard patch
+  // notes / hotfixes: Blizzard's own news site has no feed a Worker can
+  // read (it loads articles with JavaScript after the page loads), so
+  // this is sourced from the SAME Wowhead feed — Wowhead reliably posts
+  // its own article (with its own thumbnail) whenever Blizzard ships
+  // official patch notes, and the Worker picks out the newest one of
+  // those specifically (see getWowheadNewsAndPatchNotes in the Worker).
+  // Same "exactly one card, content replaced in place" behavior.
   // ---------------------------------------------------------------------
   let wowheadNewsItem = null;
+  let wowheadPatchNotesItem = null;
   async function fetchWowheadNews(){
     if (!isWorkerConfigured()) return;
     try{
       const res = await fetch(WOWHEAD_NEWS_URL);
       if (!res.ok) return;
       const data = await res.json();
-      if (!data || !data.title || !data.url) return;
-      wowheadNewsItem = data;
+      if (!data) return;
+      if (data.latest && data.latest.title && data.latest.url) wowheadNewsItem = data.latest;
+      if (data.patchNotes && data.patchNotes.title && data.patchNotes.url) wowheadPatchNotesItem = data.patchNotes;
       renderNewsGrid();
     }catch(e){
-      // No Wowhead card — page carries on without it.
+      // No Wowhead/patch-notes card — page carries on without it.
     }
   }
 
@@ -1833,10 +1844,24 @@
         linkPage: 'announcements'
       });
     }
-    // Always exactly one Wowhead tile (never one per update) — its content
-    // just gets replaced in place whenever fetchWowheadNews() finds a
-    // newer post, and it always sits right after the announcement tile.
-    if (wowheadNewsItem){
+    // Always exactly one patch-notes tile (never one per update), shown
+    // right after the announcement tile — official Blizzard patch notes /
+    // hotfixes are the most "official" of the auto-generated cards, so
+    // they take priority over the general Wowhead news tile below.
+    if (wowheadPatchNotesItem){
+      items.push({
+        title: wowheadPatchNotesItem.title,
+        blurb: wowheadPatchNotesItem.blurb || 'Neue Patch Notes — antippen zum Lesen.',
+        image: wowheadPatchNotesItem.image || null,
+        linkUrl: wowheadPatchNotesItem.url,
+        badge: 'Blizzard Patch Notes · via Wowhead'
+      });
+    }
+    // Always exactly one general Wowhead tile (never one per update) — its
+    // content just gets replaced in place whenever fetchWowheadNews() finds
+    // a newer post. Skipped if it's the very same article already shown as
+    // the patch-notes tile above, so the same post never appears twice.
+    if (wowheadNewsItem && (!wowheadPatchNotesItem || wowheadNewsItem.url !== wowheadPatchNotesItem.url)){
       items.push({
         title: wowheadNewsItem.title,
         blurb: wowheadNewsItem.blurb || 'Neuer Artikel auf Wowhead — antippen zum Lesen.',

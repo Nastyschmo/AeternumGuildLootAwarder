@@ -331,13 +331,14 @@
   .forever-pick-chip button:hover{ color: var(--danger-bright); }
   .forever-actions{ display: flex; align-items: center; gap: 10px; margin-top: 14px; }
   .forever-ov-row{
-    display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--border);
   }
   .forever-ov-row:last-child{ border-bottom: none; }
-  .forever-ov-class{ width: 110px; flex-shrink: 0; font-weight: 600; display: flex; align-items: center; gap: 6px; }
-  .forever-ov-bars{ flex: 1; display: flex; gap: 4px; height: 18px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.05); }
+  .forever-ov-class{ width: 110px; flex-shrink: 0; font-weight: 600; display: flex; align-items: center; gap: 6px; padding-top: 2px; }
+  .forever-ov-bars{ flex: 1; display: flex; gap: 4px; height: 18px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.05); margin-top: 2px; }
   .forever-ov-bar{ height: 100%; }
-  .forever-ov-total{ width: 90px; flex-shrink: 0; text-align: right; font-size: 12px; color: var(--text-faint); }
+  .forever-ov-counts{ width: 100px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-faint); line-height: 1.5; }
+  .forever-ov-counts .forever-ov-total-line{ color: var(--text); font-weight: 600; }
   .forever-ov-legend{ display: flex; gap: 14px; margin-bottom: 10px; font-size: 12px; color: var(--text-faint); flex-wrap: wrap; }
   .forever-ov-legend-item{ display: flex; align-items: center; gap: 5px; }
   .forever-ov-legend-dot{ width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
@@ -1079,7 +1080,7 @@
       <div id="foreverView" class="hidden">
         <div class="tac-card tac-card-wide">
           <div class="tac-card-title">Your picks</div>
-          <div class="tac-card-note">WoW Forever launches Nov 4 2026 — Blizzard hasn't published an official class/role system yet, so this uses classic vanilla WoW's role conventions (only Warrior &amp; Druid can tank). Pick up to 2 classes you'd want to play, with a role for each. You can change your picks any time.</div>
+          <div class="tac-card-note">WoW Forever launches Nov 4 2026 — Blizzard hasn't published an official class/role system yet, so this list is a guild-adjusted guess and can still change. Pick up to 2 classes you'd want to play, with a role for each. You can change your picks any time.</div>
           <div id="foreverMyPicks" class="forever-my-picks"></div>
           <div id="foreverClassPicker" class="forever-class-grid"></div>
           <div class="forever-actions">
@@ -1470,20 +1471,21 @@
 
   // --- WoW Forever class survey ---
   // WoW Forever (announced BlizzCon 2026, launches Nov 4 2026) has no
-  // published class/role system yet since it hasn't shipped. This models
-  // the survey on classic vanilla WoW's role conventions (the game it's
-  // based on): only Warrior and Druid can tank, and "Support" here means
-  // primarily-healing/buff specs. Easy to adjust once Blizzard confirms
-  // the real system.
+  // published class/role system yet since it hasn't shipped. This maps
+  // classes to roles based on classic WoW conventions, adjusted per guild
+  // feedback (e.g. Paladin can also tank here). Easy to adjust further
+  // once Blizzard confirms the real system.
+  // Role id 'support' is kept as-is internally (so already-saved votes stay
+  // valid) — only its display label changed to "Heal" per guild feedback.
   const FOREVER_ROLES = [
     { id: 'tank', label: 'Tank' },
-    { id: 'support', label: 'Support' },
+    { id: 'support', label: 'Heal' },
     { id: 'damage', label: 'Damage' }
   ];
   const FOREVER_ROLE_MAP = Object.fromEntries(FOREVER_ROLES.map(r => [r.id, r]));
   const FOREVER_CLASS_ROLES = {
     warrior: ['tank', 'damage'],
-    paladin: ['support', 'damage'],
+    paladin: ['tank', 'support', 'damage'],
     hunter: ['damage'],
     rogue: ['damage'],
     priest: ['support', 'damage'],
@@ -2227,16 +2229,21 @@
   // 'loot', or 'discordRoles/123456'. Writing to specific sub-paths (rather
   // than the whole blob every time) is what lets Firebase's rules enforce
   // different permissions per data type — see the README.
+  // Returns true/false so callers that need to know whether a save actually
+  // reached Firebase (e.g. to roll back an optimistic local update) can
+  // check it — existing callers that ignore the return value are unaffected.
   async function saveData(path){
     setStatus('Saving…', false);
-    if (!db){ setStatus('Not connected to Firebase — see setup instructions', true); return; }
+    if (!db){ setStatus('Not connected to Firebase — see setup instructions', true); return false; }
     try{
       const ref = path ? db.ref(DB_PATH + '/' + path) : db.ref(DB_PATH);
       const value = path ? getByPath(state, path) : state;
       await ref.set(value === undefined ? null : value);
       // The realtime listener above will refresh the status to "Synced".
+      return true;
     }catch(e){
       setStatus('Could not save — check your Firebase rules and connection', true);
+      return false;
     }
   }
 
@@ -4223,31 +4230,48 @@
 
   async function saveForeverPicks(){
     if (!discordIdentity) return;
+    const previous = state.foreverSurvey[discordIdentity.id];
     state.foreverSurvey[discordIdentity.id] = {
       username: discordIdentity.username,
       picks: foreverDraft.map(p => ({ classId: p.classId, role: p.role }))
     };
     els.foreverSaveStatus.textContent = 'Saving…';
     els.foreverSaveStatus.className = 'armory-status';
-    await saveData('foreverSurvey/' + discordIdentity.id);
-    els.foreverSaveStatus.textContent = 'Saved!';
-    els.foreverSaveStatus.className = 'armory-status armory-status-ok';
-    setTimeout(() => { if (els.foreverSaveStatus.textContent === 'Saved!') els.foreverSaveStatus.textContent = ''; }, 2000);
+    const ok = await saveData('foreverSurvey/' + discordIdentity.id);
+    if (ok){
+      els.foreverSaveStatus.textContent = 'Saved!';
+      els.foreverSaveStatus.className = 'armory-status armory-status-ok';
+      setTimeout(() => { if (els.foreverSaveStatus.textContent === 'Saved!') els.foreverSaveStatus.textContent = ''; }, 2000);
+    } else {
+      // Write failed (most likely: the Firebase rules haven't been updated
+      // to allow writes to foreverSurvey yet — see the README). Roll the
+      // local optimistic update back so the UI never claims a vote was
+      // saved when it actually wasn't — that's what caused votes to
+      // silently disappear on reload before this fix.
+      if (previous) state.foreverSurvey[discordIdentity.id] = previous;
+      else delete state.foreverSurvey[discordIdentity.id];
+      els.foreverSaveStatus.textContent = 'Could not save — check your Firebase rules (see README)';
+      els.foreverSaveStatus.className = 'armory-status armory-status-error';
+    }
     renderForeverOverview();
   }
 
   function foreverAggregate(){
-    // classId -> { total, roles: { tank, support, damage } }
+    // classId -> { total, roles: { tank, support, damage }, namesByRole: { tank: [...], ... } }
     const agg = {};
-    CLASSES.forEach(c => { agg[c.id] = { total: 0, roles: { tank: 0, support: 0, damage: 0 } }; });
+    CLASSES.forEach(c => { agg[c.id] = { total: 0, roles: { tank: 0, support: 0, damage: 0 }, namesByRole: { tank: [], support: [], damage: [] } }; });
     let voterCount = 0;
     Object.values(state.foreverSurvey).forEach(entry => {
       if (!entry || !Array.isArray(entry.picks) || !entry.picks.length) return;
       voterCount++;
+      const name = entry.username || 'Unknown';
       entry.picks.forEach(p => {
         if (!agg[p.classId]) return;
         agg[p.classId].total++;
-        if (agg[p.classId].roles[p.role] !== undefined) agg[p.classId].roles[p.role]++;
+        if (agg[p.classId].roles[p.role] !== undefined){
+          agg[p.classId].roles[p.role]++;
+          agg[p.classId].namesByRole[p.role].push(name);
+        }
       });
     });
     return { agg, voterCount };
@@ -4269,20 +4293,22 @@
         const count = data.roles[r.id];
         if (!count) return '';
         const pct = (count / maxTotal) * 100;
-        return `<span class="forever-ov-bar" style="width:${pct}%;background:${FOREVER_ROLE_COLORS[r.id]}" title="${escapeHtml(r.label)}: ${count}"></span>`;
+        const names = data.namesByRole[r.id];
+        const title = `${r.label}: ${count}\n${names.join('\n')}`;
+        return `<span class="forever-ov-bar" style="width:${pct}%;background:${FOREVER_ROLE_COLORS[r.id]}" title="${escapeHtml(title)}"></span>`;
       }).join('');
-      const breakdown = FOREVER_ROLES
+      const countLines = FOREVER_ROLES
         .filter(r => foreverRolesForClass(cls.id).includes(r.id))
-        .map(r => `${r.label} ${data.roles[r.id]}`)
-        .join(' · ');
+        .map(r => `<div>${escapeHtml(r.label)}: ${data.roles[r.id]}</div>`)
+        .join('');
       return `<div class="forever-ov-row">
         <div class="forever-ov-class"><span class="forever-class-dot" style="background:${cls.color}"></span>${escapeHtml(cls.label)}</div>
         <div class="forever-ov-bars">${barsHtml}</div>
-        <div class="forever-ov-total">${data.total} — ${escapeHtml(breakdown)}</div>
+        <div class="forever-ov-counts"><div class="forever-ov-total-line">Gesamt: ${data.total}</div>${countLines}</div>
       </div>`;
     }).join('');
     els.foreverOverview.innerHTML = legendHtml +
-      `<div class="lootlib-note" style="margin-bottom:8px;">${voterCount} member${voterCount === 1 ? '' : 's'} voted so far.</div>` +
+      `<div class="lootlib-note" style="margin-bottom:8px;">${voterCount} member${voterCount === 1 ? '' : 's'} voted so far. Hover a bar segment to see who.</div>` +
       rowsHtml;
   }
 

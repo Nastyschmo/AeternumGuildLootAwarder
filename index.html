@@ -298,6 +298,17 @@
   }
   .voting-disabled{ opacity: .5; pointer-events: none; }
 
+  /* ---------- Announcements — reuse the same .voting-card collapsible
+     shell (see above); only the header content and body differ. ---------- */
+  .announce-textarea{
+    width: 100%; min-height: 96px; resize: vertical; padding: 10px 12px; font-size: 13.5px;
+    font-family: 'Karla', sans-serif; background: var(--bg-panel-raised); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; margin-bottom: 12px;
+  }
+  .announce-card-title{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .announce-card-meta{ flex: none; font-size: 11.5px; color: var(--text-faint); white-space: nowrap; }
+  .announce-card-text{ white-space: pre-wrap; font-size: 14px; line-height: 1.6; color: var(--text); margin: 0 0 14px; }
+
   /* ---------- WoW Forever survey ---------- */
   .tac-card{ background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 8px; padding: 20px 22px; margin-bottom: 18px; }
   .tac-card-title{ font-family: 'Cinzel', serif; font-size: 15px; color: var(--gold-bright); font-weight: 600; margin-bottom: 6px; }
@@ -553,6 +564,36 @@
           </section>
         </section>
 
+        <section class="page-section hidden" id="page-announcements">
+          <header class="hero hero-sub">
+            <div class="hero-content">
+              <p class="hero-eyebrow">Neuigkeiten von der Führung</p>
+              <h1 class="hero-title hero-title-sm">ANKÜNDIGUNGEN</h1>
+              <p class="hero-desc">Wichtige Infos und Updates von Admins und Offizieren.</p>
+            </div>
+          </header>
+
+          <section class="section">
+            <div id="announceLoggedOut" class="forever-gate">
+              <p>Melde dich mit Discord an, um die Ankündigungen der Gilde zu sehen.</p>
+              <button type="button" class="btn btn-discord" id="announceLoginBtn">Mit Discord anmelden</button>
+            </div>
+
+            <div id="announceLoggedIn" class="hidden">
+              <div class="tac-card hidden" id="announceComposer">
+                <div class="tac-card-title">Neue Ankündigung</div>
+                <div class="tac-card-note">Nur für Admins/Offiziere sichtbar. Wird beim Veröffentlichen automatisch oben aufgeklappt angezeigt — ältere Ankündigungen klappen dabei automatisch ein.</div>
+                <textarea id="announceText" class="announce-textarea" rows="4" placeholder="Text der Ankündigung…"></textarea>
+                <div class="forever-actions">
+                  <button type="button" class="btn btn-teal btn-sm" id="announceSaveBtn">Ankündigung veröffentlichen</button>
+                  <span id="announceSaveStatus" class="armory-status"></span>
+                </div>
+              </div>
+              <div id="announceList"></div>
+            </div>
+          </section>
+        </section>
+
       </main>
 
       <footer class="footer">
@@ -645,9 +686,13 @@
     officer: { label: 'Officer' },
     member: { label: 'Guild Member' }
   };
-  // Admins AND Officers can open/close votings; only Admins can manage roles.
-  function canManageVotings(){
+  // Admins AND Officers can open/close votings and post/delete
+  // announcements; only Admins can manage other members' roles.
+  function isOfficerOrAdmin(){
     return currentRole === 'admin' || currentRole === 'officer';
+  }
+  function canManageVotings(){
+    return isOfficerOrAdmin();
   }
 
   let currentRole = 'member';
@@ -696,7 +741,7 @@
     const state = randomPkceString(24);
     sessionStorage.setItem(DISCORD_PKCE_VERIFIER_KEY, verifier);
     sessionStorage.setItem(DISCORD_OAUTH_STATE_KEY, state);
-    try{ sessionStorage.setItem(RETURN_ANCHOR_KEY, 'forever'); }catch(e){}
+    try{ sessionStorage.setItem(RETURN_ANCHOR_KEY, currentPage); }catch(e){}
     const params = new URLSearchParams({
       client_id: DISCORD_CONFIG.clientId,
       redirect_uri: DISCORD_REDIRECT_URI,
@@ -897,7 +942,17 @@
   }
 
   function defaultState(){
-    return { discordRoles: {}, foreverSurvey: {}, votingStatus: {} };
+    return { discordRoles: {}, foreverSurvey: {}, votingStatus: {}, announcements: {} };
+  }
+
+  function normalizeAnnouncement(a){
+    if (!a || typeof a.text !== 'string' || !a.text.trim()) return null;
+    return {
+      text: a.text,
+      authorName: (typeof a.authorName === 'string' && a.authorName) ? a.authorName : 'Unbekannt',
+      authorId: typeof a.authorId === 'string' ? a.authorId : '',
+      createdAt: (typeof a.createdAt === 'number' && a.createdAt > 0) ? a.createdAt : 0
+    };
   }
 
   function normalizeState(parsed){
@@ -915,6 +970,15 @@
         for (const id of Object.keys(raw)){
           const v = raw[id];
           out[id] = { closed: !!(v && v.closed) };
+        }
+        return out;
+      })(),
+      announcements: (() => {
+        const raw = (parsed.announcements && typeof parsed.announcements === 'object') ? parsed.announcements : {};
+        const out = {};
+        for (const id of Object.keys(raw)){
+          const norm = normalizeAnnouncement(raw[id]);
+          if (norm) out[id] = norm;
         }
         return out;
       })()
@@ -966,6 +1030,14 @@
     foreverSaveBtn: document.getElementById('foreverSaveBtn'),
     foreverSaveStatus: document.getElementById('foreverSaveStatus'),
     foreverOverview: document.getElementById('foreverOverview'),
+    announceLoggedOut: document.getElementById('announceLoggedOut'),
+    announceLoggedIn: document.getElementById('announceLoggedIn'),
+    announceLoginBtn: document.getElementById('announceLoginBtn'),
+    announceComposer: document.getElementById('announceComposer'),
+    announceText: document.getElementById('announceText'),
+    announceSaveBtn: document.getElementById('announceSaveBtn'),
+    announceSaveStatus: document.getElementById('announceSaveStatus'),
+    announceList: document.getElementById('announceList'),
     setupScreen: document.getElementById('setupScreen'),
     discordSetupScreen: document.getElementById('discordSetupScreen'),
     workerSetupScreen: document.getElementById('workerSetupScreen'),
@@ -1013,6 +1085,10 @@
     {
       id: 'forever', label: 'Abstimmungen',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="m8 12 3 3 5-6"/></svg>'
+    },
+    {
+      id: 'announcements', label: 'Ankündigungen',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a2 2 0 0 0 2 2h1l3 5V4L6 9H5a2 2 0 0 0-2 2Z"/><path d="M14 8a4 4 0 0 1 0 8"/><path d="M17 5a8 8 0 0 1 0 14"/></svg>'
     }
   ];
   const SIDEBAR_COLLAPSED_KEY = 'rude-guild-sidebar-collapsed';
@@ -1149,12 +1225,18 @@
   // ---------------------------------------------------------------------
   let votingCardManualOpen = {}; // { [votingId]: true|false } — undefined = no manual override yet
 
-  function applyVotingCollapsedUi(votingId, collapsed){
-    const card = document.getElementById('votingCard-' + votingId);
-    const body = document.getElementById('votingBody-' + votingId);
+  // Generic collapse/expand toggle for any ".voting-card"-styled shell,
+  // reused by both votings and announcement cards.
+  function applyCardCollapsedUi(cardElId, bodyElId, collapsed){
+    const card = document.getElementById(cardElId);
+    const body = document.getElementById(bodyElId);
     if (!card || !body) return;
     card.classList.toggle('open', !collapsed);
     body.classList.toggle('hidden', collapsed);
+  }
+
+  function applyVotingCollapsedUi(votingId, collapsed){
+    applyCardCollapsedUi('votingCard-' + votingId, 'votingBody-' + votingId, collapsed);
   }
 
   function toggleVotingCard(votingId){
@@ -1209,6 +1291,151 @@
     } else if (statusEl){
       statusEl.textContent = '';
       statusEl.className = 'armory-status';
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Announcements — Admins/Officers post free-text announcements, shown as
+  // collapsible cards (reusing the same .voting-card shell). Newest first;
+  // whenever a genuinely new announcement shows up, everyone's local
+  // collapse state resets to the default (newest expanded, the rest
+  // collapsed underneath it) — a fresh announcement should always surface.
+  // ---------------------------------------------------------------------
+  let announceCardManualOpen = {}; // { [announceId]: true|false }
+  let announceLastNewestId; // undefined = not yet rendered once
+
+  function sortedAnnouncements(){
+    return Object.keys(state.announcements || {})
+      .map(id => Object.assign({ id }, state.announcements[id]))
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  function toggleAnnounceCard(id){
+    const body = document.getElementById('announceBody-' + id);
+    if (!body) return;
+    const currentlyOpen = !body.classList.contains('hidden');
+    announceCardManualOpen[id] = !currentlyOpen;
+    applyCardCollapsedUi('announceCard-' + id, 'announceBody-' + id, currentlyOpen);
+  }
+
+  function formatAnnounceDate(ts){
+    if (!ts) return '';
+    try{
+      return new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }catch(e){ return ''; }
+  }
+
+  function renderAnnouncementsView(){
+    const loggedIn = !!discordIdentity;
+    els.announceLoggedOut.classList.toggle('hidden', loggedIn);
+    els.announceLoggedIn.classList.toggle('hidden', !loggedIn);
+    if (!loggedIn) return;
+
+    els.announceComposer.classList.toggle('hidden', !isOfficerOrAdmin());
+
+    const list = sortedAnnouncements();
+
+    // A genuinely new newest announcement (including going from none to
+    // one) resets everyone's local collapse choices back to the default —
+    // newest open, everything else collapses underneath it.
+    const newestId = list.length ? list[0].id : null;
+    if (announceLastNewestId !== undefined && newestId !== announceLastNewestId){
+      announceCardManualOpen = {};
+    }
+    announceLastNewestId = newestId;
+
+    if (!list.length){
+      els.announceList.innerHTML = `<div class="lootlib-note">Noch keine Ankündigungen.</div>`;
+      return;
+    }
+
+    const canManage = isOfficerOrAdmin();
+    els.announceList.innerHTML = list.map((a, idx) => {
+      const dateStr = formatAnnounceDate(a.createdAt);
+      const snippet = a.text.length > 70 ? a.text.slice(0, 70).trim() + '…' : a.text;
+      const adminControlsHtml = canManage
+        ? `<div class="voting-admin-controls">
+            <span class="lootlib-note">Nur für Admins/Offiziere sichtbar.</span>
+            <button type="button" class="btn btn-sm btn-outline-gold" data-announce-delete="${a.id}">Löschen</button>
+          </div>`
+        : '';
+      return `<div class="voting-card announce-card" id="announceCard-${a.id}" data-announce-id="${a.id}">
+        <button type="button" class="voting-card-header" data-announce-toggle="${a.id}">
+          <span class="voting-card-chevron">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>
+          </span>
+          <span class="voting-card-title announce-card-title">${escapeHtml(snippet)}</span>
+          <span class="announce-card-meta">${escapeHtml(a.authorName)}${dateStr ? ' · ' + escapeHtml(dateStr) : ''}</span>
+        </button>
+        <div class="voting-card-body" id="announceBody-${a.id}">
+          ${adminControlsHtml}
+          <p class="announce-card-text">${escapeHtml(a.text).replace(/\n/g, '<br>')}</p>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Default: only the newest announcement (idx 0) starts expanded, unless
+    // the viewer already manually toggled this specific card this session.
+    list.forEach((a, idx) => {
+      if (announceCardManualOpen[a.id] === undefined){
+        applyCardCollapsedUi('announceCard-' + a.id, 'announceBody-' + a.id, idx !== 0);
+      }
+    });
+
+    els.announceList.querySelectorAll('[data-announce-toggle]').forEach(btn => {
+      btn.addEventListener('click', () => toggleAnnounceCard(btn.getAttribute('data-announce-toggle')));
+    });
+    els.announceList.querySelectorAll('[data-announce-delete]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteAnnouncement(btn.getAttribute('data-announce-delete'));
+      });
+    });
+  }
+
+  async function saveAnnouncement(){
+    if (!discordIdentity || !isOfficerOrAdmin()) return;
+    const text = els.announceText.value.trim();
+    if (!text) return;
+    let id = null;
+    try{ id = db ? db.ref(DB_PATH + '/announcements').push().key : null; }catch(e){}
+    if (!id) id = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    if (!state.announcements) state.announcements = {};
+    state.announcements[id] = {
+      text,
+      authorName: discordIdentity.username,
+      authorId: discordIdentity.id,
+      createdAt: Date.now()
+    };
+    els.announceSaveStatus.textContent = 'Saving…';
+    els.announceSaveStatus.className = 'armory-status';
+    renderAll();
+    const ok = await saveData('announcements/' + id);
+    if (ok){
+      els.announceText.value = '';
+      els.announceSaveStatus.textContent = 'Veröffentlicht!';
+      els.announceSaveStatus.className = 'armory-status armory-status-ok';
+      setTimeout(() => { if (els.announceSaveStatus.textContent === 'Veröffentlicht!') els.announceSaveStatus.textContent = ''; }, 2000);
+    } else {
+      // Write failed (most likely: the Firebase rules haven't been updated
+      // to allow announcement writes yet — see the README). Roll back so
+      // the UI never claims the announcement was posted when it wasn't.
+      delete state.announcements[id];
+      els.announceSaveStatus.textContent = 'Konnte nicht speichern — Firebase-Regeln prüfen (siehe README)';
+      els.announceSaveStatus.className = 'armory-status armory-status-error';
+      renderAll();
+    }
+  }
+
+  async function deleteAnnouncement(id){
+    if (!isOfficerOrAdmin() || !state.announcements || !state.announcements[id]) return;
+    const previous = state.announcements[id];
+    delete state.announcements[id];
+    renderAll();
+    const ok = await saveData('announcements/' + id);
+    if (!ok){
+      state.announcements[id] = previous;
+      renderAll();
     }
   }
 
@@ -1435,10 +1662,13 @@
   els.foreverSaveBtn.addEventListener('click', saveForeverPicks);
   document.getElementById('votingToggle-forever').addEventListener('click', () => toggleVotingCard('forever'));
   document.getElementById('votingCloseBtn-forever').addEventListener('click', () => toggleVotingClosed('forever'));
+  els.announceLoginBtn.addEventListener('click', () => startDiscordLogin());
+  els.announceSaveBtn.addEventListener('click', saveAnnouncement);
 
   function renderAll(){
     applyAccessControl();
     renderForeverView();
+    renderAnnouncementsView();
   }
 
   function getByPath(obj, path){

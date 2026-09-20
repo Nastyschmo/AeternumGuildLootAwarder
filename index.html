@@ -262,6 +262,42 @@
   .news-body h3{ font-size: 15px; margin: 0 0 6px; color: var(--text); }
   .news-body p{ font-size: 13px; color: var(--text-muted); line-height: 1.55; margin: 0; }
 
+  /* ---------- Voting card: a collapsible shell around one voting/survey.
+     Every voting on the site (currently just WoW Forever) lives in one of
+     these — a clickable header with a title + open/closed badge, and a
+     body that collapses. Add a new voting later by duplicating this markup
+     with a new id and reusing the same JS helpers (renderVotingChrome,
+     toggleVotingCard, toggleVotingClosed). ---------- */
+  .voting-card{ border: 1px solid var(--border-soft); border-radius: 8px; margin-bottom: 20px; overflow: hidden; background: rgba(255,255,255,0.015); }
+  .voting-card-header{
+    width: 100%; display: flex; align-items: center; gap: 12px; padding: 16px 20px;
+    background: var(--bg-panel-raised); border: none; cursor: pointer; text-align: left;
+  }
+  .voting-card-header:hover{ background: rgba(255,255,255,0.05); }
+  .voting-card-chevron{ flex: none; display: flex; color: var(--text-muted); transition: transform .15s ease; }
+  .voting-card.open .voting-card-chevron{ transform: rotate(90deg); }
+  .voting-card-chevron svg{ width: 14px; height: 14px; }
+  .voting-card-title{ flex: 1; font-family: 'Cinzel', serif; font-size: 15.5px; font-weight: 600; letter-spacing: .5px; color: var(--text); }
+  .voting-status-badge{
+    flex: none; font-family: 'Karla', sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: .6px;
+    text-transform: uppercase; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--teal-bright); color: var(--teal-bright);
+  }
+  .voting-status-badge.closed{ border-color: var(--danger-bright); color: var(--danger-bright); }
+  .voting-card-body{ padding: 20px; }
+  .voting-card-body.hidden{ display: none; }
+  .voting-admin-controls{
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    padding: 10px 14px; margin-bottom: 18px; border: 1px dashed var(--border); border-radius: 6px;
+  }
+  .voting-admin-controls .lootlib-note{ padding: 0; }
+  .voting-admin-controls-actions{ display: flex; align-items: center; gap: 10px; }
+  .voting-closed-note{
+    font-size: 13px; color: var(--danger-bright); background: rgba(181,73,63,0.12);
+    border: 1px solid var(--danger); border-radius: 6px; padding: 10px 14px; margin-bottom: 18px;
+  }
+  .voting-disabled{ opacity: .5; pointer-events: none; }
+
   /* ---------- WoW Forever survey ---------- */
   .tac-card{ background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 8px; padding: 20px 22px; margin-bottom: 18px; }
   .tac-card-title{ font-family: 'Cinzel', serif; font-size: 15px; color: var(--gold-bright); font-weight: 600; margin-bottom: 6px; }
@@ -289,6 +325,20 @@
   .forever-class-name{ font-weight: 600; display: flex; align-items: center; gap: 6px; }
   .forever-class-dot{ width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
   .forever-class-card select{ width: 100%; padding: 5px 6px; font-size: 13px; }
+  .forever-role-rows{ display: flex; flex-direction: column; gap: 6px; }
+  .forever-role-row{ display: flex; align-items: center; gap: 6px; }
+  .forever-role-row select{ flex: 1; min-width: 0; }
+  .forever-role-remove{
+    flex: none; background: none; border: none; color: var(--text-faint);
+    cursor: pointer; font-size: 14px; line-height: 1; padding: 4px;
+  }
+  .forever-role-remove:hover{ color: var(--danger-bright); }
+  .forever-add-role-btn{
+    width: 100%; margin-top: 2px; padding: 6px 8px; font-size: 11.5px; font-weight: 600;
+    font-family: 'Karla', sans-serif; color: var(--gold-bright); background: rgba(240,207,107,0.08);
+    border: 1px dashed var(--gold); border-radius: 5px; cursor: pointer;
+  }
+  .forever-add-role-btn:hover{ background: rgba(240,207,107,0.16); }
   .forever-my-picks{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
   .forever-pick-chip{
     display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
@@ -465,20 +515,39 @@
             </div>
 
             <div id="foreverLoggedIn" class="hidden">
-              <div class="tac-card">
-                <div class="tac-card-title">Deine Auswahl</div>
-                <div class="tac-card-note">WoW Forever launcht am 4. November 2026 — Blizzard hat noch kein offizielles Klassen-/Rollensystem veröffentlicht, daher ist diese Liste eine an die Gilde angepasste Einschätzung und kann sich noch ändern. Wähle bis zu 2 Klassen, die du spielen möchtest, mit je einer Rolle. Du kannst deine Auswahl jederzeit ändern.</div>
-                <div id="foreverMyPicks" class="forever-my-picks"></div>
-                <div id="foreverClassPicker" class="forever-class-grid"></div>
-                <div class="forever-actions">
-                  <button type="button" class="btn btn-teal btn-sm" id="foreverSaveBtn">Auswahl speichern</button>
-                  <span id="foreverSaveStatus" class="armory-status"></span>
+              <div class="voting-card" id="votingCard-forever" data-voting-id="forever">
+                <button type="button" class="voting-card-header" id="votingToggle-forever">
+                  <span class="voting-card-chevron">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>
+                  </span>
+                  <span class="voting-card-title">WoW Forever — Klassen-Umfrage</span>
+                  <span class="voting-status-badge" id="votingBadge-forever">Offen</span>
+                </button>
+                <div class="voting-card-body" id="votingBody-forever">
+                  <div class="voting-admin-controls hidden" id="votingAdminControls-forever">
+                    <span class="lootlib-note">Nur für Admins/Offiziere sichtbar — schließt die Abstimmung für alle Mitglieder.</span>
+                    <div class="voting-admin-controls-actions">
+                      <span id="votingCloseStatus-forever" class="armory-status"></span>
+                      <button type="button" class="btn btn-sm btn-outline-gold" id="votingCloseBtn-forever">Abstimmung schließen</button>
+                    </div>
+                  </div>
+                  <div class="voting-closed-note hidden" id="votingClosedNote-forever">Diese Abstimmung wurde geschlossen — es kann nicht mehr abgestimmt werden. Die bisherigen Ergebnisse bleiben unten sichtbar.</div>
+                  <div class="tac-card">
+                    <div class="tac-card-title">Deine Auswahl</div>
+                    <div class="tac-card-note">WoW Forever launcht am 4. November 2026 — Blizzard hat noch kein offizielles Klassen-/Rollensystem veröffentlicht, daher ist diese Liste eine an die Gilde angepasste Einschätzung und kann sich noch ändern. Wähle bis zu 2 Picks — das können 2 verschiedene Klassen sein, oder 2x dieselbe Klasse mit unterschiedlicher Rolle (z.B. Druide Tank + Druide Heal). Klicke eine Klasse zum Auswählen an — sobald sie ausgewählt ist, erscheint bei ihr ein Button „+ weitere Rolle", falls eine zweite Rolle für sie noch möglich ist. Du kannst deine Auswahl jederzeit ändern.</div>
+                    <div id="foreverMyPicks" class="forever-my-picks"></div>
+                    <div id="foreverClassPicker" class="forever-class-grid"></div>
+                    <div class="forever-actions">
+                      <button type="button" class="btn btn-teal btn-sm" id="foreverSaveBtn">Auswahl speichern</button>
+                      <span id="foreverSaveStatus" class="armory-status"></span>
+                    </div>
+                  </div>
+                  <div class="tac-card">
+                    <div class="tac-card-title">Gilden-Übersicht — Klassen &amp; Rollen gesamt</div>
+                    <div class="tac-card-note">Aggregiert über alle, die bisher abgestimmt haben. Nützlich, um Lücken (z.B. zu wenige Tanks oder Heiler) für künftiges Recruiting zu erkennen. Fahr mit der Maus über ein Balkensegment, um zu sehen, wer dort abgestimmt hat.</div>
+                    <div id="foreverOverview"></div>
+                  </div>
                 </div>
-              </div>
-              <div class="tac-card">
-                <div class="tac-card-title">Gilden-Übersicht — Klassen &amp; Rollen gesamt</div>
-                <div class="tac-card-note">Aggregiert über alle, die bisher abgestimmt haben. Nützlich, um Lücken (z.B. zu wenige Tanks oder Heiler) für künftiges Recruiting zu erkennen. Fahr mit der Maus über ein Balkensegment, um zu sehen, wer dort abgestimmt hat.</div>
-                <div id="foreverOverview"></div>
               </div>
             </div>
           </section>
@@ -573,8 +642,13 @@
 
   const ACCESS_ROLES = {
     admin: { label: 'Admin' },
+    officer: { label: 'Officer' },
     member: { label: 'Guild Member' }
   };
+  // Admins AND Officers can open/close votings; only Admins can manage roles.
+  function canManageVotings(){
+    return currentRole === 'admin' || currentRole === 'officer';
+  }
 
   let currentRole = 'member';
   let discordIdentity = null;
@@ -803,23 +877,27 @@
   function normalizeForeverEntry(entry){
     const username = (entry && typeof entry.username === 'string') ? entry.username : '';
     const rawPicks = (entry && Array.isArray(entry.picks)) ? entry.picks : [];
+    // Dedupe by classId+role, not by classId alone — the same class is
+    // allowed twice with two different roles (e.g. Druid Tank + Druid Heal),
+    // just never the same class+role combination twice.
     const seen = new Set();
     const picks = [];
     for (const p of rawPicks){
       if (picks.length >= FOREVER_MAX_PICKS) break;
       if (!p || typeof p.classId !== 'string' || !CLASS_MAP[p.classId]) continue;
-      if (seen.has(p.classId)) continue;
       const validRoles = foreverRolesForClass(p.classId);
       if (!validRoles.length) continue;
       const role = (typeof p.role === 'string' && validRoles.includes(p.role)) ? p.role : validRoles[0];
-      seen.add(p.classId);
+      const key = p.classId + '|' + role;
+      if (seen.has(key)) continue;
+      seen.add(key);
       picks.push({ classId: p.classId, role });
     }
     return { username, picks };
   }
 
   function defaultState(){
-    return { discordRoles: {}, foreverSurvey: {} };
+    return { discordRoles: {}, foreverSurvey: {}, votingStatus: {} };
   }
 
   function normalizeState(parsed){
@@ -830,8 +908,21 @@
         const out = {};
         for (const uid of Object.keys(raw)) out[uid] = normalizeForeverEntry(raw[uid]);
         return out;
+      })(),
+      votingStatus: (() => {
+        const raw = (parsed.votingStatus && typeof parsed.votingStatus === 'object') ? parsed.votingStatus : {};
+        const out = {};
+        for (const id of Object.keys(raw)){
+          const v = raw[id];
+          out[id] = { closed: !!(v && v.closed) };
+        }
+        return out;
       })()
     };
+  }
+
+  function isVotingClosed(votingId){
+    return !!(state.votingStatus && state.votingStatus[votingId] && state.votingStatus[votingId].closed);
   }
 
   let state = defaultState();
@@ -1014,7 +1105,7 @@
       els.accessMemberList.innerHTML = '<p class="access-modal-note">No one has logged in yet.</p>';
       return;
     }
-    const roleOrder = ['admin', 'member'];
+    const roleOrder = ['admin', 'officer', 'member'];
     const roleOptHtml = (selected) => roleOrder.map(r =>
       `<option value="${r}" ${r === selected ? 'selected' : ''}>${ACCESS_ROLES[r].label}</option>`).join('');
     els.accessMemberList.innerHTML = ids.map(id => {
@@ -1049,11 +1140,89 @@
     return state.foreverSurvey[discordIdentity.id] || null;
   }
 
+  // ---------------------------------------------------------------------
+  // Voting card chrome — the collapsible wrapper shared by every voting
+  // (currently just WoW Forever). Only tracks per-session manual
+  // collapse/expand overrides, never persisted; the default (open unless
+  // the voting is closed) is re-applied on every render UNLESS the person
+  // already toggled the card themselves this session.
+  // ---------------------------------------------------------------------
+  let votingCardManualOpen = {}; // { [votingId]: true|false } — undefined = no manual override yet
+
+  function applyVotingCollapsedUi(votingId, collapsed){
+    const card = document.getElementById('votingCard-' + votingId);
+    const body = document.getElementById('votingBody-' + votingId);
+    if (!card || !body) return;
+    card.classList.toggle('open', !collapsed);
+    body.classList.toggle('hidden', collapsed);
+  }
+
+  function toggleVotingCard(votingId){
+    const body = document.getElementById('votingBody-' + votingId);
+    if (!body) return;
+    const currentlyOpen = !body.classList.contains('hidden');
+    votingCardManualOpen[votingId] = !currentlyOpen;
+    applyVotingCollapsedUi(votingId, currentlyOpen);
+  }
+
+  function renderVotingChrome(votingId){
+    const closed = isVotingClosed(votingId);
+    const badge = document.getElementById('votingBadge-' + votingId);
+    if (badge){
+      badge.textContent = closed ? 'Geschlossen' : 'Offen';
+      badge.classList.toggle('closed', closed);
+    }
+    const adminControls = document.getElementById('votingAdminControls-' + votingId);
+    if (adminControls) adminControls.classList.toggle('hidden', !canManageVotings());
+    const closeBtn = document.getElementById('votingCloseBtn-' + votingId);
+    if (closeBtn) closeBtn.textContent = closed ? 'Abstimmung wieder öffnen' : 'Abstimmung schließen';
+    const closedNote = document.getElementById('votingClosedNote-' + votingId);
+    if (closedNote) closedNote.classList.toggle('hidden', !closed);
+    // Only re-apply the "open unless closed" default while the viewer
+    // hasn't manually expanded/collapsed the card themselves this session.
+    if (votingCardManualOpen[votingId] === undefined){
+      applyVotingCollapsedUi(votingId, closed);
+    }
+  }
+
+  async function toggleVotingClosed(votingId){
+    if (!canManageVotings()) return;
+    if (!state.votingStatus) state.votingStatus = {};
+    const wasClosed = isVotingClosed(votingId);
+    const previous = state.votingStatus[votingId];
+    state.votingStatus[votingId] = { closed: !wasClosed };
+    const statusEl = document.getElementById('votingCloseStatus-' + votingId);
+    if (statusEl){ statusEl.textContent = 'Saving…'; statusEl.className = 'armory-status'; }
+    renderAll();
+    const ok = await saveData('votingStatus/' + votingId);
+    if (!ok){
+      // Write failed (most likely: the Firebase rules haven't been updated
+      // to allow votingStatus writes yet — see the README). Roll back so
+      // the UI never claims the voting was closed/reopened when it wasn't.
+      if (previous) state.votingStatus[votingId] = previous;
+      else delete state.votingStatus[votingId];
+      if (statusEl){
+        statusEl.textContent = 'Konnte nicht speichern — Firebase-Regeln prüfen (siehe README)';
+        statusEl.className = 'armory-status armory-status-error';
+      }
+      renderAll();
+    } else if (statusEl){
+      statusEl.textContent = '';
+      statusEl.className = 'armory-status';
+    }
+  }
+
   function renderForeverView(){
     const loggedIn = !!discordIdentity;
     els.foreverLoggedOut.classList.toggle('hidden', loggedIn);
     els.foreverLoggedIn.classList.toggle('hidden', !loggedIn);
     if (!loggedIn) return;
+    renderVotingChrome('forever');
+    const closed = isVotingClosed('forever');
+    els.foreverClassPicker.classList.toggle('voting-disabled', closed);
+    els.foreverMyPicks.classList.toggle('voting-disabled', closed);
+    els.foreverSaveBtn.disabled = closed;
+    els.foreverSaveBtn.title = closed ? 'Diese Abstimmung ist geschlossen' : '';
     if (foreverDraft === null){
       const saved = foreverSavedEntry();
       foreverDraft = saved ? saved.picks.map(p => ({ classId: p.classId, role: p.role })) : [];
@@ -1068,71 +1237,120 @@
       els.foreverMyPicks.innerHTML = `<div class="lootlib-note">Noch keine Klasse gewählt — wähle unten bis zu ${FOREVER_MAX_PICKS}.</div>`;
       return;
     }
-    els.foreverMyPicks.innerHTML = foreverDraft.map(p => {
+    els.foreverMyPicks.innerHTML = foreverDraft.map((p, i) => {
       const cls = CLASS_MAP[p.classId];
       const roleLabel = (FOREVER_ROLE_MAP[p.role] || {}).label || p.role;
       return `<span class="forever-pick-chip" style="border-color:${cls.color}">
         <span class="forever-class-dot" style="background:${cls.color}"></span>
         ${escapeHtml(cls.label)} — ${escapeHtml(roleLabel)}
-        <button type="button" data-remove-class="${cls.id}" title="Remove">✕</button>
+        <button type="button" data-remove-index="${i}" title="Remove">✕</button>
       </span>`;
     }).join('');
-    els.foreverMyPicks.querySelectorAll('[data-remove-class]').forEach(btn => {
+    els.foreverMyPicks.querySelectorAll('[data-remove-index]').forEach(btn => {
       btn.addEventListener('click', () => {
-        foreverRemovePick(btn.getAttribute('data-remove-class'));
+        foreverRemovePick(Number(btn.getAttribute('data-remove-index')));
       });
     });
   }
 
+  // Each class card can hold up to one row per valid role for that class —
+  // the same class can be picked twice, as long as the two picks use
+  // different roles (e.g. Druid Tank + Druid Heal). Clicking the card body
+  // adds a new pick using the next role not already taken for that class;
+  // each row's own <select> can only be changed to a role that isn't
+  // already used by another pick of the same class.
   function renderForeverClassPicker(){
-    const pickedIds = new Set(foreverDraft.map(p => p.classId));
     const atCap = foreverDraft.length >= FOREVER_MAX_PICKS;
     els.foreverClassPicker.innerHTML = CLASSES.map(cls => {
-      const picked = pickedIds.has(cls.id);
-      const disabled = !picked && atCap;
       const validRoles = foreverRolesForClass(cls.id);
-      const currentPick = foreverDraft.find(p => p.classId === cls.id);
-      const roleSelectHtml = picked
-        ? `<select data-role-for="${cls.id}">${validRoles.map(rid => `<option value="${rid}" ${currentPick && currentPick.role === rid ? 'selected' : ''}>${escapeHtml(FOREVER_ROLE_MAP[rid].label)}</option>`).join('')}</select>`
+      const classPicks = [];
+      foreverDraft.forEach((p, i) => { if (p.classId === cls.id) classPicks.push({ ...p, i }); });
+      const picked = classPicks.length > 0;
+      const takenRoles = new Set(classPicks.map(p => p.role));
+      const canAddMore = !atCap && validRoles.some(r => !takenRoles.has(r));
+      const disabled = !picked && (atCap || !validRoles.length);
+
+      const rowsHtml = picked
+        ? classPicks.map(p => {
+            const options = validRoles.map(rid => {
+              const takenByOther = classPicks.some(cp => cp.i !== p.i && cp.role === rid);
+              return `<option value="${rid}" ${p.role === rid ? 'selected' : ''} ${takenByOther ? 'disabled' : ''}>${escapeHtml(FOREVER_ROLE_MAP[rid].label)}</option>`;
+            }).join('');
+            return `<div class="forever-role-row">
+              <select data-role-for="${cls.id}" data-pick-index="${p.i}">${options}</select>
+              <button type="button" class="forever-role-remove" data-remove-index="${p.i}" title="Entfernen">✕</button>
+            </div>`;
+          }).join('')
         : `<div class="lootlib-note" style="margin:0;">${validRoles.map(rid => FOREVER_ROLE_MAP[rid].label).join(' / ')}</div>`;
+
+      // Once a class already has a pick, the row (select + ✕) fills almost
+      // the whole card, so "click the card again" is unreliable — most
+      // clicks land on the select instead of empty card space. Use an
+      // explicit, unambiguous button for adding a second role instead.
+      const addBtnHtml = (picked && canAddMore)
+        ? `<button type="button" class="forever-add-role-btn" data-add-role="${cls.id}">+ weitere Rolle für ${escapeHtml(cls.label)}</button>`
+        : '';
+
       return `<div class="forever-class-card ${picked ? 'picked' : ''} ${disabled ? 'disabled' : ''}" data-class-card="${cls.id}">
         <div class="forever-class-name"><span class="forever-class-dot" style="background:${cls.color}"></span>${escapeHtml(cls.label)}</div>
-        ${roleSelectHtml}
+        <div class="forever-role-rows">${rowsHtml}</div>
+        ${addBtnHtml}
       </div>`;
     }).join('');
     els.foreverClassPicker.querySelectorAll('[data-class-card]').forEach(card => {
       const classId = card.getAttribute('data-class-card');
-      card.addEventListener('click', (e) => {
-        if (e.target.closest('select')) return;
-        const picked = foreverDraft.some(p => p.classId === classId);
-        if (picked) return; // use the ✕ chip or the select — clicking the card body doesn't remove
-        if (foreverDraft.length >= FOREVER_MAX_PICKS) return;
-        const validRoles = foreverRolesForClass(classId);
-        if (!validRoles.length) return;
-        foreverDraft.push({ classId, role: validRoles[0] });
+      function addPick(){
+        if (isVotingClosed('forever')) return;
+        const takenRoles = new Set(foreverDraft.filter(p => p.classId === classId).map(p => p.role));
+        const availableRoles = foreverRolesForClass(classId).filter(r => !takenRoles.has(r));
+        if (foreverDraft.length >= FOREVER_MAX_PICKS || !availableRoles.length) return;
+        foreverDraft.push({ classId, role: availableRoles[0] });
         renderForeverPicksChips();
         renderForeverClassPicker();
+      }
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('select') || e.target.closest('[data-remove-index]') || e.target.closest('[data-add-role]')) return;
+        // Whole-card click only adds the FIRST pick for this class — once
+        // it already has a pick, use the explicit "+ weitere Rolle" button
+        // below (see comment above) so clicks land reliably.
+        if (foreverDraft.some(p => p.classId === classId)) return;
+        addPick();
       });
-      const select = card.querySelector('select[data-role-for]');
-      if (select){
+      card.querySelectorAll('[data-add-role]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          addPick();
+        });
+      });
+      card.querySelectorAll('select[data-role-for]').forEach(select => {
         select.addEventListener('click', e => e.stopPropagation());
         select.addEventListener('change', () => {
-          const entry = foreverDraft.find(p => p.classId === classId);
+          if (isVotingClosed('forever')) { renderForeverClassPicker(); return; }
+          const idx = Number(select.getAttribute('data-pick-index'));
+          const entry = foreverDraft[idx];
           if (entry) entry.role = select.value;
           renderForeverPicksChips();
+          renderForeverClassPicker();
         });
-      }
+      });
+      card.querySelectorAll('[data-remove-index]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          foreverRemovePick(Number(btn.getAttribute('data-remove-index')));
+        });
+      });
     });
   }
 
-  function foreverRemovePick(classId){
-    foreverDraft = foreverDraft.filter(p => p.classId !== classId);
+  function foreverRemovePick(index){
+    if (isVotingClosed('forever')) return;
+    foreverDraft = foreverDraft.filter((p, i) => i !== index);
     renderForeverPicksChips();
     renderForeverClassPicker();
   }
 
   async function saveForeverPicks(){
-    if (!discordIdentity) return;
+    if (!discordIdentity || isVotingClosed('forever')) return;
     const previous = state.foreverSurvey[discordIdentity.id];
     state.foreverSurvey[discordIdentity.id] = {
       username: discordIdentity.username,
@@ -1215,6 +1433,8 @@
   }
 
   els.foreverSaveBtn.addEventListener('click', saveForeverPicks);
+  document.getElementById('votingToggle-forever').addEventListener('click', () => toggleVotingCard('forever'));
+  document.getElementById('votingCloseBtn-forever').addEventListener('click', () => toggleVotingClosed('forever'));
 
   function renderAll(){
     applyAccessControl();

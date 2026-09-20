@@ -33,7 +33,13 @@
   *{ box-sizing: border-box; }
   html, body{ margin: 0; padding: 0; }
   body{
-    background: var(--bg-deep);
+    /* Same dusk-mountain color language as the hero, faded to a quiet
+       ambient version so scrolling past the hero still feels like the
+       same world instead of dropping into a flat panel color. */
+    background:
+      radial-gradient(ellipse 70% 40% at 50% 0%, rgba(99,64,107,0.35), transparent 60%),
+      linear-gradient(180deg, #14111f 0%, #171432 10%, var(--bg-deep) 30%, var(--bg-deep) 100%);
+    background-attachment: fixed;
     color: var(--text);
     font-family: 'Karla', sans-serif;
     font-size: 14px;
@@ -81,15 +87,16 @@
   }
   select:focus, textarea:focus{ outline: none; border-color: var(--gold); }
 
-  /* ---------- Nav ---------- */
-  .nav{
-    position: sticky; top: 0; z-index: 50;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 6vw; gap: 16px; flex-wrap: wrap;
-    background: rgba(16,14,28,0.86); backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--border-soft);
+  /* ---------- Shell: collapsible sidebar + main area ---------- */
+  .shell{ display: flex; align-items: stretch; min-height: 100vh; }
+  .sidebar{
+    width: 240px; flex: none; overflow: hidden;
+    background: var(--bg-panel); border-right: 1px solid var(--border-soft);
+    transition: width .2s ease, border-color .2s ease;
   }
-  .nav-brand{ display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .sidebar.collapsed{ width: 0; border-right-color: transparent; }
+  .sidebar-inner{ width: 240px; padding: 20px 16px; height: 100%; }
+  .sidebar-brand{ display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 26px; }
   .nav-crest{
     width: 36px; height: 36px; border-radius: 50%; flex: none;
     background: radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 55%, #7a5c12 100%);
@@ -98,10 +105,34 @@
     font-family: 'Cinzel', serif; font-weight: 700; color: #241f3d; font-size: 15px;
     box-shadow: 0 0 10px rgba(240,207,107,0.35);
   }
-  .nav-name{ font-family: 'Cinzel', serif; font-weight: 600; letter-spacing: 1.5px; font-size: 17px; color: var(--text); }
-  .nav-links{ display: flex; gap: 22px; align-items: center; }
-  .nav-links a{ color: var(--text-muted); text-decoration: none; font-size: 13.5px; cursor: pointer; }
-  .nav-links a:hover{ color: var(--gold-bright); }
+  .nav-name{ font-family: 'Cinzel', serif; font-weight: 600; letter-spacing: 1.5px; font-size: 17px; color: var(--text); white-space: nowrap; }
+  .sidebar-nav{ display: flex; flex-direction: column; gap: 4px; }
+  .sidebar-nav-item{
+    display: block; padding: 10px 12px; border-radius: 6px;
+    color: var(--text-muted); font-size: 14px; font-weight: 600;
+    text-decoration: none; cursor: pointer; white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .sidebar-nav-item:hover{ color: var(--text); background: rgba(255,255,255,0.04); }
+  .sidebar-nav-item.active{ color: var(--gold-bright); background: rgba(240,207,107,0.1); border-color: rgba(240,207,107,0.25); }
+
+  .main-area{ flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .topbar{
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 6vw; gap: 16px; flex-wrap: wrap;
+    background: rgba(16,14,28,0.86); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .burger-btn{
+    width: 38px; height: 38px; flex: none; border-radius: 6px;
+    background: var(--bg-panel-raised); border: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    cursor: pointer; padding: 0;
+  }
+  .burger-btn:hover{ border-color: var(--gold); }
+  .burger-btn span{ display: block; width: 16px; height: 2px; background: var(--text-muted); border-radius: 1px; }
+  .burger-btn:hover span{ background: var(--gold-bright); }
   .nav-auth{ display: flex; align-items: center; gap: 10px; }
 
   /* ---------- Account / access control (reused across nav) ---------- */
@@ -135,19 +166,58 @@
   .access-member-role-select{ width: auto; font-size: 12px; padding: 4px 8px; }
   .access-member-role-select:disabled{ opacity: 0.55; cursor: not-allowed; }
 
-  /* ---------- Hero ---------- */
+  /* ---------- Hero: painterly dusk-mountain vista, CSS-only (no external
+     art) — layered sky gradient + glow "sun" + starfield + soft haze band +
+     two mountain ridges, evoking the WoW Forever key art's color mood
+     (deep blue-purple sky breaking into a warm sunset band over misty
+     peaks) without reproducing any of its actual illustration. ---------- */
   .hero{
     position: relative;
-    min-height: 62vh;
+    min-height: 64vh;
     display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
     padding: 70px 6vw 110px;
     overflow: hidden;
     background:
-      radial-gradient(ellipse 55% 45% at 78% 15%, rgba(255,185,120,0.55), transparent 60%),
-      linear-gradient(180deg, #241f45 0%, #3c2f5e 24%, #6b4766 48%, #b97a56 66%, #241f45 100%);
+      radial-gradient(circle at 80% 10%, rgba(255,232,180,0.95) 0%, rgba(255,196,130,0.55) 5%, rgba(255,170,120,0) 24%),
+      linear-gradient(180deg,
+        #171432 0%,
+        #241f47 12%,
+        #3a2c5c 24%,
+        #63406b 38%,
+        #9c5470 50%,
+        #d98259 62%,
+        #f0a86a 68%,
+        #7a4a63 78%,
+        #302850 90%,
+        #14111f 100%);
   }
-  .hero-mountains{ position: absolute; left: 0; right: 0; bottom: -2px; width: 100%; height: auto; display: block; }
-  .hero-content{ position: relative; z-index: 2; max-width: 620px; }
+  .hero::before{
+    /* faint starfield in the upper sky */
+    content: ''; position: absolute; inset: 0; z-index: 0; opacity: 0.8; pointer-events: none;
+    background-image:
+      radial-gradient(1.4px 1.4px at 12% 14%, rgba(255,255,255,0.55), transparent),
+      radial-gradient(1px 1px at 28% 8%, rgba(255,255,255,0.4), transparent),
+      radial-gradient(1.6px 1.6px at 46% 18%, rgba(255,255,255,0.45), transparent),
+      radial-gradient(1px 1px at 6% 26%, rgba(255,255,255,0.35), transparent),
+      radial-gradient(1.2px 1.2px at 36% 30%, rgba(255,255,255,0.3), transparent),
+      radial-gradient(1px 1px at 60% 10%, rgba(255,255,255,0.4), transparent),
+      radial-gradient(1.4px 1.4px at 18% 40%, rgba(255,255,255,0.25), transparent);
+    background-repeat: no-repeat;
+  }
+  .hero::after{
+    /* soft atmospheric haze + edge vignette so text stays legible over any art */
+    content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(10,8,20,0.55) 0%, rgba(10,8,20,0.1) 38%, transparent 60%),
+      radial-gradient(ellipse 90% 60% at 50% 100%, rgba(20,16,30,0.55), transparent 70%);
+  }
+  .hero-haze{
+    position: absolute; left: 0; right: 0; bottom: 14%; height: 30%; z-index: 1; pointer-events: none;
+    background: linear-gradient(180deg, transparent, rgba(200,170,190,0.18) 50%, transparent);
+    filter: blur(6px);
+  }
+  .hero-mountains{ position: absolute; left: 0; right: 0; bottom: -2px; width: 100%; height: auto; display: block; z-index: 1; }
+  .hero-content{ position: relative; z-index: 3; max-width: 620px; }
   .hero-eyebrow{ font-size: 12.5px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold-bright); margin: 0 0 10px; }
   .hero-title{
     font-family: 'Cinzel', serif; font-weight: 700;
@@ -160,6 +230,15 @@
   .hero-tagline{ font-size: 14px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-muted); margin: 0 0 18px; }
   .hero-desc{ color: var(--text); font-size: 15px; line-height: 1.7; margin: 0 0 28px; max-width: 520px; }
   .hero-actions{ display: flex; gap: 14px; flex-wrap: wrap; }
+
+  /* Secondary, shorter hero used at the top of sub-pages (e.g. WoW Forever) —
+     same background/typography language as the main hero, smaller. */
+  .hero-sub{ min-height: 32vh; padding: 54px 6vw 64px; }
+  .hero-title-sm{ font-size: clamp(28px, 4.5vw, 46px); margin-bottom: 8px; }
+  .hero-sub .hero-desc{ margin-bottom: 0; }
+
+  .page-section{ display: block; }
+  .page-section.hidden{ display: none; }
 
   /* ---------- Sections ---------- */
   .section{ padding: 64px 6vw; max-width: 1200px; margin: 0 auto; }
@@ -253,8 +332,11 @@
   .footer{ padding: 30px 6vw 50px; text-align: center; color: var(--text-faint); font-size: 12px; border-top: 1px solid var(--border-soft); }
   .footer .save-status{ margin-top: 8px; min-height: 14px; }
 
+  @media (max-width: 760px){
+    .sidebar{ position: fixed; top: 0; left: 0; bottom: 0; z-index: 70; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
+    .sidebar.collapsed{ box-shadow: none; }
+  }
   @media (max-width: 640px){
-    .nav-links{ display: none; }
     .parchment{ padding: 26px; }
   }
 </style>
@@ -304,101 +386,129 @@
 
 <div id="publicPage" class="hidden">
 
-  <nav class="nav">
-    <div class="nav-brand" id="navBrand">
-      <span class="nav-crest" id="navCrest">R</span>
-      <span class="nav-name" id="navGuildName">Aeternum</span>
-    </div>
-    <div class="nav-links">
-      <a id="navHomeLink">Home</a>
-      <a id="navForeverLink">WoW Forever</a>
-    </div>
-    <div class="nav-auth">
-      <button type="button" class="btn btn-sm btn-outline-gold" id="navLoginBtn">Mit Discord anmelden</button>
-      <div class="access-control hidden" id="accessControlWrap">
-        <button class="btn btn-ghost btn-sm" id="accessSwitchBtn">
-          <img id="accessAvatarImg" class="access-avatar hidden" alt="" />
-          <span id="accessBadge">Guild Member</span>
+  <div class="shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-inner">
+        <div class="sidebar-brand" id="navBrand">
+          <span class="nav-crest" id="navCrest">R</span>
+          <span class="nav-name" id="navGuildName">Aeternum</span>
+        </div>
+        <nav class="sidebar-nav" id="sidebarNav"></nav>
+      </div>
+    </aside>
+
+    <div class="main-area">
+      <div class="topbar">
+        <button type="button" class="burger-btn" id="burgerBtn" aria-label="Menü umschalten">
+          <span></span><span></span><span></span>
         </button>
-        <div class="access-popover hidden" id="accessPopover">
-          <div class="access-popover-title" id="accessPopoverName">Logged in via Discord</div>
-          <div class="access-popover-sub" id="accessPopoverRole">Guild Member</div>
-          <button type="button" class="btn btn-sm btn-ghost btn-block hidden" id="accessManageBtn">Manage access</button>
-          <button type="button" class="btn btn-sm btn-ghost btn-block" id="accessLogoutBtn">Log out</button>
+        <div class="nav-auth">
+          <button type="button" class="btn btn-sm btn-outline-gold" id="navLoginBtn">Mit Discord anmelden</button>
+          <div class="access-control hidden" id="accessControlWrap">
+            <button class="btn btn-ghost btn-sm" id="accessSwitchBtn">
+              <img id="accessAvatarImg" class="access-avatar hidden" alt="" />
+              <span id="accessBadge">Guild Member</span>
+            </button>
+            <div class="access-popover hidden" id="accessPopover">
+              <div class="access-popover-title" id="accessPopoverName">Logged in via Discord</div>
+              <div class="access-popover-sub" id="accessPopoverRole">Guild Member</div>
+              <button type="button" class="btn btn-sm btn-ghost btn-block hidden" id="accessManageBtn">Manage access</button>
+              <button type="button" class="btn btn-sm btn-ghost btn-block" id="accessLogoutBtn">Log out</button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </nav>
 
-  <header class="hero" id="heroSection">
-    <svg class="hero-mountains" viewBox="0 0 1440 220" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M0 220 L0 140 L160 60 L280 130 L400 40 L520 120 L660 20 L800 110 L940 50 L1080 130 L1220 70 L1440 150 L1440 220 Z" fill="#241f45" opacity="0.85"/>
-      <path d="M0 220 L0 175 L120 120 L260 175 L380 100 L540 175 L700 90 L860 170 L1020 110 L1180 175 L1320 130 L1440 180 L1440 220 Z" fill="#171331"/>
-    </svg>
-    <div class="hero-content">
-      <p class="hero-eyebrow">Vorbereitung läuft</p>
-      <h1 class="hero-title" id="heroTitle">AETERNUM</h1>
-      <p class="hero-tagline" id="heroTagline">Spineshatter-EU</p>
-      <p class="hero-desc" id="heroDesc">Wir bereiten uns auf World of Warcraft: Forever vor. Diese Seite wächst mit — als erstes: eine Umfrage, wer welche Klasse und Rolle spielen möchte.</p>
-      <div class="hero-actions">
-        <button type="button" class="btn btn-teal" id="heroCtaBtn">Zur Klassen-Umfrage</button>
-      </div>
-    </div>
-  </header>
+      <main id="pageHost">
 
-  <section class="section" id="introSection">
-    <div class="parchment">
-      <div>
-        <p class="parchment-eyebrow">Azeroth erwartet euch</p>
-        <h2 id="introTitle">Bereit für ein neues Kapitel</h2>
-        <p id="introText">Diese Seite ist der Startpunkt für alles rund um WoW: Forever — von der Klassen-Umfrage bis zu künftigen Ankündigungen und Guides. Schaut regelmäßig vorbei.</p>
-      </div>
-    </div>
-  </section>
+        <section class="page-section" id="page-home">
+          <header class="hero" id="heroSection">
+            <svg class="hero-mountains" viewBox="0 0 1440 220" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 220 L0 140 L160 60 L280 130 L400 40 L520 120 L660 20 L800 110 L940 50 L1080 130 L1220 70 L1440 150 L1440 220 Z" fill="#241f45" opacity="0.85"/>
+              <path d="M0 220 L0 175 L120 120 L260 175 L380 100 L540 175 L700 90 L860 170 L1020 110 L1180 175 L1320 130 L1440 180 L1440 220 Z" fill="#171331"/>
+              <path d="M160 60 L200 78 L280 130 M400 40 L440 60 L520 120 M660 20 L705 42 L800 110 M940 50 L985 72 L1080 130 M1220 70 L1265 92 L1440 150" fill="none" stroke="rgba(230,220,240,0.35)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="hero-haze"></div>
+            <div class="hero-content">
+              <p class="hero-eyebrow">Vorbereitung läuft</p>
+              <h1 class="hero-title" id="heroTitle">AETERNUM</h1>
+              <p class="hero-tagline" id="heroTagline">Spineshatter-EU</p>
+              <p class="hero-desc" id="heroDesc">Wir bereiten uns auf World of Warcraft: Forever vor. Diese Seite wächst mit — als erstes: eine Umfrage, wer welche Klasse und Rolle spielen möchte.</p>
+              <div class="hero-actions">
+                <button type="button" class="btn btn-teal" id="heroCtaBtn">Zur Klassen-Umfrage</button>
+              </div>
+            </div>
+          </header>
 
-  <section class="section" id="newsSection">
-    <div class="section-head">
-      <h2>Neuigkeiten</h2>
-      <p class="section-sub">Was gerade bei uns passiert.</p>
-    </div>
-    <div class="news-grid" id="newsGrid"></div>
-  </section>
+          <section class="section" id="introSection">
+            <div class="parchment">
+              <div>
+                <p class="parchment-eyebrow">Azeroth erwartet euch</p>
+                <h2 id="introTitle">Bereit für ein neues Kapitel</h2>
+                <p id="introText">Diese Seite ist der Startpunkt für alles rund um WoW: Forever — von der Klassen-Umfrage bis zu künftigen Ankündigungen und Guides. Schaut regelmäßig vorbei.</p>
+              </div>
+            </div>
+          </section>
 
-  <section class="section" id="forever">
-    <div class="section-head">
-      <h2>WoW Forever — Klassen-Umfrage</h2>
-      <p class="section-sub">Bis zu 2 Klassen wählen, pro Klasse eine Rolle — hilft uns bei der Planung, wer künftig noch gebraucht wird.</p>
-    </div>
+          <section class="section" id="newsSection">
+            <div class="section-head">
+              <h2>Neuigkeiten</h2>
+              <p class="section-sub">Was gerade bei uns passiert.</p>
+            </div>
+            <div class="news-grid" id="newsGrid"></div>
+          </section>
+        </section>
 
-    <div id="foreverLoggedOut" class="forever-gate">
-      <div class="discord-login-error" id="discordLoginError"></div>
-      <p>Melde dich mit Discord an, um abzustimmen und die Gesamt-Übersicht der Gilde zu sehen.</p>
-      <button type="button" class="btn btn-discord" id="foreverLoginBtn">Mit Discord anmelden</button>
-    </div>
+        <section class="page-section hidden" id="page-forever">
+          <header class="hero hero-sub">
+            <svg class="hero-mountains" viewBox="0 0 1440 220" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 220 L0 140 L160 60 L280 130 L400 40 L520 120 L660 20 L800 110 L940 50 L1080 130 L1220 70 L1440 150 L1440 220 Z" fill="#241f45" opacity="0.85"/>
+              <path d="M0 220 L0 175 L120 120 L260 175 L380 100 L540 175 L700 90 L860 170 L1020 110 L1180 175 L1320 130 L1440 180 L1440 220 Z" fill="#171331"/>
+              <path d="M160 60 L200 78 L280 130 M400 40 L440 60 L520 120 M660 20 L705 42 L800 110 M940 50 L985 72 L1080 130 M1220 70 L1265 92 L1440 150" fill="none" stroke="rgba(230,220,240,0.35)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="hero-haze"></div>
+            <div class="hero-content">
+              <p class="hero-eyebrow">Klassen-Umfrage</p>
+              <h1 class="hero-title hero-title-sm">WOW FOREVER</h1>
+              <p class="hero-desc">Bis zu 2 Klassen wählen, pro Klasse eine Rolle — hilft uns bei der Planung, wer künftig noch gebraucht wird.</p>
+            </div>
+          </header>
 
-    <div id="foreverLoggedIn" class="hidden">
-      <div class="tac-card">
-        <div class="tac-card-title">Deine Auswahl</div>
-        <div class="tac-card-note">WoW Forever launcht am 4. November 2026 — Blizzard hat noch kein offizielles Klassen-/Rollensystem veröffentlicht, daher ist diese Liste eine an die Gilde angepasste Einschätzung und kann sich noch ändern. Wähle bis zu 2 Klassen, die du spielen möchtest, mit je einer Rolle. Du kannst deine Auswahl jederzeit ändern.</div>
-        <div id="foreverMyPicks" class="forever-my-picks"></div>
-        <div id="foreverClassPicker" class="forever-class-grid"></div>
-        <div class="forever-actions">
-          <button type="button" class="btn btn-teal btn-sm" id="foreverSaveBtn">Auswahl speichern</button>
-          <span id="foreverSaveStatus" class="armory-status"></span>
-        </div>
-      </div>
-      <div class="tac-card">
-        <div class="tac-card-title">Gilden-Übersicht — Klassen &amp; Rollen gesamt</div>
-        <div class="tac-card-note">Aggregiert über alle, die bisher abgestimmt haben. Nützlich, um Lücken (z.B. zu wenige Tanks oder Heiler) für künftiges Recruiting zu erkennen. Fahr mit der Maus über ein Balkensegment, um zu sehen, wer dort abgestimmt hat.</div>
-        <div id="foreverOverview"></div>
-      </div>
-    </div>
-  </section>
+          <section class="section">
+            <div id="foreverLoggedOut" class="forever-gate">
+              <div class="discord-login-error" id="discordLoginError"></div>
+              <p>Melde dich mit Discord an, um abzustimmen und die Gesamt-Übersicht der Gilde zu sehen.</p>
+              <button type="button" class="btn btn-discord" id="foreverLoginBtn">Mit Discord anmelden</button>
+            </div>
 
-  <footer class="footer">
-    <div id="footerGuildName">Aeternum</div>
-    <div class="save-status" id="saveStatus"></div>
-  </footer>
+            <div id="foreverLoggedIn" class="hidden">
+              <div class="tac-card">
+                <div class="tac-card-title">Deine Auswahl</div>
+                <div class="tac-card-note">WoW Forever launcht am 4. November 2026 — Blizzard hat noch kein offizielles Klassen-/Rollensystem veröffentlicht, daher ist diese Liste eine an die Gilde angepasste Einschätzung und kann sich noch ändern. Wähle bis zu 2 Klassen, die du spielen möchtest, mit je einer Rolle. Du kannst deine Auswahl jederzeit ändern.</div>
+                <div id="foreverMyPicks" class="forever-my-picks"></div>
+                <div id="foreverClassPicker" class="forever-class-grid"></div>
+                <div class="forever-actions">
+                  <button type="button" class="btn btn-teal btn-sm" id="foreverSaveBtn">Auswahl speichern</button>
+                  <span id="foreverSaveStatus" class="armory-status"></span>
+                </div>
+              </div>
+              <div class="tac-card">
+                <div class="tac-card-title">Gilden-Übersicht — Klassen &amp; Rollen gesamt</div>
+                <div class="tac-card-note">Aggregiert über alle, die bisher abgestimmt haben. Nützlich, um Lücken (z.B. zu wenige Tanks oder Heiler) für künftiges Recruiting zu erkennen. Fahr mit der Maus über ein Balkensegment, um zu sehen, wer dort abgestimmt hat.</div>
+                <div id="foreverOverview"></div>
+              </div>
+            </div>
+          </section>
+        </section>
+
+      </main>
+
+      <footer class="footer">
+        <div id="footerGuildName">Aeternum</div>
+        <div class="save-status" id="saveStatus"></div>
+      </footer>
+    </div>
+  </div>
 
   <div class="access-modal hidden" id="accessModal">
     <div class="access-modal-card">
@@ -529,7 +639,7 @@
     const state = randomPkceString(24);
     sessionStorage.setItem(DISCORD_PKCE_VERIFIER_KEY, verifier);
     sessionStorage.setItem(DISCORD_OAUTH_STATE_KEY, state);
-    try{ sessionStorage.setItem(RETURN_ANCHOR_KEY, '#forever'); }catch(e){}
+    try{ sessionStorage.setItem(RETURN_ANCHOR_KEY, 'forever'); }catch(e){}
     const params = new URLSearchParams({
       client_id: DISCORD_CONFIG.clientId,
       redirect_uri: DISCORD_REDIRECT_URI,
@@ -745,11 +855,12 @@
   let foreverDraft = null; // null = not yet initialized from saved data this session
 
   const els = {
+    sidebar: document.getElementById('sidebar'),
+    sidebarNav: document.getElementById('sidebarNav'),
+    burgerBtn: document.getElementById('burgerBtn'),
     navBrand: document.getElementById('navBrand'),
     navCrest: document.getElementById('navCrest'),
     navGuildName: document.getElementById('navGuildName'),
-    navHomeLink: document.getElementById('navHomeLink'),
-    navForeverLink: document.getElementById('navForeverLink'),
     navLoginBtn: document.getElementById('navLoginBtn'),
     accessControlWrap: document.getElementById('accessControlWrap'),
     accessSwitchBtn: document.getElementById('accessSwitchBtn'),
@@ -806,16 +917,61 @@
         </div>
       </div>`;
     }).join('');
+    renderSidebarNav();
+    initSidebarState();
+    showPage(currentPage);
   }
 
-  function scrollToId(id){
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // ---------------------------------------------------------------------
+  // Sidebar navigation — each entry is its own page (its own section in
+  // #pageHost, id="page-<id>"), not just a scroll target. Add a new page
+  // here + a matching <section class="page-section" id="page-xxx"> in the
+  // HTML to extend the site later.
+  // ---------------------------------------------------------------------
+  const PAGES = [
+    { id: 'home', label: 'Home' },
+    { id: 'forever', label: 'WoW Forever' }
+  ];
+  const SIDEBAR_COLLAPSED_KEY = 'rude-guild-sidebar-collapsed';
+  let currentPage = 'home';
+
+  function renderSidebarNav(){
+    els.sidebarNav.innerHTML = PAGES.map(p =>
+      `<a class="sidebar-nav-item ${p.id === currentPage ? 'active' : ''}" data-page="${p.id}">${escapeHtml(p.label)}</a>`
+    ).join('');
+    els.sidebarNav.querySelectorAll('[data-page]').forEach(a => {
+      a.addEventListener('click', () => showPage(a.getAttribute('data-page')));
+    });
   }
-  els.navBrand.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-  els.navHomeLink.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-  els.navForeverLink.addEventListener('click', () => scrollToId('forever'));
-  els.heroCtaBtn.addEventListener('click', () => scrollToId('forever'));
+
+  function showPage(pageId){
+    if (!PAGES.some(p => p.id === pageId)) pageId = 'home';
+    currentPage = pageId;
+    document.querySelectorAll('.page-section').forEach(s => {
+      s.classList.toggle('hidden', s.id !== 'page-' + pageId);
+    });
+    els.sidebarNav.querySelectorAll('[data-page]').forEach(a => {
+      a.classList.toggle('active', a.getAttribute('data-page') === pageId);
+    });
+    window.scrollTo({ top: 0 });
+  }
+
+  function setSidebarCollapsed(collapsed){
+    els.sidebar.classList.toggle('collapsed', collapsed);
+    try{ localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0'); }catch(e){}
+  }
+  function initSidebarState(){
+    let collapsed = window.innerWidth < 760;
+    try{
+      const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      if (saved !== null) collapsed = saved === '1';
+    }catch(e){}
+    setSidebarCollapsed(collapsed);
+  }
+
+  els.burgerBtn.addEventListener('click', () => setSidebarCollapsed(!els.sidebar.classList.contains('collapsed')));
+  els.navBrand.addEventListener('click', () => showPage('home'));
+  els.heroCtaBtn.addEventListener('click', () => showPage('forever'));
   els.navLoginBtn.addEventListener('click', () => startDiscordLogin());
   els.foreverLoginBtn.addEventListener('click', () => startDiscordLogin());
 
@@ -1160,9 +1316,9 @@
       if (user){
         discordIdentity = loadDiscordIdentity() || { id: user.uid, username: 'Guild member', avatar: null };
         startFirebaseSync();
-        let anchor = null;
-        try{ anchor = sessionStorage.getItem(RETURN_ANCHOR_KEY); sessionStorage.removeItem(RETURN_ANCHOR_KEY); }catch(e){}
-        if (anchor) setTimeout(() => scrollToId(anchor.replace('#', '')), 300);
+        let returnPage = null;
+        try{ returnPage = sessionStorage.getItem(RETURN_ANCHOR_KEY); sessionStorage.removeItem(RETURN_ANCHOR_KEY); }catch(e){}
+        if (returnPage) showPage(returnPage);
       } else {
         try{ localStorage.removeItem(DISCORD_IDENTITY_KEY); }catch(e){}
         discordIdentity = null;

@@ -1014,23 +1014,27 @@
   // foreverSpecLabel) — several classes reuse the same id (e.g. 'holy' for
   // both Paladin and Priest, 'protection' for Warrior and Paladin,
   // 'restoration' for Shaman and Druid), so there is deliberately no single
-  // global spec map.
+  // global spec map. Each spec also carries a `role` ('tank' | 'healer' |
+  // 'damage') per classic WoW convention, used only for bar/legend
+  // coloring in the guild overview below — Feral Combat is classified as
+  // tank since Druid's other two specs already cover damage (Balance) and
+  // healing (Restoration).
   const FOREVER_SPECS = {
-    warrior: [{ id: 'arms', label: 'Arms' }, { id: 'fury', label: 'Fury' }, { id: 'protection', label: 'Protection' }],
-    paladin: [{ id: 'holy', label: 'Holy' }, { id: 'protection', label: 'Protection' }, { id: 'retribution', label: 'Retribution' }],
-    hunter: [{ id: 'beast_mastery', label: 'Beast Mastery' }, { id: 'marksmanship', label: 'Marksmanship' }, { id: 'survival', label: 'Survival' }],
-    rogue: [{ id: 'assassination', label: 'Assassination' }, { id: 'combat', label: 'Combat' }, { id: 'subtlety', label: 'Subtlety' }],
-    priest: [{ id: 'discipline', label: 'Discipline' }, { id: 'holy', label: 'Holy' }, { id: 'shadow', label: 'Shadow' }],
-    shaman: [{ id: 'elemental', label: 'Elemental' }, { id: 'enhancement', label: 'Enhancement' }, { id: 'restoration', label: 'Restoration' }],
-    mage: [{ id: 'arcane', label: 'Arcane' }, { id: 'fire', label: 'Fire' }, { id: 'frost', label: 'Frost' }],
-    warlock: [{ id: 'affliction', label: 'Affliction' }, { id: 'demonology', label: 'Demonology' }, { id: 'destruction', label: 'Destruction' }],
-    druid: [{ id: 'balance', label: 'Balance' }, { id: 'feral', label: 'Feral Combat' }, { id: 'restoration', label: 'Restoration' }]
+    warrior: [{ id: 'arms', label: 'Arms', role: 'damage' }, { id: 'fury', label: 'Fury', role: 'damage' }, { id: 'protection', label: 'Protection', role: 'tank' }],
+    paladin: [{ id: 'holy', label: 'Holy', role: 'healer' }, { id: 'protection', label: 'Protection', role: 'tank' }, { id: 'retribution', label: 'Retribution', role: 'damage' }],
+    hunter: [{ id: 'beast_mastery', label: 'Beast Mastery', role: 'damage' }, { id: 'marksmanship', label: 'Marksmanship', role: 'damage' }, { id: 'survival', label: 'Survival', role: 'damage' }],
+    rogue: [{ id: 'assassination', label: 'Assassination', role: 'damage' }, { id: 'combat', label: 'Combat', role: 'damage' }, { id: 'subtlety', label: 'Subtlety', role: 'damage' }],
+    priest: [{ id: 'discipline', label: 'Discipline', role: 'healer' }, { id: 'holy', label: 'Holy', role: 'healer' }, { id: 'shadow', label: 'Shadow', role: 'damage' }],
+    shaman: [{ id: 'elemental', label: 'Elemental', role: 'damage' }, { id: 'enhancement', label: 'Enhancement', role: 'damage' }, { id: 'restoration', label: 'Restoration', role: 'healer' }],
+    mage: [{ id: 'arcane', label: 'Arcane', role: 'damage' }, { id: 'fire', label: 'Fire', role: 'damage' }, { id: 'frost', label: 'Frost', role: 'damage' }],
+    warlock: [{ id: 'affliction', label: 'Affliction', role: 'damage' }, { id: 'demonology', label: 'Demonology', role: 'damage' }, { id: 'destruction', label: 'Destruction', role: 'damage' }],
+    druid: [{ id: 'balance', label: 'Balance', role: 'damage' }, { id: 'feral', label: 'Feral Combat', role: 'tank' }, { id: 'restoration', label: 'Restoration', role: 'healer' }]
   };
   const FOREVER_MAX_PICKS = 2;
-  // Specs don't map to a uniform tank/heal/damage role across all 9 classes,
-  // so bars/legend use fixed per-slot colors (1st/2nd/3rd spec of a class)
-  // instead of trying to force every spec into one of three global buckets.
-  const FOREVER_SLOT_COLORS = ['#e0b243', '#4da6ff', '#e05252'];
+  // Tank = Blau, Healer = Grün, Damage = Gelb — used for both the overview
+  // bars and the legend above them.
+  const FOREVER_ROLE_COLORS = { tank: '#4da6ff', healer: '#3fcf6e', damage: '#f0cf6b' };
+  const FOREVER_ROLE_LABELS = { tank: 'Tank', healer: 'Healer', damage: 'Damage' };
 
   function foreverSpecsForClass(classId){
     return FOREVER_SPECS[classId] || [];
@@ -1038,6 +1042,10 @@
   function foreverSpecLabel(classId, specId){
     const found = foreverSpecsForClass(classId).find(s => s.id === specId);
     return found ? found.label : specId;
+  }
+  function foreverSpecRole(classId, specId){
+    const found = foreverSpecsForClass(classId).find(s => s.id === specId);
+    return found ? found.role : 'damage';
   }
 
   // Defensive coercion for one user's survey entry — re-validates every
@@ -2389,11 +2397,11 @@
   function renderForeverOverview(){
     const { agg, voterCount } = foreverAggregate();
     const maxTotal = Math.max(1, ...CLASSES.map(c => agg[c.id].total));
-    // Specs aren't shared across classes, so the legend just marks which
-    // color is the 1st/2nd/3rd spec slot of a class — the actual spec
-    // names are shown per-class in the count lines and bar tooltips below.
+    // Bars/legend are colored by role (Tank/Healer/Damage), not by class or
+    // spec slot, so gaps in a role are visible across the whole roster at a
+    // glance.
     const legendHtml = `<div class="forever-ov-legend">
-      ${FOREVER_SLOT_COLORS.map((color, i) => `<span class="forever-ov-legend-item"><span class="forever-ov-legend-dot" style="background:${color}"></span>Spez. ${i + 1}</span>`).join('')}
+      ${['tank', 'healer', 'damage'].map(role => `<span class="forever-ov-legend-item"><span class="forever-ov-legend-dot" style="background:${FOREVER_ROLE_COLORS[role]}"></span>${FOREVER_ROLE_LABELS[role]}</span>`).join('')}
     </div>`;
     if (!voterCount){
       els.foreverOverview.innerHTML = legendHtml + `<div class="lootlib-note">Noch keine Stimmen.</div>`;
@@ -2402,13 +2410,13 @@
     const rowsHtml = CLASSES.map(cls => {
       const data = agg[cls.id];
       const specs = foreverSpecsForClass(cls.id);
-      const barsHtml = specs.map((s, i) => {
+      const barsHtml = specs.map((s) => {
         const count = data.specs[s.id];
         if (!count) return '';
         const pct = (count / maxTotal) * 100;
         const names = data.namesBySpec[s.id];
-        const title = `${s.label}: ${count}\n${names.join('\n')}`;
-        return `<span class="forever-ov-bar" style="width:${pct}%;background:${FOREVER_SLOT_COLORS[i % FOREVER_SLOT_COLORS.length]}" title="${escapeHtml(title)}"></span>`;
+        const title = `${s.label} (${FOREVER_ROLE_LABELS[s.role]}): ${count}\n${names.join('\n')}`;
+        return `<span class="forever-ov-bar" style="width:${pct}%;background:${FOREVER_ROLE_COLORS[s.role]}" title="${escapeHtml(title)}"></span>`;
       }).join('');
       const countLines = specs
         .map(s => `<div>${escapeHtml(s.label)}: ${data.specs[s.id]}</div>`)

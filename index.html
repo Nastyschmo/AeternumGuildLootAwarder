@@ -285,10 +285,17 @@
     .news-card{ flex-basis: 100%; } /* 1 card, arrows to page through the rest */
   }
   .news-thumb{
+    position: relative;
     aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center;
     color: var(--text-faint); font-size: 11.5px; letter-spacing: 1px; text-transform: uppercase;
     background: linear-gradient(135deg, #2c2748, #1b1830);
     background-size: cover; background-position: center;
+  }
+  .news-badge{
+    position: absolute; top: 8px; left: 8px;
+    background: rgba(15, 13, 26, 0.82); border: 1px solid var(--border-soft);
+    color: var(--gold-bright); font-size: 10px; letter-spacing: .4px; text-transform: none;
+    padding: 3px 8px; border-radius: 999px;
   }
   .news-body{ padding: 14px 16px; }
   .news-body h3{ font-size: 15px; margin: 0 0 6px; color: var(--text); }
@@ -810,6 +817,30 @@
   }
 
   // ---------------------------------------------------------------------
+  // Wowhead "WoW: Forever" news card — always exactly ONE card showing the
+  // latest Wowhead post (never one-per-update). It links straight out to
+  // the real Wowhead article in a new tab, unlike the internal-navigation
+  // cards above. Fetched once via the Worker (see WOWHEAD_NEWS_URL) since
+  // the browser can't call Wowhead's feed directly (CORS); fails silently
+  // if the Worker isn't deployed/reachable — the rest of the page must
+  // keep working fine either way.
+  // ---------------------------------------------------------------------
+  let wowheadNewsItem = null;
+  async function fetchWowheadNews(){
+    if (!isWorkerConfigured()) return;
+    try{
+      const res = await fetch(WOWHEAD_NEWS_URL);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data || !data.title || !data.url) return;
+      wowheadNewsItem = data;
+      renderNewsGrid();
+    }catch(e){
+      // No Wowhead card — page carries on without it.
+    }
+  }
+
+  // ---------------------------------------------------------------------
   // FIREBASE SETUP — replace this with YOUR project's config.
   // Get it from: Firebase console → Project settings → Your apps → Web app.
   // This value is not secret; access control is handled by your Database
@@ -844,6 +875,8 @@
     clientId: '1547344145960407081'
   };
   const WORKER_URL = 'https://guildlootdiscordworker.sebastian-spiehs.workers.dev/mint-token';
+  // Same Worker, different endpoint — reused instead of a second Worker.
+  const WOWHEAD_NEWS_URL = WORKER_URL.replace(/\/mint-token$/, '/wowhead-news');
   const DISCORD_REDIRECT_URI = window.location.origin + window.location.pathname;
   const DISCORD_IDENTITY_KEY = 'guild-loot-discord-identity';
   const DISCORD_PKCE_VERIFIER_KEY = 'guild-loot-discord-pkce-verifier';
@@ -1800,13 +1833,27 @@
         linkPage: 'announcements'
       });
     }
+    // Always exactly one Wowhead tile (never one per update) — its content
+    // just gets replaced in place whenever fetchWowheadNews() finds a
+    // newer post, and it always sits right after the announcement tile.
+    if (wowheadNewsItem){
+      items.push({
+        title: wowheadNewsItem.title,
+        blurb: wowheadNewsItem.blurb || 'Neuer Artikel auf Wowhead — antippen zum Lesen.',
+        image: wowheadNewsItem.image || null,
+        linkUrl: wowheadNewsItem.url,
+        badge: 'Wowhead · WoW: Forever'
+      });
+    }
     items.push(...NEWS_ITEMS);
     els.newsGrid.innerHTML = items.map((item, idx) => {
       const thumbStyle = item.image ? ` style="background-image:url('${escapeHtml(item.image)}')"` : '';
-      const cardClass = 'news-card' + (item.linkPage ? ' news-card-link' : '');
-      const dataAttr = item.linkPage ? ` data-news-link-idx="${idx}"` : '';
+      const isLink = !!(item.linkPage || item.linkUrl);
+      const cardClass = 'news-card' + (isLink ? ' news-card-link' : '');
+      const dataAttr = isLink ? ` data-news-link-idx="${idx}"` : '';
+      const badgeHtml = item.badge ? `<span class="news-badge">${escapeHtml(item.badge)}</span>` : '';
       return `<div class="${cardClass}"${dataAttr}>
-        <div class="news-thumb"${thumbStyle}>${item.image ? '' : 'Bild folgt'}</div>
+        <div class="news-thumb"${thumbStyle}>${item.image ? '' : 'Bild folgt'}${badgeHtml}</div>
         <div class="news-body">
           <h3>${escapeHtml(item.title)}</h3>
           <p>${escapeHtml(item.blurb)}</p>
@@ -1815,7 +1862,9 @@
     }).join('');
     els.newsGrid.querySelectorAll('[data-news-link-idx]').forEach(card => {
       const item = items[Number(card.getAttribute('data-news-link-idx'))];
-      if (item && item.linkPage) card.addEventListener('click', () => showPage(item.linkPage));
+      if (!item) return;
+      if (item.linkUrl) card.addEventListener('click', () => window.open(item.linkUrl, '_blank', 'noopener'));
+      else if (item.linkPage) card.addEventListener('click', () => showPage(item.linkPage));
     });
     els.newsGrid.scrollLeft = 0;
     updateNewsCarouselArrows();
@@ -2671,6 +2720,7 @@
 
     showPublicPage();
     renderAll();
+    fetchWowheadNews(); // fire-and-forget — re-renders the news grid once it lands
 
     // If we're returning from the Discord redirect, this exchanges the code
     // for a real Firebase login token (minted by the Worker after it

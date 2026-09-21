@@ -4177,6 +4177,29 @@
     }
   }
 
+  // Public, always-on: keeps state.recruitingNeeds up to date for
+  // everyone, logged in or not — this is what lets a logged-out visitor
+  // see "Aktuell gesucht" on Home/Bewerbung. It's a separate listener
+  // (scoped to just this one path) from startFirebaseSync() below on
+  // purpose: Firebase Realtime Database only grants read access to a
+  // `.on('value')` listener when the EXACT path it's listening at (or an
+  // ancestor of it) has a matching `.read` rule — a `.read: true` on a
+  // *child* path can't retroactively "unlock" a listener at the parent,
+  // so the main state listener (which listens at the root and needs
+  // `auth != null`) can never see this data before login. Listening here
+  // at `recruitingNeeds` directly is what makes its own public `.read`
+  // rule apply.
+  let publicSyncStarted = false;
+  function startPublicRecruitingSync(){
+    if (publicSyncStarted) return;
+    publicSyncStarted = true;
+    db.ref(DB_PATH + '/recruitingNeeds').on('value', (snapshot) => {
+      state.recruitingNeeds = normalizeRecruitingNeeds(snapshot.val());
+      renderRecruitTeaser();
+      renderRecruitView();
+    }, () => { /* not logged in yet / rules not deployed — badges just stay empty */ });
+  }
+
   function startFirebaseSync(){
     if (syncStarted) return;
     syncStarted = true;
@@ -4233,6 +4256,7 @@
 
     showPublicPage();
     renderAll();
+    startPublicRecruitingSync();
     fetchWowheadNews(); // fire-and-forget — re-renders the news grid once it lands
 
     // If we're returning from the Discord redirect, this exchanges the code

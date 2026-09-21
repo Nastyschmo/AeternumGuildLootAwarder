@@ -1170,10 +1170,20 @@
   // Add a real image URL per item once you have screenshots/artwork —
   // until then a placeholder tile is shown automatically.
   const NEWS_VOTING_IMAGE = 'assets/news-voting.jpg';
+  // Reuses the same WoW: Forever logo file as the topbar countdown pill —
+  // see assets/logo.png (that's the guild's own uploaded logo asset, not
+  // a Blizzard trademark).
+  const NEWS_LAUNCH_IMAGE = 'assets/logo.png';
+  // Blizzard's own company logo for the Beta-Infos card — see the note in
+  // README.md's "Editing the homepage content" section: drop the official
+  // logo file in as assets/blizzard-logo.png (or update this path) once
+  // you have it; Claude doesn't source/redistribute Blizzard's brand
+  // assets itself.
+  const NEWS_BETA_IMAGE = null;
   const NEWS_ITEMS = [
     { title: 'Klassen-Umfrage ist live', blurb: 'Trag ein, welche Klasse(n) du in WoW: Forever spielen möchtest — hilft uns bei der Recruiting-Planung.', image: NEWS_VOTING_IMAGE, linkPage: 'forever' },
-    { title: 'Beta-Infos folgen', blurb: 'Sobald Blizzard mehr zur Beta verrät, posten wir das hier.', image: null },
-    { title: 'Launch: 4. November 2026', blurb: 'Bis dahin sammeln wir hier alles, was für den Start wichtig ist.', image: null }
+    { title: 'Beta-Infos folgen', blurb: 'Wir halten Euch mit wichtigen Infos zur Beta hier am laufenden!', image: NEWS_BETA_IMAGE },
+    { title: 'Launch: 4. November 2026', blurb: 'Bis dahin sammeln wir hier wichtige Gildeninterne Informationen, Entscheidungen und Informationen über den Start in die neue alte Welt!', image: NEWS_LAUNCH_IMAGE }
   ];
   // Auto-generated "news" tile for the newest Ankündigung — always uses
   // this messenger-goblin artwork plus a short auto-summary of the

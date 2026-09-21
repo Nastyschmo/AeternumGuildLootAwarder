@@ -707,8 +707,34 @@
   .apply-field-label{ display: block; font-size: 12.5px; color: var(--text-muted); margin: 14px 0 6px; }
   .apply-field-label:first-of-type{ margin-top: 4px; }
   .apply-textarea{ width: 100%; resize: vertical; }
-  .apply-class-spec-grid{ margin: 4px 0 6px; }
+  .apply-text-input{
+    font-family: 'Karla', sans-serif; font-size: 13.5px; padding: 8px 10px;
+    background: #08192a; border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text); width: 100%;
+  }
   .apply-spec-checkboxes{ display: flex; flex-wrap: wrap; gap: 6px 16px; }
+
+  .apply-class-picks{ display: flex; flex-direction: column; gap: 10px; margin: 4px 0 6px; }
+  .apply-class-pick-row{
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    background: rgba(255,255,255,0.02);
+  }
+  .apply-class-pick-head{ display: flex; align-items: flex-end; gap: 8px; }
+  .apply-class-pick-head .poll-config-field{ flex: 1; min-width: 0; }
+  .apply-class-pick-remove{
+    flex: none; width: 30px; height: 30px; padding: 0; font-size: 14px; line-height: 1;
+    background: transparent; border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text-faint); cursor: pointer; margin-bottom: 1px;
+  }
+  .apply-class-pick-remove:hover{ color: var(--danger-bright); border-color: var(--danger-bright); }
+  .apply-class-pick-specs{ margin-top: 8px; }
+  .apply-add-class-btn{
+    padding: 7px 12px; font-size: 12.5px; font-weight: 600;
+    font-family: 'Karla', sans-serif; color: var(--gold-bright); background: rgba(240,207,107,0.08);
+    border: 1px dashed var(--gold); border-radius: 5px; cursor: pointer;
+  }
+  .apply-add-class-btn:hover{ background: rgba(240,207,107,0.16); }
+  .apply-add-class-btn:disabled{ opacity: .4; cursor: not-allowed; }
 
   .recruit-needs-grid{ display: flex; flex-direction: column; gap: 12px; margin: 4px 0 6px; }
   .recruit-needs-row{ display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
@@ -725,8 +751,20 @@
   .application-applicant{ font-size: 12.5px; color: var(--gold-bright); font-weight: 600; }
   .application-date{ font-size: 11.5px; color: var(--text-faint); }
   .application-card-head .btn{ margin-left: auto; }
-  .application-reason, .application-remarks{ font-size: 13px; color: var(--text); line-height: 1.55; margin: 4px 0; }
-  .application-reason strong, .application-remarks strong{ color: var(--text-muted); font-weight: 600; }
+  .application-class-picks{ display: flex; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 8px; }
+  .application-class-pick{
+    display: inline-flex; align-items: baseline; gap: 5px;
+    background: var(--bg-panel-raised); border: 1px solid var(--border); border-radius: 999px;
+    padding: 3px 10px;
+  }
+  .application-reason, .application-remarks, .application-experience,
+  .application-logs, .application-professions, .application-namage{
+    font-size: 13px; color: var(--text); line-height: 1.55; margin: 4px 0;
+  }
+  .application-reason strong, .application-remarks strong, .application-experience strong,
+  .application-logs strong, .application-professions strong, .application-namage strong{
+    color: var(--text-muted); font-weight: 600;
+  }
   @media (max-width: 640px){
     .recruit-teaser{ flex-direction: column; align-items: flex-start; }
     .recruit-teaser > .btn{ width: 100%; }
@@ -1083,23 +1121,26 @@
             <div id="recruitLoggedIn" class="hidden">
               <div class="tac-card">
                 <div class="tac-card-title">Deine Bewerbung</div>
-                <div class="tac-card-note">Erzähl uns kurz, warum du zu uns möchtest und was du spielst — wir melden uns danach bei dir auf Discord.</div>
-                <label class="apply-field-label" for="applyReasonInput">Warum möchtest du uns beitreten?</label>
-                <textarea id="applyReasonInput" class="apply-textarea" rows="3" maxlength="1000" placeholder="Erzähl uns ein bisschen über dich und warum du zu uns möchtest…"></textarea>
+                <div class="tac-card-note">Beantworte die folgenden Fragen — wir melden uns danach bei dir auf Discord. Felder mit * sind Pflicht.</div>
 
-                <div class="poll-config-grid apply-class-spec-grid">
-                  <div class="poll-config-field">
-                    <span class="poll-config-field-label">Klasse</span>
-                    <select id="applyClassSelect"></select>
-                  </div>
-                  <div class="poll-config-field">
-                    <span class="poll-config-field-label">Spezialisierung(en)</span>
-                    <div id="applySpecCheckboxes" class="apply-spec-checkboxes"></div>
-                  </div>
-                </div>
+                <label class="apply-field-label" for="applyNameAgeInput">Wie heißt du und wie alt bist du?</label>
+                <input type="text" id="applyNameAgeInput" class="apply-text-input" maxlength="200" placeholder="z.B. Max, 24">
 
-                <label class="apply-field-label" for="applyRemarksInput">Sonstige Bemerkungen (optional)</label>
-                <textarea id="applyRemarksInput" class="apply-textarea" rows="2" maxlength="1000" placeholder="Spielzeiten, Erfahrung, Fragen an uns, …"></textarea>
+                <label class="apply-field-label">Welche Klassen/Specs hast du vor zu spielen? *</label>
+                <div id="applyClassPicks" class="apply-class-picks"></div>
+                <button type="button" class="apply-add-class-btn" id="applyAddClassBtn">+ Weitere Klasse hinzufügen</button>
+
+                <label class="apply-field-label" for="applyExperienceInput">Welche Erfahrungen hast du bisher in WoW? (Versionen, Speedrungilden, Parsegilden…) *</label>
+                <textarea id="applyExperienceInput" class="apply-textarea" rows="3" maxlength="1500" placeholder="Erzähl uns von deiner WoW-Erfahrung…"></textarea>
+
+                <label class="apply-field-label" for="applyLogsInput">Falls vorhanden, poste hier gerne deine Logs.</label>
+                <textarea id="applyLogsInput" class="apply-textarea" rows="2" maxlength="800" placeholder="Links zu Warcraftlogs o.ä. (optional)"></textarea>
+
+                <label class="apply-field-label" for="applyProfessionsInput">Welche Berufe planst du zu TBC zu skillen? *</label>
+                <input type="text" id="applyProfessionsInput" class="apply-text-input" maxlength="200" placeholder="z.B. Bergbau, Schmiedekunst">
+
+                <label class="apply-field-label" for="applyRemarksInput">Möchtest du uns sonst noch etwas über dich erzählen? (optional)</label>
+                <textarea id="applyRemarksInput" class="apply-textarea" rows="2" maxlength="1000" placeholder="Alles, was du uns sonst noch mitgeben möchtest…"></textarea>
 
                 <div class="forever-actions">
                   <button type="button" class="btn btn-teal btn-sm" id="applySubmitBtn">Bewerbung absenden</button>
@@ -2309,16 +2350,17 @@
   ];
   const CLASS_MAP = Object.fromEntries(CLASSES.map(c => [c.id, c]));
 
-  // Real WoW Classic talent specializations, 3 per class. Spec ids are only
-  // ever looked up scoped to their own class (via foreverSpecsForClass /
+  // Real WoW Classic talent specializations. Spec ids are only ever looked
+  // up scoped to their own class (via foreverSpecsForClass /
   // foreverSpecLabel) — several classes reuse the same id (e.g. 'holy' for
   // both Paladin and Priest, 'protection' for Warrior and Paladin,
   // 'restoration' for Shaman and Druid), so there is deliberately no single
   // global spec map. Each spec also carries a `role` ('tank' | 'healer' |
   // 'damage') per classic WoW convention, used only for bar/legend
-  // coloring in the guild overview below — Feral Combat is classified as
-  // tank since Druid's other two specs already cover damage (Balance) and
-  // healing (Restoration).
+  // coloring in the guild overview below — Druid is the one class with 4
+  // entries instead of 3: Feral splits into "Feral Combat" (Cat DPS,
+  // damage) and "Feral Tank" (Bear, tank) as two separate, independently
+  // votable specs.
   const FOREVER_SPECS = {
     warrior: [{ id: 'arms', label: 'Arms', role: 'damage' }, { id: 'fury', label: 'Fury', role: 'damage' }, { id: 'protection', label: 'Protection', role: 'tank' }],
     paladin: [{ id: 'holy', label: 'Holy', role: 'healer' }, { id: 'protection', label: 'Protection', role: 'tank' }, { id: 'retribution', label: 'Retribution', role: 'damage' }],
@@ -2328,7 +2370,7 @@
     shaman: [{ id: 'elemental', label: 'Elemental', role: 'damage' }, { id: 'enhancement', label: 'Enhancement', role: 'damage' }, { id: 'restoration', label: 'Restoration', role: 'healer' }],
     mage: [{ id: 'arcane', label: 'Arcane', role: 'damage' }, { id: 'fire', label: 'Fire', role: 'damage' }, { id: 'frost', label: 'Frost', role: 'damage' }],
     warlock: [{ id: 'affliction', label: 'Affliction', role: 'damage' }, { id: 'demonology', label: 'Demonology', role: 'damage' }, { id: 'destruction', label: 'Destruction', role: 'damage' }],
-    druid: [{ id: 'balance', label: 'Balance', role: 'damage' }, { id: 'feral', label: 'Feral Combat', role: 'tank' }, { id: 'restoration', label: 'Restoration', role: 'healer' }]
+    druid: [{ id: 'balance', label: 'Balance', role: 'damage' }, { id: 'feral', label: 'Feral Combat', role: 'damage' }, { id: 'feral_tank', label: 'Feral Tank', role: 'tank' }, { id: 'restoration', label: 'Restoration', role: 'healer' }]
   };
   const FOREVER_MAX_PICKS = 2;
   // Tank = Blau, Healer = Grün, Damage = Gelb — used for both the overview
@@ -2516,15 +2558,37 @@
   // ---------------------------------------------------------------------
   function normalizeApplication(entry){
     if (!entry || typeof entry !== 'object') return null;
-    const classId = (typeof entry.classId === 'string' && CLASS_MAP[entry.classId]) ? entry.classId : null;
-    const reason = typeof entry.reason === 'string' ? entry.reason.trim().slice(0, 1000) : '';
-    if (!classId || !reason) return null;
-    const validSpecIds = foreverSpecsForClass(classId).map(s => s.id);
-    const rawSpecs = Array.isArray(entry.specs) ? entry.specs : [];
-    const specs = Array.from(new Set(rawSpecs.filter(s => typeof s === 'string' && validSpecIds.includes(s))));
+    // Applications can list more than one class (an applicant's main plus
+    // an alt, say) — `picks` is an array of { classId, specs }. Older
+    // applications saved before this existed only ever had a single
+    // top-level classId/specs pair; treat that as a one-item picks list so
+    // applications submitted before this change keep displaying correctly.
+    const rawPicks = Array.isArray(entry.picks)
+      ? entry.picks
+      : (typeof entry.classId === 'string' ? [{ classId: entry.classId, specs: entry.specs }] : []);
+    const seenClassIds = new Set();
+    const picks = [];
+    for (const p of rawPicks){
+      if (!p || typeof p.classId !== 'string' || !CLASS_MAP[p.classId]) continue;
+      if (seenClassIds.has(p.classId)) continue; // no duplicate class rows
+      const validSpecIds = foreverSpecsForClass(p.classId).map(s => s.id);
+      const rawSpecs = Array.isArray(p.specs) ? p.specs : [];
+      const specs = Array.from(new Set(rawSpecs.filter(s => typeof s === 'string' && validSpecIds.includes(s))));
+      if (!specs.length) continue;
+      seenClassIds.add(p.classId);
+      picks.push({ classId: p.classId, specs });
+    }
+    const experience = typeof entry.experience === 'string' ? entry.experience.trim().slice(0, 1500) : '';
+    const professions = typeof entry.professions === 'string' ? entry.professions.trim().slice(0, 200) : '';
+    // At least one class+spec pick, experience and professions are the
+    // required questions (marked with * on the form) — anything missing
+    // one of these is treated as not a real application.
+    if (!picks.length || !experience || !professions) return null;
+    const nameAge = typeof entry.nameAge === 'string' ? entry.nameAge.trim().slice(0, 200) : '';
+    const logs = typeof entry.logs === 'string' ? entry.logs.trim().slice(0, 800) : '';
     const remarks = typeof entry.remarks === 'string' ? entry.remarks.trim().slice(0, 1000) : '';
     return {
-      classId, specs, reason, remarks,
+      picks, experience, professions, nameAge, logs, remarks,
       applicantName: (typeof entry.applicantName === 'string' && entry.applicantName) ? entry.applicantName.slice(0, 80) : 'Unbekannt',
       applicantId: typeof entry.applicantId === 'string' ? entry.applicantId : '',
       createdAt: (typeof entry.createdAt === 'number' && entry.createdAt > 0) ? entry.createdAt : 0
@@ -2657,7 +2721,11 @@
   let pollComposerOptionDrafts = ['', '']; // composer's in-progress option text inputs, always >= POLL_MIN_OPTIONS
   let pollVoteDrafts = {}; // { [pollId]: [optionId, ...] } — per-poll in-progress selection before "Absenden"
   let pollCardManualOpen = {}; // { [pollId]: true|false } — same collapse-override convention as votings/announcements
-  let applyComposerSpecs = []; // in-progress spec checkboxes for the currently-selected class in the application form
+  // In-progress class+spec picks for the application form — an array so an
+  // applicant can apply with more than one class (e.g. their main and an
+  // alt), each entry independently multi-selecting specs via checkboxes.
+  // Always has at least one row; resetApplyComposerPicks() restores that.
+  let applyComposerPicks = [{ classId: CLASSES[0].id, specs: [] }];
   let recruitingNeedsDraft = null; // officer's in-progress edit of state.recruitingNeeds, only written back on "Speichern"
 
   const els = {
@@ -2742,9 +2810,12 @@
     recruitLoggedOut: document.getElementById('recruitLoggedOut'),
     recruitLoggedIn: document.getElementById('recruitLoggedIn'),
     recruitLoginBtn: document.getElementById('recruitLoginBtn'),
-    applyReasonInput: document.getElementById('applyReasonInput'),
-    applyClassSelect: document.getElementById('applyClassSelect'),
-    applySpecCheckboxes: document.getElementById('applySpecCheckboxes'),
+    applyNameAgeInput: document.getElementById('applyNameAgeInput'),
+    applyClassPicks: document.getElementById('applyClassPicks'),
+    applyAddClassBtn: document.getElementById('applyAddClassBtn'),
+    applyExperienceInput: document.getElementById('applyExperienceInput'),
+    applyLogsInput: document.getElementById('applyLogsInput'),
+    applyProfessionsInput: document.getElementById('applyProfessionsInput'),
     applyRemarksInput: document.getElementById('applyRemarksInput'),
     applySubmitBtn: document.getElementById('applySubmitBtn'),
     applySubmitStatus: document.getElementById('applySubmitStatus'),
@@ -2915,10 +2986,6 @@
   els.foreverLoginBtn.addEventListener('click', () => startDiscordLogin());
   els.recruitTeaserBtn.addEventListener('click', () => showPage('recruit'));
   els.recruitLoginBtn.addEventListener('click', () => startDiscordLogin());
-  els.applyClassSelect.addEventListener('change', () => {
-    applyComposerSpecs = [];
-    renderApplySpecCheckboxes();
-  });
   els.applySubmitBtn.addEventListener('click', () => submitApplication());
   els.recruitNeedsSaveBtn.addEventListener('click', () => saveRecruitingNeeds());
 
@@ -4003,47 +4070,117 @@
   window.addEventListener('resize', updateNewsCarouselArrows);
 
   // ---- Recruiting / Bewerbung: render + save/submit functions ---------
-  els.applyClassSelect.innerHTML = CLASSES.map(c => `<option value="${c.id}">${escapeHtml(c.label)}</option>`).join('');
+  // An applicant can apply with more than one class (e.g. their main and an
+  // alt) — applyComposerPicks holds one { classId, specs: [] } row per
+  // class, each row picking its own class from a dropdown (already-used
+  // classes are disabled in the other rows so the same class can't be
+  // added twice) and one or more specs via checkboxes, same as before.
+  function renderApplyClassPicks(){
+    const usedClassIds = new Set(applyComposerPicks.map(p => p.classId));
+    els.applyClassPicks.innerHTML = applyComposerPicks.map((pick, i) => {
+      const classOptions = CLASSES.map(c => {
+        const disabled = usedClassIds.has(c.id) && c.id !== pick.classId;
+        return `<option value="${c.id}" ${pick.classId === c.id ? 'selected' : ''} ${disabled ? 'disabled' : ''}>${escapeHtml(c.label)}</option>`;
+      }).join('');
+      const specs = foreverSpecsForClass(pick.classId);
+      const specsHtml = specs.map(s => `
+        <label class="poll-checkbox-field">
+          <input type="checkbox" data-pick-spec="${s.id}" ${pick.specs.includes(s.id) ? 'checked' : ''}>
+          ${escapeHtml(s.label)}
+        </label>`).join('');
+      return `<div class="apply-class-pick-row" data-pick-index="${i}">
+        <div class="apply-class-pick-head">
+          <div class="poll-config-field">
+            <span class="poll-config-field-label">Klasse *</span>
+            <select data-pick-class-index="${i}">${classOptions}</select>
+          </div>
+          ${applyComposerPicks.length > 1 ? `<button type="button" class="apply-class-pick-remove" data-remove-pick-index="${i}" title="Entfernen">✕</button>` : ''}
+        </div>
+        <div class="poll-config-field apply-class-pick-specs">
+          <span class="poll-config-field-label">Spezialisierung(en) *</span>
+          <div class="apply-spec-checkboxes">${specsHtml}</div>
+        </div>
+      </div>`;
+    }).join('');
 
-  function renderApplySpecCheckboxes(){
-    const classId = els.applyClassSelect.value;
-    const specs = foreverSpecsForClass(classId);
-    els.applySpecCheckboxes.innerHTML = specs.map(s => `
-      <label class="poll-checkbox-field">
-        <input type="checkbox" data-spec="${s.id}" ${applyComposerSpecs.includes(s.id) ? 'checked' : ''}>
-        ${escapeHtml(s.label)}
-      </label>`).join('');
-    els.applySpecCheckboxes.querySelectorAll('[data-spec]').forEach(cb => {
+    els.applyClassPicks.querySelectorAll('[data-pick-class-index]').forEach(select => {
+      select.addEventListener('change', () => {
+        const i = Number(select.getAttribute('data-pick-class-index'));
+        // Switching a row's class invalidates whatever specs were picked
+        // for the previous class, since spec ids are only valid per-class.
+        applyComposerPicks[i].classId = select.value;
+        applyComposerPicks[i].specs = [];
+        renderApplyClassPicks();
+      });
+    });
+    els.applyClassPicks.querySelectorAll('[data-pick-spec]').forEach(cb => {
+      const i = Number(cb.closest('[data-pick-index]').getAttribute('data-pick-index'));
       cb.addEventListener('change', () => {
-        const specId = cb.getAttribute('data-spec');
+        const specId = cb.getAttribute('data-pick-spec');
+        const pick = applyComposerPicks[i];
         if (cb.checked){
-          if (!applyComposerSpecs.includes(specId)) applyComposerSpecs.push(specId);
+          if (!pick.specs.includes(specId)) pick.specs.push(specId);
         } else {
-          applyComposerSpecs = applyComposerSpecs.filter(s => s !== specId);
+          pick.specs = pick.specs.filter(s => s !== specId);
         }
       });
     });
+    els.applyClassPicks.querySelectorAll('[data-remove-pick-index]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = Number(btn.getAttribute('data-remove-pick-index'));
+        applyComposerPicks.splice(i, 1);
+        renderApplyClassPicks();
+      });
+    });
+
+    els.applyAddClassBtn.disabled = applyComposerPicks.length >= CLASSES.length;
   }
-  renderApplySpecCheckboxes();
+  els.applyAddClassBtn.addEventListener('click', () => {
+    const usedClassIds = new Set(applyComposerPicks.map(p => p.classId));
+    const nextClass = CLASSES.find(c => !usedClassIds.has(c.id));
+    if (!nextClass) return;
+    applyComposerPicks.push({ classId: nextClass.id, specs: [] });
+    renderApplyClassPicks();
+  });
+  renderApplyClassPicks();
 
   function resetApplyComposer(){
-    els.applyReasonInput.value = '';
+    els.applyNameAgeInput.value = '';
+    els.applyExperienceInput.value = '';
+    els.applyLogsInput.value = '';
+    els.applyProfessionsInput.value = '';
     els.applyRemarksInput.value = '';
-    els.applyClassSelect.selectedIndex = 0;
-    applyComposerSpecs = [];
-    renderApplySpecCheckboxes();
+    applyComposerPicks = [{ classId: CLASSES[0].id, specs: [] }];
+    renderApplyClassPicks();
   }
 
   async function submitApplication(){
     if (!discordIdentity) return;
-    const reason = els.applyReasonInput.value.trim().slice(0, 1000);
-    if (!reason){
-      els.applySubmitStatus.textContent = 'Bitte gib einen Grund für deine Bewerbung an.';
+    // Only keep rows that ended up with a real class and at least one spec
+    // — an extra row that got added but left blank shouldn't block or
+    // corrupt the submission, it's just silently dropped.
+    const picks = applyComposerPicks
+      .filter(p => CLASS_MAP[p.classId] && p.specs.length)
+      .map(p => ({ classId: p.classId, specs: p.specs.slice() }));
+    if (!picks.length){
+      els.applySubmitStatus.textContent = 'Bitte wähle mindestens eine Klasse mit Spezialisierung aus.';
       els.applySubmitStatus.className = 'armory-status armory-status-error';
       return;
     }
-    const classId = els.applyClassSelect.value;
-    if (!CLASS_MAP[classId]) return;
+    const experience = els.applyExperienceInput.value.trim().slice(0, 1500);
+    if (!experience){
+      els.applySubmitStatus.textContent = 'Bitte erzähl uns kurz von deiner WoW-Erfahrung.';
+      els.applySubmitStatus.className = 'armory-status armory-status-error';
+      return;
+    }
+    const professions = els.applyProfessionsInput.value.trim().slice(0, 200);
+    if (!professions){
+      els.applySubmitStatus.textContent = 'Bitte gib an, welche Berufe du zu TBC skillen möchtest.';
+      els.applySubmitStatus.className = 'armory-status armory-status-error';
+      return;
+    }
+    const nameAge = els.applyNameAgeInput.value.trim().slice(0, 200);
+    const logs = els.applyLogsInput.value.trim().slice(0, 800);
     const remarks = els.applyRemarksInput.value.trim().slice(0, 1000);
 
     let id = null;
@@ -4052,7 +4189,7 @@
 
     if (!state.applications) state.applications = {};
     state.applications[id] = {
-      classId, specs: applyComposerSpecs.slice(), reason, remarks,
+      picks, experience, professions, nameAge, logs, remarks,
       applicantName: discordIdentity.username,
       applicantId: discordIdentity.id,
       createdAt: Date.now()
@@ -4132,19 +4269,27 @@
       return;
     }
     els.applicationsList.innerHTML = apps.map(a => {
-      const cls = CLASS_MAP[a.classId];
-      const specLabels = (a.specs || []).map(s => foreverSpecLabel(a.classId, s)).filter(Boolean).join(', ') || '—';
+      const picksHtml = (a.picks || []).map(p => {
+        const cls = CLASS_MAP[p.classId];
+        const specLabels = (p.specs || []).map(s => foreverSpecLabel(p.classId, s)).filter(Boolean).join(', ') || '—';
+        return `<span class="application-class-pick">
+          <span class="application-class" style="color:${cls ? cls.color : 'inherit'}">${escapeHtml(cls ? cls.label : p.classId)}</span>
+          <span class="application-specs">${escapeHtml(specLabels)}</span>
+        </span>`;
+      }).join('');
       const dateStr = a.createdAt ? new Date(a.createdAt).toLocaleDateString('de-DE') : '';
       return `<div class="application-card">
         <div class="application-card-head">
-          <span class="application-class" style="color:${cls ? cls.color : 'inherit'}">${escapeHtml(cls ? cls.label : a.classId)}</span>
-          <span class="application-specs">${escapeHtml(specLabels)}</span>
           <span class="application-applicant">${escapeHtml(a.applicantName)}</span>
           <span class="application-date">${escapeHtml(dateStr)}</span>
           <button type="button" class="btn btn-ghost btn-sm" data-delete-application="${a.id}">Löschen</button>
         </div>
-        <p class="application-reason"><strong>Grund:</strong> ${escapeHtml(a.reason)}</p>
-        ${a.remarks ? `<p class="application-remarks"><strong>Bemerkungen:</strong> ${escapeHtml(a.remarks)}</p>` : ''}
+        <div class="application-class-picks">${picksHtml}</div>
+        ${a.nameAge ? `<p class="application-namage"><strong>Name &amp; Alter:</strong> ${escapeHtml(a.nameAge)}</p>` : ''}
+        <p class="application-experience"><strong>Erfahrung:</strong> ${escapeHtml(a.experience)}</p>
+        ${a.logs ? `<p class="application-logs"><strong>Logs:</strong> ${escapeHtml(a.logs)}</p>` : ''}
+        <p class="application-professions"><strong>Berufe (TBC):</strong> ${escapeHtml(a.professions)}</p>
+        ${a.remarks ? `<p class="application-remarks"><strong>Sonstiges:</strong> ${escapeHtml(a.remarks)}</p>` : ''}
       </div>`;
     }).join('');
     els.applicationsList.querySelectorAll('[data-delete-application]').forEach(btn => {

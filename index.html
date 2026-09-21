@@ -2185,7 +2185,11 @@
       const mintData = await mintRes.json();
 
       saveDiscordIdentity({ id: mintData.user.id, username: mintData.user.username, avatar: mintData.user.avatar || null });
-      return mintData.token;
+      // mintData.role is the Worker's freshly-checked answer to "what's
+      // their current Discord server role?" (see ensureDiscordRole below —
+      // this is the one moment the site has a trustworthy answer to that,
+      // so it's captured here rather than re-derived later).
+      return { token: mintData.token, role: mintData.role };
     }catch(e){
       showDiscordLoginError('Discord login failed. Please try again.');
       return null;
@@ -2202,30 +2206,60 @@
     return `https://cdn.discordapp.com/avatars/${identity.id}/${identity.avatar}.png?size=64`;
   }
 
-  // Ensures this Discord user has a role entry in the synced state, creating
-  // one (Admin if they're the very first person ever, Community otherwise —
-  // Community is the public default; an Admin/Officer promotes someone to
-  // Guild Member once they've actually joined).
+  // Set only right after a FRESH Discord login this page load (the Worker
+  // just checked this person's live Discord server roles and handed back
+  // its answer — see handleDiscordCallback above) — left undefined for a
+  // returning visit that simply resumes an already-logged-in Firebase
+  // session without a new Discord round trip. That's what makes
+  // ensureDiscordRole below only ever resync a role at actual login time,
+  // never demote/promote someone based on a stale or missing answer.
+  let freshDiscordRoleClaim;
+
+  // Ensures this Discord user has a role entry in the synced state.
   // Returns true if state.discordRoles changed and needs saving.
+  //
+  // Role logic, in order:
+  //  1. Admin is never touched here — once granted (by the one-time
+  //     bootstrap below, or later by hand via "Manage access"), it's only
+  //     ever changed by hand. The Discord-role sync below only ever
+  //     resolves to Officer/Guild Member/Community.
+  //  2. The very first login ever (on a brand new setup, before anyone has
+  //     a role) becomes Admin, so there's always someone who can use
+  //     "Manage access" afterward.
+  //  3. Everyone else gets whatever role the Worker just resolved from
+  //     their live Discord server roles (freshDiscordRoleClaim) — but only
+  //     at the moment they actually logged in. A returning visit that just
+  //     resumes an existing session keeps their last-synced role rather
+  //     than guessing from nothing.
   function ensureDiscordRole(){
     if (!discordIdentity) return false;
     if (!state.discordRoles) state.discordRoles = {};
     const existing = state.discordRoles[discordIdentity.id];
-    let changed = false;
-    if (!existing){
-      const isFirstEver = Object.keys(state.discordRoles).length === 0;
-      state.discordRoles[discordIdentity.id] = {
-        role: isFirstEver ? 'admin' : 'community',
-        username: discordIdentity.username,
-        avatar: discordIdentity.avatar
-      };
-      changed = true;
-    } else if (existing.username !== discordIdentity.username || existing.avatar !== discordIdentity.avatar){
-      existing.username = discordIdentity.username;
-      existing.avatar = discordIdentity.avatar;
-      changed = true;
+
+    if (existing && existing.role === 'admin'){
+      let changed = false;
+      if (existing.username !== discordIdentity.username || existing.avatar !== discordIdentity.avatar){
+        existing.username = discordIdentity.username;
+        existing.avatar = discordIdentity.avatar;
+        changed = true;
+      }
+      currentRole = 'admin';
+      return changed;
     }
-    currentRole = state.discordRoles[discordIdentity.id].role;
+
+    if (!existing && Object.keys(state.discordRoles).length === 0){
+      state.discordRoles[discordIdentity.id] = { role: 'admin', username: discordIdentity.username, avatar: discordIdentity.avatar };
+      currentRole = 'admin';
+      return true;
+    }
+
+    const resolvedRole = (freshDiscordRoleClaim && ACCESS_ROLES[freshDiscordRoleClaim])
+      ? freshDiscordRoleClaim
+      : (existing ? existing.role : 'community');
+    const changed = !existing || existing.role !== resolvedRole
+      || existing.username !== discordIdentity.username || existing.avatar !== discordIdentity.avatar;
+    state.discordRoles[discordIdentity.id] = { role: resolvedRole, username: discordIdentity.username, avatar: discordIdentity.avatar };
+    currentRole = resolvedRole;
     return changed;
   }
 
@@ -4258,11 +4292,13 @@
 
     // If we're returning from the Discord redirect, this exchanges the code
     // for a real Firebase login token (minted by the Worker after it
-    // verified the login with Discord itself).
-    const pendingToken = await handleDiscordCallback();
-    if (pendingToken){
+    // verified the login with Discord itself, and checked their current
+    // Discord server roles — see handleDiscordCallback/ensureDiscordRole).
+    const pending = await handleDiscordCallback();
+    if (pending){
       try{
-        await firebase.auth().signInWithCustomToken(pendingToken);
+        await firebase.auth().signInWithCustomToken(pending.token);
+        freshDiscordRoleClaim = pending.role;
       }catch(e){
         showDiscordLoginError('Could not complete login. Please try again.');
       }

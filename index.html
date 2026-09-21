@@ -888,6 +888,10 @@
               <button type="button" class="btn btn-discord" id="foreverLoginBtn">Mit Discord anmelden</button>
             </div>
 
+            <div id="foreverNoAccess" class="forever-gate hidden">
+              <p>Abstimmungen sind nur für Gildenmitglieder sichtbar. Sobald du Teil der Gilde bist, schaltet dir ein Admin/Offizier den Zugriff frei.</p>
+            </div>
+
             <div id="foreverLoggedIn" class="hidden">
               <div class="tac-card hidden" id="pollComposer">
                 <div class="tac-card-title">Neue Abstimmung erstellen</div>
@@ -974,6 +978,10 @@
             <div id="announceLoggedOut" class="forever-gate">
               <p>Melde dich mit Discord an, um die Ankündigungen der Gilde zu sehen.</p>
               <button type="button" class="btn btn-discord" id="announceLoginBtn">Mit Discord anmelden</button>
+            </div>
+
+            <div id="announceNoAccess" class="forever-gate hidden">
+              <p>Ankündigungen sind nur für Gildenmitglieder sichtbar. Sobald du Teil der Gilde bist, schaltet dir ein Admin/Offizier den Zugriff frei.</p>
             </div>
 
             <div id="announceLoggedIn" class="hidden">
@@ -2039,7 +2047,8 @@
   const ACCESS_ROLES = {
     admin: { label: 'Admin' },
     officer: { label: 'Officer' },
-    member: { label: 'Guild Member' }
+    member: { label: 'Guild Member' },
+    community: { label: 'Community' }
   };
   // Admins AND Officers can open/close votings and post/delete
   // announcements; only Admins can manage other members' roles.
@@ -2049,8 +2058,20 @@
   function canManageVotings(){
     return isOfficerOrAdmin();
   }
+  // Guild-internal content (Ankündigungen, Abstimmungen) is for actual
+  // guild members and up — the public "Community" role (the default for
+  // anyone logging in just to apply, or anyone not yet promoted) does not
+  // see it, even though they're logged in with Discord.
+  function isMemberOrHigher(){
+    return currentRole === 'admin' || currentRole === 'officer' || currentRole === 'member';
+  }
 
-  let currentRole = 'member';
+  // New Discord logins default to 'community' — a public-facing role with
+  // no access to guild-internal pages. An Admin/Officer promotes someone
+  // to 'member' once they've actually joined the guild (see the "Manage
+  // access" panel). The very first person ever to log in becomes Admin
+  // (bootstrap), same as before.
+  let currentRole = 'community';
   let discordIdentity = null;
 
   function isDiscordConfigured(){
@@ -2175,7 +2196,9 @@
   }
 
   // Ensures this Discord user has a role entry in the synced state, creating
-  // one (Admin if they're the very first person ever, Guild Member otherwise).
+  // one (Admin if they're the very first person ever, Community otherwise —
+  // Community is the public default; an Admin/Officer promotes someone to
+  // Guild Member once they've actually joined).
   // Returns true if state.discordRoles changed and needs saving.
   function ensureDiscordRole(){
     if (!discordIdentity) return false;
@@ -2185,7 +2208,7 @@
     if (!existing){
       const isFirstEver = Object.keys(state.discordRoles).length === 0;
       state.discordRoles[discordIdentity.id] = {
-        role: isFirstEver ? 'admin' : 'member',
+        role: isFirstEver ? 'admin' : 'community',
         username: discordIdentity.username,
         avatar: discordIdentity.avatar
       };
@@ -2629,6 +2652,7 @@
     newsNextBtn: document.getElementById('newsNextBtn'),
     footerGuildName: document.getElementById('footerGuildName'),
     foreverLoggedOut: document.getElementById('foreverLoggedOut'),
+    foreverNoAccess: document.getElementById('foreverNoAccess'),
     foreverLoggedIn: document.getElementById('foreverLoggedIn'),
     foreverLoginBtn: document.getElementById('foreverLoginBtn'),
     foreverMyPicks: document.getElementById('foreverMyPicks'),
@@ -2637,6 +2661,7 @@
     foreverSaveStatus: document.getElementById('foreverSaveStatus'),
     foreverOverview: document.getElementById('foreverOverview'),
     announceLoggedOut: document.getElementById('announceLoggedOut'),
+    announceNoAccess: document.getElementById('announceNoAccess'),
     announceLoggedIn: document.getElementById('announceLoggedIn'),
     announceLoginBtn: document.getElementById('announceLoginBtn'),
     announceComposer: document.getElementById('announceComposer'),
@@ -2861,7 +2886,7 @@
     els.navLoginBtn.classList.toggle('hidden', loggedIn);
     els.accessControlWrap.classList.toggle('hidden', !loggedIn);
     if (!loggedIn) return;
-    const roleLabel = (ACCESS_ROLES[currentRole] || ACCESS_ROLES.member).label;
+    const roleLabel = (ACCESS_ROLES[currentRole] || ACCESS_ROLES.community).label;
     els.accessBadge.textContent = discordIdentity.username;
     els.accessPopoverName.textContent = discordIdentity.username;
     els.accessPopoverRole.textContent = roleLabel;
@@ -2893,7 +2918,7 @@
       els.accessMemberList.innerHTML = '<p class="access-modal-note">No one has logged in yet.</p>';
       return;
     }
-    const roleOrder = ['admin', 'officer', 'member'];
+    const roleOrder = ['admin', 'officer', 'member', 'community'];
     const roleOptHtml = (selected) => roleOrder.map(r =>
       `<option value="${r}" ${r === selected ? 'selected' : ''}>${ACCESS_ROLES[r].label}</option>`).join('');
     els.accessMemberList.innerHTML = ids.map(id => {
@@ -3184,9 +3209,11 @@
 
   function renderAnnouncementsView(){
     const loggedIn = !!discordIdentity;
+    const hasAccess = loggedIn && isMemberOrHigher();
     els.announceLoggedOut.classList.toggle('hidden', loggedIn);
-    els.announceLoggedIn.classList.toggle('hidden', !loggedIn);
-    if (!loggedIn) return;
+    els.announceNoAccess.classList.toggle('hidden', !loggedIn || hasAccess);
+    els.announceLoggedIn.classList.toggle('hidden', !hasAccess);
+    if (!hasAccess) return;
 
     els.announceComposer.classList.toggle('hidden', !isOfficerOrAdmin());
 
@@ -3692,9 +3719,11 @@
 
   function renderForeverView(){
     const loggedIn = !!discordIdentity;
+    const hasAccess = loggedIn && isMemberOrHigher();
     els.foreverLoggedOut.classList.toggle('hidden', loggedIn);
-    els.foreverLoggedIn.classList.toggle('hidden', !loggedIn);
-    if (!loggedIn) return;
+    els.foreverNoAccess.classList.toggle('hidden', !loggedIn || hasAccess);
+    els.foreverLoggedIn.classList.toggle('hidden', !hasAccess);
+    if (!hasAccess) return;
     renderVotingChrome('forever');
     const closed = isVotingClosed('forever');
     els.foreverClassPicker.classList.toggle('voting-disabled', closed);

@@ -145,7 +145,7 @@
   .topbar{
     position: sticky; top: 0; z-index: 50;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 6vw 14px 16px; gap: 16px; flex-wrap: wrap;
+    padding: 14px 4vw 14px 16px; gap: 16px; flex-wrap: wrap;
     background: rgba(7,22,34,0.86); backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--border-soft);
   }
@@ -159,6 +159,41 @@
   .burger-btn span{ display: block; width: 16px; height: 2px; background: var(--text-muted); border-radius: 1px; }
   .burger-btn:hover span{ background: var(--gold-bright); }
   .nav-auth{ display: flex; align-items: center; gap: 10px; }
+
+  /* ---------- Release countdown banner (top of the content area, every page) ---------- */
+  .release-banner{
+    margin: 16px 4vw 0;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px 28px;
+    padding: 14px 28px; border-radius: 10px; border: 1px solid rgba(240,207,107,0.25);
+    background:
+      radial-gradient(1px 1px at 8% 25%, rgba(255,255,255,0.55), transparent),
+      radial-gradient(1px 1px at 16% 75%, rgba(255,255,255,0.4), transparent),
+      radial-gradient(1.5px 1.5px at 28% 15%, rgba(255,255,255,0.5), transparent),
+      radial-gradient(1px 1px at 42% 60%, rgba(255,255,255,0.35), transparent),
+      radial-gradient(1.5px 1.5px at 58% 30%, rgba(255,255,255,0.5), transparent),
+      radial-gradient(1px 1px at 72% 70%, rgba(255,255,255,0.4), transparent),
+      radial-gradient(1px 1px at 84% 20%, rgba(255,255,255,0.45), transparent),
+      radial-gradient(1.5px 1.5px at 94% 55%, rgba(255,255,255,0.4), transparent),
+      linear-gradient(120deg, #0d3b45 0%, #144e58 45%, #0c343d 100%);
+  }
+  .release-banner-left{ display: flex; align-items: center; gap: 14px; }
+  .release-banner-crest{ width: 44px; height: 44px; flex: none; color: var(--gold-bright); }
+  .release-banner-text{ display: flex; flex-direction: column; gap: 3px; line-height: 1.3; }
+  .release-banner-text strong{ font-family: 'Cinzel', serif; font-weight: 700; color: var(--text); font-size: 15px; }
+  .release-banner-text span{ color: var(--gold-bright); font-size: 13.5px; font-weight: 600; }
+  .release-banner-timer{ display: flex; align-items: flex-start; gap: 10px; }
+  .release-banner-unit{ display: flex; flex-direction: column; align-items: center; min-width: 46px; }
+  .release-banner-num{ font-family: 'Cinzel', serif; font-size: 30px; font-weight: 700; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
+  .release-banner-unit-label{ font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold-bright); margin-top: 5px; }
+  .release-banner-colon{ font-family: 'Cinzel', serif; font-size: 24px; font-weight: 700; color: var(--text-faint); margin-top: 2px; }
+  @media (max-width: 640px){
+    .release-banner{ justify-content: center; text-align: center; padding: 16px 20px; }
+    .release-banner-left{ justify-content: center; }
+  }
+  @media (max-width: 420px){
+    .release-banner-num{ font-size: 24px; }
+    .release-banner-unit{ min-width: 38px; }
+  }
 
   /* ---------- Account / access control (reused across nav) ---------- */
   .access-control{ position: relative; }
@@ -741,6 +776,28 @@
         </div>
       </div>
 
+      <div class="release-banner" id="releaseBanner" title="World of Warcraft: Forever — Releasetermin">
+        <div class="release-banner-left">
+          <svg class="release-banner-crest" viewBox="0 0 64 64" aria-hidden="true">
+            <polygon points="32,3 49,11 59,27 55,46 39,59 25,59 9,46 5,27 15,11" fill="rgba(0,0,0,0.15)" stroke="currentColor" stroke-width="2.5"/>
+            <path d="M15 23 L23 43 L32 25 L41 43 L49 23" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div class="release-banner-text">
+            <strong>World of Warcraft: Forever</strong>
+            <span>erscheint am 4. Nov.!</span>
+          </div>
+        </div>
+        <div class="release-banner-timer">
+          <div class="release-banner-unit"><span class="release-banner-num" id="rbDays">–</span><span class="release-banner-unit-label">Tage</span></div>
+          <span class="release-banner-colon">:</span>
+          <div class="release-banner-unit"><span class="release-banner-num" id="rbHours">–</span><span class="release-banner-unit-label">Stunden</span></div>
+          <span class="release-banner-colon">:</span>
+          <div class="release-banner-unit"><span class="release-banner-num" id="rbMinutes">–</span><span class="release-banner-unit-label">Minuten</span></div>
+          <span class="release-banner-colon">:</span>
+          <div class="release-banner-unit"><span class="release-banner-num" id="rbSeconds">–</span><span class="release-banner-unit-label">Sekunden</span></div>
+        </div>
+      </div>
+
       <main id="pageHost">
 
         <section class="page-section" id="page-home">
@@ -991,6 +1048,11 @@
   const GUILD_NAME = 'Aeternum';
   const GUILD_TAGLINE = 'Spineshatter-EU';
   const GUILD_CREST_LETTER = 'A';
+  // Official WoW: Forever release date (confirmed Nov 4, 2026, 23:00 UTC —
+  // per Blizzard's own announcement and independently mirrored by
+  // Wowhead's and Icy Veins' own release-date pages/countdowns). Update
+  // this single line if Blizzard ever moves the date.
+  const WOW_FOREVER_RELEASE_MS = Date.parse('2026-11-04T23:00:00Z');
   const HERO_DESC = 'Wir bereiten uns auf World of Warcraft: Forever vor. Diese Seite wächst mit — als erstes: eine Umfrage, wer welche Klasse und Spezialisierung spielen möchte.';
   const INTRO_TITLE = 'Bereit für ein neues Kapitel';
   const INTRO_TEXT = 'Diese Seite ist der Startpunkt der WoW Forever Gilde TBA - Gilden und Community Ankündigungen, Abstimmungen für Gilden Member, Guides, Übersicht des Raid-Kader sowie Informationen über verfügbare Berufe. Schaut regelmäßig vorbei und bleibt up2date.';
@@ -2449,6 +2511,37 @@
     talentTooltip: document.getElementById('talentTooltip')
   };
 
+  // ---- Release countdown banner (top of content, every page) --------
+  // Ticks once a second; the banner lives right under the topbar, not
+  // inside #pageHost, so it survives page navigation untouched.
+  let releaseCountdownIntervalStarted = false;
+  function updateReleaseCountdown(){
+    const daysEl = document.getElementById('rbDays');
+    if (!daysEl) return;
+    const hoursEl = document.getElementById('rbHours');
+    const minutesEl = document.getElementById('rbMinutes');
+    const secondsEl = document.getElementById('rbSeconds');
+    const diff = WOW_FOREVER_RELEASE_MS - Date.now();
+    const pad = n => String(n).padStart(2, '0');
+    if (!(diff > 0)){
+      daysEl.textContent = '0';
+      hoursEl.textContent = minutesEl.textContent = secondsEl.textContent = '00';
+      return;
+    }
+    const totalSeconds = Math.floor(diff / 1000);
+    daysEl.textContent = String(Math.floor(totalSeconds / 86400));
+    hoursEl.textContent = pad(Math.floor((totalSeconds % 86400) / 3600));
+    minutesEl.textContent = pad(Math.floor((totalSeconds % 3600) / 60));
+    secondsEl.textContent = pad(totalSeconds % 60);
+  }
+  function initReleaseCountdown(){
+    updateReleaseCountdown();
+    if (!releaseCountdownIntervalStarted){
+      releaseCountdownIntervalStarted = true;
+      setInterval(updateReleaseCountdown, 1000);
+    }
+  }
+
   function renderPublicShell(){
     els.navGuildName.textContent = GUILD_NAME;
     els.navCrest.textContent = GUILD_CREST_LETTER;
@@ -2463,6 +2556,7 @@
     renderSidebarNav();
     initSidebarState();
     initTalentBuilder();
+    initReleaseCountdown();
     showPage(currentPage);
   }
 

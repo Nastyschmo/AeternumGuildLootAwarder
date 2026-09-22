@@ -274,6 +274,59 @@
   .mychar-armory-link{ font-size: 12px; color: var(--teal-bright); text-decoration: none; margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--border-soft); }
   .mychar-armory-link:hover{ text-decoration: underline; }
 
+  /* ---------- Item-Datenbank (Forever, datamined via wago.tools) ---------- */
+  .itemdb-counts{ display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px; }
+  .itemdb-counts b{ color: var(--text); }
+  .itemdb-filters{ display: flex; flex-direction: column; gap: 12px; }
+  .itemdb-row{ display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+  .itemdb-lbl{ font-family: 'Cinzel', serif; font-size: 11.5px; letter-spacing: .04em; color: var(--text-muted); }
+  .itemdb-search{ flex: 1 1 260px; }
+  .itemdb-field{ display: flex; align-items: center; gap: 6px; }
+  .itemdb-num{ width: 76px; }
+  .itemdb-select{
+    font-family: 'Karla', sans-serif; font-size: 13.5px; padding: 8px 10px;
+    background: #08192a; border: 1px solid var(--border); border-radius: 4px; color: var(--text); max-width: 100%;
+  }
+  .itemdb-chips{ display: flex; flex-wrap: wrap; gap: 6px; }
+  .itemdb-chip{
+    font-family: 'Karla', sans-serif; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--border); background: var(--bg-panel-raised); border-radius: 999px; padding: 3px 12px; color: var(--iq);
+  }
+  .itemdb-chip[aria-pressed="false"]{ opacity: .4; text-decoration: line-through; }
+  .itemdb-check{ display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); cursor: pointer; }
+  .itemdb-main{ display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 16px; align-items: start; margin-top: 16px; }
+  .itemdb-tablebox{ padding: 0; overflow: hidden; }
+  .itemdb-scroll{ overflow-x: auto; }
+  .itemdb-table{ border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  .itemdb-table th{
+    font-family: 'Cinzel', serif; font-weight: 600; font-size: 11.5px; letter-spacing: .04em; color: var(--text-muted);
+    text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border-soft); background: var(--bg-panel-raised);
+    white-space: nowrap; cursor: pointer; user-select: none;
+  }
+  .itemdb-table th.num, .itemdb-table td.num{ text-align: right; }
+  .itemdb-table th[aria-sort="ascending"]::after{ content: " ▲"; font-size: 9px; }
+  .itemdb-table th[aria-sort="descending"]::after{ content: " ▼"; font-size: 9px; }
+  .itemdb-table td{ padding: 8px 12px; border-bottom: 1px solid var(--border-soft); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .itemdb-table tbody tr{ cursor: pointer; }
+  .itemdb-table tbody tr:hover td{ background: rgba(255,255,255,0.03); }
+  .itemdb-table tbody tr.sel td{ background: rgba(201,162,39,0.12); }
+  .itemdb-table td.name{ font-weight: 600; white-space: normal; min-width: 200px; }
+  .itemdb-table td.id{ font-family: monospace; font-size: 12px; color: var(--text-faint); }
+  .itemdb-unnamed{ color: var(--text-faint); font-style: italic; font-weight: 400; }
+  .itemdb-new{ font-family: 'Cinzel', serif; font-size: 9.5px; letter-spacing: .04em; color: var(--gold-bright); border: 1px solid currentColor; border-radius: 3px; padding: 0 4px; margin-left: 6px; vertical-align: 1px; }
+  .iq0{ color: #9d9d9d; } .iq1{ color: #ffffff; } .iq2{ color: #1eff00; } .iq3{ color: #3d9bff; }
+  .iq4{ color: #c774ff; } .iq5{ color: #ff8f2b; } .iq6{ color: #e6cc80; } .iq7{ color: #27c9f2; }
+  .itemdb-empty{ padding: 28px 16px; text-align: center; }
+  .itemdb-pager{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12.5px; color: var(--text-muted); }
+  .itemdb-detail{ font-size: 13.5px; line-height: 1.4; }
+  .itemdb-detail .idn{ font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .itemdb-detail .idrow{ display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
+  .itemdb-detail .idpending{ color: var(--text-faint); font-style: italic; }
+  .itemdb-detail .iddesc{ color: var(--gold-bright); font-style: italic; margin-top: 6px; }
+  .itemdb-source{ margin-top: 16px; }
+  .itemdb-detail .coin-g{ color: #e8c04a; } .itemdb-detail .coin-s{ color: #c7ccd4; } .itemdb-detail .coin-c{ color: #c7773a; }
+  @media (max-width: 900px){ .itemdb-main{ grid-template-columns: 1fr; } }
+
   /* ---------- Hero: painterly floating-castle vista, provided by the guild
      (cropped to remove the foreground balcony) — used as the hero backdrop
      with a dark overlay gradient layered on top for text legibility. ---------- */
@@ -1311,6 +1364,77 @@
               </div>
               <div id="mycharList" class="mychar-grid"></div>
             </div>
+          </section>
+        </section>
+
+        <section class="page-section hidden" id="page-items">
+          <header class="hero hero-sub">
+            <div class="hero-content">
+              <p class="hero-eyebrow">Inoffizielle Fanseite · Datamining</p>
+              <h1 class="hero-title hero-title-sm">ITEM-DATENBANK</h1>
+              <p class="hero-desc">Alle Items aus dem <em>WoW: Forever</em>-Client, ausgelesen aus den Tabellen <code>ItemSparse</code> und <code>Item</code> über wago.tools (Build <span id="itemsBuildLabel"></span>).</p>
+            </div>
+          </header>
+
+          <section class="section">
+            <div class="itemdb-counts" id="itemsCounts"></div>
+
+            <div class="tac-card itemdb-filters">
+              <div class="itemdb-row">
+                <input type="search" id="itemsSearch" class="apply-text-input itemdb-search" placeholder="Name oder Item-ID suchen …">
+                <div class="itemdb-field"><span class="itemdb-lbl">Itemlevel</span>
+                  <input type="number" id="itemsIlMin" class="apply-text-input itemdb-num" min="0" placeholder="von">
+                  <input type="number" id="itemsIlMax" class="apply-text-input itemdb-num" min="0" placeholder="bis">
+                </div>
+              </div>
+              <div class="itemdb-row">
+                <span class="itemdb-lbl">Qualität</span>
+                <div class="itemdb-chips" id="itemsChips"></div>
+              </div>
+              <div class="itemdb-row">
+                <div class="itemdb-field"><span class="itemdb-lbl">Kategorie</span><select id="itemsCat" class="itemdb-select"></select></div>
+                <div class="itemdb-field"><span class="itemdb-lbl">Typ</span><select id="itemsSub" class="itemdb-select"></select></div>
+                <div class="itemdb-field"><span class="itemdb-lbl">Platz</span><select id="itemsSlot" class="itemdb-select"></select></div>
+              </div>
+              <div class="itemdb-row">
+                <label class="itemdb-check"><input type="checkbox" id="itemsOnlyNew"> Nur neue Item-IDs (ab 247.000)</label>
+                <label class="itemdb-check"><input type="checkbox" id="itemsHideTest" checked> Test-Items ausblenden</label>
+                <label class="itemdb-check"><input type="checkbox" id="itemsShowNameless"> Items ohne Namen einblenden</label>
+                <button type="button" class="btn btn-ghost btn-sm" id="itemsResetBtn">Filter zurücksetzen</button>
+              </div>
+            </div>
+
+            <div class="itemdb-main">
+              <div class="tac-card itemdb-tablebox">
+                <div class="itemdb-scroll">
+                  <table class="itemdb-table" id="itemsTable">
+                    <thead><tr>
+                      <th data-k="name">Name</th>
+                      <th data-k="il" class="num">iLvl</th>
+                      <th data-k="rl" class="num">Stufe</th>
+                      <th data-k="sub">Typ</th>
+                      <th data-k="slot">Platz</th>
+                      <th data-k="id" class="num" aria-sort="descending">ID</th>
+                    </tr></thead>
+                    <tbody id="itemsTbody"></tbody>
+                  </table>
+                </div>
+                <div class="lootlib-note itemdb-empty hidden" id="itemsEmpty">Keine Items passen zu diesen Filtern. Lockere die Suche oder setz die Filter zurück.</div>
+                <div class="itemdb-pager">
+                  <span id="itemsPinfo"></span>
+                  <span><button type="button" class="btn btn-sm btn-ghost" id="itemsPrev">Zurück</button> <button type="button" class="btn btn-sm btn-ghost" id="itemsNext">Weiter</button></span>
+                </div>
+              </div>
+
+              <aside class="itemdb-side">
+                <div class="tac-card itemdb-detail" id="itemsDetail">
+                  <p class="lootlib-note">Klicke auf ein Item für Details.</p>
+                </div>
+                <p class="lootlib-note">Stat-Werte, Rüstung und Waffenschaden stehen im Client nicht als fertige Zahlen, sondern als Anteile am Budget des Itemlevels — die echten Zahlen kommen, sobald die Budget-Tabellen eingebunden sind.</p>
+              </aside>
+            </div>
+
+            <p class="lootlib-note itemdb-source">Ausgelesen aus den Item-Tabellen des Forever-Clients über wago.tools (Build <span id="itemsBuildLabel2"></span>). Namen, Icons und Itemdaten © Blizzard Entertainment. Inoffizielle Fanseite, nicht mit Blizzard verbunden.</p>
           </section>
         </section>
 
@@ -3352,6 +3476,10 @@
     {
       id: 'mychar', label: 'Meine Charaktere',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>'
+    },
+    {
+      id: 'items', label: 'Item-Datenbank',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>'
     }
   ];
   const SIDEBAR_COLLAPSED_KEY = 'rude-guild-sidebar-collapsed';
@@ -3424,6 +3552,12 @@
     // actually opens the page, not on every load.
     if (pageId === 'talentbuilder'){ renderTalentSubnav(); renderTalentBuilderPage(); }
     if (pageId === 'mychar') renderMyCharactersPage();
+    // The item DB is a big, fully static dataset (bundled in this file, no
+    // Firebase involved) — build its DOM/wire its listeners once, the
+    // first time someone actually opens the page, not on every visit
+    // (that would reset their filters/scroll for no reason) and never on
+    // renderAll() (nothing about it ever changes at runtime).
+    if (pageId === 'items') initItemsDbPage();
   }
 
   // Back/forward now steps through the guild page's own Home /
@@ -3865,6 +3999,210 @@
     els.mycharRefreshAllBtn.textContent = 'Alle aktualisieren';
     if (currentPage === 'mychar') renderMyCharactersPage();
   });
+
+  // ---------------------------------------------------------------------
+  // Item-Datenbank (WoW: Forever) — datamined from the client's own
+  // ItemSparse/Item tables via wago.tools, joined offline and embedded
+  // below as a <script type="application/json"> block. Entirely static:
+  // nothing here ever touches Firebase, so it's built once (lazily, the
+  // first time someone opens the page) and never re-rendered by renderAll().
+  //
+  // Stat values in the client are budget *shares*, not finished numbers
+  // (see the "(~X% vom Budget)" note in the detail panel) — the real
+  // numbers need RandPropPoints/ItemArmorTotal/ItemDamage* tables that
+  // aren't wired in yet. See PROJECT.md in the item-db project export for
+  // the full state of that work.
+  // ---------------------------------------------------------------------
+  const ITEMDB_BUILD_LABEL = 'wow_classic_beta · 1.60.1.69913';
+  const ITEMDB_NEW_ID_FLOOR = 247000;
+  const ITEMDB_QN = ['Schlecht','Verbreitet','Selten','Rar','Episch','Legendär','Artefakt','Erbstück'];
+  const ITEMDB_CLASS = {0:'Verbrauchbar',1:'Behälter',2:'Waffe',3:'Edelstein',4:'Rüstung',5:'Reagenz',6:'Projektil',7:'Handwerkswaren',9:'Rezept',11:'Köcher',12:'Quest',13:'Schlüssel',15:'Verschiedenes',18:'WoW-Marke'};
+  const ITEMDB_SUB = {
+    0:{0:'Verbrauchbar',1:'Trank',2:'Elixier',3:'Fläschchen',4:'Rolle',5:'Essen & Trinken',6:'Gegenstandsverbesserung',7:'Verband',8:'Sonstiges'},
+    1:{0:'Tasche',1:'Seelentasche',2:'Kräutertasche',3:'Verzauberertasche',4:'Ingenieurstasche',5:'Edelsteintasche',6:'Bergbautasche',7:'Lederertasche'},
+    2:{0:'Einhandaxt',1:'Zweihandaxt',2:'Bogen',3:'Schusswaffe',4:'Einhandstreitkolben',5:'Zweihandstreitkolben',6:'Stangenwaffe',7:'Einhandschwert',8:'Zweihandschwert',10:'Stab',11:'Exotisch',12:'Exotisch',13:'Faustwaffe',14:'Verschiedenes',15:'Dolch',16:'Wurfwaffe',17:'Speer',18:'Armbrust',19:'Zauberstab',20:'Angelrute'},
+    4:{0:'Verschiedenes',1:'Stoff',2:'Leder',3:'Kette',4:'Platte',5:'Kosmetisch',6:'Schild',7:'Buchband',8:'Götze',9:'Totem',10:'Siegel',11:'Relikt'},
+    6:{2:'Pfeil',3:'Kugel'},
+    7:{0:'Handwerkswaren',1:'Teile',2:'Sprengstoff',3:'Geräte',4:'Juwelenschleifen',5:'Stoff',6:'Leder',7:'Metall & Stein',8:'Fleisch',9:'Kräuter',10:'Elementar',11:'Sonstiges',12:'Verzauberkunst',13:'Materialien'},
+    9:{0:'Buch',1:'Lederverarbeitung',2:'Schneiderei',3:'Ingenieurskunst',4:'Schmiedekunst',5:'Kochkunst',6:'Alchemie',7:'Erste Hilfe',8:'Verzauberkunst',9:'Angeln',10:'Juwelenschleifen'},
+    11:{2:'Köcher',3:'Munitionsbeutel'},
+    15:{0:'Plunder',1:'Reagenz',2:'Haustier',3:'Feiertag',4:'Sonstiges',5:'Reittier'}
+  };
+  const ITEMDB_SLOT = {0:'',1:'Kopf',2:'Hals',3:'Schulter',4:'Hemd',5:'Brust',6:'Taille',7:'Beine',8:'Füße',9:'Handgelenke',10:'Hände',11:'Finger',12:'Schmuckstück',13:'Einhändig',14:'Schildhand',15:'Distanz',16:'Rücken',17:'Zweihändig',18:'Tasche',19:'Wappenrock',20:'Brust',21:'Waffenhand',22:'Schildhand',23:'In Schildhand geführt',24:'Projektil',25:'Wurfwaffe',26:'Distanz',27:'Köcher',28:'Relikt'};
+  const ITEMDB_STAT = {0:'Mana',1:'Gesundheit',3:'Beweglichkeit',4:'Stärke',5:'Intelligenz',6:'Willenskraft',7:'Ausdauer',12:'Verteidigung',13:'Ausweichen',14:'Parieren',15:'Blocken',31:'Trefferchance',32:'Kritische Trefferchance',35:'Abhärtung',36:'Tempo',37:'Waffenkunde',38:'Angriffskraft',39:'Distanzangriffskraft',41:'Heilung',42:'Zauberschaden',43:'Mana alle 5 Sek.',44:'Rüstungsdurchschlag',45:'Zauberschaden und Heilung',46:'Gesundheit alle 5 Sek.',47:'Zauberdurchschlag',48:'Blockwert',50:'Bonusrüstung',51:'Feuerwiderstand',52:'Frostwiderstand',53:'Heiligwiderstand',54:'Schattenwiderstand',55:'Naturwiderstand',56:'Arkanwiderstand',84:'Heiligzauberschaden*',85:'Feuerzauberschaden*',86:'Naturzauberschaden*',87:'Frostzauberschaden*',88:'Schattenzauberschaden*',89:'Arkanzauberschaden*'};
+  const ITEMDB_PRIMARY = new Set([3,4,5,6,7,51,52,53,54,55,56]);
+  const ITEMDB_BOND = {1:'Wird beim Aufheben gebunden',2:'Wird beim Anlegen gebunden',3:'Wird bei Benutzung gebunden',4:'Questgegenstand',5:'Questgegenstand'};
+  const ITEMDB_SCHOOL = {1:'Heilig',2:'Feuer',3:'Natur',4:'Frost',5:'Schatten',6:'Arkan'};
+  const ITEMDB_CLASSES = [[1,'Krieger'],[2,'Paladin'],[4,'Jäger'],[8,'Schurke'],[16,'Priester'],[64,'Schamane'],[128,'Magier'],[256,'Hexenmeister'],[1024,'Druide']];
+  const ITEMDB_SKILL = {165:'Lederverarbeitung',164:'Schmiedekunst',197:'Schneiderei',202:'Ingenieurskunst',333:'Verzauberkunst',171:'Alchemie',185:'Kochkunst',356:'Angeln',129:'Erste Hilfe',182:'Kräuterkunde',186:'Bergbau',393:'Kürschnerei',40:'Gifte',755:'Juwelenschleifen'};
+  const ITEMDB_TEST_RE = /\b(TEST|DEPRECATED|Deprecated|OLD|UNUSED)\b|\[(DNT|PH|NYI)\]|^Monster -|^QA |zzOLD|^zz/;
+
+  // The item table (~2 MB, 31k+ items) lives as its own file,
+  // assets/forever-items.json, instead of being embedded in this HTML —
+  // keeps the main page small and lets the browser cache the item data
+  // separately from everything else. Needs the page served over real
+  // HTTP (GitHub Pages etc.) — a fetch() of a local file is blocked by
+  // the browser when this HTML is just opened directly (file://).
+  let itemsDbInitialized = false;
+  function initItemsDbPage(){
+    if (itemsDbInitialized) return;
+    itemsDbInitialized = true;
+
+    const $ = id => document.getElementById(id);
+    $('itemsBuildLabel').textContent = ITEMDB_BUILD_LABEL;
+    $('itemsBuildLabel2').textContent = ITEMDB_BUILD_LABEL;
+    $('itemsCounts').innerHTML = '<span>Lade Item-Daten …</span>';
+
+    fetch('assets/forever-items.json')
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(buildItemsDb)
+      .catch(e => {
+        $('itemsCounts').innerHTML = '';
+        $('itemsEmpty').classList.remove('hidden');
+        $('itemsEmpty').textContent = 'Konnte assets/forever-items.json nicht laden (' + e.message + '). Läuft die Seite über einen echten Webserver (z.B. GitHub Pages) und nicht als lokal geöffnete Datei?';
+      });
+
+    function buildItemsDb(D){
+    const rows = D.items.map(a => ({
+      id:a[0], name:a[1], q:a[2], il:a[3], rl:a[4], c:a[5], s:a[6], slot:a[7], stats:a[8], bond:a[9],
+      delay:a[10], sell:a[11], desc:a[12], ac:a[13], max:a[14], stack:a[15], bag:a[16], set:a[17], dmg:a[18],
+      skill:a[19], skillRank:a[20], quest:a[21], named:true, test: ITEMDB_TEST_RE.test(a[1]), lc: a[1].toLowerCase()
+    }));
+    const nameless = D.nameless.map(a => ({ id:a[0], name:'', q:-1, il:0, rl:0, c:a[1], s:a[2], slot:a[3], named:false, test:false, lc:'' }));
+    const byId = new Map();
+    rows.concat(nameless).forEach(r => byId.set(r.id, r));
+    const subName = r => (ITEMDB_SUB[r.c] && ITEMDB_SUB[r.c][r.s]) || ITEMDB_CLASS[r.c] || 'Unbekannt';
+
+    const nNew = rows.filter(r => r.id >= ITEMDB_NEW_ID_FLOOR).length;
+    $('itemsCounts').innerHTML = `<span><b>${fmtDe(rows.length)}</b> Items mit Namen</span><span><b>${fmtDe(nameless.length)}</b> Items ohne Namen</span><span><b>${fmtDe(nNew)}</b> mit neuer ID (ab 247.000)</span>`;
+    function fmtDe(n){ return n.toLocaleString('de-DE'); }
+
+    const qs = new Set([0,1,2,3,4,5,6,7]);
+    $('itemsChips').innerHTML = ITEMDB_QN.map((n,i) => `<button type="button" class="itemdb-chip" style="--iq:var(--iq${i},inherit)" data-q="${i}" aria-pressed="true">${n}</button>`).join('');
+    $('itemsChips').querySelectorAll('.itemdb-chip').forEach((b,i) => b.classList.add('iq'+i));
+    $('itemsChips').addEventListener('click', e => {
+      const b = e.target.closest('.itemdb-chip'); if (!b) return;
+      const q = +b.dataset.q; qs.has(q) ? qs.delete(q) : qs.add(q);
+      b.setAttribute('aria-pressed', qs.has(q)); go(true);
+    });
+
+    const catsPresent = [...new Set(rows.concat(nameless).map(r => r.c))].filter(c => ITEMDB_CLASS[c]).sort((a,b) => ITEMDB_CLASS[a].localeCompare(ITEMDB_CLASS[b], 'de'));
+    $('itemsCat').innerHTML = '<option value="">Alle</option>' + catsPresent.map(c => `<option value="${c}">${ITEMDB_CLASS[c]}</option>`).join('');
+    function fillSub(){
+      const c = $('itemsCat').value;
+      if (c === '' || !ITEMDB_SUB[c]){ $('itemsSub').innerHTML = '<option value="">Alle</option>'; $('itemsSub').disabled = true; return; }
+      const present = new Set(rows.concat(nameless).filter(r => r.c == c).map(r => r.s));
+      $('itemsSub').innerHTML = '<option value="">Alle</option>' + Object.entries(ITEMDB_SUB[c]).filter(([k]) => present.has(+k)).map(([k,v]) => `<option value="${k}">${v}</option>`).join('');
+      $('itemsSub').disabled = false;
+    }
+    fillSub();
+    const slotOpts = [['','Alle'],['1','Kopf'],['2','Hals'],['3','Schulter'],['16','Rücken'],['5,20','Brust'],['4','Hemd'],['19','Wappenrock'],['9','Handgelenke'],['10','Hände'],['6','Taille'],['7','Beine'],['8','Füße'],['11','Finger'],['12','Schmuckstück'],['13','Einhändig'],['21','Waffenhand'],['17','Zweihändig'],['14','Schildhand'],['22,23','Nebenhand'],['15,25,26','Distanz'],['28','Relikt'],['18','Tasche'],['0','Nicht anlegbar']];
+    $('itemsSlot').innerHTML = slotOpts.map(([v,n]) => `<option value="${v}">${n}</option>`).join('');
+
+    let sortK = 'id', sortDir = -1, page = 0; const PER = 100; let cur = []; let selId = null;
+    function go(resetPage){
+      if (resetPage) page = 0;
+      const q = $('itemsSearch').value.trim().toLowerCase(), idq = /^\d+$/.test(q) ? +q : null;
+      const mn = $('itemsIlMin').value === '' ? null : +$('itemsIlMin').value, mx = $('itemsIlMax').value === '' ? null : +$('itemsIlMax').value;
+      const c = $('itemsCat').value, s = $('itemsSub').value, sl = $('itemsSlot').value ? new Set($('itemsSlot').value.split(',').map(Number)) : null;
+      const onlyNew = $('itemsOnlyNew').checked, hideTest = $('itemsHideTest').checked, withNameless = $('itemsShowNameless').checked;
+      const src = withNameless ? rows.concat(nameless) : rows;
+      cur = src.filter(r => {
+        if (r.named && !qs.has(r.q)) return false;
+        if (hideTest && r.test) return false;
+        if (onlyNew && r.id < ITEMDB_NEW_ID_FLOOR) return false;
+        if (c !== '' && r.c != c) return false;
+        if (s !== '' && r.s != s) return false;
+        if (sl && !sl.has(r.slot)) return false;
+        if (mn !== null && (!r.named || r.il < mn)) return false;
+        if (mx !== null && (!r.named || r.il > mx)) return false;
+        if (q){ if (idq !== null){ if (!String(r.id).startsWith(q) && !r.lc.includes(q)) return false; } else if (!r.lc.includes(q)) return false; }
+        return true;
+      });
+      const key = { name:r=>r.named?r.lc:'￿', il:r=>r.il, rl:r=>r.rl, sub:r=>subName(r), slot:r=>ITEMDB_SLOT[r.slot]||'', id:r=>r.id }[sortK];
+      cur.sort((a,b) => { const x=key(a), y=key(b); const d = typeof x === 'string' ? x.localeCompare(y,'de') : x-y; return d*sortDir || (b.id-a.id); });
+      render();
+    }
+    function render(){
+      const pages = Math.max(1, Math.ceil(cur.length/PER)); if (page >= pages) page = pages-1;
+      const slice = cur.slice(page*PER, page*PER+PER);
+      $('itemsTbody').innerHTML = slice.map(r => `<tr data-id="${r.id}"${r.id===selId?' class="sel"':''}><td class="name">${r.named?`<span class="iq${r.q}">${escapeHtml(r.name)}</span>`:'<span class="itemdb-unnamed">ohne Namen</span>'}${r.id>=ITEMDB_NEW_ID_FLOOR?'<span class="itemdb-new">neu</span>':''}</td><td class="num">${r.named?r.il:'–'}</td><td class="num">${r.named&&r.rl?r.rl:'–'}</td><td>${escapeHtml(subName(r))}</td><td>${ITEMDB_SLOT[r.slot]||'–'}</td><td class="id num">${r.id}</td></tr>`).join('');
+      $('itemsEmpty').classList.toggle('hidden', cur.length > 0);
+      $('itemsPinfo').textContent = cur.length ? `${fmtDe(page*PER+1)}–${fmtDe(Math.min(cur.length,page*PER+PER))} von ${fmtDe(cur.length)} Items` : '0 Items';
+      $('itemsPrev').disabled = page === 0;
+      $('itemsNext').disabled = page >= pages-1;
+      document.querySelectorAll('#itemsTable th').forEach(th => th.setAttribute('aria-sort', th.dataset.k===sortK ? (sortDir>0?'ascending':'descending') : 'none'));
+    }
+    function moneyHtml(c){
+      if (!c) return '';
+      const g = Math.floor(c/10000), s = Math.floor(c/100)%100, k = c%100; let o = '';
+      if (g) o += `${g}<span class="coin-g">g</span> `;
+      if (s || g) o += `${s}<span class="coin-s">s</span> `;
+      o += `${k}<span class="coin-c">k</span>`;
+      return o;
+    }
+    function classesFor(ac){
+      if (ac === -1 || ac === 32767) return '';
+      const n = ITEMDB_CLASSES.filter(([b]) => ac & b).map(x => x[1]);
+      return n.length ? n.join(', ') : '';
+    }
+    function showDetail(id){
+      const r = byId.get(id); if (!r) return; selId = id;
+      document.querySelectorAll('#itemsTbody tr').forEach(tr => tr.classList.toggle('sel', +tr.dataset.id === id));
+      let h = '';
+      if (!r.named){
+        h = `<div class="idn">Item ${r.id}</div><div class="idpending">Name und Werte fehlen im Client.</div><div>${escapeHtml(subName(r))}${ITEMDB_SLOT[r.slot]?' · '+ITEMDB_SLOT[r.slot]:''}</div>`;
+      }else{
+        h += `<div class="idn iq${r.q}">${escapeHtml(r.name)}</div>`;
+        if (r.il > 1 && r.slot) h += `<div class="idrow"><span>Gegenstandsstufe</span><span>${r.il}</span></div>`;
+        if (ITEMDB_BOND[r.bond]) h += `<div class="idrow"><span>Bindung</span><span>${ITEMDB_BOND[r.bond]}</span></div>`;
+        if (r.max === 1) h += `<div class="idrow"><span>Einzigartig</span><span>Ja</span></div>`;
+        if (r.quest) h += `<div class="idrow"><span>Startet Quest</span><span>${r.quest}</span></div>`;
+        const sl = ITEMDB_SLOT[r.slot], sb = (r.c===2||r.c===4) && r.s>0 ? (ITEMDB_SUB[r.c]||{})[r.s] : '';
+        if (sl || sb) h += `<div class="idrow"><span>${sl||''}</span><span>${sb||''}</span></div>`;
+        if (r.bag) h += `<div class="idrow"><span>Plätze</span><span>${r.bag} (${escapeHtml(subName(r))})</span></div>`;
+        if (r.c===2 && r.delay) h += `<div class="idrow"><span class="idpending">Schaden folgt${ITEMDB_SCHOOL[r.dmg]?' ('+ITEMDB_SCHOOL[r.dmg]+')':''}</span><span>Tempo ${(r.delay/1000).toFixed(2)}</span></div>`;
+        if (r.c===4 && [1,2,3,4,6].includes(r.s)) h += `<div class="idpending">Rüstung folgt</div>`;
+        const tot = r.stats.reduce((a,[,p]) => a+p, 0) || 1;
+        r.stats.filter(([k]) => ITEMDB_PRIMARY.has(k)).forEach(([k,p]) => { h += `<div class="idrow"><span>+? ${ITEMDB_STAT[k]||'Wert #'+k}</span><span class="idpending">${Math.round(p/tot*100)}%</span></div>`; });
+        const cl = classesFor(r.ac); if (cl) h += `<div class="idrow"><span>Klassen</span><span>${escapeHtml(cl)}</span></div>`;
+        if (r.rl > 1) h += `<div class="idrow"><span>Benötigt Stufe</span><span>${r.rl}</span></div>`;
+        if (r.skill) h += `<div class="idrow"><span>Beruf</span><span>${escapeHtml(ITEMDB_SKILL[r.skill]||('#'+r.skill))}${r.skillRank?' ('+r.skillRank+')':''}</span></div>`;
+        r.stats.filter(([k]) => !ITEMDB_PRIMARY.has(k)).forEach(([k,p]) => { h += `<div class="idrow"><span>Anlegen: ${ITEMDB_STAT[k]||'Bonus #'+k}</span><span class="idpending">${Math.round(p/tot*100)}%</span></div>`; });
+        if (r.set) h += `<div class="idrow"><span>Set</span><span>ID ${r.set}</span></div>`;
+        if (r.stack > 1) h += `<div class="idrow"><span>Max. Stapelgröße</span><span>${r.stack}</span></div>`;
+        if (r.sell) h += `<div class="idrow"><span>Verkaufspreis</span><span>${moneyHtml(r.sell)}</span></div>`;
+        if (r.desc) h += `<div class="iddesc">„${escapeHtml(r.desc)}“</div>`;
+        h += `<div class="idrow"><span>Item-ID</span><span>${r.id}${r.id>=ITEMDB_NEW_ID_FLOOR?' · neu':''}</span></div>`;
+      }
+      $('itemsDetail').innerHTML = h;
+    }
+    $('itemsTbody').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) showDetail(+tr.dataset.id); });
+    document.querySelector('#itemsTable thead').addEventListener('click', e => {
+      const th = e.target.closest('th'); if (!th) return;
+      const k = th.dataset.k;
+      if (k === sortK) sortDir *= -1; else { sortK = k; sortDir = (k==='name'||k==='sub'||k==='slot') ? 1 : -1; }
+      go(true);
+    });
+    $('itemsPrev').addEventListener('click', () => { page--; render(); $('itemsTable').closest('.itemdb-tablebox').scrollIntoView({block:'start'}); });
+    $('itemsNext').addEventListener('click', () => { page++; render(); $('itemsTable').closest('.itemdb-tablebox').scrollIntoView({block:'start'}); });
+    let searchT;
+    $('itemsSearch').addEventListener('input', () => { clearTimeout(searchT); searchT = setTimeout(() => go(true), 120); });
+    ['itemsIlMin','itemsIlMax'].forEach(id => $(id).addEventListener('input', () => go(true)));
+    $('itemsCat').addEventListener('change', () => { fillSub(); go(true); });
+    ['itemsSub','itemsSlot','itemsOnlyNew','itemsHideTest','itemsShowNameless'].forEach(id => $(id).addEventListener('change', () => go(true)));
+    $('itemsResetBtn').addEventListener('click', () => {
+      $('itemsSearch').value = ''; $('itemsIlMin').value = ''; $('itemsIlMax').value = '';
+      $('itemsCat').value = ''; fillSub(); $('itemsSlot').value = '';
+      $('itemsOnlyNew').checked = false; $('itemsHideTest').checked = true; $('itemsShowNameless').checked = false;
+      qs.clear(); [0,1,2,3,4,5,6,7].forEach(i => qs.add(i));
+      $('itemsChips').querySelectorAll('.itemdb-chip').forEach(b => b.setAttribute('aria-pressed','true'));
+      go(true);
+    });
+
+    go(true);
+    }
+  }
 
   // Shared "who voted for this bar" modal — used by both the general
   // Abstimmungen poll bars and the class/spec survey bars, since neither

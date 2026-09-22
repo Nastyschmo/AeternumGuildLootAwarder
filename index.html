@@ -2810,6 +2810,18 @@
     return profile.characters.find(c => c.isMain) || profile.characters[0] || null;
   }
 
+  // Shared "how do we display this member" helper — nickname (if they've
+  // set one under "Meine Charaktere verwalten") with the Discord username
+  // alongside in parentheses, otherwise just the Discord username. Used
+  // everywhere a member shows up by name to Admins/Offiziere (Manage
+  // access, the class/spec voting details, the per-member voting table)
+  // so it's consistent across the whole page.
+  function memberDisplayLabel(uid, username){
+    const fallback = username || 'Unbekannt';
+    const profile = uid ? (state.characterProfiles || {})[uid] : null;
+    return (profile && profile.nickname) ? `${profile.nickname} (${fallback})` : fallback;
+  }
+
   // Announcements store a small allow-listed subset of formatted HTML (so
   // Offis can use H1/H2/bold/italic/underline/size/lists), never raw
   // attacker-controlled markup. This sanitizer re-runs on every load (not
@@ -4720,11 +4732,7 @@
       els.foreverOfficerTable.innerHTML = '<tr><td class="lootlib-note">Noch keine Stimmen.</td></tr>';
       return;
     }
-    const memberLabel = (e) => {
-      const profile = (state.characterProfiles || {})[e.uid];
-      const username = e.username || 'Unbekannt';
-      return (profile && profile.nickname) ? `${profile.nickname} (${username})` : username;
-    };
+    const memberLabel = (e) => memberDisplayLabel(e.uid, e.username);
     entries.sort((a, b) => memberLabel(a).localeCompare(memberLabel(b), 'de', { sensitivity: 'base' }));
     const pickLabel = (p) => {
       if (!p) return '—';
@@ -4935,10 +4943,10 @@
       agg[c.id] = { total: 0, specs, namesBySpec };
     });
     let voterCount = 0;
-    Object.values(state.foreverSurvey).forEach(entry => {
+    Object.entries(state.foreverSurvey).forEach(([uid, entry]) => {
       if (!entry || !Array.isArray(entry.picks) || !entry.picks.length) return;
       voterCount++;
-      const name = entry.username || 'Unknown';
+      const name = memberDisplayLabel(uid, entry.username);
       entry.picks.forEach(p => {
         if (!agg[p.classId]) return;
         agg[p.classId].total++;

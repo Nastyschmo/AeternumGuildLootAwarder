@@ -251,6 +251,29 @@
   .application-characters strong{ display: block; margin-bottom: 6px; font-size: 12.5px; }
   .application-characters .character-chips{ margin-bottom: 8px; }
 
+  /* ---------- "Meine Charaktere" page — character cards, own fantasy/
+     gold styling language (tac-card look), not a copy of Blizzard's own
+     Armory page design. ---------- */
+  .mychar-page-actions{ display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .mychar-grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+  .mychar-card{
+    background: var(--bg-panel); border: 1px solid var(--border-soft); border-top: 3px solid var(--gold);
+    border-radius: 8px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .mychar-card-head{ display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .mychar-card-name{ font-family: 'Cinzel', serif; font-size: 16px; color: var(--gold-bright); font-weight: 600; }
+  .mychar-main-badge{ font-family: 'Karla', sans-serif; font-size: 10.5px; color: var(--gold-bright); font-weight: 400; white-space: nowrap; }
+  .mychar-card-realm{ font-size: 11.5px; color: var(--text-muted); text-transform: capitalize; }
+  .mychar-card-loading{ font-size: 12.5px; color: var(--text-faint); font-style: italic; }
+  .mychar-card-error{ font-size: 12.5px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .mychar-stat-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+  .mychar-stat{ display: flex; flex-direction: column; gap: 2px; }
+  .mychar-stat-label{ font-size: 10.5px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-faint); }
+  .mychar-stat-value{ font-size: 14px; font-weight: 600; color: var(--text); }
+  .mychar-refresh-btn{ align-self: flex-start; }
+  .mychar-armory-link{ font-size: 12px; color: var(--teal-bright); text-decoration: none; margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--border-soft); }
+  .mychar-armory-link:hover{ text-decoration: underline; }
+
   /* ---------- Hero: painterly floating-castle vista, provided by the guild
      (cropped to remove the foreground balcony) — used as the hero backdrop
      with a dark overlay gradient layered on top for text legibility. ---------- */
@@ -1091,7 +1114,7 @@
                   </div>
                   <div class="tac-card hidden" id="foreverOfficerTableCard">
                     <div class="tac-card-title">Stimmen im Detail — pro Mitglied</div>
-                    <div class="tac-card-note">Nur für Admins/Offiziere sichtbar. Zeigt, wer welche Klasse(n)/Spezialisierung(en) ausgewählt hat, und welche davon zuerst auf Max-Level gebracht wird.</div>
+                    <div class="tac-card-note">Nur für Admins/Offiziere sichtbar. First Char = wird zuerst auf Max-Level gebracht, Second Char = die zweite Wahl (falls vorhanden).</div>
                     <div class="forever-officer-table-wrap">
                       <table class="forever-officer-table" id="foreverOfficerTable"></table>
                     </div>
@@ -1262,6 +1285,31 @@
                 <div class="tac-card-note">Nur für Admins/Offiziere sichtbar.</div>
                 <div id="applicationsList"></div>
               </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="page-section hidden" id="page-mychar">
+          <header class="hero hero-sub">
+            <div class="hero-content">
+              <p class="hero-eyebrow">Dein Charakter-Profil</p>
+              <h1 class="hero-title hero-title-sm">MEINE CHARAKTERE</h1>
+              <p class="hero-desc">Live-Daten aus dem Armory für alle Charaktere, die du unter "Meine Charaktere verwalten" hinterlegt hast.</p>
+            </div>
+          </header>
+
+          <section class="section">
+            <div id="mycharLoggedOut" class="forever-gate">
+              <p>Melde dich mit Discord an, um deine Charaktere zu sehen.</p>
+              <button type="button" class="btn btn-discord" id="mycharLoginBtn">Mit Discord anmelden</button>
+            </div>
+
+            <div id="mycharLoggedIn" class="hidden">
+              <div class="mychar-page-actions">
+                <button type="button" class="btn btn-sm btn-outline-gold" id="mycharManageBtn">Charaktere verwalten</button>
+                <button type="button" class="btn btn-sm btn-ghost" id="mycharRefreshAllBtn">Alle aktualisieren</button>
+              </div>
+              <div id="mycharList" class="mychar-grid"></div>
             </div>
           </section>
         </section>
@@ -3207,7 +3255,13 @@
     recruitNeedsSaveBtn: document.getElementById('recruitNeedsSaveBtn'),
     recruitNeedsSaveStatus: document.getElementById('recruitNeedsSaveStatus'),
     applicationsCard: document.getElementById('applicationsCard'),
-    applicationsList: document.getElementById('applicationsList')
+    applicationsList: document.getElementById('applicationsList'),
+    mycharLoggedOut: document.getElementById('mycharLoggedOut'),
+    mycharLoginBtn: document.getElementById('mycharLoginBtn'),
+    mycharLoggedIn: document.getElementById('mycharLoggedIn'),
+    mycharManageBtn: document.getElementById('mycharManageBtn'),
+    mycharRefreshAllBtn: document.getElementById('mycharRefreshAllBtn'),
+    mycharList: document.getElementById('mycharList')
   };
 
   // ---- Release countdown pill (topbar, top-mid, every page) ---------
@@ -3282,6 +3336,10 @@
     {
       id: 'recruit', label: 'Bewerbung',
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>'
+    },
+    {
+      id: 'mychar', label: 'Meine Charaktere',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>'
     }
   ];
   const SIDEBAR_COLLAPSED_KEY = 'rude-guild-sidebar-collapsed';
@@ -3353,6 +3411,7 @@
     // (468 talent nodes across 9 classes) — render them only once someone
     // actually opens the page, not on every load.
     if (pageId === 'talentbuilder'){ renderTalentSubnav(); renderTalentBuilderPage(); }
+    if (pageId === 'mychar') renderMyCharactersPage();
   }
 
   // Back/forward now steps through the guild page's own Home /
@@ -3645,6 +3704,7 @@
       els.characterSaveStatus.textContent = 'Gespeichert!';
       els.characterSaveStatus.className = 'armory-status armory-status-ok';
       applyAccessControl();
+      if (currentPage === 'mychar') renderMyCharactersPage();
       setTimeout(() => {
         if (els.characterSaveStatus.textContent === 'Gespeichert!'){
           els.characterSaveStatus.textContent = '';
@@ -3664,6 +3724,134 @@
   els.characterModalCloseBtn.addEventListener('click', () => els.characterModal.classList.add('hidden'));
   els.characterModal.addEventListener('click', (e) => {
     if (e.target === els.characterModal) els.characterModal.classList.add('hidden');
+  });
+
+  // ---------------------------------------------------------------------
+  // "Meine Charaktere" page — a member's own character-profile overview,
+  // styled in the guild page's own fantasy/gold look (not a copy of
+  // Blizzard's Armory page). Shows the same live class/level/item-level
+  // data as Manage access and Bewerbungen, just as full cards instead of
+  // compact chips, plus a real link out to each character's actual
+  // Blizzard Armory page.
+  // ---------------------------------------------------------------------
+  const ARMORY_WEB_REGION = 'eu';
+  const ARMORY_WEB_LOCALE = 'en-us';
+  function armoryWebUrl(realmSlug, name){
+    return `https://worldofwarcraft.blizzard.com/${ARMORY_WEB_LOCALE}/classicann/${ARMORY_WEB_REGION}/armory/character/${encodeURIComponent((realmSlug || '').toLowerCase())}/${encodeURIComponent((name || '').toLowerCase())}`;
+  }
+
+  // Coarse, human-friendly relative time in German — good enough for "how
+  // stale is this Armory snapshot", not meant to be precise to the minute.
+  function relativeTimeFromMs(ms){
+    if (!ms) return null;
+    const diffDays = Math.floor((Date.now() - ms) / 86400000);
+    if (diffDays <= 0) return 'heute';
+    if (diffDays === 1) return 'gestern';
+    if (diffDays < 30) return `vor ${diffDays} Tagen`;
+    const months = Math.floor(diffDays / 30);
+    if (months < 12) return `vor ${months} Monat${months === 1 ? '' : 'en'}`;
+    const years = Math.floor(months / 12);
+    return `vor ${years} Jahr${years === 1 ? '' : 'en'}`;
+  }
+
+  const ARMORY_FACTION_LABELS = { HORDE: 'Horde', ALLIANCE: 'Allianz' };
+
+  function mycharCardHtml(c){
+    const cached = armoryCache[characterProfileCacheKey(c.realmSlug, c.name)];
+    const armoryLink = armoryWebUrl(c.realmSlug, c.name);
+    const found = cached && cached.result && cached.result.found;
+    const ch = found ? cached.result.character : null;
+    const cls = (ch && ch.classKey) ? CLASS_MAP[ch.classKey] : null;
+    const accentColor = cls ? cls.color : 'var(--gold)';
+
+    let bodyHtml;
+    if (!cached){
+      bodyHtml = `<div class="mychar-card-loading">Lädt Armory-Daten…</div>`;
+    } else if (!found){
+      const detail = (cached.result && cached.result.debug && cached.result.debug.detail) || '';
+      bodyHtml = `<div class="mychar-card-error" ${detail ? `title="${escapeHtml(detail)}"` : ''}>
+        Konnte keine Live-Daten laden.
+        <button type="button" class="btn btn-ghost btn-sm" data-mychar-refresh="${c.id}">Erneut versuchen</button>
+      </div>`;
+    } else {
+      const factionLabel = ARMORY_FACTION_LABELS[ch.faction] || ch.faction || '—';
+      const lastSeen = relativeTimeFromMs(ch.lastLoginTimestamp);
+      bodyHtml = `<div class="mychar-stat-grid">
+        <div class="mychar-stat"><span class="mychar-stat-label">Level</span><span class="mychar-stat-value">${ch.level ?? '—'}</span></div>
+        <div class="mychar-stat"><span class="mychar-stat-label">Klasse</span><span class="mychar-stat-value" ${cls ? `style="color:${cls.color}"` : ''}>${escapeHtml(ch.className || (cls ? cls.label : '—'))}</span></div>
+        <div class="mychar-stat"><span class="mychar-stat-label">Rasse</span><span class="mychar-stat-value">${escapeHtml(ch.raceName || '—')}</span></div>
+        <div class="mychar-stat"><span class="mychar-stat-label">Fraktion</span><span class="mychar-stat-value">${escapeHtml(factionLabel)}</span></div>
+        <div class="mychar-stat"><span class="mychar-stat-label">Itemlevel</span><span class="mychar-stat-value">${ch.itemLevel ?? '—'}</span></div>
+        <div class="mychar-stat"><span class="mychar-stat-label">Gilde</span><span class="mychar-stat-value">${escapeHtml(ch.guildName || '—')}</span></div>
+        <div class="mychar-stat"><span class="mychar-stat-label">Zuletzt online</span><span class="mychar-stat-value">${escapeHtml(lastSeen || '—')}</span></div>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm mychar-refresh-btn" data-mychar-refresh="${c.id}">Aktualisieren</button>`;
+    }
+
+    return `<div class="mychar-card" style="border-top-color:${accentColor}" data-mychar-card="${c.id}">
+      <div class="mychar-card-head">
+        <div class="mychar-card-name">${escapeHtml(c.name)}${c.isMain ? ' <span class="mychar-main-badge">★ Hauptcharakter</span>' : ''}</div>
+        <div class="mychar-card-realm">${escapeHtml(c.realmSlug)}</div>
+      </div>
+      ${bodyHtml}
+      <a class="mychar-armory-link" href="${armoryLink}" target="_blank" rel="noopener noreferrer">Im Armory ansehen ↗</a>
+    </div>`;
+  }
+
+  function wireMycharCardButtons(){
+    els.mycharList.querySelectorAll('[data-mychar-refresh]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!discordIdentity) return;
+        const profile = (state.characterProfiles || {})[discordIdentity.id];
+        const c = profile && profile.characters.find(x => x.id === btn.getAttribute('data-mychar-refresh'));
+        if (!c) return;
+        btn.disabled = true;
+        btn.textContent = 'Lädt…';
+        await fetchArmoryCharacter(c.realmSlug, c.name, { force: true });
+        if (currentPage === 'mychar') renderMyCharactersPage();
+      });
+    });
+  }
+
+  async function renderMyCharactersPage(){
+    const loggedOut = !discordIdentity;
+    els.mycharLoggedOut.classList.toggle('hidden', !loggedOut);
+    els.mycharLoggedIn.classList.toggle('hidden', loggedOut);
+    if (loggedOut) return;
+    const profile = (state.characterProfiles || {})[discordIdentity.id];
+    const characters = (profile && profile.characters) || [];
+    if (!characters.length){
+      els.mycharList.innerHTML = `<div class="lootlib-note">Du hast noch keine Charaktere hinterlegt. Über "Charaktere verwalten" oben kannst du welche hinzufügen.</div>`;
+      return;
+    }
+    els.mycharList.innerHTML = characters.map(mycharCardHtml).join('');
+    wireMycharCardButtons();
+    // Auto-fetch anything not already cached — a member's own character
+    // list is small, so fetching all of it on page-open is cheap, and
+    // means they see live data without an extra click.
+    const toFetch = characters.filter(c => !armoryCache[characterProfileCacheKey(c.realmSlug, c.name)]);
+    if (toFetch.length){
+      await Promise.all(toFetch.map(c => fetchArmoryCharacter(c.realmSlug, c.name)));
+      if (currentPage === 'mychar'){
+        els.mycharList.innerHTML = characters.map(mycharCardHtml).join('');
+        wireMycharCardButtons();
+      }
+    }
+  }
+
+  els.mycharLoginBtn.addEventListener('click', () => startDiscordLogin());
+  els.mycharManageBtn.addEventListener('click', () => openCharacterModal());
+  els.mycharRefreshAllBtn.addEventListener('click', async () => {
+    if (!discordIdentity) return;
+    const profile = (state.characterProfiles || {})[discordIdentity.id];
+    const characters = (profile && profile.characters) || [];
+    if (!characters.length) return;
+    els.mycharRefreshAllBtn.disabled = true;
+    els.mycharRefreshAllBtn.textContent = 'Lädt…';
+    await Promise.all(characters.map(c => fetchArmoryCharacter(c.realmSlug, c.name, { force: true })));
+    els.mycharRefreshAllBtn.disabled = false;
+    els.mycharRefreshAllBtn.textContent = 'Alle aktualisieren';
+    if (currentPage === 'mychar') renderMyCharactersPage();
   });
 
   // Shared "who voted for this bar" modal — used by both the general
@@ -4522,26 +4710,40 @@
     const canSee = isOfficerOrAdmin();
     els.foreverOfficerTableCard.classList.toggle('hidden', !canSee);
     if (!canSee) return;
-    const entries = Object.values(state.foreverSurvey || {}).filter(e => e && Array.isArray(e.picks) && e.picks.length);
+    // Object.entries (not .values) — the uid is needed to look up a
+    // saved nickname from characterProfiles for the "Nickname (Discord)"
+    // display.
+    const entries = Object.entries(state.foreverSurvey || {})
+      .filter(([, e]) => e && Array.isArray(e.picks) && e.picks.length)
+      .map(([uid, e]) => ({ uid, ...e }));
     if (!entries.length){
       els.foreverOfficerTable.innerHTML = '<tr><td class="lootlib-note">Noch keine Stimmen.</td></tr>';
       return;
     }
-    entries.sort((a, b) => (a.username || '').localeCompare(b.username || '', 'de', { sensitivity: 'base' }));
+    const memberLabel = (e) => {
+      const profile = (state.characterProfiles || {})[e.uid];
+      const username = e.username || 'Unbekannt';
+      return (profile && profile.nickname) ? `${profile.nickname} (${username})` : username;
+    };
+    entries.sort((a, b) => memberLabel(a).localeCompare(memberLabel(b), 'de', { sensitivity: 'base' }));
     const pickLabel = (p) => {
+      if (!p) return '—';
       const cls = CLASS_MAP[p.classId];
       return `${cls ? cls.label : p.classId} (${foreverSpecLabel(p.classId, p.spec)})`;
     };
     const rowsHtml = entries.map(e => {
-      const picksText = e.picks.map(pickLabel).join(', ');
-      const firstText = e.firstPick ? pickLabel(e.firstPick) : (e.picks[0] ? pickLabel(e.picks[0]) : '—');
+      const first = e.firstPick || e.picks[0];
+      // "Second Char" is simply whichever of the (at most 2) picks isn't
+      // the first one — blank when there's only a single pick, since
+      // there's nothing to show there.
+      const second = e.picks.find(p => foreverPickKey(p) !== foreverPickKey(first)) || null;
       return `<tr>
-        <td>${escapeHtml(e.username || 'Unbekannt')}</td>
-        <td>${escapeHtml(picksText)}</td>
-        <td>${escapeHtml(firstText)}</td>
+        <td>${escapeHtml(memberLabel(e))}</td>
+        <td>${escapeHtml(pickLabel(first))}</td>
+        <td>${escapeHtml(second ? pickLabel(second) : '—')}</td>
       </tr>`;
     }).join('');
-    els.foreverOfficerTable.innerHTML = `<thead><tr><th>Mitglied</th><th>Klasse(n) &amp; Spezialisierung(en)</th><th>First Char</th></tr></thead><tbody>${rowsHtml}</tbody>`;
+    els.foreverOfficerTable.innerHTML = `<thead><tr><th>Mitglied</th><th>First Char</th><th>Second Char</th></tr></thead><tbody>${rowsHtml}</tbody>`;
   }
 
   // Keeps foreverFirstPickIndex pointing at a real entry in foreverDraft
@@ -5137,6 +5339,10 @@
     renderAnnouncementsView();
     renderRecruitTeaser();
     renderRecruitView();
+    // Lazy like the Talent Builder page — only (re)rendered while actually
+    // open, but on every state change while open, since it shows live data
+    // (own characterProfiles can change from "Meine Charaktere verwalten").
+    if (currentPage === 'mychar') renderMyCharactersPage();
   }
 
   function getByPath(obj, path){

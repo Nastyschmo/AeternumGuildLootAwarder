@@ -191,6 +191,7 @@
   }
   .access-popover-title{ font-family: 'Cinzel', serif; color: var(--gold-bright); font-size: 13px; margin-bottom: 4px; word-break: break-word; }
   .access-popover-sub{ font-size: 11.5px; color: var(--text-muted); margin-bottom: 12px; }
+  .access-popover-characters{ font-size: 11px; color: var(--teal-bright); margin: -6px 0 12px; }
   .access-popover .btn-block{ margin-top: 6px; }
 
   .access-modal{
@@ -204,12 +205,51 @@
   .access-modal-header{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
   .access-modal-header h2{ color: var(--gold-bright); font-size: 18px; margin: 0; }
   .access-modal-note{ font-size: 12.5px; color: var(--text-muted); margin: 0 0 14px; line-height: 1.5; }
-  .access-member-row{ display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--border-soft); }
-  .access-member-row:last-child{ border-bottom: none; }
+  .access-role-group{ margin-bottom: 6px; }
+  .access-role-group:last-child{ margin-bottom: 0; }
+  .access-role-group-head{
+    font-family: 'Cinzel', serif; font-size: 11.5px; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--gold-bright); padding: 10px 4px 4px; border-bottom: 1px solid var(--gold);
+  }
+  .access-role-group-count{ color: var(--text-muted); font-family: 'Karla', sans-serif; letter-spacing: 0; text-transform: none; font-size: 11px; }
+  .access-member-block{ padding: 8px 0; border-bottom: 1px solid var(--border-soft); }
+  .access-member-block:last-child{ border-bottom: none; }
+  .access-member-row{ display: flex; align-items: center; gap: 10px; padding: 0 4px; }
   .access-member-avatar{ width: 28px; height: 28px; border-radius: 50%; flex: none; background: var(--bg-panel-raised); }
   .access-member-name{ flex: 1; min-width: 0; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .access-member-nickname{ font-weight: 400; color: var(--text-muted); }
   .access-member-role-select{ width: auto; font-size: 12px; padding: 4px 8px; }
   .access-member-role-select:disabled{ opacity: 0.55; cursor: not-allowed; }
+  .access-member-characters-row{ display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 4px 0 42px; }
+  .access-member-characters-empty{ font-size: 11.5px; color: var(--text-muted); font-style: italic; }
+  .access-member-armory-refresh{ font-size: 11px; padding: 2px 8px; }
+
+  /* Character chips — shared between Manage access and Bewerbungen. */
+  .character-chips{ display: flex; flex-wrap: wrap; gap: 6px; }
+  .character-chip{
+    display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px;
+    background: var(--bg-panel-raised); border: 1px solid var(--border-soft); border-radius: 20px;
+    padding: 3px 10px; color: var(--text);
+  }
+  .character-chip-main{ border-color: var(--gold); color: var(--gold-bright); }
+  .character-chip-realm{ color: var(--text-muted); font-size: 10.5px; }
+  .character-chip-meta{ color: var(--teal-bright); font-size: 10.5px; }
+  .character-chip-meta-error{ color: var(--text-muted); font-style: italic; }
+
+  /* "Meine Charaktere verwalten" composer. */
+  .character-composer-row{
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    padding: 8px 0; border-bottom: 1px solid var(--border-soft);
+  }
+  .character-composer-row:last-child{ border-bottom: none; }
+  .character-composer-name{ flex: 1 1 140px; min-width: 0; }
+  .character-composer-realm{ flex: 1 1 100px; min-width: 0; }
+  .character-composer-main-label{ display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+  .character-composer-list{ margin: 4px 0 12px; }
+
+  .application-characters{ margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-soft); }
+  .application-characters strong{ display: block; margin-bottom: 6px; font-size: 12.5px; }
+  .application-characters .character-chips{ margin-bottom: 8px; }
 
   /* ---------- Hero: painterly floating-castle vista, provided by the guild
      (cropped to remove the foreground balcony) — used as the hero backdrop
@@ -475,7 +515,18 @@
   }
   .forever-pick-chip button{ background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
   .forever-pick-chip button:hover{ color: var(--danger-bright); }
+  .forever-pick-chip-first{ box-shadow: 0 0 0 1px var(--gold) inset; }
+  .forever-firstpick-hint{ flex-basis: 100%; font-size: 12px; color: var(--text-muted); margin-bottom: 2px; }
+  .forever-firstpick-label{ display: flex; align-items: center; gap: 3px; font-size: 11px; color: var(--text-muted); white-space: nowrap; cursor: pointer; }
+  .forever-firstpick-label input{ margin: 0; }
+  .forever-firstpick-badge{ font-size: 11px; color: var(--gold-bright); white-space: nowrap; }
   .forever-actions{ display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+  .forever-officer-table-wrap{ overflow-x: auto; }
+  .forever-officer-table{ width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .forever-officer-table th{ text-align: left; padding: 6px 10px; color: var(--gold-bright); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .forever-officer-table td{ padding: 8px 10px; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
+  .forever-officer-table tbody tr:last-child td{ border-bottom: none; }
+  .forever-officer-table tbody tr:hover td{ background: rgba(240,207,107,0.05); }
   .forever-ov-row{ padding: 12px 0; border-bottom: 1px solid var(--border); }
   .forever-ov-row:last-child{ border-bottom: none; }
   .forever-ov-row-head{ display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
@@ -1037,6 +1088,13 @@
                     <div class="tac-card-title">Gilden-Übersicht — Klassen &amp; Spezialisierungen gesamt</div>
                     <div class="tac-card-note">Aggregiert über alle, die bisher abgestimmt haben. Nützlich, um Lücken (z.B. zu wenige Tanks oder Heiler) für künftiges Recruiting zu erkennen. Fahr mit der Maus über ein Balkensegment, um zu sehen, wer dort abgestimmt hat.</div>
                     <div id="foreverOverview"></div>
+                  </div>
+                  <div class="tac-card hidden" id="foreverOfficerTableCard">
+                    <div class="tac-card-title">Stimmen im Detail — pro Mitglied</div>
+                    <div class="tac-card-note">Nur für Admins/Offiziere sichtbar. Zeigt, wer welche Klasse(n)/Spezialisierung(en) ausgewählt hat, und welche davon zuerst auf Max-Level gebracht wird.</div>
+                    <div class="forever-officer-table-wrap">
+                      <table class="forever-officer-table" id="foreverOfficerTable"></table>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2470,6 +2528,10 @@
     state.discordRoles[discordId].role = role;
     if (discordIdentity && discordIdentity.id === discordId) currentRole = role;
     renderAll();
+    // Manage access groups members by role — re-render it too (if open) so
+    // someone whose role just changed visibly moves to their new group
+    // instead of staying in the old one until the modal is reopened.
+    if (!els.accessModal.classList.contains('hidden')) renderAccessModal();
     await saveData('discordRoles/' + discordId);
   }
 
@@ -2618,6 +2680,9 @@
   // Defensive coercion for one user's survey entry — re-validates every
   // field on every load (Firebase drops empty arrays, and a class/spec
   // pairing that was valid once could become stale if this map changes).
+  function foreverPickKey(p){
+    return p ? p.classId + '|' + p.spec : '';
+  }
   function normalizeForeverEntry(entry){
     const username = (entry && typeof entry.username === 'string') ? entry.username : '';
     const rawPicks = (entry && Array.isArray(entry.picks)) ? entry.picks : [];
@@ -2637,7 +2702,20 @@
       seen.add(key);
       picks.push({ classId: p.classId, spec });
     }
-    return { username, picks };
+    // "First Char" — which of this member's picks they intend to level to
+    // max first. Falls back to the only pick when there's just one (an
+    // unambiguous "first" already), otherwise to the first pick in list
+    // order if nothing valid was stored — a member with picks always has
+    // *some* answer here, even before this feature existed.
+    let firstPick = (entry && entry.firstPick && typeof entry.firstPick.classId === 'string' && typeof entry.firstPick.spec === 'string')
+      ? { classId: entry.firstPick.classId, spec: entry.firstPick.spec }
+      : null;
+    if (!picks.length){
+      firstPick = null;
+    } else if (!firstPick || !picks.some(p => foreverPickKey(p) === foreverPickKey(firstPick))){
+      firstPick = { classId: picks[0].classId, spec: picks[0].spec };
+    }
+    return { username, picks, firstPick };
   }
 
   function defaultState(){
@@ -3002,6 +3080,7 @@
 
   let state = defaultState();
   let foreverDraft = null; // null = not yet initialized from saved data this session
+  let foreverFirstPickIndex = 0; // index into foreverDraft — which pick is "wird zuerst gespielt" (First Char)
   let pollComposerOptionDrafts = ['', '']; // composer's in-progress option text inputs, always >= POLL_MIN_OPTIONS
   let pollVoteDrafts = {}; // { [pollId]: [optionId, ...] } — per-poll in-progress selection before "Absenden"
   let pollCardManualOpen = {}; // { [pollId]: true|false } — same collapse-override convention as votings/announcements
@@ -3035,8 +3114,17 @@
     accessPopoverRole: document.getElementById('accessPopoverRole'),
     accessManageBtn: document.getElementById('accessManageBtn'),
     accessLogoutBtn: document.getElementById('accessLogoutBtn'),
+    accessPopoverCharacters: document.getElementById('accessPopoverCharacters'),
+    accessCharactersBtn: document.getElementById('accessCharactersBtn'),
     accessModal: document.getElementById('accessModal'),
     accessModalCloseBtn: document.getElementById('accessModalCloseBtn'),
+    characterModal: document.getElementById('characterModal'),
+    characterModalCloseBtn: document.getElementById('characterModalCloseBtn'),
+    characterNicknameInput: document.getElementById('characterNicknameInput'),
+    characterComposerList: document.getElementById('characterComposerList'),
+    characterAddBtn: document.getElementById('characterAddBtn'),
+    characterSaveBtn: document.getElementById('characterSaveBtn'),
+    characterSaveStatus: document.getElementById('characterSaveStatus'),
     voteDetailsModal: document.getElementById('voteDetailsModal'),
     voteDetailsModalTitle: document.getElementById('voteDetailsModalTitle'),
     voteDetailsModalSubtitle: document.getElementById('voteDetailsModalSubtitle'),
@@ -3062,6 +3150,8 @@
     foreverSaveBtn: document.getElementById('foreverSaveBtn'),
     foreverSaveStatus: document.getElementById('foreverSaveStatus'),
     foreverOverview: document.getElementById('foreverOverview'),
+    foreverOfficerTableCard: document.getElementById('foreverOfficerTableCard'),
+    foreverOfficerTable: document.getElementById('foreverOfficerTable'),
     announceLoggedOut: document.getElementById('announceLoggedOut'),
     announceNoAccess: document.getElementById('announceNoAccess'),
     announceLoggedIn: document.getElementById('announceLoggedIn'),
@@ -3328,9 +3418,18 @@
     els.accessControlWrap.classList.toggle('hidden', !loggedIn);
     if (!loggedIn) return;
     const roleLabel = (ACCESS_ROLES[currentRole] || ACCESS_ROLES.community).label;
-    els.accessBadge.textContent = discordIdentity.username;
-    els.accessPopoverName.textContent = discordIdentity.username;
-    els.accessPopoverRole.textContent = roleLabel;
+    const myProfile = (state.characterProfiles || {})[discordIdentity.id];
+    const displayName = (myProfile && myProfile.nickname) ? myProfile.nickname : discordIdentity.username;
+    els.accessBadge.textContent = displayName;
+    els.accessPopoverName.textContent = displayName;
+    els.accessPopoverRole.textContent = roleLabel + ((myProfile && myProfile.nickname) ? ' · ' + discordIdentity.username : '');
+    const mainChar = mainCharacterOf(myProfile);
+    if (mainChar){
+      els.accessPopoverCharacters.textContent = 'Hauptcharakter: ' + mainChar.name;
+      els.accessPopoverCharacters.classList.remove('hidden');
+    } else {
+      els.accessPopoverCharacters.classList.add('hidden');
+    }
     const avatarUrl = discordAvatarUrl(discordIdentity);
     if (avatarUrl){
       els.accessAvatarImg.src = avatarUrl;
@@ -3352,6 +3451,43 @@
   });
   els.accessLogoutBtn.addEventListener('click', () => logoutDiscord());
 
+  // ---------------------------------------------------------------------
+  // Character chip rendering — shared between Manage access and the
+  // Bewerbungen review view, so a member's characters look/behave the
+  // same in both places. Shows cached live Armory data (class/level/item
+  // level) when available; otherwise just the name/realm the member typed
+  // in themselves.
+  // ---------------------------------------------------------------------
+  function characterChipHtml(char){
+    const cached = armoryCache[characterProfileCacheKey(char.realmSlug, char.name)];
+    let meta = '';
+    if (cached && cached.result){
+      if (cached.result.found){
+        const c = cached.result.character;
+        const cls = c.classKey ? CLASS_MAP[c.classKey] : null;
+        const bits = [c.className || (cls ? cls.label : null), (c.level != null ? 'Lvl ' + c.level : null), (c.itemLevel ? c.itemLevel + ' ilvl' : null)].filter(Boolean);
+        meta = ` <span class="character-chip-meta"${cls ? ` style="color:${cls.color}"` : ''}>· ${escapeHtml(bits.join(' · '))}</span>`;
+      } else {
+        meta = ` <span class="character-chip-meta character-chip-meta-error">· Armory: nicht geladen</span>`;
+      }
+    }
+    return `<span class="character-chip${char.isMain ? ' character-chip-main' : ''}">${char.isMain ? '★ ' : ''}${escapeHtml(char.name)} <span class="character-chip-realm">(${escapeHtml(char.realmSlug)})</span>${meta}</span>`;
+  }
+
+  function characterBlockHtml(uid){
+    const profile = (state.characterProfiles || {})[uid];
+    if (!profile || !profile.characters || !profile.characters.length){
+      return { chipsHtml: '<span class="access-member-characters-empty">Keine Charaktere hinterlegt</span>', hasCharacters: false };
+    }
+    return { chipsHtml: profile.characters.map(characterChipHtml).join(''), hasCharacters: true };
+  }
+
+  async function refreshMemberArmoryData(uid){
+    const profile = (state.characterProfiles || {})[uid];
+    if (!profile || !profile.characters || !profile.characters.length) return;
+    await Promise.all(profile.characters.map(c => fetchArmoryCharacter(c.realmSlug, c.name, { force: true })));
+  }
+
   function renderAccessModal(){
     const roles = state.discordRoles || {};
     const ids = Object.keys(roles);
@@ -3362,19 +3498,56 @@
     const roleOrder = ['admin', 'officer', 'member', 'community'];
     const roleOptHtml = (selected) => roleOrder.map(r =>
       `<option value="${r}" ${r === selected ? 'selected' : ''}>${ACCESS_ROLES[r].label}</option>`).join('');
-    els.accessMemberList.innerHTML = ids.map(id => {
+    // A member's nickname (if set) is what they're sorted/displayed by
+    // first — matches how they show up everywhere else on the page — with
+    // the Discord username as a fallback and a case/locale-insensitive
+    // comparison so "ä"/"a" etc. sort where a German speaker expects.
+    const sortName = (id) => {
+      const profile = (state.characterProfiles || {})[id];
+      return (profile && profile.nickname) ? profile.nickname : ((roles[id] && roles[id].username) || '');
+    };
+    const memberRowHtml = (id) => {
       const m = roles[id];
       const isSelf = id === (discordIdentity && discordIdentity.id);
       const avatarUrl = m.avatar ? `https://cdn.discordapp.com/avatars/${id}/${m.avatar}.png?size=64` : null;
+      const profile = (state.characterProfiles || {})[id];
+      const nickHtml = (profile && profile.nickname) ? ` <span class="access-member-nickname">"${escapeHtml(profile.nickname)}"</span>` : '';
+      const { chipsHtml, hasCharacters } = characterBlockHtml(id);
       return `
-        <div class="access-member-row">
-          ${avatarUrl ? `<img class="access-member-avatar" src="${avatarUrl}" alt="" />` : `<span class="access-member-avatar"></span>`}
-          <span class="access-member-name">${escapeHtml(m.username || 'Unknown')}${isSelf ? ' (you)' : ''}</span>
-          <select class="access-member-role-select" data-discord-id="${id}" ${isSelf ? 'disabled title="You can\'t change your own role — ask another Admin, or use a second Discord account."' : ''}>${roleOptHtml(m.role)}</select>
+        <div class="access-member-block">
+          <div class="access-member-row">
+            ${avatarUrl ? `<img class="access-member-avatar" src="${avatarUrl}" alt="" />` : `<span class="access-member-avatar"></span>`}
+            <span class="access-member-name">${escapeHtml(m.username || 'Unknown')}${nickHtml}${isSelf ? ' (you)' : ''}</span>
+            <select class="access-member-role-select" data-discord-id="${id}" ${isSelf ? 'disabled title="You can\'t change your own role — ask another Admin, or use a second Discord account."' : ''}>${roleOptHtml(m.role)}</select>
+          </div>
+          <div class="access-member-characters-row">
+            <div class="character-chips">${chipsHtml}</div>
+            ${hasCharacters ? `<button type="button" class="btn btn-ghost btn-sm access-member-armory-refresh" data-refresh-armory="${id}">Aktualisieren</button>` : ''}
+          </div>
         </div>`;
+    };
+    // Grouped by role (Admin → Offi → Guild Member → Community) so the
+    // list reads as "who has which access" at a glance, alphabetical
+    // within each group instead of registration/login order.
+    els.accessMemberList.innerHTML = roleOrder.map(role => {
+      const idsInRole = ids.filter(id => (roles[id].role || 'community') === role);
+      if (!idsInRole.length) return '';
+      idsInRole.sort((a, b) => sortName(a).localeCompare(sortName(b), 'de', { sensitivity: 'base' }));
+      return `<div class="access-role-group">
+        <div class="access-role-group-head">${escapeHtml(ACCESS_ROLES[role].label)} <span class="access-role-group-count">(${idsInRole.length})</span></div>
+        ${idsInRole.map(memberRowHtml).join('')}
+      </div>`;
     }).join('');
     els.accessMemberList.querySelectorAll('.access-member-role-select:not([disabled])').forEach(sel => {
       sel.addEventListener('change', (e) => setDiscordUserRole(sel.getAttribute('data-discord-id'), e.target.value));
+    });
+    els.accessMemberList.querySelectorAll('[data-refresh-armory]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = 'Lädt…';
+        await refreshMemberArmoryData(btn.getAttribute('data-refresh-armory'));
+        renderAccessModal();
+      });
     });
   }
 
@@ -3386,6 +3559,111 @@
   els.accessModalCloseBtn.addEventListener('click', () => els.accessModal.classList.add('hidden'));
   els.accessModal.addEventListener('click', (e) => {
     if (e.target === els.accessModal) els.accessModal.classList.add('hidden');
+  });
+
+  // ---------------------------------------------------------------------
+  // "Meine Charaktere verwalten" — the composer a member uses to set a
+  // nickname and add/remove their own characters (one marked
+  // Hauptcharakter). In-progress edits live only in characterComposerDraft
+  // until "Speichern" writes them to characterProfiles/<uid>.
+  // ---------------------------------------------------------------------
+  let characterComposerDraft = null;
+
+  function openCharacterModal(){
+    if (!discordIdentity) return;
+    const existing = (state.characterProfiles || {})[discordIdentity.id];
+    characterComposerDraft = existing
+      ? { nickname: existing.nickname, characters: existing.characters.map(c => Object.assign({}, c)) }
+      : { nickname: '', characters: [] };
+    if (!characterComposerDraft.characters.length){
+      characterComposerDraft.characters.push({ id: nextCharacterProfileId(), name: '', realmSlug: DEFAULT_REALM_SLUG, isMain: true });
+    }
+    els.characterNicknameInput.value = characterComposerDraft.nickname || '';
+    els.characterSaveStatus.textContent = '';
+    els.characterSaveStatus.className = 'armory-status';
+    renderCharacterComposer();
+    els.accessPopover.classList.add('hidden');
+    els.characterModal.classList.remove('hidden');
+  }
+
+  function renderCharacterComposer(){
+    if (!characterComposerDraft) return;
+    els.characterComposerList.innerHTML = characterComposerDraft.characters.map(c => `
+      <div class="character-composer-row" data-character-row="${c.id}">
+        <input type="text" class="apply-text-input character-composer-name" data-character-field="name" data-character-id="${c.id}" maxlength="24" placeholder="Charaktername" value="${escapeHtml(c.name)}">
+        <input type="text" class="apply-text-input character-composer-realm" data-character-field="realmSlug" data-character-id="${c.id}" maxlength="40" placeholder="Realm" value="${escapeHtml(c.realmSlug)}">
+        <label class="character-composer-main-label">
+          <input type="radio" name="characterComposerMain" data-character-id="${c.id}" ${c.isMain ? 'checked' : ''}> Hauptcharakter
+        </label>
+        <button type="button" class="btn btn-ghost btn-sm" data-remove-character="${c.id}" ${characterComposerDraft.characters.length <= 1 ? 'disabled' : ''}>Entfernen</button>
+      </div>`).join('');
+    els.characterComposerList.querySelectorAll('[data-character-field]').forEach(input => {
+      input.addEventListener('input', () => {
+        const row = characterComposerDraft.characters.find(c => c.id === input.getAttribute('data-character-id'));
+        if (row) row[input.getAttribute('data-character-field')] = input.value;
+      });
+    });
+    els.characterComposerList.querySelectorAll('input[name="characterComposerMain"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const targetId = radio.getAttribute('data-character-id');
+        characterComposerDraft.characters.forEach(c => { c.isMain = (c.id === targetId); });
+      });
+    });
+    els.characterComposerList.querySelectorAll('[data-remove-character]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (characterComposerDraft.characters.length <= 1) return;
+        const id = btn.getAttribute('data-remove-character');
+        const removed = characterComposerDraft.characters.find(c => c.id === id);
+        characterComposerDraft.characters = characterComposerDraft.characters.filter(c => c.id !== id);
+        if (removed && removed.isMain && characterComposerDraft.characters.length) characterComposerDraft.characters[0].isMain = true;
+        renderCharacterComposer();
+      });
+    });
+    els.characterAddBtn.disabled = characterComposerDraft.characters.length >= CHARACTER_PROFILE_MAX_CHARACTERS;
+  }
+
+  els.characterAddBtn.addEventListener('click', () => {
+    if (!characterComposerDraft || characterComposerDraft.characters.length >= CHARACTER_PROFILE_MAX_CHARACTERS) return;
+    characterComposerDraft.characters.push({ id: nextCharacterProfileId(), name: '', realmSlug: DEFAULT_REALM_SLUG, isMain: false });
+    renderCharacterComposer();
+  });
+
+  async function saveCharacterProfile(){
+    if (!discordIdentity || !characterComposerDraft) return;
+    const cleanedCharacters = characterComposerDraft.characters
+      .map(c => ({ id: c.id, name: (c.name || '').trim(), realmSlug: (c.realmSlug || DEFAULT_REALM_SLUG).trim().toLowerCase() || DEFAULT_REALM_SLUG, isMain: !!c.isMain }))
+      .filter(c => c.name);
+    const previous = state.characterProfiles[discordIdentity.id];
+    state.characterProfiles[discordIdentity.id] = normalizeCharacterProfile({
+      nickname: els.characterNicknameInput.value,
+      characters: cleanedCharacters
+    });
+    els.characterSaveStatus.textContent = 'Saving…';
+    els.characterSaveStatus.className = 'armory-status';
+    const ok = await saveData('characterProfiles/' + discordIdentity.id);
+    if (ok){
+      els.characterSaveStatus.textContent = 'Gespeichert!';
+      els.characterSaveStatus.className = 'armory-status armory-status-ok';
+      applyAccessControl();
+      setTimeout(() => {
+        if (els.characterSaveStatus.textContent === 'Gespeichert!'){
+          els.characterSaveStatus.textContent = '';
+          els.characterModal.classList.add('hidden');
+        }
+      }, 900);
+    } else {
+      if (previous) state.characterProfiles[discordIdentity.id] = previous;
+      else delete state.characterProfiles[discordIdentity.id];
+      els.characterSaveStatus.textContent = 'Konnte nicht speichern — Firebase-Regeln prüfen (siehe README)';
+      els.characterSaveStatus.className = 'armory-status armory-status-error';
+    }
+  }
+
+  els.accessCharactersBtn.addEventListener('click', () => openCharacterModal());
+  els.characterSaveBtn.addEventListener('click', () => saveCharacterProfile());
+  els.characterModalCloseBtn.addEventListener('click', () => els.characterModal.classList.add('hidden'));
+  els.characterModal.addEventListener('click', (e) => {
+    if (e.target === els.characterModal) els.characterModal.classList.add('hidden');
   });
 
   // Shared "who voted for this bar" modal — used by both the general
@@ -4225,10 +4503,53 @@
     if (foreverDraft === null){
       const saved = foreverSavedEntry();
       foreverDraft = saved ? saved.picks.map(p => ({ classId: p.classId, spec: p.spec })) : [];
+      foreverFirstPickIndex = 0;
+      if (saved && saved.firstPick){
+        const idx = foreverDraft.findIndex(p => p.classId === saved.firstPick.classId && p.spec === saved.firstPick.spec);
+        if (idx >= 0) foreverFirstPickIndex = idx;
+      }
     }
     renderForeverPicksChips();
     renderForeverClassPicker();
     renderForeverOverview();
+    renderForeverOfficerTable();
+  }
+
+  // Officers/Admins only — a flat per-member table (not just the aggregate
+  // bars above) so they can see exactly who picked what, and which of a
+  // member's picks they intend to level to max first.
+  function renderForeverOfficerTable(){
+    const canSee = isOfficerOrAdmin();
+    els.foreverOfficerTableCard.classList.toggle('hidden', !canSee);
+    if (!canSee) return;
+    const entries = Object.values(state.foreverSurvey || {}).filter(e => e && Array.isArray(e.picks) && e.picks.length);
+    if (!entries.length){
+      els.foreverOfficerTable.innerHTML = '<tr><td class="lootlib-note">Noch keine Stimmen.</td></tr>';
+      return;
+    }
+    entries.sort((a, b) => (a.username || '').localeCompare(b.username || '', 'de', { sensitivity: 'base' }));
+    const pickLabel = (p) => {
+      const cls = CLASS_MAP[p.classId];
+      return `${cls ? cls.label : p.classId} (${foreverSpecLabel(p.classId, p.spec)})`;
+    };
+    const rowsHtml = entries.map(e => {
+      const picksText = e.picks.map(pickLabel).join(', ');
+      const firstText = e.firstPick ? pickLabel(e.firstPick) : (e.picks[0] ? pickLabel(e.picks[0]) : '—');
+      return `<tr>
+        <td>${escapeHtml(e.username || 'Unbekannt')}</td>
+        <td>${escapeHtml(picksText)}</td>
+        <td>${escapeHtml(firstText)}</td>
+      </tr>`;
+    }).join('');
+    els.foreverOfficerTable.innerHTML = `<thead><tr><th>Mitglied</th><th>Klasse(n) &amp; Spezialisierung(en)</th><th>First Char</th></tr></thead><tbody>${rowsHtml}</tbody>`;
+  }
+
+  // Keeps foreverFirstPickIndex pointing at a real entry in foreverDraft
+  // after any add/remove — called after every mutation instead of trying
+  // to track it precisely inline everywhere.
+  function foreverClampFirstPickIndex(){
+    if (!foreverDraft.length){ foreverFirstPickIndex = 0; return; }
+    if (foreverFirstPickIndex < 0 || foreverFirstPickIndex >= foreverDraft.length) foreverFirstPickIndex = 0;
   }
 
   function renderForeverPicksChips(){
@@ -4236,18 +4557,38 @@
       els.foreverMyPicks.innerHTML = `<div class="lootlib-note">Noch keine Klasse gewählt — wähle unten bis zu ${FOREVER_MAX_PICKS}.</div>`;
       return;
     }
-    els.foreverMyPicks.innerHTML = foreverDraft.map((p, i) => {
+    foreverClampFirstPickIndex();
+    // "First Char" only needs an explicit choice once there's more than one
+    // pick — with a single pick, it's unambiguously the first one, shown
+    // as a quiet ★ badge instead of a redundant radio control.
+    const showFirstPicker = foreverDraft.length > 1;
+    const hintHtml = showFirstPicker ? `<div class="forever-firstpick-hint">Welche Klasse/Spezialisierung bringst du zuerst auf Max-Level?</div>` : '';
+    els.foreverMyPicks.innerHTML = hintHtml + foreverDraft.map((p, i) => {
       const cls = CLASS_MAP[p.classId];
       const specLabel = foreverSpecLabel(p.classId, p.spec);
-      return `<span class="forever-pick-chip" style="border-color:${cls.color}">
+      const isFirst = i === foreverFirstPickIndex;
+      const firstMarkupHtml = showFirstPicker
+        ? `<label class="forever-firstpick-label" title="Als First Char markieren">
+             <input type="radio" name="foreverFirstPick" data-first-pick-index="${i}" ${isFirst ? 'checked' : ''}> First Char
+           </label>`
+        : `<span class="forever-firstpick-badge" title="First Char">★ First Char</span>`;
+      return `<span class="forever-pick-chip ${isFirst ? 'forever-pick-chip-first' : ''}" style="border-color:${cls.color}">
         <span class="forever-class-dot" style="background:${cls.color}"></span>
         ${escapeHtml(cls.label)} — ${escapeHtml(specLabel)}
+        ${firstMarkupHtml}
         <button type="button" data-remove-index="${i}" title="Remove">✕</button>
       </span>`;
     }).join('');
     els.foreverMyPicks.querySelectorAll('[data-remove-index]').forEach(btn => {
       btn.addEventListener('click', () => {
         foreverRemovePick(Number(btn.getAttribute('data-remove-index')));
+      });
+    });
+    els.foreverMyPicks.querySelectorAll('[data-first-pick-index]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        if (isVotingClosed('forever')) { renderForeverPicksChips(); return; }
+        foreverFirstPickIndex = Number(radio.getAttribute('data-first-pick-index'));
+        renderForeverPicksChips();
       });
     });
   }
@@ -4304,6 +4645,7 @@
         const availableSpecs = foreverSpecsForClass(classId).map(s => s.id).filter(id => !takenSpecs.has(id));
         if (foreverDraft.length >= FOREVER_MAX_PICKS || !availableSpecs.length) return;
         foreverDraft.push({ classId, spec: availableSpecs[0] });
+        foreverClampFirstPickIndex();
         renderForeverPicksChips();
         renderForeverClassPicker();
       }
@@ -4344,16 +4686,22 @@
   function foreverRemovePick(index){
     if (isVotingClosed('forever')) return;
     foreverDraft = foreverDraft.filter((p, i) => i !== index);
+    if (index === foreverFirstPickIndex) foreverFirstPickIndex = 0;
+    else if (index < foreverFirstPickIndex) foreverFirstPickIndex -= 1;
+    foreverClampFirstPickIndex();
     renderForeverPicksChips();
     renderForeverClassPicker();
   }
 
   async function saveForeverPicks(){
     if (!discordIdentity || isVotingClosed('forever')) return;
+    foreverClampFirstPickIndex();
     const previous = state.foreverSurvey[discordIdentity.id];
+    const firstPickEntry = foreverDraft[foreverFirstPickIndex];
     state.foreverSurvey[discordIdentity.id] = {
       username: discordIdentity.username,
-      picks: foreverDraft.map(p => ({ classId: p.classId, spec: p.spec }))
+      picks: foreverDraft.map(p => ({ classId: p.classId, spec: p.spec })),
+      firstPick: firstPickEntry ? { classId: firstPickEntry.classId, spec: firstPickEntry.spec } : null
     };
     els.foreverSaveStatus.textContent = 'Saving…';
     els.foreverSaveStatus.className = 'armory-status';
@@ -4373,6 +4721,7 @@
       els.foreverSaveStatus.className = 'armory-status armory-status-error';
     }
     renderForeverOverview();
+    renderForeverOfficerTable();
   }
 
   function foreverAggregate(){
@@ -4714,9 +5063,22 @@
       const professionsText = Array.isArray(a.professions)
         ? a.professions.map(id => (PROFESSION_MAP[id] ? PROFESSION_MAP[id].label : id)).join(', ')
         : a.professions;
+      // If this applicant has since logged in and set up "Meine
+      // Charaktere", show that saved nickname/character info here too —
+      // officers manage applicants mostly by their in-game/Discord
+      // character names, not their Discord username.
+      const applicantProfile = a.applicantId ? (state.characterProfiles || {})[a.applicantId] : null;
+      const hasApplicantCharacters = !!(applicantProfile && applicantProfile.characters && applicantProfile.characters.length);
+      const applicantCharactersHtml = hasApplicantCharacters
+        ? `<div class="application-characters">
+            <strong>Charaktere:</strong>
+            <div class="character-chips">${applicantProfile.characters.map(characterChipHtml).join('')}</div>
+            <button type="button" class="btn btn-ghost btn-sm access-member-armory-refresh" data-refresh-armory="${a.applicantId}">Aktualisieren</button>
+          </div>`
+        : '';
       return `<div class="application-card">
         <div class="application-card-head">
-          <span class="application-applicant">${escapeHtml(a.applicantName)}</span>
+          <span class="application-applicant">${escapeHtml(a.applicantName)}${applicantProfile && applicantProfile.nickname ? ` <span class="access-member-nickname">"${escapeHtml(applicantProfile.nickname)}"</span>` : ''}</span>
           <span class="application-date">${escapeHtml(dateStr)}</span>
           <button type="button" class="btn btn-ghost btn-sm" data-delete-application="${a.id}">Löschen</button>
         </div>
@@ -4726,10 +5088,19 @@
         ${a.logs ? `<p class="application-logs"><strong>Logs:</strong> ${linkifyEscaped(a.logs)}</p>` : ''}
         <p class="application-professions"><strong>Berufe (Forever):</strong> ${escapeHtml(professionsText)}</p>
         ${a.remarks ? `<p class="application-remarks"><strong>Sonstiges:</strong> ${linkifyEscaped(a.remarks)}</p>` : ''}
+        ${applicantCharactersHtml}
       </div>`;
     }).join('');
     els.applicationsList.querySelectorAll('[data-delete-application]').forEach(btn => {
       btn.addEventListener('click', () => deleteApplication(btn.getAttribute('data-delete-application')));
+    });
+    els.applicationsList.querySelectorAll('[data-refresh-armory]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = 'Lädt…';
+        await refreshMemberArmoryData(btn.getAttribute('data-refresh-armory'));
+        renderApplicationsList();
+      });
     });
   }
 
@@ -4899,6 +5270,7 @@
         try{ localStorage.removeItem(DISCORD_IDENTITY_KEY); }catch(e){}
         discordIdentity = null;
         foreverDraft = null;
+        foreverFirstPickIndex = 0;
         renderAll();
       }
     });

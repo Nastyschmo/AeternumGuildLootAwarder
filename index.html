@@ -312,6 +312,10 @@
   }
   .news-card:hover{ transform: translateY(-3px); border-color: var(--gold); }
   .news-card-link{ cursor: pointer; border-color: var(--gold); }
+  .news-card-placeholder{ border-style: dashed; opacity: 0.65; }
+  .news-card-placeholder:hover{ transform: none; border-color: var(--border-soft); }
+  .news-card-placeholder .news-thumb{ background: var(--bg-panel-raised); font-size: 26px; }
+  .news-card-placeholder .news-body p{ color: var(--text-faint); }
   @media (max-width: 1150px){
     .news-card{ flex-basis: calc((100% - 2 * 18px) / 3); } /* 3 cards */
   }
@@ -713,6 +717,8 @@
     color: var(--text); width: 100%;
   }
   .apply-spec-checkboxes{ display: flex; flex-wrap: wrap; gap: 6px 16px; }
+  .apply-profession-grid{ margin: 4px 0 6px; }
+  .apply-profession-secondary-label{ font-size: 11.5px; color: var(--text-faint); margin: 10px 0 6px; }
 
   .apply-class-picks{ display: flex; flex-direction: column; gap: 10px; margin: 4px 0 6px; }
   .apply-class-pick-row{
@@ -765,6 +771,10 @@
   .application-logs strong, .application-professions strong, .application-namage strong{
     color: var(--text-muted); font-weight: 600;
   }
+  .application-logs a, .application-remarks a, .application-experience a{
+    color: var(--gold-bright); text-decoration: underline; word-break: break-all;
+  }
+  .application-logs a:hover, .application-remarks a:hover, .application-experience a:hover{ color: var(--gold); }
   @media (max-width: 640px){
     .recruit-teaser{ flex-direction: column; align-items: flex-start; }
     .recruit-teaser > .btn{ width: 100%; }
@@ -1136,8 +1146,8 @@
                 <label class="apply-field-label" for="applyLogsInput">Falls vorhanden, poste hier gerne deine Logs.</label>
                 <textarea id="applyLogsInput" class="apply-textarea" rows="2" maxlength="800" placeholder="Links zu Warcraftlogs o.ä. (optional)"></textarea>
 
-                <label class="apply-field-label" for="applyProfessionsInput">Welche Berufe planst du zu TBC zu skillen? *</label>
-                <input type="text" id="applyProfessionsInput" class="apply-text-input" maxlength="200" placeholder="z.B. Bergbau, Schmiedekunst">
+                <label class="apply-field-label">Welche Berufe planst du zu Forever zu skillen? *</label>
+                <div id="applyProfessionsGrid" class="apply-profession-grid"></div>
 
                 <label class="apply-field-label" for="applyRemarksInput">Möchtest du uns sonst noch etwas über dich erzählen? (optional)</label>
                 <textarea id="applyRemarksInput" class="apply-textarea" rows="2" maxlength="1000" placeholder="Alles, was du uns sonst noch mitgeben möchtest…"></textarea>
@@ -1219,10 +1229,23 @@
   // uploaded copy of Blizzard's official logo, see assets/blizzard-logo.jpg.
   const NEWS_BETA_IMAGE = 'assets/blizzard-logo.jpg';
   const NEWS_ITEMS = [
-    { title: 'Klassen-Umfrage ist live', blurb: 'Trag ein, welche Klasse(n) du in WoW: Forever spielen möchtest — hilft uns bei der Recruiting-Planung.', image: NEWS_VOTING_IMAGE, linkPage: 'forever' },
+    { title: 'Klassen-Umfrage ist live', blurb: 'Trag ein, welche Klasse(n) du in WoW: Forever spielen möchtest — hilft uns bei der Recruiting-Planung.', image: NEWS_VOTING_IMAGE, linkPage: 'forever', requiresLogin: true },
     { title: 'Beta-Infos folgen', blurb: 'Wir halten Euch mit wichtigen Infos zur Beta hier am laufenden!', image: NEWS_BETA_IMAGE },
     { title: 'Launch: 4. November 2026', blurb: 'Bis dahin sammeln wir hier wichtige Gildeninterne Informationen, Entscheidungen und Informationen über den Start in die neue alte Welt!', image: NEWS_LAUNCH_IMAGE }
   ];
+  // Shown (cycled, as many as needed) whenever there aren't enough real
+  // news items to fill a full row — keeps the grid looking intentional
+  // instead of lopsided, e.g. when someone's logged out and the
+  // Klassen-Umfrage tile (which needs a login to do anything with) is
+  // hidden for them, or simply before there's much news yet.
+  const NEWS_PLACEHOLDER_ITEMS = [
+    { title: 'Hier ist noch Platz für Neuigkeiten', blurb: 'Vielleicht schon bald mit deiner Heldentat drauf?' },
+    { title: 'Content-Baustelle', blurb: 'Unsere Kobolde arbeiten dran. Bitte etwas Geduld (und Kekse spenden).' },
+    { title: 'Nichts zu sehen hier', blurb: 'Genau wie unser Bankfach vor dem ersten Raid-Loot.' },
+    { title: 'Reserviert für Ruhm', blurb: 'Vielleicht die nächste große Ankündigung? Wer weiß.' },
+    { title: 'Platzhalter Nr. 5', blurb: 'Wenn du das liest, bist du offiziell ein News-Nerd. Respekt.' }
+  ];
+  const NEWS_MIN_CARD_COUNT = 5;
   // Auto-generated "news" tile for the newest Ankündigung — always uses
   // this messenger-goblin artwork plus a short auto-summary of the
   // announcement text. Shown as long as that announcement still exists;
@@ -2350,6 +2373,29 @@
     return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
+  // Escapes text for safe HTML display, then turns any http(s)/www. URLs
+  // in it into real clickable links — used for applicant-submitted text
+  // (logs, remarks, experience) where people paste a bare URL and expect
+  // to click it rather than having to copy/paste it themselves. Trailing
+  // punctuation (a period ending the sentence, a comma, a closing
+  // bracket…) is kept outside the link so it doesn't get swallowed into
+  // the href.
+  function linkifyEscaped(str){
+    const escaped = escapeHtml(str);
+    return escaped.replace(/(https?:\/\/[^\s]+|www\.[^\s]+)/gi, (match) => {
+      let url = match;
+      let trail = '';
+      const trailChars = ['.', ',', '!', '?', ';', ':', ')', ']', '}'];
+      while (url.length && trailChars.includes(url[url.length - 1])){
+        trail = url[url.length - 1] + trail;
+        url = url.slice(0, -1);
+      }
+      if (!url) return match;
+      const href = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>${trail}`;
+    });
+  }
+
   function setStatus(text, isError){
     els.saveStatus.textContent = text;
     els.saveStatus.style.color = isError ? 'var(--danger-bright)' : 'var(--text-faint)';
@@ -2378,6 +2424,28 @@
     { id: 'druid', label: 'Druid', color: '#FF7D0A' }
   ];
   const CLASS_MAP = Object.fromEntries(CLASSES.map(c => [c.id, c]));
+
+  // WoW Classic professions (primary + secondary), German labels, for the
+  // Bewerbung form's profession checkboxes. `primary` is just used to group
+  // them visually in two rows — every profession here is independently
+  // checkable (Classic's "max 2 primary professions" rule isn't enforced
+  // here; an applicant might list more than they'll actually keep, or be
+  // undecided yet).
+  const PROFESSIONS = [
+    { id: 'alchemy', label: 'Alchemie', primary: true },
+    { id: 'blacksmithing', label: 'Schmiedekunst', primary: true },
+    { id: 'enchanting', label: 'Verzauberkunst', primary: true },
+    { id: 'engineering', label: 'Ingenieurskunst', primary: true },
+    { id: 'herbalism', label: 'Kräuterkunde', primary: true },
+    { id: 'leatherworking', label: 'Lederverarbeitung', primary: true },
+    { id: 'mining', label: 'Bergbau', primary: true },
+    { id: 'skinning', label: 'Kürschnerei', primary: true },
+    { id: 'tailoring', label: 'Schneiderei', primary: true },
+    { id: 'first_aid', label: 'Erste Hilfe', primary: false },
+    { id: 'cooking', label: 'Kochkunst', primary: false },
+    { id: 'fishing', label: 'Angeln', primary: false }
+  ];
+  const PROFESSION_MAP = Object.fromEntries(PROFESSIONS.map(p => [p.id, p]));
 
   // Real WoW Classic talent specializations. Spec ids are only ever looked
   // up scoped to their own class (via foreverSpecsForClass /
@@ -2608,11 +2676,24 @@
       picks.push({ classId: p.classId, specs });
     }
     const experience = typeof entry.experience === 'string' ? entry.experience.trim().slice(0, 1500) : '';
-    const professions = typeof entry.professions === 'string' ? entry.professions.trim().slice(0, 200) : '';
+    // Professions used to be a free-text field; now it's a checkbox list of
+    // known PROFESSIONS ids. Keep both shapes readable: a legacy string
+    // (already-submitted real applications) is kept as-is and shown
+    // verbatim, while an array is filtered/deduped against the known
+    // profession ids so a tampered/stale client can't smuggle junk in.
+    let professions;
+    if (Array.isArray(entry.professions)){
+      professions = Array.from(new Set(entry.professions.filter(p => typeof p === 'string' && PROFESSION_MAP[p])));
+    } else if (typeof entry.professions === 'string' && entry.professions.trim()){
+      professions = entry.professions.trim().slice(0, 200); // legacy free-text
+    } else {
+      professions = [];
+    }
+    const hasProfessions = Array.isArray(professions) ? professions.length > 0 : !!professions;
     // At least one class+spec pick, experience and professions are the
     // required questions (marked with * on the form) — anything missing
     // one of these is treated as not a real application.
-    if (!picks.length || !experience || !professions) return null;
+    if (!picks.length || !experience || !hasProfessions) return null;
     const nameAge = typeof entry.nameAge === 'string' ? entry.nameAge.trim().slice(0, 200) : '';
     const logs = typeof entry.logs === 'string' ? entry.logs.trim().slice(0, 800) : '';
     const remarks = typeof entry.remarks === 'string' ? entry.remarks.trim().slice(0, 1000) : '';
@@ -2755,6 +2836,9 @@
   // alt), each entry independently multi-selecting specs via checkboxes.
   // Always has at least one row; resetApplyComposerPicks() restores that.
   let applyComposerPicks = [{ classId: CLASSES[0].id, specs: [] }];
+  // In-progress profession checkbox selection for the application form —
+  // a flat array of PROFESSIONS ids.
+  let applyComposerProfessions = [];
   let recruitingNeedsDraft = null; // officer's in-progress edit of state.recruitingNeeds, only written back on "Speichern"
 
   const els = {
@@ -2844,7 +2928,7 @@
     applyAddClassBtn: document.getElementById('applyAddClassBtn'),
     applyExperienceInput: document.getElementById('applyExperienceInput'),
     applyLogsInput: document.getElementById('applyLogsInput'),
-    applyProfessionsInput: document.getElementById('applyProfessionsInput'),
+    applyProfessionsGrid: document.getElementById('applyProfessionsGrid'),
     applyRemarksInput: document.getElementById('applyRemarksInput'),
     applySubmitBtn: document.getElementById('applySubmitBtn'),
     applySubmitStatus: document.getElementById('applySubmitStatus'),
@@ -3305,14 +3389,27 @@
       });
     }
     items.push(...NEWS_ITEMS);
-    els.newsGrid.innerHTML = items.map((item, idx) => {
+    // A logged-out visitor can't do anything with a login-gated tile (e.g.
+    // the Klassen-Umfrage, which just dead-ends at a login prompt) — drop
+    // those for them rather than showing a card they can't use.
+    const loggedIn = !!discordIdentity;
+    let visibleItems = loggedIn ? items : items.filter(item => !item.requiresLogin);
+    // Keep the row looking full (and consistent) even when there aren't
+    // enough real items — cycle through the placeholder tiles as filler.
+    let placeholderIdx = 0;
+    while (visibleItems.length < NEWS_MIN_CARD_COUNT){
+      visibleItems = visibleItems.concat([NEWS_PLACEHOLDER_ITEMS[placeholderIdx % NEWS_PLACEHOLDER_ITEMS.length]]);
+      placeholderIdx++;
+    }
+    els.newsGrid.innerHTML = visibleItems.map((item, idx) => {
       const thumbStyle = item.image ? ` style="background-image:url('${escapeHtml(item.image)}')"` : '';
       const isLink = !!(item.linkPage || item.linkUrl);
-      const cardClass = 'news-card' + (isLink ? ' news-card-link' : '');
+      const isPlaceholder = !item.image && !isLink && !item.badge;
+      const cardClass = 'news-card' + (isLink ? ' news-card-link' : '') + (isPlaceholder ? ' news-card-placeholder' : '');
       const dataAttr = isLink ? ` data-news-link-idx="${idx}"` : '';
       const badgeHtml = item.badge ? `<span class="news-badge">${escapeHtml(item.badge)}</span>` : '';
       return `<div class="${cardClass}"${dataAttr}>
-        <div class="news-thumb"${thumbStyle}>${item.image ? '' : 'Bild folgt'}${badgeHtml}</div>
+        <div class="news-thumb"${thumbStyle}>${item.image ? '' : (isPlaceholder ? '📜' : 'Bild folgt')}${badgeHtml}</div>
         <div class="news-body">
           <h3>${escapeHtml(item.title)}</h3>
           <p>${escapeHtml(item.blurb)}</p>
@@ -3320,7 +3417,7 @@
       </div>`;
     }).join('');
     els.newsGrid.querySelectorAll('[data-news-link-idx]').forEach(card => {
-      const item = items[Number(card.getAttribute('data-news-link-idx'))];
+      const item = visibleItems[Number(card.getAttribute('data-news-link-idx'))];
       if (!item) return;
       if (item.linkUrl) card.addEventListener('click', () => window.open(item.linkUrl, '_blank', 'noopener'));
       else if (item.linkPage) card.addEventListener('click', () => showPage(item.linkPage));
@@ -4164,6 +4261,34 @@
 
     els.applyAddClassBtn.disabled = applyComposerPicks.length >= CLASSES.length;
   }
+
+  // Profession checkboxes for the application form — primary professions
+  // in one row, secondary (first aid/cooking/fishing, which everyone can
+  // have alongside their primaries) in a second, visually separated row.
+  function renderApplyProfessionCheckboxes(){
+    const renderGroup = (list) => list.map(p => `
+      <label class="poll-checkbox-field">
+        <input type="checkbox" data-profession="${p.id}" ${applyComposerProfessions.includes(p.id) ? 'checked' : ''}>
+        ${escapeHtml(p.label)}
+      </label>`).join('');
+    const primary = PROFESSIONS.filter(p => p.primary);
+    const secondary = PROFESSIONS.filter(p => !p.primary);
+    els.applyProfessionsGrid.innerHTML = `
+      <div class="apply-spec-checkboxes">${renderGroup(primary)}</div>
+      <div class="apply-profession-secondary-label">Jeder kann zusätzlich:</div>
+      <div class="apply-spec-checkboxes">${renderGroup(secondary)}</div>
+    `;
+    els.applyProfessionsGrid.querySelectorAll('[data-profession]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const id = cb.getAttribute('data-profession');
+        if (cb.checked){
+          if (!applyComposerProfessions.includes(id)) applyComposerProfessions.push(id);
+        } else {
+          applyComposerProfessions = applyComposerProfessions.filter(p => p !== id);
+        }
+      });
+    });
+  }
   els.applyAddClassBtn.addEventListener('click', () => {
     const usedClassIds = new Set(applyComposerPicks.map(p => p.classId));
     const nextClass = CLASSES.find(c => !usedClassIds.has(c.id));
@@ -4172,15 +4297,17 @@
     renderApplyClassPicks();
   });
   renderApplyClassPicks();
+  renderApplyProfessionCheckboxes();
 
   function resetApplyComposer(){
     els.applyNameAgeInput.value = '';
     els.applyExperienceInput.value = '';
     els.applyLogsInput.value = '';
-    els.applyProfessionsInput.value = '';
     els.applyRemarksInput.value = '';
     applyComposerPicks = [{ classId: CLASSES[0].id, specs: [] }];
+    applyComposerProfessions = [];
     renderApplyClassPicks();
+    renderApplyProfessionCheckboxes();
   }
 
   async function submitApplication(){
@@ -4202,9 +4329,9 @@
       els.applySubmitStatus.className = 'armory-status armory-status-error';
       return;
     }
-    const professions = els.applyProfessionsInput.value.trim().slice(0, 200);
-    if (!professions){
-      els.applySubmitStatus.textContent = 'Bitte gib an, welche Berufe du zu TBC skillen möchtest.';
+    const professions = applyComposerProfessions.filter(p => PROFESSION_MAP[p]);
+    if (!professions.length){
+      els.applySubmitStatus.textContent = 'Bitte gib an, welche Berufe du zu Forever skillen möchtest.';
       els.applySubmitStatus.className = 'armory-status armory-status-error';
       return;
     }
@@ -4307,6 +4434,12 @@
         </span>`;
       }).join('');
       const dateStr = a.createdAt ? new Date(a.createdAt).toLocaleDateString('de-DE') : '';
+      // Professions is either an array of known PROFESSIONS ids (current
+      // form) or a legacy free-text string (applications submitted before
+      // the checkbox list existed) — display either correctly.
+      const professionsText = Array.isArray(a.professions)
+        ? a.professions.map(id => (PROFESSION_MAP[id] ? PROFESSION_MAP[id].label : id)).join(', ')
+        : a.professions;
       return `<div class="application-card">
         <div class="application-card-head">
           <span class="application-applicant">${escapeHtml(a.applicantName)}</span>
@@ -4315,10 +4448,10 @@
         </div>
         <div class="application-class-picks">${picksHtml}</div>
         ${a.nameAge ? `<p class="application-namage"><strong>Name &amp; Alter:</strong> ${escapeHtml(a.nameAge)}</p>` : ''}
-        <p class="application-experience"><strong>Erfahrung:</strong> ${escapeHtml(a.experience)}</p>
-        ${a.logs ? `<p class="application-logs"><strong>Logs:</strong> ${escapeHtml(a.logs)}</p>` : ''}
-        <p class="application-professions"><strong>Berufe (TBC):</strong> ${escapeHtml(a.professions)}</p>
-        ${a.remarks ? `<p class="application-remarks"><strong>Sonstiges:</strong> ${escapeHtml(a.remarks)}</p>` : ''}
+        <p class="application-experience"><strong>Erfahrung:</strong> ${linkifyEscaped(a.experience)}</p>
+        ${a.logs ? `<p class="application-logs"><strong>Logs:</strong> ${linkifyEscaped(a.logs)}</p>` : ''}
+        <p class="application-professions"><strong>Berufe (Forever):</strong> ${escapeHtml(professionsText)}</p>
+        ${a.remarks ? `<p class="application-remarks"><strong>Sonstiges:</strong> ${linkifyEscaped(a.remarks)}</p>` : ''}
       </div>`;
     }).join('');
     els.applicationsList.querySelectorAll('[data-delete-application]').forEach(btn => {

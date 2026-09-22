@@ -476,16 +476,29 @@
   .forever-pick-chip button{ background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
   .forever-pick-chip button:hover{ color: var(--danger-bright); }
   .forever-actions{ display: flex; align-items: center; gap: 10px; margin-top: 14px; }
-  .forever-ov-row{ display: flex; align-items: flex-start; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .forever-ov-row{ padding: 12px 0; border-bottom: 1px solid var(--border); }
   .forever-ov-row:last-child{ border-bottom: none; }
-  .forever-ov-class{ width: 110px; flex-shrink: 0; font-weight: 600; display: flex; align-items: center; gap: 6px; padding-top: 2px; }
-  .forever-ov-bars{ flex: 1; display: flex; gap: 4px; height: 18px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.05); margin-top: 2px; }
-  .forever-ov-bar{ height: 100%; }
-  .forever-ov-counts{ width: 100px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-faint); line-height: 1.5; }
-  .forever-ov-counts .forever-ov-total-line{ color: var(--text); font-weight: 600; }
+  .forever-ov-row-head{ display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+  .forever-ov-class{ font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .forever-ov-total-line{ font-size: 12px; color: var(--text-faint); font-weight: 600; }
+  /* Each spec is its own labeled row (label always visible, not just on
+     hover) — reuses the same bar-track/bar-fill/count building blocks as
+     the general poll options list, so the two look and behave the same. */
+  .forever-ov-spec-rows{ display: flex; flex-direction: column; gap: 5px; }
+  .forever-ov-spec-row{
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    padding: 3px 4px; margin: 0 -4px; border-radius: 4px;
+  }
+  .forever-ov-spec-row:hover{ background: rgba(255,255,255,0.04); }
+  .forever-ov-spec-label{ width: 130px; flex-shrink: 0; font-size: 12.5px; color: var(--text-muted); }
+  .forever-ov-spec-row .poll-option-bar-track{ flex: 1; }
+  .forever-ov-spec-row .poll-option-count{ min-width: 26px; }
   .forever-ov-legend{ display: flex; gap: 14px; margin-bottom: 10px; font-size: 12px; color: var(--text-faint); flex-wrap: wrap; }
   .forever-ov-legend-item{ display: flex; align-items: center; gap: 5px; }
   .forever-ov-legend-dot{ width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  @media (max-width: 640px){
+    .forever-ov-spec-label{ width: 96px; font-size: 11.5px; }
+  }
 
   /* ---------- Custom polls — a generic Offi-built voting tool (separate
      from the hard-coded WoW Forever class/spec survey above). Reuses the
@@ -519,7 +532,8 @@
   .poll-option-control{ flex: none; width: 17px; height: 17px; accent-color: var(--gold-bright); cursor: pointer; }
   .poll-option-control:disabled{ cursor: not-allowed; }
   .poll-option-label{ flex: 0 1 200px; font-size: 13.5px; color: var(--text); }
-  .poll-option-bar-wrap{ flex: 1; min-width: 100px; display: flex; align-items: center; gap: 10px; }
+  .poll-option-bar-wrap{ flex: 1; min-width: 100px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .poll-option-bar-wrap:hover .poll-option-bar-track{ box-shadow: 0 0 0 1px var(--gold); }
   .poll-option-bar-track{ flex: 1; height: 14px; border-radius: 4px; background: rgba(255,255,255,0.05); overflow: hidden; }
   .poll-option-bar-fill{ height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--gold), var(--gold-bright)); }
   .poll-option-count{ flex: none; min-width: 78px; text-align: right; font-size: 11.5px; color: var(--text-faint); }
@@ -1209,6 +1223,21 @@
       </div>
       <p class="access-modal-note">Everyone who has logged in with Discord shows up here. Change their role to grant or remove admin access.</p>
       <div id="accessMemberList"></div>
+    </div>
+  </div>
+
+  <!-- Shown when tapping/clicking a voting bar (poll options or the class/
+       spec survey) — the bar's hover tooltip has the same info, but hover
+       doesn't exist on a phone, so this is the mobile-friendly way to see
+       who voted for what. -->
+  <div class="access-modal hidden" id="voteDetailsModal">
+    <div class="access-modal-card">
+      <div class="access-modal-header">
+        <h2 id="voteDetailsModalTitle">Stimmen</h2>
+        <button type="button" class="btn btn-ghost btn-sm" id="voteDetailsModalCloseBtn">Close</button>
+      </div>
+      <p class="access-modal-note" id="voteDetailsModalSubtitle"></p>
+      <div id="voteDetailsModalList"></div>
     </div>
   </div>
 
@@ -2878,6 +2907,11 @@
     accessLogoutBtn: document.getElementById('accessLogoutBtn'),
     accessModal: document.getElementById('accessModal'),
     accessModalCloseBtn: document.getElementById('accessModalCloseBtn'),
+    voteDetailsModal: document.getElementById('voteDetailsModal'),
+    voteDetailsModalTitle: document.getElementById('voteDetailsModalTitle'),
+    voteDetailsModalSubtitle: document.getElementById('voteDetailsModalSubtitle'),
+    voteDetailsModalList: document.getElementById('voteDetailsModalList'),
+    voteDetailsModalCloseBtn: document.getElementById('voteDetailsModalCloseBtn'),
     accessMemberList: document.getElementById('accessMemberList'),
     heroTitle: document.getElementById('heroTitle'),
     heroTagline: document.getElementById('heroTagline'),
@@ -3222,6 +3256,28 @@
   els.accessModalCloseBtn.addEventListener('click', () => els.accessModal.classList.add('hidden'));
   els.accessModal.addEventListener('click', (e) => {
     if (e.target === els.accessModal) els.accessModal.classList.add('hidden');
+  });
+
+  // Shared "who voted for this bar" modal — used by both the general
+  // Abstimmungen poll bars and the class/spec survey bars, since neither
+  // kind of hover tooltip works on a touchscreen. `names` is the list of
+  // voter usernames for this one option/spec; pass `anonymous: true` for
+  // an anonymous poll to show only the count, never names.
+  function showVoteDetailsModal(title, names, opts){
+    opts = opts || {};
+    const count = opts.anonymous ? (opts.count || 0) : (names ? names.length : 0);
+    els.voteDetailsModalTitle.textContent = title;
+    els.voteDetailsModalSubtitle.textContent = opts.anonymous
+      ? `${count} Stimme${count === 1 ? '' : 'n'} — anonyme Abstimmung, keine Namen sichtbar.`
+      : `${count} Stimme${count === 1 ? '' : 'n'}`;
+    els.voteDetailsModalList.innerHTML = (!opts.anonymous && names && names.length)
+      ? names.map(n => `<div class="access-member-row"><span class="access-member-name">${escapeHtml(n)}</span></div>`).join('')
+      : (opts.anonymous ? '' : `<div class="lootlib-note">Noch keine Stimmen.</div>`);
+    els.voteDetailsModal.classList.remove('hidden');
+  }
+  els.voteDetailsModalCloseBtn.addEventListener('click', () => els.voteDetailsModal.classList.add('hidden'));
+  els.voteDetailsModal.addEventListener('click', (e) => {
+    if (e.target === els.voteDetailsModal) els.voteDetailsModal.classList.add('hidden');
   });
 
   // --- WoW Forever class survey rendering ---
@@ -3919,7 +3975,10 @@
           const pct = (count / maxCount) * 100;
           const names = results.namesByOption[opt.id];
           const title = poll.anonymous ? `${count} Stimme(n)` : `${count} Stimme(n)${names.length ? ':\n' + names.join('\n') : ''}`;
-          barHtml = `<div class="poll-option-bar-wrap">
+          // The title= gives a hover tooltip on desktop; data-vote-details-*
+          // (wired below) makes the same bar tappable on mobile, where
+          // hover doesn't exist, opening a modal with the same info.
+          barHtml = `<div class="poll-option-bar-wrap" data-vote-details-poll="${poll.id}" data-vote-details-option="${opt.id}" role="button" tabindex="0">
             <div class="poll-option-bar-track"><div class="poll-option-bar-fill" style="width:${pct}%" title="${escapeHtml(title)}"></div></div>
             <span class="poll-option-count">${count} Stimme${count === 1 ? '' : 'n'}</span>
           </div>`;
@@ -4003,6 +4062,19 @@
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         deletePoll(btn.getAttribute('data-poll-delete'));
+      });
+    });
+    els.pollList.querySelectorAll('[data-vote-details-poll]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const pollId = el.getAttribute('data-vote-details-poll');
+        const optionId = el.getAttribute('data-vote-details-option');
+        const poll = state.polls && state.polls[pollId];
+        if (!poll) return;
+        const opt = (poll.options || []).find(o => o.id === optionId);
+        if (!opt) return;
+        const results = pollResults(poll);
+        showVoteDetailsModal(opt.label, results.namesByOption[optionId], { anonymous: poll.anonymous, count: results.counts[optionId] || 0 });
       });
     });
   }
@@ -4211,29 +4283,45 @@
       els.foreverOverview.innerHTML = legendHtml + `<div class="lootlib-note">Noch keine Stimmen.</div>`;
       return;
     }
+    // Each spec gets its own labeled bar row (rather than one combined
+    // multi-color bar per class) so which segment is which spec is always
+    // readable, not just on hover — hover doesn't exist on a phone anyway.
+    // The row is also clickable/tappable, opening a modal listing who
+    // picked it (see showVoteDetailsModal), same as the general poll bars.
     const rowsHtml = CLASSES.map(cls => {
       const data = agg[cls.id];
       const specs = foreverSpecsForClass(cls.id);
-      const barsHtml = specs.map((s) => {
+      const specRowsHtml = specs.map((s) => {
         const count = data.specs[s.id];
-        if (!count) return '';
         const pct = (count / maxTotal) * 100;
-        const names = data.namesBySpec[s.id];
-        const title = `${s.label} (${FOREVER_ROLE_LABELS[s.role]}): ${count}\n${names.join('\n')}`;
-        return `<span class="forever-ov-bar" style="width:${pct}%;background:${FOREVER_ROLE_COLORS[s.role]}" title="${escapeHtml(title)}"></span>`;
+        return `<div class="forever-ov-spec-row" data-vote-details-class="${cls.id}" data-vote-details-spec="${s.id}" role="button" tabindex="0">
+          <span class="forever-ov-spec-label">${escapeHtml(s.label)}</span>
+          <div class="poll-option-bar-track"><div class="poll-option-bar-fill" style="width:${pct}%;background:${FOREVER_ROLE_COLORS[s.role]}"></div></div>
+          <span class="poll-option-count">${count}</span>
+        </div>`;
       }).join('');
-      const countLines = specs
-        .map(s => `<div>${escapeHtml(s.label)}: ${data.specs[s.id]}</div>`)
-        .join('');
       return `<div class="forever-ov-row">
-        <div class="forever-ov-class"><span class="forever-class-dot" style="background:${cls.color}"></span>${escapeHtml(cls.label)}</div>
-        <div class="forever-ov-bars">${barsHtml}</div>
-        <div class="forever-ov-counts"><div class="forever-ov-total-line">Gesamt: ${data.total}</div>${countLines}</div>
+        <div class="forever-ov-row-head">
+          <div class="forever-ov-class"><span class="forever-class-dot" style="background:${cls.color}"></span>${escapeHtml(cls.label)}</div>
+          <div class="forever-ov-total-line">Gesamt: ${data.total}</div>
+        </div>
+        <div class="forever-ov-spec-rows">${specRowsHtml}</div>
       </div>`;
     }).join('');
     els.foreverOverview.innerHTML = legendHtml +
       `<div class="lootlib-note" style="margin-bottom:8px;">${voterCount} Mitglied${voterCount === 1 ? '' : 'er'} haben bisher abgestimmt.</div>` +
       rowsHtml;
+    els.foreverOverview.querySelectorAll('[data-vote-details-class]').forEach(el => {
+      el.addEventListener('click', () => {
+        const clsId = el.getAttribute('data-vote-details-class');
+        const specId = el.getAttribute('data-vote-details-spec');
+        const cls = CLASS_MAP[clsId];
+        const spec = foreverSpecsForClass(clsId).find(s => s.id === specId);
+        if (!cls || !spec) return;
+        const names = (agg[clsId] && agg[clsId].namesBySpec[specId]) || [];
+        showVoteDetailsModal(`${cls.label} — ${spec.label}`, names);
+      });
+    });
   }
 
   els.foreverSaveBtn.addEventListener('click', saveForeverPicks);

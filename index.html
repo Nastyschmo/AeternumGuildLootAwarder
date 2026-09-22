@@ -316,10 +316,15 @@
   .itemdb-new{ font-family: 'Cinzel', serif; font-size: 9.5px; letter-spacing: .04em; color: var(--gold-bright); border: 1px solid currentColor; border-radius: 3px; padding: 0 4px; margin-left: 6px; vertical-align: 1px; }
   .iq0{ color: #9d9d9d; } .iq1{ color: #ffffff; } .iq2{ color: #1eff00; } .iq3{ color: #3d9bff; }
   .iq4{ color: #c774ff; } .iq5{ color: #ff8f2b; } .iq6{ color: #e6cc80; } .iq7{ color: #27c9f2; }
+  .itemdb-table th.icon, .itemdb-table td.icon{ width: 1%; padding-left: 12px; padding-right: 4px; cursor: default; }
+  .itemdb-icon{ display: inline-block; border-radius: 4px; border: 1px solid var(--border-soft); vertical-align: middle; object-fit: cover; background: var(--bg-panel-raised); }
+  .itemdb-icon-ph{ background: linear-gradient(135deg, var(--bg-panel-raised), rgba(255,255,255,0.03)); }
   .itemdb-empty{ padding: 28px 16px; text-align: center; }
   .itemdb-pager{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12.5px; color: var(--text-muted); }
   .itemdb-detail{ font-size: 13.5px; line-height: 1.4; }
-  .itemdb-detail .idn{ font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .itemdb-detail .idhead{ display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .itemdb-detail .idhead .itemdb-icon{ flex: none; }
+  .itemdb-detail .idn{ font-size: 16px; font-weight: 700; margin-bottom: 0; }
   .itemdb-detail .idrow{ display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
   .itemdb-detail .idpending{ color: var(--text-faint); font-style: italic; }
   .itemdb-detail .iddesc{ color: var(--gold-bright); font-style: italic; margin-top: 6px; }
@@ -1409,6 +1414,7 @@
                 <div class="itemdb-scroll">
                   <table class="itemdb-table" id="itemsTable">
                     <thead><tr>
+                      <th class="icon"></th>
                       <th data-k="name">Name</th>
                       <th data-k="il" class="num">iLvl</th>
                       <th data-k="rl" class="num">Stufe</th>
@@ -4063,12 +4069,23 @@
       });
 
     function buildItemsDb(D){
+    const iconNames = D.iconNames || {};
+    function iconUrl(fid){
+      if (!fid) return null;
+      const n = iconNames[fid] || iconNames[String(fid)];
+      return n ? 'assets/icons/' + n + '.png' : null;
+    }
+    function iconImgHtml(fid, size, alt){
+      const url = iconUrl(fid);
+      if (!url) return `<span class="itemdb-icon itemdb-icon-ph" style="width:${size}px;height:${size}px" aria-hidden="true"></span>`;
+      return `<img class="itemdb-icon" src="${url}" width="${size}" height="${size}" alt="${escapeHtml(alt||'')}" loading="lazy" onerror="this.outerHTML='<span class=&quot;itemdb-icon itemdb-icon-ph&quot; style=&quot;width:${size}px;height:${size}px&quot; aria-hidden=&quot;true&quot;></span>'">`;
+    }
     const rows = D.items.map(a => ({
       id:a[0], name:a[1], q:a[2], il:a[3], rl:a[4], c:a[5], s:a[6], slot:a[7], stats:a[8], bond:a[9],
       delay:a[10], sell:a[11], desc:a[12], ac:a[13], max:a[14], stack:a[15], bag:a[16], set:a[17], dmg:a[18],
-      skill:a[19], skillRank:a[20], quest:a[21], named:true, test: ITEMDB_TEST_RE.test(a[1]), lc: a[1].toLowerCase()
+      skill:a[19], skillRank:a[20], quest:a[21], iconFid:a[22]||0, named:true, test: ITEMDB_TEST_RE.test(a[1]), lc: a[1].toLowerCase()
     }));
-    const nameless = D.nameless.map(a => ({ id:a[0], name:'', q:-1, il:0, rl:0, c:a[1], s:a[2], slot:a[3], named:false, test:false, lc:'' }));
+    const nameless = D.nameless.map(a => ({ id:a[0], name:'', q:-1, il:0, rl:0, c:a[1], s:a[2], slot:a[3], iconFid:a[4]||0, named:false, test:false, lc:'' }));
     const byId = new Map();
     rows.concat(nameless).forEach(r => byId.set(r.id, r));
     const subName = r => (ITEMDB_SUB[r.c] && ITEMDB_SUB[r.c][r.s]) || ITEMDB_CLASS[r.c] || 'Unbekannt';
@@ -4126,7 +4143,7 @@
     function render(){
       const pages = Math.max(1, Math.ceil(cur.length/PER)); if (page >= pages) page = pages-1;
       const slice = cur.slice(page*PER, page*PER+PER);
-      $('itemsTbody').innerHTML = slice.map(r => `<tr data-id="${r.id}"${r.id===selId?' class="sel"':''}><td class="name">${r.named?`<span class="iq${r.q}">${escapeHtml(r.name)}</span>`:'<span class="itemdb-unnamed">ohne Namen</span>'}${r.id>=ITEMDB_NEW_ID_FLOOR?'<span class="itemdb-new">neu</span>':''}</td><td class="num">${r.named?r.il:'–'}</td><td class="num">${r.named&&r.rl?r.rl:'–'}</td><td>${escapeHtml(subName(r))}</td><td>${ITEMDB_SLOT[r.slot]||'–'}</td><td class="id num">${r.id}</td></tr>`).join('');
+      $('itemsTbody').innerHTML = slice.map(r => `<tr data-id="${r.id}"${r.id===selId?' class="sel"':''}><td class="icon">${iconImgHtml(r.iconFid,24,r.name)}</td><td class="name">${r.named?`<span class="iq${r.q}">${escapeHtml(r.name)}</span>`:'<span class="itemdb-unnamed">ohne Namen</span>'}${r.id>=ITEMDB_NEW_ID_FLOOR?'<span class="itemdb-new">neu</span>':''}</td><td class="num">${r.named?r.il:'–'}</td><td class="num">${r.named&&r.rl?r.rl:'–'}</td><td>${escapeHtml(subName(r))}</td><td>${ITEMDB_SLOT[r.slot]||'–'}</td><td class="id num">${r.id}</td></tr>`).join('');
       $('itemsEmpty').classList.toggle('hidden', cur.length > 0);
       $('itemsPinfo').textContent = cur.length ? `${fmtDe(page*PER+1)}–${fmtDe(Math.min(cur.length,page*PER+PER))} von ${fmtDe(cur.length)} Items` : '0 Items';
       $('itemsPrev').disabled = page === 0;
@@ -4151,9 +4168,9 @@
       document.querySelectorAll('#itemsTbody tr').forEach(tr => tr.classList.toggle('sel', +tr.dataset.id === id));
       let h = '';
       if (!r.named){
-        h = `<div class="idn">Item ${r.id}</div><div class="idpending">Name und Werte fehlen im Client.</div><div>${escapeHtml(subName(r))}${ITEMDB_SLOT[r.slot]?' · '+ITEMDB_SLOT[r.slot]:''}</div>`;
+        h = `<div class="idhead">${iconImgHtml(r.iconFid,48,'')}<div class="idn">Item ${r.id}</div></div><div class="idpending">Name und Werte fehlen im Client.</div><div>${escapeHtml(subName(r))}${ITEMDB_SLOT[r.slot]?' · '+ITEMDB_SLOT[r.slot]:''}</div>`;
       }else{
-        h += `<div class="idn iq${r.q}">${escapeHtml(r.name)}</div>`;
+        h += `<div class="idhead">${iconImgHtml(r.iconFid,48,r.name)}<div class="idn iq${r.q}">${escapeHtml(r.name)}</div></div>`;
         if (r.il > 1 && r.slot) h += `<div class="idrow"><span>Gegenstandsstufe</span><span>${r.il}</span></div>`;
         if (ITEMDB_BOND[r.bond]) h += `<div class="idrow"><span>Bindung</span><span>${ITEMDB_BOND[r.bond]}</span></div>`;
         if (r.max === 1) h += `<div class="idrow"><span>Einzigartig</span><span>Ja</span></div>`;

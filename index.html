@@ -615,9 +615,23 @@
     .talent-trees-container{ flex-wrap: nowrap; justify-content: flex-start; }
   }
 
+  /* On a phone the sidebar is a slide-out drawer, not a permanent rail —
+     collapsed means fully hidden (no 64px icon strip sitting over the
+     page content), and expanded means a full-width-ish overlay panel with
+     a dimmed backdrop behind it. Opened via the burger button in the
+     topbar; picking a page (or tapping the backdrop) closes it again —
+     see maybeAutoCloseSidebarOnMobile() in the script. */
+  .sidebar-backdrop{ display: none; }
   @media (max-width: 760px){
     .sidebar{ position: fixed; top: 0; left: 0; bottom: 0; z-index: 70; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
-    .sidebar.collapsed{ box-shadow: none; }
+    .sidebar.collapsed{ width: 0; border-right: none; box-shadow: none; }
+    .sidebar.collapsed .sidebar-inner-mini{ display: none; }
+    .sidebar-backdrop{
+      display: block; position: fixed; inset: 0; z-index: 65;
+      background: rgba(0,0,0,0.5); opacity: 0; pointer-events: none;
+      transition: opacity .2s ease;
+    }
+    .sidebar:not(.collapsed) ~ .sidebar-backdrop{ opacity: 1; pointer-events: auto; }
   }
   @media (max-width: 640px){
     .parchment{ padding: 26px; }
@@ -840,6 +854,7 @@
         <nav class="sidebar-nav-mini" id="sidebarNavMini"></nav>
       </div>
     </aside>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
     <div class="main-area">
       <div class="topbar">
@@ -2846,6 +2861,7 @@
     sidebarNav: document.getElementById('sidebarNav'),
     sidebarNavMini: document.getElementById('sidebarNavMini'),
     burgerBtn: document.getElementById('burgerBtn'),
+    sidebarBackdrop: document.getElementById('sidebarBackdrop'),
     navBrand: document.getElementById('navBrand'),
     navCrest: document.getElementById('navCrest'),
     navCrestMini: document.getElementById('navCrestMini'),
@@ -3019,18 +3035,32 @@
   // someone shared) instead of always resetting to Home.
   let currentPage = (window.location.hash || '').replace('#', '') || 'home';
 
+  // Phone breakpoint match — the sidebar switches from a permanent rail
+  // to a slide-out drawer at the same width the CSS uses (see the
+  // `@media (max-width: 760px)` sidebar rules above).
+  const MOBILE_SIDEBAR_QUERY = '(max-width: 760px)';
+  function isMobileSidebarLayout(){
+    return window.matchMedia ? window.matchMedia(MOBILE_SIDEBAR_QUERY).matches : window.innerWidth <= 760;
+  }
+  // On a phone, picking a page from the open drawer should both navigate
+  // AND close the drawer again — nobody wants to manually collapse it
+  // after every tap. Desktop's permanent rail is untouched by this.
+  function maybeAutoCloseSidebarOnMobile(){
+    if (isMobileSidebarLayout()) setSidebarCollapsed(true);
+  }
+
   function renderSidebarNav(){
     els.sidebarNav.innerHTML = PAGES.map(p =>
       `<a class="sidebar-nav-item ${p.id === currentPage ? 'active' : ''}" data-page="${p.id}">${escapeHtml(p.label)}</a>`
     ).join('');
     els.sidebarNav.querySelectorAll('[data-page]').forEach(a => {
-      a.addEventListener('click', () => showPage(a.getAttribute('data-page')));
+      a.addEventListener('click', () => { showPage(a.getAttribute('data-page')); maybeAutoCloseSidebarOnMobile(); });
     });
     els.sidebarNavMini.innerHTML = PAGES.map(p =>
       `<a class="sidebar-nav-item-mini ${p.id === currentPage ? 'active' : ''}" data-page="${p.id}" title="${escapeHtml(p.label)}" aria-label="${escapeHtml(p.label)}">${p.icon}</a>`
     ).join('');
     els.sidebarNavMini.querySelectorAll('[data-page]').forEach(a => {
-      a.addEventListener('click', () => showPage(a.getAttribute('data-page')));
+      a.addEventListener('click', () => { showPage(a.getAttribute('data-page')); maybeAutoCloseSidebarOnMobile(); });
     });
   }
 
@@ -3080,19 +3110,45 @@
 
   function setSidebarCollapsed(collapsed){
     els.sidebar.classList.toggle('collapsed', collapsed);
-    try{ localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0'); }catch(e){}
+    // Only the desktop rail's open/closed choice is remembered across
+    // visits. On a phone the drawer is always transient — it starts
+    // closed on every load and closes again after each navigation — so
+    // this must NOT persist here. If it did, opening the drawer once on
+    // a phone (or having the rail expanded from an earlier desktop visit
+    // in the same browser) would save "expanded" and every future phone
+    // page-load would start with the drawer already open — which,
+    // because it's a fixed full-screen-ish overlay, sits on top of and
+    // hides the burger button that's supposed to open/close it. That's
+    // exactly the bug this guards against.
+    if (!isMobileSidebarLayout()){
+      try{ localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0'); }catch(e){}
+    }
   }
   function initSidebarState(){
-    let collapsed = window.innerWidth < 760;
-    try{
-      const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-      if (saved !== null) collapsed = saved === '1';
-    }catch(e){}
+    let collapsed = isMobileSidebarLayout();
+    if (!isMobileSidebarLayout()){
+      try{
+        const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+        if (saved !== null) collapsed = saved === '1';
+      }catch(e){}
+    }
     setSidebarCollapsed(collapsed);
   }
+  // If the browser window crosses from desktop-sized into phone-sized
+  // (resize, or rotating a tablet) while the drawer happens to be open,
+  // force it shut immediately — same reasoning as above: an open
+  // full-screen drawer must never be left sitting over the burger button
+  // that's meant to control it.
+  let wasMobileSidebarLayout = isMobileSidebarLayout();
+  window.addEventListener('resize', () => {
+    const nowMobile = isMobileSidebarLayout();
+    if (nowMobile && !wasMobileSidebarLayout) setSidebarCollapsed(true);
+    wasMobileSidebarLayout = nowMobile;
+  });
 
   els.burgerBtn.addEventListener('click', () => setSidebarCollapsed(!els.sidebar.classList.contains('collapsed')));
-  els.navBrand.addEventListener('click', () => showPage('home'));
+  els.sidebarBackdrop.addEventListener('click', () => setSidebarCollapsed(true));
+  els.navBrand.addEventListener('click', () => { showPage('home'); maybeAutoCloseSidebarOnMobile(); });
   els.navCrestMini.addEventListener('click', () => showPage('home'));
   els.heroCtaBtn.addEventListener('click', () => showPage('forever'));
   els.navLoginBtn.addEventListener('click', () => startDiscordLogin());

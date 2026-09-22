@@ -892,6 +892,8 @@
             <div class="access-popover hidden" id="accessPopover">
               <div class="access-popover-title" id="accessPopoverName">Logged in via Discord</div>
               <div class="access-popover-sub" id="accessPopoverRole">Guild Member</div>
+              <div class="access-popover-characters hidden" id="accessPopoverCharacters"></div>
+              <button type="button" class="btn btn-sm btn-ghost btn-block" id="accessCharactersBtn">Meine Charaktere verwalten</button>
               <button type="button" class="btn btn-sm btn-ghost btn-block hidden" id="accessManageBtn">Manage access</button>
               <button type="button" class="btn btn-sm btn-ghost btn-block" id="accessLogoutBtn">Log out</button>
             </div>
@@ -1226,6 +1228,29 @@
     </div>
   </div>
 
+  <!-- "Meine Charaktere verwalten" — nickname + repeatable character rows
+       (name, realm, one marked as Hauptcharakter), reachable from the
+       account popover top-right. Saved to characterProfiles/<uid> in
+       Firebase; shown at Manage access and on Bewerbungen (see
+       renderAccessModal / renderApplicationsList). -->
+  <div class="access-modal hidden" id="characterModal">
+    <div class="access-modal-card">
+      <div class="access-modal-header">
+        <h2>Meine Charaktere verwalten</h2>
+        <button type="button" class="btn btn-ghost btn-sm" id="characterModalCloseBtn">Close</button>
+      </div>
+      <p class="access-modal-note">Ein Nickname und deine Charakternamen helfen uns, dich im Spiel und am Discord wiederzuerkennen. Charakterdaten (Klasse, Level, Itemlevel) werden live aus dem Armory geladen.</p>
+      <label class="apply-field-label" for="characterNicknameInput">Nickname (optional)</label>
+      <input type="text" id="characterNicknameInput" class="apply-text-input" maxlength="30" placeholder="z.B. Nasty">
+      <div class="character-composer-list" id="characterComposerList"></div>
+      <button type="button" class="btn btn-sm btn-outline-gold btn-block" id="characterAddBtn">+ Charakter hinzufügen</button>
+      <div class="forever-actions" style="margin-top:14px;">
+        <button type="button" class="btn btn-teal btn-sm" id="characterSaveBtn">Speichern</button>
+        <span id="characterSaveStatus" class="armory-status"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- Shown when tapping/clicking a voting bar (poll options or the class/
        spec survey) — the bar's hover tooltip has the same info, but hover
        doesn't exist on a phone, so this is the mobile-friendly way to see
@@ -1346,6 +1371,45 @@
     }
   }
 
+  // ---------------------------------------------------------------------
+  // Armory lookups for "Meine Charaktere" — fetches one character's live
+  // class/level/item level from the Worker's /armory-character endpoint
+  // (see ARMORY_CHARACTER_URL / discord-auth-worker.js). Session-only
+  // cache (armoryCache) so switching pages or re-rendering a member list
+  // doesn't re-hit the Worker/Blizzard for characters already fetched
+  // recently. Never throws — callers always get back either a result or
+  // a debug-carrying failure object, mirroring the Discord role-sync
+  // pattern, and every failure is also logged to the console so a
+  // misconfigured namespace/realm-slug is easy to spot.
+  async function fetchArmoryCharacter(realmSlug, name, opts){
+    const force = !!(opts && opts.force);
+    const key = characterProfileCacheKey(realmSlug, name);
+    const cached = armoryCache[key];
+    if (!force && cached && (Date.now() - cached.fetchedAt) < ARMORY_CACHE_MS){
+      return cached.result;
+    }
+    if (!isWorkerConfigured()){
+      const result = { found: false, debug: { reason: 'worker_not_configured', detail: 'WORKER_URL is not set up yet — see the README.' } };
+      armoryCache[key] = { fetchedAt: Date.now(), result };
+      return result;
+    }
+    let result;
+    try{
+      const res = await fetch(ARMORY_CHARACTER_URL + '?realm=' + encodeURIComponent(realmSlug) + '&name=' + encodeURIComponent(name));
+      if (!res.ok){
+        result = { found: false, debug: { reason: 'http_error', status: res.status, detail: 'The Worker itself returned HTTP ' + res.status + ' for /armory-character.' } };
+      } else {
+        result = await res.json();
+      }
+    }catch(e){
+      result = { found: false, debug: { reason: 'fetch_failed', detail: 'Could not reach the Worker at all: ' + e.message } };
+    }
+    if (!result || !result.found){
+      console.warn('[Armory] "' + name + '" @ "' + realmSlug + '" — could not load live character data:', result && result.debug);
+    }
+    armoryCache[key] = { fetchedAt: Date.now(), result };
+    return result;
+  }
 
   // ---------------------------------------------------------------------
   // Talent Builder — an interactive WoW: Forever talent point calculator
@@ -2147,8 +2211,9 @@
     clientId: '1547344145960407081'
   };
   const WORKER_URL = 'https://guildlootdiscordworker.sebastian-spiehs.workers.dev/mint-token';
-  // Same Worker, different endpoint — reused instead of a second Worker.
+  // Same Worker, different endpoints — reused instead of a second Worker.
   const WOWHEAD_NEWS_URL = WORKER_URL.replace(/\/mint-token$/, '/wowhead-news');
+  const ARMORY_CHARACTER_URL = WORKER_URL.replace(/\/mint-token$/, '/armory-character');
   const DISCORD_REDIRECT_URI = window.location.origin + window.location.pathname;
   const DISCORD_IDENTITY_KEY = 'guild-loot-discord-identity';
   const DISCORD_PKCE_VERIFIER_KEY = 'guild-loot-discord-pkce-verifier';
@@ -2491,6 +2556,25 @@
   ];
   const PROFESSION_MAP = Object.fromEntries(PROFESSIONS.map(p => [p.id, p]));
 
+  // ---------------------------------------------------------------------
+  // "Meine Charaktere" — nickname + character list per member, optionally
+  // enriched with live data from Blizzard's Armory (class/level/item
+  // level) via the Worker's /armory-character endpoint. Guild's active
+  // characters are on TBC Anniversary realms, so the realm slug defaults
+  // to the guild's own realm — members with an alt elsewhere can just
+  // change it.
+  // ---------------------------------------------------------------------
+  const DEFAULT_REALM_SLUG = 'spineshatter';
+  const CHARACTER_PROFILE_MAX_CHARACTERS = 6;
+  // Mirrors the Worker's BATTLENET_CLASS_ID_TO_KEY — lets fetched Armory
+  // data reuse the same CLASS_MAP colors/labels the rest of the page uses.
+  const ARMORY_CACHE_MS = 5 * 60 * 1000; // avoid re-hitting the Worker on every render
+  let armoryCache = {}; // 'realmSlug|name' -> { fetchedAt, result } — session-only, never persisted
+
+  function characterProfileCacheKey(realmSlug, name){
+    return (realmSlug || '').toLowerCase() + '|' + (name || '').toLowerCase();
+  }
+
   // Real WoW Classic talent specializations. Spec ids are only ever looked
   // up scoped to their own class (via foreverSpecsForClass /
   // foreverSpecLabel) — several classes reuse the same id (e.g. 'holy' for
@@ -2557,7 +2641,47 @@
   }
 
   function defaultState(){
-    return { discordRoles: {}, foreverSurvey: {}, votingStatus: {}, announcements: {}, polls: {}, applications: {}, recruitingNeeds: {} };
+    return { discordRoles: {}, foreverSurvey: {}, votingStatus: {}, announcements: {}, polls: {}, applications: {}, recruitingNeeds: {}, characterProfiles: {} };
+  }
+
+  // A character needs at least a name to be worth keeping; realmSlug falls
+  // back to the guild's own realm (the overwhelmingly common case) rather
+  // than being dropped, and ids are (re)generated if missing so existing
+  // rows always have something stable to key a DOM/click-handler off of.
+  let characterProfileIdCounter = 0;
+  function nextCharacterProfileId(){
+    characterProfileIdCounter += 1;
+    return 'char' + Date.now().toString(36) + characterProfileIdCounter;
+  }
+  function normalizeCharacterProfile(entry){
+    if (!entry || typeof entry !== 'object') return { nickname: '', characters: [] };
+    const rawChars = Array.isArray(entry.characters) ? entry.characters : [];
+    const characters = [];
+    let mainAssigned = false;
+    for (const c of rawChars){
+      if (characters.length >= CHARACTER_PROFILE_MAX_CHARACTERS) break;
+      if (!c || typeof c.name !== 'string' || !c.name.trim()) continue;
+      const isMain = !!c.isMain && !mainAssigned;
+      if (isMain) mainAssigned = true;
+      characters.push({
+        id: (typeof c.id === 'string' && c.id) ? c.id : nextCharacterProfileId(),
+        name: c.name.trim().slice(0, 24),
+        realmSlug: (typeof c.realmSlug === 'string' && c.realmSlug.trim()) ? c.realmSlug.trim().toLowerCase().slice(0, 40) : DEFAULT_REALM_SLUG,
+        isMain
+      });
+    }
+    // If nothing was explicitly marked Main, the first character quietly
+    // becomes it — there's always an unambiguous "main" to show elsewhere
+    // (Manage access, Bewerbungen) once at least one character exists.
+    if (!mainAssigned && characters.length) characters[0].isMain = true;
+    return {
+      nickname: (typeof entry.nickname === 'string') ? entry.nickname.trim().slice(0, 30) : '',
+      characters
+    };
+  }
+  function mainCharacterOf(profile){
+    if (!profile || !Array.isArray(profile.characters)) return null;
+    return profile.characters.find(c => c.isMain) || profile.characters[0] || null;
   }
 
   // Announcements store a small allow-listed subset of formatted HTML (so
@@ -2862,7 +2986,13 @@
         }
         return out;
       })(),
-      recruitingNeeds: normalizeRecruitingNeeds(parsed.recruitingNeeds)
+      recruitingNeeds: normalizeRecruitingNeeds(parsed.recruitingNeeds),
+      characterProfiles: (() => {
+        const raw = (parsed.characterProfiles && typeof parsed.characterProfiles === 'object') ? parsed.characterProfiles : {};
+        const out = {};
+        for (const uid of Object.keys(raw)) out[uid] = normalizeCharacterProfile(raw[uid]);
+        return out;
+      })()
     };
   }
 

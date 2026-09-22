@@ -2195,6 +2195,7 @@
     sessionStorage.removeItem(DISCORD_PKCE_VERIFIER_KEY);
 
     if (!verifier || !returnedState || returnedState !== expectedState){
+      console.warn('[Discord role sync] login aborted before it reached our Worker — the PKCE state/verifier check failed (missing sessionStorage entry, or you opened two login attempts at once). This is unrelated to your Discord role; just try logging in again.');
       showDiscordLoginError('Login could not be verified — please try again.');
       return null;
     }
@@ -2211,7 +2212,12 @@
           code_verifier: verifier
         })
       });
-      if (!tokenRes.ok) throw new Error('token exchange failed');
+      if (!tokenRes.ok){
+        let bodyText = '';
+        try{ bodyText = await tokenRes.text(); }catch(e2){}
+        console.warn('[Discord role sync] Discord’s token exchange failed (HTTP ' + tokenRes.status + ') — this happens before our Worker is even contacted, so it can’t be a role-sync bug. Usually a wrong/expired code (double-submit, back-button reuse) or a redirect_uri mismatch in the Discord app settings.', bodyText);
+        throw new Error('token exchange failed');
+      }
       const tokenData = await tokenRes.json();
 
       // Hand the Discord access token to our Worker — it independently
@@ -2222,7 +2228,12 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ discordAccessToken: tokenData.access_token })
       });
-      if (!mintRes.ok) throw new Error('token mint failed');
+      if (!mintRes.ok){
+        let bodyText = '';
+        try{ bodyText = await mintRes.text(); }catch(e2){}
+        console.warn('[Discord role sync] our Worker (' + WORKER_URL + ') rejected the mint request (HTTP ' + mintRes.status + '). Nothing was resolved from your Discord roles — you’ll fall back to whatever role you already had, or Community. Check the Worker’s own logs (wrangler tail / Cloudflare dashboard) and confirm the deployed Worker matches discord-auth-worker.js.', bodyText);
+        throw new Error('token mint failed');
+      }
       const mintData = await mintRes.json();
 
       saveDiscordIdentity({ id: mintData.user.id, username: mintData.user.username, avatar: mintData.user.avatar || null });
@@ -2230,8 +2241,26 @@
       // their current Discord server role?" (see ensureDiscordRole below —
       // this is the one moment the site has a trustworthy answer to that,
       // so it's captured here rather than re-derived later).
+      //
+      // mintData.roleDebug explains *why* that role was chosen (nothing
+      // secret in it — just Discord role ids and an HTTP status). Logged
+      // to the console any time the result wasn't a clean role match, so
+      // that if someone ends up stuck on Community, opening devtools right
+      // after logging in shows exactly which setup step to check next
+      // (bot token, bot not in the server, wrong GUILD_ID, or a role id
+      // that doesn't match DISCORD_ROLE_TO_SITE_ROLE) instead of just
+      // "it didn't work". See "Syncing roles from your Discord server" in
+      // README.md.
+      if (mintData.roleDebug && mintData.roleDebug.reason !== 'matched'){
+        console.warn('[Discord role sync] resolved to "' + mintData.role + '" — reason:', mintData.roleDebug);
+      } else if (mintData.roleDebug){
+        console.info('[Discord role sync] resolved to "' + mintData.role + '" via matched Discord role:', mintData.roleDebug);
+      } else {
+        console.warn('[Discord role sync] resolved to "' + mintData.role + '", but the Worker’s response had no roleDebug field at all. That means the deployed Cloudflare Worker is still running an OLDER version of discord-auth-worker.js (from before role-sync diagnostics were added) — redeploy the current discord-auth-worker.js and log in again to get a real reason instead of this message.');
+      }
       return { token: mintData.token, role: mintData.role };
     }catch(e){
+      console.warn('[Discord role sync] Discord login threw before it could finish — see the warning above (or, if there is none, the error below) for what actually failed.', e);
       showDiscordLoginError('Discord login failed. Please try again.');
       return null;
     }

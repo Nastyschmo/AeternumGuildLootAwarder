@@ -562,7 +562,7 @@
   .forever-gate p{ color: var(--text-muted); margin: 0 0 16px; font-size: 14px; }
   .discord-login-error{ min-height: 16px; font-size: 12.5px; color: var(--danger-bright); margin-bottom: 6px; }
 
-  .forever-class-grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-top: 12px; }
+  .forever-class-grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; margin-top: 12px; }
   .forever-class-card{
     border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
     display: flex; flex-direction: column; gap: 8px; cursor: pointer;
@@ -575,9 +575,14 @@
   .forever-class-name{ font-weight: 600; display: flex; align-items: center; gap: 6px; }
   .forever-class-dot{ width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
   .forever-class-card select{ width: 100%; padding: 5px 6px; font-size: 13px; }
-  .forever-role-rows{ display: flex; flex-direction: column; gap: 6px; }
-  .forever-role-row{ display: flex; align-items: center; gap: 6px; }
-  .forever-role-row select{ flex: 1; min-width: 0; }
+  .forever-role-rows{ display: flex; flex-direction: column; gap: 10px; }
+  /* Each row stacks its "Charakter N" label above the select, rather than
+     squeezing both onto one line — with the label inline, the select had
+     so little width left in a narrow card that the chosen spec text (e.g.
+     "Beast Mastery", "Feral Combat") was clipped and unreadable. */
+  .forever-role-row{ display: flex; flex-direction: column; gap: 4px; }
+  .forever-role-controls{ display: flex; align-items: center; gap: 6px; }
+  .forever-role-controls select{ flex: 1; min-width: 0; font-size: 14px; padding: 7px 8px; }
   .forever-role-charlabel{ flex: none; font-size: 11px; color: var(--text-faint); white-space: nowrap; }
   .forever-role-remove{
     flex: none; background: none; border: none; color: var(--text-faint);
@@ -5203,8 +5208,10 @@
             const labelHtml = showCharLabel ? `<span class="forever-role-charlabel">Charakter ${rowI + 1}</span>` : '';
             return `<div class="forever-role-row">
               ${labelHtml}
-              <select data-spec-for="${cls.id}" data-pick-index="${p.i}">${options}</select>
-              <button type="button" class="forever-role-remove" data-remove-index="${p.i}" title="Entfernen">✕</button>
+              <div class="forever-role-controls">
+                <select data-spec-for="${cls.id}" data-pick-index="${p.i}">${options}</select>
+                <button type="button" class="forever-role-remove" data-remove-index="${p.i}" title="Entfernen">✕</button>
+              </div>
             </div>`;
           }).join('')
         : `<div class="lootlib-note" style="margin:0;">${validSpecs.map(s => s.label).join(' / ')}</div>`;

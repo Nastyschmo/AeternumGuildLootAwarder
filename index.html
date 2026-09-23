@@ -578,6 +578,7 @@
   .forever-role-rows{ display: flex; flex-direction: column; gap: 6px; }
   .forever-role-row{ display: flex; align-items: center; gap: 6px; }
   .forever-role-row select{ flex: 1; min-width: 0; }
+  .forever-role-charlabel{ flex: none; font-size: 11px; color: var(--text-faint); white-space: nowrap; }
   .forever-role-remove{
     flex: none; background: none; border: none; color: var(--text-faint);
     cursor: pointer; font-size: 14px; line-height: 1; padding: 4px;
@@ -597,6 +598,7 @@
   .forever-pick-chip button{ background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
   .forever-pick-chip button:hover{ color: var(--danger-bright); }
   .forever-pick-chip-first{ box-shadow: 0 0 0 1px var(--gold) inset; }
+  .forever-pick-charnum{ color: var(--text-faint); font-weight: 400; }
   .forever-firstpick-hint{ flex-basis: 100%; font-size: 12px; color: var(--text-muted); margin-bottom: 2px; }
   .forever-firstpick-label{ display: flex; align-items: center; gap: 3px; font-size: 11px; color: var(--text-muted); white-space: nowrap; cursor: pointer; }
   .forever-firstpick-label input{ margin: 0; }
@@ -1157,7 +1159,7 @@
                   <div class="voting-closed-note hidden" id="votingClosedNote-forever">Diese Abstimmung wurde geschlossen — es kann nicht mehr abgestimmt werden. Die bisherigen Ergebnisse bleiben unten sichtbar.</div>
                   <div class="tac-card">
                     <div class="tac-card-title">Deine Auswahl</div>
-                    <div class="tac-card-note">WoW Forever launcht am 4. November 2026 — Blizzard hat noch kein offizielles Klassen-/Talentsystem veröffentlicht, daher orientiert sich diese Liste an den klassischen WoW-Classic-Spezialisierungen und kann sich noch ändern. Wähle bis zu 2 Picks — das können 2 verschiedene Klassen sein, oder 2x dieselbe Klasse mit unterschiedlicher Spezialisierung (z.B. Druide Balance + Druide Wiederherstellung). Klicke eine Klasse zum Auswählen an — sobald sie ausgewählt ist, erscheint bei ihr ein Button „+ weitere Spezialisierung", falls eine zweite Spezialisierung für sie noch möglich ist. Du kannst deine Auswahl jederzeit ändern.</div>
+                    <div class="tac-card-note">WoW Forever launcht am 4. November 2026 — Blizzard hat noch kein offizielles Klassen-/Talentsystem veröffentlicht, daher orientiert sich diese Liste an den klassischen WoW-Classic-Spezialisierungen und kann sich noch ändern. Wähle bis zu 2 Charaktere, die du spielen willst — das können 2 verschiedene Klassen sein, oder 2x dieselbe Klasse (z.B. zwei Mages), jeweils mit unabhängig wählbarer Spezialisierung, auch zweimal dieselbe. Klicke eine Klasse zum Auswählen an — sobald ein erster Charakter dieser Klasse ausgewählt ist, erscheint ein Button „+ weiterer …-Charakter", falls noch ein zweiter Charakter für sie möglich ist. Du kannst deine Auswahl jederzeit ändern.</div>
                     <div id="foreverMyPicks" class="forever-my-picks"></div>
                     <div id="foreverClassPicker" class="forever-class-grid"></div>
                     <div class="forever-actions">
@@ -2864,10 +2866,13 @@
   function normalizeForeverEntry(entry){
     const username = (entry && typeof entry.username === 'string') ? entry.username : '';
     const rawPicks = (entry && Array.isArray(entry.picks)) ? entry.picks : [];
-    // Dedupe by classId+spec, not by classId alone — the same class is
-    // allowed twice with two different specs (e.g. Druid Balance + Druid
-    // Restoration), just never the same class+spec combination twice.
-    const seen = new Set();
+    // Each pick is one CHARACTER, not one spec — the same class is allowed
+    // twice (up to FOREVER_MAX_PICKS total, across any mix of classes),
+    // and the two characters' specs are chosen completely independently.
+    // That includes the same class+spec twice (e.g. two Frost Mage
+    // characters) — that's a legitimate "I'm leveling two of the same
+    // build" answer, not a duplicate to collapse. No content-based dedup
+    // here; picks are only ever distinguished by their array position.
     const picks = [];
     for (const p of rawPicks){
       if (picks.length >= FOREVER_MAX_PICKS) break;
@@ -2875,9 +2880,6 @@
       const validSpecIds = foreverSpecsForClass(p.classId).map(s => s.id);
       if (!validSpecIds.length) continue;
       const spec = (typeof p.spec === 'string' && validSpecIds.includes(p.spec)) ? p.spec : validSpecIds[0];
-      const key = p.classId + '|' + spec;
-      if (seen.has(key)) continue;
-      seen.add(key);
       picks.push({ classId: p.classId, spec });
     }
     // "First Char" — which of this member's picks they intend to level to
@@ -5095,11 +5097,20 @@
       return `${cls ? cls.label : p.classId} (${foreverSpecLabel(p.classId, p.spec)})`;
     };
     const rowsHtml = entries.map(e => {
-      const first = e.firstPick || e.picks[0];
-      // "Second Char" is simply whichever of the (at most 2) picks isn't
-      // the first one — blank when there's only a single pick, since
-      // there's nothing to show there.
-      const second = e.picks.find(p => foreverPickKey(p) !== foreverPickKey(first)) || null;
+      // "First Char" / "Second Char" are picked out by ARRAY POSITION, not
+      // by content — two picks can now be content-identical (e.g. two
+      // Frost Mage characters), so comparing classId+spec can no longer
+      // tell them apart. Find which index the stored firstPick matches
+      // (first occurrence wins for a content tie, which is harmless since
+      // they're identical anyway) and treat the *other* index as second.
+      let firstIdx = 0;
+      if (e.firstPick){
+        const idx = e.picks.findIndex(p => p.classId === e.firstPick.classId && p.spec === e.firstPick.spec);
+        if (idx >= 0) firstIdx = idx;
+      }
+      const first = e.picks[firstIdx] || e.picks[0];
+      const secondIdx = firstIdx === 0 ? 1 : 0;
+      const second = e.picks.length > 1 ? (e.picks[secondIdx] || null) : null;
       return `<tr>
         <td>${escapeHtml(memberLabel(e))}</td>
         <td>${escapeHtml(pickLabel(first))}</td>
@@ -5127,11 +5138,19 @@
     // pick — with a single pick, it's unambiguously the first one, shown
     // as a quiet ★ badge instead of a redundant radio control.
     const showFirstPicker = foreverDraft.length > 1;
-    const hintHtml = showFirstPicker ? `<div class="forever-firstpick-hint">Welche Klasse/Spezialisierung bringst du zuerst auf Max-Level?</div>` : '';
+    const hintHtml = showFirstPicker ? `<div class="forever-firstpick-hint">Welchen Charakter bringst du zuerst auf Max-Level?</div>` : '';
+    // When the same class appears twice (two characters of that class),
+    // label the chips "Charakter 1"/"Charakter 2" so two content-identical
+    // picks (e.g. two Frost Mages) still read as clearly distinct entries.
+    const classCounts = {};
+    foreverDraft.forEach(p => { classCounts[p.classId] = (classCounts[p.classId] || 0) + 1; });
+    const classSeen = {};
     els.foreverMyPicks.innerHTML = hintHtml + foreverDraft.map((p, i) => {
       const cls = CLASS_MAP[p.classId];
       const specLabel = foreverSpecLabel(p.classId, p.spec);
       const isFirst = i === foreverFirstPickIndex;
+      classSeen[p.classId] = (classSeen[p.classId] || 0) + 1;
+      const charSuffix = classCounts[p.classId] > 1 ? ` <span class="forever-pick-charnum">(Charakter ${classSeen[p.classId]})</span>` : '';
       const firstMarkupHtml = showFirstPicker
         ? `<label class="forever-firstpick-label" title="Als First Char markieren">
              <input type="radio" name="foreverFirstPick" data-first-pick-index="${i}" ${isFirst ? 'checked' : ''}> First Char
@@ -5139,7 +5158,7 @@
         : `<span class="forever-firstpick-badge" title="First Char">★ First Char</span>`;
       return `<span class="forever-pick-chip ${isFirst ? 'forever-pick-chip-first' : ''}" style="border-color:${cls.color}">
         <span class="forever-class-dot" style="background:${cls.color}"></span>
-        ${escapeHtml(cls.label)} — ${escapeHtml(specLabel)}
+        ${escapeHtml(cls.label)} — ${escapeHtml(specLabel)}${charSuffix}
         ${firstMarkupHtml}
         <button type="button" data-remove-index="${i}" title="Remove">✕</button>
       </span>`;
@@ -5158,12 +5177,13 @@
     });
   }
 
-  // Each class card can hold up to one row per valid spec for that class —
-  // the same class can be picked twice, as long as the two picks use
-  // different specs (e.g. Druid Balance + Druid Restoration). Clicking the
-  // card body adds a new pick using the next spec not already taken for
-  // that class; each row's own <select> can only be changed to a spec that
-  // isn't already used by another pick of the same class.
+  // Each class card holds up to one row per CHARACTER of that class the
+  // member is voting for (at most FOREVER_MAX_PICKS total, across all
+  // classes combined) — not one row per spec. The two characters' specs
+  // are fully independent: both can even be the same spec (e.g. two Frost
+  // Mage characters). Clicking the card body adds a first character for
+  // that class; once a class already has a character, use the explicit
+  // "+ weiterer …-Charakter" button to add a second one.
   function renderForeverClassPicker(){
     const atCap = foreverDraft.length >= FOREVER_MAX_PICKS;
     els.foreverClassPicker.innerHTML = CLASSES.map(cls => {
@@ -5171,29 +5191,30 @@
       const classPicks = [];
       foreverDraft.forEach((p, i) => { if (p.classId === cls.id) classPicks.push({ ...p, i }); });
       const picked = classPicks.length > 0;
-      const takenSpecs = new Set(classPicks.map(p => p.spec));
-      const canAddMore = !atCap && validSpecs.some(s => !takenSpecs.has(s.id));
+      const canAddMore = !atCap && classPicks.length < FOREVER_MAX_PICKS;
       const disabled = !picked && (atCap || !validSpecs.length);
+      const showCharLabel = classPicks.length > 1;
 
       const rowsHtml = picked
-        ? classPicks.map(p => {
-            const options = validSpecs.map(s => {
-              const takenByOther = classPicks.some(cp => cp.i !== p.i && cp.spec === s.id);
-              return `<option value="${s.id}" ${p.spec === s.id ? 'selected' : ''} ${takenByOther ? 'disabled' : ''}>${escapeHtml(s.label)}</option>`;
-            }).join('');
+        ? classPicks.map((p, rowI) => {
+            const options = validSpecs.map(s =>
+              `<option value="${s.id}" ${p.spec === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`
+            ).join('');
+            const labelHtml = showCharLabel ? `<span class="forever-role-charlabel">Charakter ${rowI + 1}</span>` : '';
             return `<div class="forever-role-row">
+              ${labelHtml}
               <select data-spec-for="${cls.id}" data-pick-index="${p.i}">${options}</select>
               <button type="button" class="forever-role-remove" data-remove-index="${p.i}" title="Entfernen">✕</button>
             </div>`;
           }).join('')
         : `<div class="lootlib-note" style="margin:0;">${validSpecs.map(s => s.label).join(' / ')}</div>`;
 
-      // Once a class already has a pick, the row (select + ✕) fills almost
-      // the whole card, so "click the card again" is unreliable — most
-      // clicks land on the select instead of empty card space. Use an
-      // explicit, unambiguous button for adding a second spec instead.
+      // Once a class already has a character, the row (select + ✕) fills
+      // almost the whole card, so "click the card again" is unreliable —
+      // most clicks land on the select instead of empty card space. Use an
+      // explicit, unambiguous button for adding a second character instead.
       const addBtnHtml = (picked && canAddMore)
-        ? `<button type="button" class="forever-add-role-btn" data-add-role="${cls.id}">+ weitere Spezialisierung für ${escapeHtml(cls.label)}</button>`
+        ? `<button type="button" class="forever-add-role-btn" data-add-role="${cls.id}">+ weiterer ${escapeHtml(cls.label)}-Charakter</button>`
         : '';
 
       return `<div class="forever-class-card ${picked ? 'picked' : ''} ${disabled ? 'disabled' : ''}" data-class-card="${cls.id}">
@@ -5206,10 +5227,12 @@
       const classId = card.getAttribute('data-class-card');
       function addPick(){
         if (isVotingClosed('forever')) return;
-        const takenSpecs = new Set(foreverDraft.filter(p => p.classId === classId).map(p => p.spec));
-        const availableSpecs = foreverSpecsForClass(classId).map(s => s.id).filter(id => !takenSpecs.has(id));
-        if (foreverDraft.length >= FOREVER_MAX_PICKS || !availableSpecs.length) return;
-        foreverDraft.push({ classId, spec: availableSpecs[0] });
+        const allSpecs = foreverSpecsForClass(classId).map(s => s.id);
+        if (foreverDraft.length >= FOREVER_MAX_PICKS || !allSpecs.length) return;
+        // New character defaults to the class's first spec — the member
+        // can freely change it to anything, including the same spec as
+        // this class's other character, if there's already one.
+        foreverDraft.push({ classId, spec: allSpecs[0] });
         foreverClampFirstPickIndex();
         renderForeverPicksChips();
         renderForeverClassPicker();

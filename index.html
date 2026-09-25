@@ -615,6 +615,10 @@
   .forever-officer-table td{ padding: 8px 10px; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
   .forever-officer-table tbody tr:last-child td{ border-bottom: none; }
   .forever-officer-table tbody tr:hover td{ background: rgba(240,207,107,0.05); }
+  .forever-officer-table th[data-k]{ cursor: pointer; user-select: none; }
+  .forever-officer-table th[data-k]:hover{ color: var(--text); }
+  .forever-officer-table th[aria-sort="ascending"]::after{ content: " ▲"; font-size: 9px; }
+  .forever-officer-table th[aria-sort="descending"]::after{ content: " ▼"; font-size: 9px; }
   .forever-ov-row{ padding: 12px 0; border-bottom: 1px solid var(--border); }
   .forever-ov-row:last-child{ border-bottom: none; }
   .forever-ov-row-head{ display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
@@ -1179,7 +1183,7 @@
                   </div>
                   <div class="tac-card hidden" id="foreverOfficerTableCard">
                     <div class="tac-card-title">Stimmen im Detail — pro Mitglied</div>
-                    <div class="tac-card-note">Nur für Admins/Offiziere sichtbar. First Char = wird zuerst auf Max-Level gebracht, Second Char = die zweite Wahl (falls vorhanden).</div>
+                    <div class="tac-card-note">First Char = wird zuerst auf Max-Level gebracht, Second Char = die zweite Wahl (falls vorhanden).</div>
                     <div class="forever-officer-table-wrap">
                       <table class="forever-officer-table" id="foreverOfficerTable"></table>
                     </div>
@@ -3278,6 +3282,7 @@
   let state = defaultState();
   let foreverDraft = null; // null = not yet initialized from saved data this session
   let foreverFirstPickIndex = 0; // index into foreverDraft — which pick is "wird zuerst gespielt" (First Char)
+  let foreverOfficerSortK = 'member', foreverOfficerSortDir = 1; // officer detail table sort (Mitglied/First Char/Second Char)
   let pollComposerOptionDrafts = ['', '']; // composer's in-progress option text inputs, always >= POLL_MIN_OPTIONS
   let pollVoteDrafts = {}; // { [pollId]: [optionId, ...] } — per-poll in-progress selection before "Absenden"
   let pollCardManualOpen = {}; // { [pollId]: true|false } — same collapse-override convention as votings/announcements
@@ -5077,11 +5082,15 @@
     renderForeverOfficerTable();
   }
 
-  // Officers/Admins only — a flat per-member table (not just the aggregate
-  // bars above) so they can see exactly who picked what, and which of a
-  // member's picks they intend to level to max first.
+  // Visible to any guild member (Member/Officer/Admin) — a flat per-member
+  // table (not just the aggregate bars above) so everyone can see exactly
+  // who picked what, and which of a member's picks they intend to level to
+  // max first. Nothing sensitive here (it's the same info as the bars,
+  // just broken out by name), so this doesn't need officer-only gating —
+  // it just rides on the same member-or-higher gate as the rest of this
+  // view (renderForeverView already hides the whole page from Community).
   function renderForeverOfficerTable(){
-    const canSee = isOfficerOrAdmin();
+    const canSee = isMemberOrHigher();
     els.foreverOfficerTableCard.classList.toggle('hidden', !canSee);
     if (!canSee) return;
     // Object.entries (not .values) — the uid is needed to look up a
@@ -5095,13 +5104,16 @@
       return;
     }
     const memberLabel = (e) => memberDisplayLabel(e.uid, e.username);
-    entries.sort((a, b) => memberLabel(a).localeCompare(memberLabel(b), 'de', { sensitivity: 'base' }));
     const pickLabel = (p) => {
       if (!p) return '—';
       const cls = CLASS_MAP[p.classId];
       return `${cls ? cls.label : p.classId} (${foreverSpecLabel(p.classId, p.spec)})`;
     };
-    const rowsHtml = entries.map(e => {
+    // Precompute each row's three sortable columns once, up front — the
+    // First/Second Char columns sort by the same text shown in the cell
+    // (class + spec), so "sort by First Char" groups identical picks
+    // together the same way "sort by Mitglied" groups identical members.
+    const rows = entries.map(e => {
       // "First Char" / "Second Char" are picked out by ARRAY POSITION, not
       // by content — two picks can now be content-identical (e.g. two
       // Frost Mage characters), so comparing classId+spec can no longer
@@ -5116,13 +5128,31 @@
       const first = e.picks[firstIdx] || e.picks[0];
       const secondIdx = firstIdx === 0 ? 1 : 0;
       const second = e.picks.length > 1 ? (e.picks[secondIdx] || null) : null;
-      return `<tr>
-        <td>${escapeHtml(memberLabel(e))}</td>
-        <td>${escapeHtml(pickLabel(first))}</td>
-        <td>${escapeHtml(second ? pickLabel(second) : '—')}</td>
-      </tr>`;
-    }).join('');
-    els.foreverOfficerTable.innerHTML = `<thead><tr><th>Mitglied</th><th>First Char</th><th>Second Char</th></tr></thead><tbody>${rowsHtml}</tbody>`;
+      return { member: memberLabel(e), first: pickLabel(first), second: second ? pickLabel(second) : '—' };
+    });
+    const sortKeyFn = { member: r => r.member, first: r => r.first, second: r => r.second }[foreverOfficerSortK] || (r => r.member);
+    rows.sort((a, b) => {
+      const d = sortKeyFn(a).localeCompare(sortKeyFn(b), 'de', { sensitivity: 'base' });
+      return (d * foreverOfficerSortDir) || a.member.localeCompare(b.member, 'de', { sensitivity: 'base' });
+    });
+    const rowsHtml = rows.map(r => `<tr>
+        <td>${escapeHtml(r.member)}</td>
+        <td>${escapeHtml(r.first)}</td>
+        <td>${escapeHtml(r.second)}</td>
+      </tr>`).join('');
+    const sortAttr = (k) => k === foreverOfficerSortK ? (foreverOfficerSortDir > 0 ? 'ascending' : 'descending') : 'none';
+    els.foreverOfficerTable.innerHTML = `<thead><tr>
+        <th data-k="member" aria-sort="${sortAttr('member')}">Mitglied</th>
+        <th data-k="first" aria-sort="${sortAttr('first')}">First Char</th>
+        <th data-k="second" aria-sort="${sortAttr('second')}">Second Char</th>
+      </tr></thead><tbody>${rowsHtml}</tbody>`;
+    els.foreverOfficerTable.querySelector('thead').addEventListener('click', e => {
+      const th = e.target.closest('th[data-k]'); if (!th) return;
+      const k = th.dataset.k;
+      if (k === foreverOfficerSortK) foreverOfficerSortDir *= -1;
+      else { foreverOfficerSortK = k; foreverOfficerSortDir = 1; }
+      renderForeverOfficerTable();
+    });
   }
 
   // Keeps foreverFirstPickIndex pointing at a real entry in foreverDraft

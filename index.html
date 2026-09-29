@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Rude Guild Page</title>
+<title>rude Guild Page</title>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -236,7 +236,7 @@
   .character-chip-meta{ color: var(--teal-bright); font-size: 10.5px; }
   .character-chip-meta-error{ color: var(--text-muted); font-style: italic; }
 
-  /* "Meine Charaktere verwalten" composer. */
+  /* "User Settings" (formerly "Meine Charaktere verwalten") composer. */
   .character-composer-row{
     display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
     padding: 8px 0; border-bottom: 1px solid var(--border-soft);
@@ -986,7 +986,7 @@
       <div class="sidebar-inner">
         <div class="sidebar-brand" id="navBrand">
           <span class="nav-crest" id="navCrest">R</span>
-          <span class="nav-name" id="navGuildName">Aeternum</span>
+          <span class="nav-name" id="navGuildName">rude</span>
         </div>
         <nav class="sidebar-nav" id="sidebarNav"></nav>
       </div>
@@ -1034,7 +1034,7 @@
           <header class="hero" id="heroSection">
             <div class="hero-content">
               <p class="hero-eyebrow">Vorbereitung läuft</p>
-              <h1 class="hero-title" id="heroTitle">AETERNUM</h1>
+              <h1 class="hero-title" id="heroTitle">RUDE</h1>
               <p class="hero-tagline" id="heroTagline">Spineshatter-EU</p>
               <p class="hero-desc" id="heroDesc">Wir bereiten uns auf World of Warcraft: Forever vor. Diese Seite wächst mit — als erstes: eine Umfrage, wer welche Klasse und Spezialisierung spielen möchte.</p>
               <div class="hero-actions">
@@ -1359,7 +1359,7 @@
 
             <div id="mycharLoggedIn" class="hidden">
               <div class="mychar-page-actions">
-                <button type="button" class="btn btn-sm btn-outline-gold" id="mycharManageBtn">Charaktere verwalten</button>
+                <button type="button" class="btn btn-sm btn-outline-gold" id="mycharManageBtn">User Settings</button>
                 <button type="button" class="btn btn-sm btn-ghost" id="mycharRefreshAllBtn">Alle aktualisieren</button>
               </div>
               <div id="mycharList" class="mychar-grid"></div>
@@ -1384,7 +1384,7 @@
       </main>
 
       <footer class="footer">
-        <div id="footerGuildName">Aeternum</div>
+        <div id="footerGuildName">rude</div>
         <div class="save-status" id="saveStatus"></div>
       </footer>
     </div>
@@ -1401,7 +1401,7 @@
     </div>
   </div>
 
-  <!-- "Meine Charaktere verwalten" — nickname + repeatable character rows
+  <!-- "User Settings" (formerly "Meine Charaktere verwalten") — nickname + repeatable character rows
        (name, realm, one marked as Hauptcharakter), reachable from the
        account popover top-right. Saved to characterProfiles/<uid> in
        Firebase; shown at Manage access and on Bewerbungen (see
@@ -1449,7 +1449,7 @@
   // ---------------------------------------------------------------------
   // Easy-to-edit guild content — change these without touching layout/CSS.
   // ---------------------------------------------------------------------
-  const GUILD_NAME = 'Aeternum';
+  const GUILD_NAME = 'rude';
   const GUILD_TAGLINE = 'Spineshatter-EU';
   const GUILD_CREST_LETTER = 'A';
   // Official WoW: Forever release date (confirmed Nov 4, 2026, 23:00 UTC —
@@ -2878,7 +2878,7 @@
   }
 
   // Shared "how do we display this member" helper — nickname (if they've
-  // set one under "Meine Charaktere verwalten") with the Discord username
+  // set one under "User Settings" (formerly "Meine Charaktere verwalten") with the Discord username
   // alongside in parentheses, otherwise just the Discord username. Used
   // everywhere a member shows up by name to Admins/Offiziere (Manage
   // access, the class/spec voting details, the per-member voting table)
@@ -3711,7 +3711,7 @@
   });
 
   // ---------------------------------------------------------------------
-  // "Meine Charaktere verwalten" — the composer a member uses to set a
+  // "User Settings" (formerly "Meine Charaktere verwalten") — the composer a member uses to set a
   // nickname and add/remove their own characters (one marked
   // Hauptcharakter). In-progress edits live only in characterComposerDraft
   // until "Speichern" writes them to characterProfiles/<uid>.
@@ -3911,7 +3911,7 @@
     const profile = (state.characterProfiles || {})[discordIdentity.id];
     const characters = (profile && profile.characters) || [];
     if (!characters.length){
-      els.mycharList.innerHTML = `<div class="lootlib-note">Du hast noch keine Charaktere hinterlegt. Über "Charaktere verwalten" oben kannst du welche hinzufügen.</div>`;
+      els.mycharList.innerHTML = `<div class="lootlib-note">Du hast noch keine Charaktere hinterlegt. Über "User Settings" oben kannst du welche hinzufügen.</div>`;
       return;
     }
     els.mycharList.innerHTML = characters.map(mycharCardHtml).join('');
@@ -5565,7 +5565,7 @@
     renderRecruitView();
     // Lazy like the Talent Builder page — only (re)rendered while actually
     // open, but on every state change while open, since it shows live data
-    // (own characterProfiles can change from "Meine Charaktere verwalten").
+    // (own characterProfiles can change from "User Settings" (formerly "Meine Charaktere verwalten")).
     if (currentPage === 'mychar') renderMyCharactersPage();
   }
 

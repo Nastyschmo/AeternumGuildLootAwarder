@@ -123,7 +123,8 @@
   .nav-name{ font-family: 'Cinzel', serif; font-weight: 600; letter-spacing: 1.5px; font-size: 17px; color: var(--text); white-space: nowrap; }
   .sidebar-nav{ display: flex; flex-direction: column; gap: 4px; }
   .sidebar-nav-item{
-    display: block; padding: 10px 12px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 10px 12px; border-radius: 6px;
     color: var(--text-muted); font-size: 14px; font-weight: 600;
     text-decoration: none; cursor: pointer; white-space: nowrap;
     border: 1px solid transparent;
@@ -133,6 +134,7 @@
 
   .sidebar-nav-mini{ display: flex; flex-direction: column; gap: 8px; }
   .sidebar-nav-item-mini{
+    position: relative;
     width: 38px; height: 38px; border-radius: 6px;
     display: flex; align-items: center; justify-content: center;
     color: var(--text-muted); cursor: pointer; border: 1px solid transparent;
@@ -140,6 +142,70 @@
   .sidebar-nav-item-mini svg{ width: 18px; height: 18px; }
   .sidebar-nav-item-mini:hover{ color: var(--text); background: rgba(255,255,255,0.04); }
   .sidebar-nav-item-mini.active{ color: var(--gold-bright); background: rgba(240,207,107,0.1); border-color: rgba(240,207,107,0.25); }
+
+  /* ---------- "Quest available" markers — a WoW-style gold "!" next to a
+     sidebar nav item (full rail) or a small dot on its icon (mini rail)
+     when that page has something open for you: an unread announcement,
+     or an open poll/the class survey you haven't voted in yet. Purely
+     visual sugar around data that's already tracked elsewhere (votes,
+     seenState/<uid>) — see pageQuestPending() / renderQuestBell() in the
+     script for what actually decides when these show. ---------- */
+  .nav-quest-badge{
+    flex: none; width: 18px; height: 18px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff6c8, var(--gold-bright) 55%, #b8860b 100%);
+    border: 1px solid #fff6c8; color: #3a2600; font-family: 'Cinzel', serif; font-weight: 700; font-size: 12px;
+    display: flex; align-items: center; justify-content: center; line-height: 1;
+    box-shadow: 0 0 6px rgba(240,207,107,0.6);
+    animation: quest-badge-pulse 2s ease-in-out infinite;
+  }
+  .nav-quest-badge-mini{
+    position: absolute; top: 1px; right: 1px; width: 11px; height: 11px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff6c8, var(--gold-bright) 55%, #b8860b 100%);
+    border: 1px solid #fff6c8; box-shadow: 0 0 6px rgba(240,207,107,0.7);
+    animation: quest-badge-pulse 2s ease-in-out infinite;
+  }
+  @keyframes quest-badge-pulse{
+    0%, 100%{ transform: scale(1); opacity: 1; }
+    50%{ transform: scale(1.18); opacity: 0.85; }
+  }
+
+  /* ---------- Quest bell — topbar dropdown summarizing every pending
+     "quest" at once (unread Ankündigungen + open Abstimmungen you haven't
+     voted in), so you don't have to click through each nav item to find
+     out. Reuses the same popover chrome as the account popover. ---------- */
+  .quest-bell-wrap{ position: relative; }
+  .quest-bell-btn{ position: relative; display: flex; align-items: center; justify-content: center; padding: 8px 10px; }
+  .quest-bell-btn svg{ width: 18px; height: 18px; }
+  .quest-bell-dot{
+    position: absolute; top: 3px; right: 4px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px;
+    background: radial-gradient(circle at 35% 30%, #fff6c8, var(--gold-bright) 55%, #b8860b 100%);
+    border: 1px solid #fff6c8; color: #3a2600; font-family: 'Karla', sans-serif; font-weight: 700; font-size: 10px;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 0 6px rgba(240,207,107,0.6);
+  }
+  .quest-popover{
+    position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
+    width: 280px; max-height: 360px; overflow-y: auto;
+    background: var(--bg-panel-raised); border: 1px solid var(--gold);
+    border-radius: 6px; padding: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .quest-popover-title{ font-family: 'Cinzel', serif; color: var(--gold-bright); font-size: 13px; margin-bottom: 10px; }
+  .quest-popover-section-title{
+    font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: .6px; text-transform: uppercase;
+    color: var(--text-muted); margin: 12px 0 6px;
+  }
+  .quest-popover-section-title:first-child{ margin-top: 0; }
+  .quest-popover-item{
+    display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 5px;
+    color: var(--text); font-size: 13px; text-decoration: none; cursor: pointer;
+  }
+  .quest-popover-item:hover{ background: rgba(240,207,107,0.1); }
+  .quest-popover-item-icon{
+    flex: none; width: 16px; height: 16px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff6c8, var(--gold-bright) 55%, #b8860b 100%);
+    color: #3a2600; font-family: 'Cinzel', serif; font-weight: 700; font-size: 11px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .quest-popover-empty{ font-size: 12.5px; color: var(--text-muted); padding: 6px 2px; }
 
   .main-area{ flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .topbar{
@@ -1011,6 +1077,16 @@
         </div>
         <div class="nav-auth">
           <button type="button" class="btn btn-sm btn-outline-gold" id="navLoginBtn">Mit Discord anmelden</button>
+          <div class="quest-bell-wrap hidden" id="questBellWrap">
+            <button type="button" class="btn btn-ghost btn-sm quest-bell-btn" id="questBellBtn" title="Offene Quests" aria-label="Offene Quests">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+              <span class="quest-bell-dot hidden" id="questBellDot"></span>
+            </button>
+            <div class="quest-popover hidden" id="questPopover">
+              <div class="quest-popover-title">Offene Quests</div>
+              <div id="questPopoverList"></div>
+            </div>
+          </div>
           <div class="access-control hidden" id="accessControlWrap">
             <button class="btn btn-ghost btn-sm" id="accessSwitchBtn">
               <img id="accessAvatarImg" class="access-avatar hidden" alt="" />
@@ -2834,7 +2910,7 @@
   }
 
   function defaultState(){
-    return { discordRoles: {}, foreverSurvey: {}, votingStatus: {}, announcements: {}, polls: {}, applications: {}, recruitingNeeds: {}, characterProfiles: {} };
+    return { discordRoles: {}, foreverSurvey: {}, votingStatus: {}, announcements: {}, polls: {}, applications: {}, recruitingNeeds: {}, characterProfiles: {}, seenState: {} };
   }
 
   // A character needs at least a name to be worth keeping; realmSlug falls
@@ -3197,6 +3273,20 @@
         const out = {};
         for (const uid of Object.keys(raw)) out[uid] = normalizeCharacterProfile(raw[uid]);
         return out;
+      })(),
+      // Per-member "what have you already seen" markers, behind the quest
+      // bell/badges (see pageQuestPending()/renderQuestBell()). Only
+      // Ankündigungen needs one of these — "have you voted yet" for
+      // Abstimmungen is derived straight from the vote data itself, no
+      // separate seen-flag needed there.
+      seenState: (() => {
+        const raw = (parsed.seenState && typeof parsed.seenState === 'object') ? parsed.seenState : {};
+        const out = {};
+        for (const uid of Object.keys(raw)){
+          const v = raw[uid];
+          out[uid] = { announcementsSeenAt: (v && typeof v.announcementsSeenAt === 'number' && v.announcementsSeenAt > 0) ? v.announcementsSeenAt : 0 };
+        }
+        return out;
       })()
     };
   }
@@ -3205,6 +3295,105 @@
     return !!(state.votingStatus && state.votingStatus[votingId] && state.votingStatus[votingId].closed);
   }
 
+  // ---------------------------------------------------------------------
+  // "Quest available" system — a WoW-style gold "!" on Ankündigungen /
+  // Abstimmungen in the sidebar, plus a topbar bell that lists everything
+  // open at once. Gated to Member+ (isMemberOrHigher()) since Community
+  // accounts can't see either page anyway. Two independent kinds of
+  // "pending":
+  //  - Ankündigungen: has a NEWER announcement been posted than the
+  //    timestamp this member last opened that page? Needs its own
+  //    per-member marker (seenState/<uid>/announcementsSeenAt), written
+  //    by markAnnouncementsSeen() whenever the page is opened.
+  //  - Abstimmungen: is there an open poll/the class survey this member
+  //    hasn't voted in yet? No separate marker needed — derived directly
+  //    from the vote data (foreverSavedEntry()/pollUserChoices()) that's
+  //    already there, so voting itself is what clears the "!".
+  // ---------------------------------------------------------------------
+  function newestAnnouncementAt(){
+    return Object.values(state.announcements || {}).reduce((max, a) => Math.max(max, a.createdAt || 0), 0);
+  }
+  function announcementsSeenAt(){
+    if (!discordIdentity) return 0;
+    const s = state.seenState && state.seenState[discordIdentity.id];
+    return (s && typeof s.announcementsSeenAt === 'number') ? s.announcementsSeenAt : 0;
+  }
+  function questPendingAnnouncement(){
+    if (!discordIdentity || !isMemberOrHigher()) return false;
+    return newestAnnouncementAt() > announcementsSeenAt();
+  }
+  // List (not just a boolean) so the quest bell can name each one —
+  // the class/spec survey plus every open custom poll not yet voted in.
+  function questPendingPollItems(){
+    if (!discordIdentity || !isMemberOrHigher()) return [];
+    const items = [];
+    if (!isVotingClosed('forever') && !foreverSavedEntry()) items.push({ page: 'forever', title: 'Klassen & Spezialisierung' });
+    sortedPolls().forEach(poll => {
+      if (!pollIsClosed(poll) && pollUserChoices(poll).length === 0) items.push({ page: 'forever', title: poll.title });
+    });
+    return items;
+  }
+  function pageQuestPending(pageId){
+    if (pageId === 'announcements') return questPendingAnnouncement();
+    if (pageId === 'forever') return questPendingPollItems().length > 0;
+    return false;
+  }
+  // Marks Ankündigungen as "seen" up to the newest post that exists right
+  // now. Cheap no-op if there's nothing newer than what's already stored,
+  // so opening the page repeatedly doesn't spam Firebase with writes.
+  function markAnnouncementsSeen(){
+    if (!discordIdentity || !isMemberOrHigher()) return;
+    const latest = newestAnnouncementAt();
+    if (latest <= announcementsSeenAt()) return;
+    if (!state.seenState) state.seenState = {};
+    state.seenState[discordIdentity.id] = { announcementsSeenAt: latest };
+    refreshQuestUI();
+    saveData('seenState/' + discordIdentity.id);
+  }
+  // Called after anything that can change quest state (a vote saved, a
+  // new announcement posted, Ankündigungen marked seen, or just a normal
+  // Firebase sync) so the sidebar badges and the bell stay live.
+  function refreshQuestUI(){
+    renderSidebarNav();
+    renderQuestBell();
+  }
+  function renderQuestBell(){
+    const show = !!discordIdentity && isMemberOrHigher();
+    els.questBellWrap.classList.toggle('hidden', !show);
+    if (!show) return;
+    const announcementPending = questPendingAnnouncement();
+    const pollItems = questPendingPollItems();
+    const totalCount = (announcementPending ? 1 : 0) + pollItems.length;
+    els.questBellDot.classList.toggle('hidden', totalCount === 0);
+    els.questBellDot.textContent = totalCount > 0 ? String(totalCount) : '';
+    let html = '';
+    if (totalCount === 0){
+      html = `<div class="quest-popover-empty">Keine offenen Quests — du bist auf dem neuesten Stand!</div>`;
+    } else {
+      if (announcementPending){
+        html += `<div class="quest-popover-section-title">Ankündigungen</div>
+          <a class="quest-popover-item" data-quest-page="announcements">
+            <span class="quest-popover-item-icon" aria-hidden="true">!</span>
+            <span>Neue Ankündigung(en) warten auf dich</span>
+          </a>`;
+      }
+      if (pollItems.length){
+        html += `<div class="quest-popover-section-title">Abstimmungen</div>`;
+        html += pollItems.map(it => `<a class="quest-popover-item" data-quest-page="${it.page}">
+            <span class="quest-popover-item-icon" aria-hidden="true">!</span>
+            <span>${escapeHtml(it.title)}</span>
+          </a>`).join('');
+      }
+    }
+    els.questPopoverList.innerHTML = html;
+    els.questPopoverList.querySelectorAll('[data-quest-page]').forEach(a => {
+      a.addEventListener('click', () => {
+        showPage(a.getAttribute('data-quest-page'));
+        els.questPopover.classList.add('hidden');
+        maybeAutoCloseSidebarOnMobile();
+      });
+    });
+  }
   let state = defaultState();
   let foreverDraft = null; // null = not yet initialized from saved data this session
   let foreverFirstPickIndex = 0; // index into foreverDraft — which pick is "wird zuerst gespielt" (First Char)
@@ -3233,6 +3422,11 @@
     navCrestMini: document.getElementById('navCrestMini'),
     navGuildName: document.getElementById('navGuildName'),
     navLoginBtn: document.getElementById('navLoginBtn'),
+    questBellWrap: document.getElementById('questBellWrap'),
+    questBellBtn: document.getElementById('questBellBtn'),
+    questBellDot: document.getElementById('questBellDot'),
+    questPopover: document.getElementById('questPopover'),
+    questPopoverList: document.getElementById('questPopoverList'),
     accessControlWrap: document.getElementById('accessControlWrap'),
     accessSwitchBtn: document.getElementById('accessSwitchBtn'),
     accessBadge: document.getElementById('accessBadge'),
@@ -3384,7 +3578,7 @@
     els.introText.textContent = INTRO_TEXT;
     els.footerGuildName.textContent = GUILD_NAME;
     renderNewsGrid();
-    renderSidebarNav();
+    refreshQuestUI();
     initSidebarState();
     initTalentBuilder();
     initReleaseCountdown();
@@ -3447,15 +3641,17 @@
   }
 
   function renderSidebarNav(){
-    els.sidebarNav.innerHTML = PAGES.map(p =>
-      `<a class="sidebar-nav-item ${p.id === currentPage ? 'active' : ''}" data-page="${p.id}">${escapeHtml(p.label)}</a>`
-    ).join('');
+    els.sidebarNav.innerHTML = PAGES.map(p => {
+      const badge = pageQuestPending(p.id) ? '<span class="nav-quest-badge" title="Hier gibt\'s was zu tun!" aria-label="Neu">!</span>' : '';
+      return `<a class="sidebar-nav-item ${p.id === currentPage ? 'active' : ''}" data-page="${p.id}"><span>${escapeHtml(p.label)}</span>${badge}</a>`;
+    }).join('');
     els.sidebarNav.querySelectorAll('[data-page]').forEach(a => {
       a.addEventListener('click', () => { showPage(a.getAttribute('data-page')); maybeAutoCloseSidebarOnMobile(); });
     });
-    els.sidebarNavMini.innerHTML = PAGES.map(p =>
-      `<a class="sidebar-nav-item-mini ${p.id === currentPage ? 'active' : ''}" data-page="${p.id}" title="${escapeHtml(p.label)}" aria-label="${escapeHtml(p.label)}">${p.icon}</a>`
-    ).join('');
+    els.sidebarNavMini.innerHTML = PAGES.map(p => {
+      const badge = pageQuestPending(p.id) ? '<span class="nav-quest-badge-mini" aria-hidden="true"></span>' : '';
+      return `<a class="sidebar-nav-item-mini ${p.id === currentPage ? 'active' : ''}" data-page="${p.id}" title="${escapeHtml(p.label)}" aria-label="${escapeHtml(p.label)}">${p.icon}${badge}</a>`;
+    }).join('');
     els.sidebarNavMini.querySelectorAll('[data-page]').forEach(a => {
       a.addEventListener('click', () => { showPage(a.getAttribute('data-page')); maybeAutoCloseSidebarOnMobile(); });
     });
@@ -3502,6 +3698,9 @@
     // the page, not on every visit and never on renderAll() (nothing
     // about it ever changes at runtime).
     if (pageId === 'forevertools') renderForeverToolsPage();
+    // Opening Ankündigungen is what clears its quest "!" — mark up to the
+    // newest post that exists right now as seen (no-op if already caught up).
+    if (pageId === 'announcements') markAnnouncementsSeen();
   }
 
   // Back/forward now steps through the guild page's own Home /
@@ -3599,6 +3798,16 @@
     }
   });
   els.accessLogoutBtn.addEventListener('click', () => logoutDiscord());
+
+  els.questBellBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    els.questPopover.classList.toggle('hidden');
+  });
+  document.addEventListener('click', (e) => {
+    if (!els.questPopover.classList.contains('hidden') && !els.questPopover.contains(e.target) && e.target !== els.questBellBtn){
+      els.questPopover.classList.add('hidden');
+    }
+  });
 
   // ---------------------------------------------------------------------
   // Character chip rendering — shared between Manage access and the
@@ -4657,11 +4866,13 @@
     let statusEl = document.getElementById('pollVoteStatus-' + pollId);
     if (statusEl){ statusEl.textContent = 'Saving…'; statusEl.className = 'armory-status'; }
     renderPollList();
+    refreshQuestUI();
     const ok = await saveData('polls/' + pollId + '/votes/' + discordIdentity.id);
     if (!ok){
       if (previous) poll.votes[discordIdentity.id] = previous;
       else delete poll.votes[discordIdentity.id];
       renderPollList();
+      refreshQuestUI();
       statusEl = document.getElementById('pollVoteStatus-' + pollId);
       if (statusEl){
         statusEl.textContent = 'Konnte nicht speichern — Firebase-Regeln prüfen (siehe README)';
@@ -5148,6 +5359,7 @@
     }
     renderForeverOverview();
     renderForeverOfficerTable();
+    refreshQuestUI();
   }
 
   function foreverAggregate(){
@@ -5563,6 +5775,7 @@
     renderAnnouncementsView();
     renderRecruitTeaser();
     renderRecruitView();
+    refreshQuestUI();
     // Lazy like the Talent Builder page — only (re)rendered while actually
     // open, but on every state change while open, since it shows live data
     // (own characterProfiles can change from "User Settings" (formerly "Meine Charaktere verwalten")).

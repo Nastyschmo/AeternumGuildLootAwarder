@@ -175,7 +175,20 @@
      out. Reuses the same popover chrome as the account popover. ---------- */
   .quest-bell-wrap{ position: relative; }
   .quest-bell-btn{ position: relative; display: flex; align-items: center; justify-content: center; padding: 8px 10px; }
-  .quest-bell-btn svg{ width: 18px; height: 18px; }
+  .quest-bell-btn svg.quest-bell-icon{ width: 16px; height: 22px; overflow: visible; }
+  /* The bell button itself is styled as a WoW "quest available" mark — a
+     filled gold "!" when something's pending, and just its empty outline
+     ("ein leerer Rahmen") when you're caught up. Toggled by the
+     .has-pending class in renderQuestBell(), not by swapping markup. */
+  .quest-bell-icon-shape{ transition: fill .15s, stroke .15s; }
+  .quest-bell-btn:not(.has-pending) .quest-bell-icon-shape{
+    fill: none; stroke: var(--text-muted); stroke-width: 1.6;
+  }
+  .quest-bell-btn:hover:not(.has-pending) .quest-bell-icon-shape{ stroke: var(--text); }
+  .quest-bell-btn.has-pending .quest-bell-icon-shape{
+    fill: var(--gold-bright); stroke: #fff6c8; stroke-width: 0.6;
+    filter: drop-shadow(0 0 4px rgba(240,207,107,0.7));
+  }
   .quest-bell-dot{
     position: absolute; top: 3px; right: 4px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px;
     background: radial-gradient(circle at 35% 30%, #fff6c8, var(--gold-bright) 55%, #b8860b 100%);
@@ -1079,7 +1092,10 @@
           <button type="button" class="btn btn-sm btn-outline-gold" id="navLoginBtn">Mit Discord anmelden</button>
           <div class="quest-bell-wrap hidden" id="questBellWrap">
             <button type="button" class="btn btn-ghost btn-sm quest-bell-btn" id="questBellBtn" title="Offene Quests" aria-label="Offene Quests">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+              <svg class="quest-bell-icon" viewBox="0 0 16 22" aria-hidden="true">
+                <rect class="quest-bell-icon-shape" x="5" y="0.8" width="6" height="14" rx="3"/>
+                <circle class="quest-bell-icon-shape" cx="8" cy="19.5" r="2.3"/>
+              </svg>
               <span class="quest-bell-dot hidden" id="questBellDot"></span>
             </button>
             <div class="quest-popover hidden" id="questPopover">
@@ -3364,6 +3380,12 @@
     const announcementPending = questPendingAnnouncement();
     const pollItems = questPendingPollItems();
     const totalCount = (announcementPending ? 1 : 0) + pollItems.length;
+    // The bell icon itself is the WoW "!" quest mark — filled gold when
+    // there's something pending, just its empty outline when you're
+    // caught up (see the .has-pending CSS). Each item inside the dropdown
+    // instead gets a "?" — the WoW quest-turn-in mark, since clicking it
+    // is literally "go there to finish this one".
+    els.questBellBtn.classList.toggle('has-pending', totalCount > 0);
     els.questBellDot.classList.toggle('hidden', totalCount === 0);
     els.questBellDot.textContent = totalCount > 0 ? String(totalCount) : '';
     let html = '';
@@ -3373,14 +3395,14 @@
       if (announcementPending){
         html += `<div class="quest-popover-section-title">Ankündigungen</div>
           <a class="quest-popover-item" data-quest-page="announcements">
-            <span class="quest-popover-item-icon" aria-hidden="true">!</span>
+            <span class="quest-popover-item-icon" aria-hidden="true">?</span>
             <span>Neue Ankündigung(en) warten auf dich</span>
           </a>`;
       }
       if (pollItems.length){
         html += `<div class="quest-popover-section-title">Abstimmungen</div>`;
         html += pollItems.map(it => `<a class="quest-popover-item" data-quest-page="${it.page}">
-            <span class="quest-popover-item-icon" aria-hidden="true">!</span>
+            <span class="quest-popover-item-icon" aria-hidden="true">?</span>
             <span>${escapeHtml(it.title)}</span>
           </a>`).join('');
       }

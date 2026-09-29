@@ -66,6 +66,13 @@
     cursor: pointer;
     transition: border-color .15s ease, background .15s ease, filter .15s ease;
     white-space: nowrap;
+    /* .btn is also used on <a> tags (e.g. the applicant "Auf Discord
+       kontaktieren" link) — kill the browser's default link underline and
+       make it lay out identically to a real <button>. */
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   .btn:hover{ border-color: var(--gold); }
   .btn-sm{ padding: 6px 12px; font-size: 12px; border-radius: 3px; }
@@ -5736,10 +5743,22 @@
             <button type="button" class="btn btn-ghost btn-sm access-member-armory-refresh" data-refresh-armory="${a.applicantId}">Aktualisieren</button>
           </div>`
         : '';
+      // Direct link into Discord's own profile view for this applicant —
+      // one click gets an Officer to "Nachricht senden" instead of having
+      // to search the member list by username by hand. Uses applicantId
+      // (their stable Discord user id from OAuth), which — unlike the
+      // username — never changes, so this keeps working even if they
+      // rename themselves on Discord later. Only shown when we actually
+      // have an id (always true for anything submitted through the real
+      // form; guarded anyway for old/malformed data).
+      const contactBtnHtml = a.applicantId
+        ? `<a class="btn btn-discord btn-sm" href="https://discord.com/users/${encodeURIComponent(a.applicantId)}" target="_blank" rel="noopener" title="Öffnet das Discord-Profil von ${escapeHtml(a.applicantName)} — von dort direkt 'Nachricht senden'">Auf Discord kontaktieren</a>`
+        : '';
       return `<div class="application-card">
         <div class="application-card-head">
           <span class="application-applicant">${escapeHtml(a.applicantName)}${applicantProfile && applicantProfile.nickname ? ` <span class="access-member-nickname">"${escapeHtml(applicantProfile.nickname)}"</span>` : ''}</span>
           <span class="application-date">${escapeHtml(dateStr)}</span>
+          ${contactBtnHtml}
           <button type="button" class="btn btn-ghost btn-sm" data-delete-application="${a.id}">Löschen</button>
         </div>
         <div class="application-class-picks">${picksHtml}</div>

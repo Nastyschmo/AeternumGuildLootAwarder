@@ -341,7 +341,9 @@
      gold styling language (tac-card look), not a copy of Blizzard's own
      Armory page design. ---------- */
   .mychar-page-actions{ display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-  .mychar-grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+  /* Widened from 280px so the equipment grid's two columns (icon + name +
+     enchant text) have room to breathe without wrapping awkwardly. */
+  .mychar-grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 18px; }
   .mychar-card{
     background: var(--bg-panel); border: 1px solid var(--border-soft); border-top: 3px solid var(--gold);
     border-radius: 8px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;
@@ -357,8 +359,55 @@
   .mychar-stat-label{ font-size: 10.5px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-faint); }
   .mychar-stat-value{ font-size: 14px; font-weight: 600; color: var(--text); }
   .mychar-refresh-btn{ align-self: flex-start; }
-  .mychar-armory-link{ font-size: 12px; color: var(--teal-bright); text-decoration: none; margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--border-soft); }
+  .mychar-armory-link{ font-size: 12px; color: var(--teal-bright); text-decoration: none; padding-top: 8px; border-top: 1px dashed var(--border-soft); }
   .mychar-armory-link:hover{ text-decoration: underline; }
+
+  /* ---------- Equipment icon grid — a Wowhead-gear-check-style list of
+     every equipped item (not a full character render; see
+     discord-auth-worker.js's job-3 comment for why Classic can't offer
+     one). Left/right columns mirror the in-game paper-doll's two halves,
+     with weapons along the bottom. ---------- */
+  .mychar-equip-wrap{ border-top: 1px dashed var(--border-soft); padding-top: 12px; }
+  .mychar-equip-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; }
+  .mychar-equip-col{ display: flex; flex-direction: column; gap: 4px; }
+  .mychar-equip-item{ display: flex; align-items: flex-start; gap: 8px; min-height: 34px; }
+  .mychar-equip-icon{
+    width: 30px; height: 30px; flex: none; border-radius: 4px; border: 2px solid var(--border-soft);
+    object-fit: cover; background: var(--bg-deep);
+  }
+  .mychar-equip-icon-empty{ background: var(--bg-deep); border-style: dashed; opacity: 0.5; }
+  .mychar-equip-text{ min-width: 0; padding-top: 1px; }
+  .mychar-equip-name{ font-size: 12px; font-weight: 600; line-height: 1.25; overflow-wrap: break-word; }
+  .mychar-equip-enchant{ font-size: 10.5px; color: var(--uncommon-green, #1eff00); line-height: 1.25; overflow-wrap: break-word; }
+  .mychar-equip-bottom{ display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--border-soft); }
+  .mychar-equip-bottom .mychar-equip-item{ flex: 1 1 160px; }
+
+  /* ---------- WarcraftLogs — current-phase raid rankings ---------- */
+  .mychar-wcl-wrap{ border-top: 1px dashed var(--border-soft); padding-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .mychar-wcl-head{ display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .mychar-wcl-title{ font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-faint); font-weight: 600; }
+  .mychar-wcl-link{ font-size: 11.5px; color: var(--teal-bright); text-decoration: none; }
+  .mychar-wcl-link:hover{ text-decoration: underline; }
+  .mychar-wcl-zones{ display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+  .mychar-wcl-zone{
+    background: var(--bg-deep); border: 1px solid var(--border-soft); border-radius: 6px;
+    padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; text-align: center;
+  }
+  .mychar-wcl-zone-label{ font-size: 10px; color: var(--text-muted); font-weight: 600; }
+  .mychar-wcl-zone-kills{ font-size: 15px; font-weight: 700; color: var(--gold-bright); }
+  .mychar-wcl-zone-none{ font-size: 11px; color: var(--text-faint); font-style: italic; }
+  .mychar-wcl-zone-stats{ display: flex; flex-direction: column; gap: 1px; }
+  .mychar-wcl-zone-stat-label{ font-size: 9.5px; color: var(--text-faint); text-transform: uppercase; margin-right: 5px; }
+  .mychar-wcl-zone-stat-value{ font-size: 11.5px; color: var(--text); font-weight: 600; }
+  .mychar-wcl-rank{ color: var(--teal-bright); }
+  .mychar-wcl-bestperf{
+    align-self: center; text-align: center; padding: 8px 18px; border: 1px solid var(--border-soft);
+    border-radius: 6px; background: var(--bg-deep);
+  }
+  .mychar-wcl-bestperf-label{ font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.4px; }
+  .mychar-wcl-bestperf-zone{ text-transform: none; letter-spacing: 0; }
+  .mychar-wcl-bestperf-value{ font-size: 26px; font-weight: 700; color: #a335ee; line-height: 1.2; }
+  .mychar-wcl-bestperf-median{ font-size: 11px; color: var(--teal-bright); }
 
   /* ---------- "Hilfreich forEVER" — curated list of external community
      sites/tools. Reuses the .voting-card look (same border/radius/bg as
@@ -1683,6 +1732,43 @@
     return result;
   }
 
+  // Mirrors fetchArmoryCharacter above exactly, just against the Worker's
+  // /warcraftlogs-character endpoint instead — same cache-then-fetch shape,
+  // same never-throws/always-return-a-debug-carrying-result contract, kept
+  // as a fully separate function (rather than folding into
+  // fetchArmoryCharacter) since the two can succeed/fail independently:
+  // Armory only needs Battle.net credentials, this needs its own
+  // WarcraftLogs API client and configured zone ids (see README.md).
+  async function fetchWarcraftLogsCharacter(realmSlug, name, opts){
+    const force = !!(opts && opts.force);
+    const key = characterProfileCacheKey(realmSlug, name);
+    const cached = wclCache[key];
+    if (!force && cached && (Date.now() - cached.fetchedAt) < WCL_CACHE_MS){
+      return cached.result;
+    }
+    if (!isWorkerConfigured()){
+      const result = { found: false, debug: { reason: 'worker_not_configured', detail: 'WORKER_URL is not set up yet — see the README.' } };
+      wclCache[key] = { fetchedAt: Date.now(), result };
+      return result;
+    }
+    let result;
+    try{
+      const res = await fetch(WARCRAFTLOGS_CHARACTER_URL + '?realm=' + encodeURIComponent(realmSlug) + '&name=' + encodeURIComponent(name));
+      if (!res.ok){
+        result = { found: false, debug: { reason: 'http_error', status: res.status, detail: 'The Worker itself returned HTTP ' + res.status + ' for /warcraftlogs-character.' } };
+      } else {
+        result = await res.json();
+      }
+    }catch(e){
+      result = { found: false, debug: { reason: 'fetch_failed', detail: 'Could not reach the Worker at all: ' + e.message } };
+    }
+    if (!result || !result.found){
+      console.warn('[WarcraftLogs] "' + name + '" @ "' + realmSlug + '" — could not load live rankings:', result && result.debug);
+    }
+    wclCache[key] = { fetchedAt: Date.now(), result };
+    return result;
+  }
+
   // ---------------------------------------------------------------------
   // Talent Builder — an interactive WoW: Forever talent point calculator
   // for all 9 classes, in the site's own look instead of talentsforever
@@ -2486,6 +2572,7 @@
   // Same Worker, different endpoints — reused instead of a second Worker.
   const WOWHEAD_NEWS_URL = WORKER_URL.replace(/\/mint-token$/, '/wowhead-news');
   const ARMORY_CHARACTER_URL = WORKER_URL.replace(/\/mint-token$/, '/armory-character');
+  const WARCRAFTLOGS_CHARACTER_URL = WORKER_URL.replace(/\/mint-token$/, '/warcraftlogs-character');
   const DISCORD_REDIRECT_URI = window.location.origin + window.location.pathname;
   const DISCORD_IDENTITY_KEY = 'guild-loot-discord-identity';
   const DISCORD_PKCE_VERIFIER_KEY = 'guild-loot-discord-pkce-verifier';
@@ -2846,6 +2933,12 @@
   // data reuse the same CLASS_MAP colors/labels the rest of the page uses.
   const ARMORY_CACHE_MS = 5 * 60 * 1000; // avoid re-hitting the Worker on every render
   let armoryCache = {}; // 'realmSlug|name' -> { fetchedAt, result } — session-only, never persisted
+  // Same cache-key/session-only pattern as armoryCache above, but kept as
+  // its own object since WarcraftLogs is a separate Worker endpoint with
+  // its own independent loading/error state (a member's Armory data can
+  // load fine while WarcraftLogs is unconfigured, or vice versa).
+  const WCL_CACHE_MS = ARMORY_CACHE_MS;
+  let wclCache = {}; // 'realmSlug|name' -> { fetchedAt, result } — session-only, never persisted
 
   function characterProfileCacheKey(realmSlug, name){
     return (realmSlug || '').toLowerCase() + '|' + (name || '').toLowerCase();
@@ -4084,6 +4177,123 @@
 
   const ARMORY_FACTION_LABELS = { HORDE: 'Horde', ALLIANCE: 'Allianz' };
 
+  // Standard WoW item-quality colors — must stay in sync with
+  // ITEM_QUALITY_COLORS in discord-auth-worker.js (the Worker only sends
+  // the quality *keyword*, e.g. "EPIC"; the actual color is applied here).
+  const ITEM_QUALITY_COLORS = {
+    POOR: '#9d9d9d', COMMON: '#ffffff', UNCOMMON: '#1eff00', RARE: '#0070dd',
+    EPIC: '#a335ee', LEGENDARY: '#ff8000', ARTIFACT: '#e6cc80', HEIRLOOM: '#00ccff'
+  };
+  // Paper-doll layout, matching in-game — must stay in sync with
+  // EQUIPMENT_LEFT/RIGHT/BOTTOM_SLOTS in discord-auth-worker.js. Kept as
+  // its own copy here (rather than sent over the wire) since it's just a
+  // fixed display order, identical for every character.
+  const MYCHAR_EQUIP_LEFT_SLOTS = ['HEAD', 'NECK', 'SHOULDER', 'BACK', 'CHEST', 'SHIRT', 'TABARD', 'WRIST'];
+  const MYCHAR_EQUIP_RIGHT_SLOTS = ['HANDS', 'WAIST', 'LEGS', 'FEET', 'FINGER_1', 'FINGER_2', 'TRINKET_1', 'TRINKET_2'];
+  const MYCHAR_EQUIP_BOTTOM_SLOTS = ['MAIN_HAND', 'OFF_HAND', 'RANGED'];
+
+  // One equipped-item row: icon (colored border by quality) + name +
+  // enchant text. `item` is null for an empty slot (nothing equipped
+  // there) — rendered as a bare placeholder box, same as the game's own
+  // paper-doll shows an empty socket.
+  function mycharEquipSlotHtml(item){
+    if (!item){
+      return `<div class="mychar-equip-item mychar-equip-item-empty"><div class="mychar-equip-icon mychar-equip-icon-empty"></div></div>`;
+    }
+    const color = ITEM_QUALITY_COLORS[item.quality] || ITEM_QUALITY_COLORS.COMMON;
+    const iconHtml = item.icon
+      ? `<img class="mychar-equip-icon" src="${escapeHtml(item.icon)}" alt="" loading="lazy" style="border-color:${color}" onerror="this.classList.add('mychar-equip-icon-empty');this.removeAttribute('src');">`
+      : `<div class="mychar-equip-icon mychar-equip-icon-empty" style="border-color:${color}"></div>`;
+    return `<div class="mychar-equip-item" title="${escapeHtml(item.slotLabel)}${item.ilvl ? ' — ilvl ' + item.ilvl : ''}">
+      ${iconHtml}
+      <div class="mychar-equip-text">
+        <div class="mychar-equip-name" style="color:${color}">${escapeHtml(item.name)}</div>
+        ${item.enchantText ? `<div class="mychar-equip-enchant">Verzaubert: ${escapeHtml(item.enchantText)}</div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  // Full Wowhead-gear-check-style equipment grid for one character — two
+  // columns (left/right paper-doll halves) plus a weapons row along the
+  // bottom. Returns '' when there's no equipment data at all (e.g. the
+  // Worker's equipment lookup itself failed — see equipmentDebug), so the
+  // rest of the card still renders fine without it.
+  function mycharEquipmentGridHtml(equipment){
+    if (!Array.isArray(equipment) || !equipment.length) return '';
+    const bySlot = {};
+    equipment.forEach(item => { bySlot[item.slot] = item; });
+    const leftHtml = MYCHAR_EQUIP_LEFT_SLOTS.map(slot => mycharEquipSlotHtml(bySlot[slot])).join('');
+    const rightHtml = MYCHAR_EQUIP_RIGHT_SLOTS.map(slot => mycharEquipSlotHtml(bySlot[slot])).join('');
+    const bottomItems = MYCHAR_EQUIP_BOTTOM_SLOTS.map(slot => bySlot[slot]).filter(Boolean);
+    const bottomHtml = bottomItems.length
+      ? `<div class="mychar-equip-bottom">${bottomItems.map(mycharEquipSlotHtml).join('')}</div>`
+      : '';
+    return `<div class="mychar-equip-wrap">
+      <div class="mychar-equip-grid">
+        <div class="mychar-equip-col">${leftHtml}</div>
+        <div class="mychar-equip-col">${rightHtml}</div>
+      </div>
+      ${bottomHtml}
+    </div>`;
+  }
+
+  // WarcraftLogs block: one small card per configured zone (boss kills +
+  // best all-star points/rank) plus an overall Best Perf. Avg tile — shown
+  // below the equipment grid. Has its own independent loading/not-found
+  // state from the Armory data above (see fetchWarcraftLogsCharacter).
+  function mycharWarcraftLogsHtml(c){
+    const cached = wclCache[characterProfileCacheKey(c.realmSlug, c.name)];
+    if (!cached){
+      return `<div class="mychar-wcl-wrap"><div class="mychar-card-loading">Lädt WarcraftLogs-Daten…</div></div>`;
+    }
+    const found = cached.result && cached.result.found;
+    if (!found){
+      const reason = cached.result && cached.result.debug && cached.result.debug.reason;
+      // Quiet, no-retry-button states for "feature isn't set up at all" —
+      // showing an error/retry button for something the guild simply
+      // hasn't configured yet would be confusing, not helpful.
+      if (reason === 'worker_not_configured' || reason === 'no_zones_configured' || reason === 'no_warcraftlogs_credentials'){
+        return '';
+      }
+      const detail = (cached.result && cached.result.debug && cached.result.debug.detail) || '';
+      return `<div class="mychar-wcl-wrap">
+        <div class="mychar-card-error" ${detail ? `title="${escapeHtml(detail)}"` : ''}>
+          Konnte keine WarcraftLogs-Daten laden.
+          <button type="button" class="btn btn-ghost btn-sm" data-mychar-wcl-refresh="${c.id}">Erneut versuchen</button>
+        </div>
+      </div>`;
+    }
+    const wcl = cached.result.warcraftlogs;
+    const zoneCardsHtml = (wcl.zones || []).map(z => {
+      if (!z.hasData){
+        return `<div class="mychar-wcl-zone mychar-wcl-zone-empty"><div class="mychar-wcl-zone-label">${escapeHtml(z.label)}</div><div class="mychar-wcl-zone-none">Keine Logs</div></div>`;
+      }
+      return `<div class="mychar-wcl-zone">
+        <div class="mychar-wcl-zone-label">${escapeHtml(z.label)}</div>
+        <div class="mychar-wcl-zone-kills">${z.killed}/${z.total}</div>
+        <div class="mychar-wcl-zone-stats">
+          <div><span class="mychar-wcl-zone-stat-label">Bestplatzierte</span><span class="mychar-wcl-zone-stat-value">${z.points != null ? z.points.toLocaleString('de-DE') : '—'}</span></div>
+          <div><span class="mychar-wcl-zone-stat-label">Position</span><span class="mychar-wcl-zone-stat-value mychar-wcl-rank">${z.rank != null ? '#' + z.rank : '—'}</span></div>
+        </div>
+      </div>`;
+    }).join('');
+    const bestPerfHtml = wcl.bestPerformance
+      ? `<div class="mychar-wcl-bestperf">
+          <div class="mychar-wcl-bestperf-label">Best Perf. Avg <span class="mychar-wcl-bestperf-zone">(${escapeHtml(wcl.bestPerformance.zoneLabel)})</span></div>
+          <div class="mychar-wcl-bestperf-value">${wcl.bestPerformance.best}</div>
+          ${wcl.bestPerformance.median != null ? `<div class="mychar-wcl-bestperf-median">Median: ${wcl.bestPerformance.median}</div>` : ''}
+        </div>`
+      : '';
+    return `<div class="mychar-wcl-wrap">
+      <div class="mychar-wcl-head">
+        <span class="mychar-wcl-title">WarcraftLogs — aktuelle Phase</span>
+        <a class="mychar-wcl-link" href="${escapeHtml(wcl.characterUrl)}" target="_blank" rel="noopener noreferrer">Auf WarcraftLogs ansehen ↗</a>
+      </div>
+      <div class="mychar-wcl-zones">${zoneCardsHtml}</div>
+      ${bestPerfHtml}
+    </div>`;
+  }
+
   function mycharCardHtml(c){
     const cached = armoryCache[characterProfileCacheKey(c.realmSlug, c.name)];
     const armoryLink = armoryWebUrl(c.realmSlug, c.name);
@@ -4113,6 +4323,7 @@
         <div class="mychar-stat"><span class="mychar-stat-label">Gilde</span><span class="mychar-stat-value">${escapeHtml(ch.guildName || '—')}</span></div>
         <div class="mychar-stat"><span class="mychar-stat-label">Zuletzt online</span><span class="mychar-stat-value">${escapeHtml(lastSeen || '—')}</span></div>
       </div>
+      ${mycharEquipmentGridHtml(ch.equipment)}
       <button type="button" class="btn btn-ghost btn-sm mychar-refresh-btn" data-mychar-refresh="${c.id}">Aktualisieren</button>`;
     }
 
@@ -4123,6 +4334,7 @@
       </div>
       ${bodyHtml}
       <a class="mychar-armory-link" href="${armoryLink}" target="_blank" rel="noopener noreferrer">Im Armory ansehen ↗</a>
+      ${mycharWarcraftLogsHtml(c)}
     </div>`;
   }
 
@@ -4136,6 +4348,18 @@
         btn.disabled = true;
         btn.textContent = 'Lädt…';
         await fetchArmoryCharacter(c.realmSlug, c.name, { force: true });
+        if (currentPage === 'mychar') renderMyCharactersPage();
+      });
+    });
+    els.mycharList.querySelectorAll('[data-mychar-wcl-refresh]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!discordIdentity) return;
+        const profile = (state.characterProfiles || {})[discordIdentity.id];
+        const c = profile && profile.characters.find(x => x.id === btn.getAttribute('data-mychar-wcl-refresh'));
+        if (!c) return;
+        btn.disabled = true;
+        btn.textContent = 'Lädt…';
+        await fetchWarcraftLogsCharacter(c.realmSlug, c.name, { force: true });
         if (currentPage === 'mychar') renderMyCharactersPage();
       });
     });
@@ -4156,10 +4380,16 @@
     wireMycharCardButtons();
     // Auto-fetch anything not already cached — a member's own character
     // list is small, so fetching all of it on page-open is cheap, and
-    // means they see live data without an extra click.
-    const toFetch = characters.filter(c => !armoryCache[characterProfileCacheKey(c.realmSlug, c.name)]);
-    if (toFetch.length){
-      await Promise.all(toFetch.map(c => fetchArmoryCharacter(c.realmSlug, c.name)));
+    // means they see live data without an extra click. Armory and
+    // WarcraftLogs are fetched together but tracked independently, so one
+    // loading slowly (or failing) never blocks the other from showing up.
+    const toFetchArmory = characters.filter(c => !armoryCache[characterProfileCacheKey(c.realmSlug, c.name)]);
+    const toFetchWcl = characters.filter(c => !wclCache[characterProfileCacheKey(c.realmSlug, c.name)]);
+    if (toFetchArmory.length || toFetchWcl.length){
+      await Promise.all([
+        ...toFetchArmory.map(c => fetchArmoryCharacter(c.realmSlug, c.name)),
+        ...toFetchWcl.map(c => fetchWarcraftLogsCharacter(c.realmSlug, c.name))
+      ]);
       if (currentPage === 'mychar'){
         els.mycharList.innerHTML = characters.map(mycharCardHtml).join('');
         wireMycharCardButtons();
@@ -4176,7 +4406,10 @@
     if (!characters.length) return;
     els.mycharRefreshAllBtn.disabled = true;
     els.mycharRefreshAllBtn.textContent = 'Lädt…';
-    await Promise.all(characters.map(c => fetchArmoryCharacter(c.realmSlug, c.name, { force: true })));
+    await Promise.all([
+      ...characters.map(c => fetchArmoryCharacter(c.realmSlug, c.name, { force: true })),
+      ...characters.map(c => fetchWarcraftLogsCharacter(c.realmSlug, c.name, { force: true }))
+    ]);
     els.mycharRefreshAllBtn.disabled = false;
     els.mycharRefreshAllBtn.textContent = 'Alle aktualisieren';
     if (currentPage === 'mychar') renderMyCharactersPage();

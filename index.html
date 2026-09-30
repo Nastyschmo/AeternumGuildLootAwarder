@@ -1764,6 +1764,15 @@
     }
     if (!result || !result.found){
       console.warn('[WarcraftLogs] "' + name + '" @ "' + realmSlug + '" — could not load live rankings:', result && result.debug);
+    } else if (result.warcraftlogs && Array.isArray(result.warcraftlogs.zones)){
+      // Temporary diagnostic aid (see the matching comment on the Worker's
+      // `_raw` field) — logs each zone's untouched WarcraftLogs response
+      // whenever the lookup *succeeds* but the numbers might still be
+      // wrong (e.g. 0/0 for a character that clearly has logs), since that
+      // means the field-mapping guess, not the connection, is what's off.
+      // Safe to remove once the mapping is confirmed correct against real
+      // WarcraftLogs data.
+      console.info('[WarcraftLogs] "' + name + '" @ "' + realmSlug + '" — raw zoneRankings per zone (copy this if the numbers look wrong):', result.warcraftlogs.zones.map(z => ({ label: z.label, raw: z._raw })));
     }
     wclCache[key] = { fetchedAt: Date.now(), result };
     return result;
@@ -4255,7 +4264,21 @@
       if (reason === 'worker_not_configured' || reason === 'no_zones_configured' || reason === 'no_warcraftlogs_credentials'){
         return '';
       }
-      const detail = (cached.result && cached.result.debug && cached.result.debug.detail) || '';
+      const debugInfo = (cached.result && cached.result.debug) || {};
+      // "Not found" isn't really an error (retrying won't fix a character
+      // that genuinely has no logs, or a realm-slug mismatch between
+      // Blizzard's and WarcraftLogs' own naming) — so this gets its own
+      // calmer state with a direct link to check on WarcraftLogs itself,
+      // instead of the generic error+retry-button treatment below.
+      if (reason === 'character_not_found' && debugInfo.checkUrl){
+        return `<div class="mychar-wcl-wrap">
+          <div class="mychar-card-error" title="${escapeHtml(debugInfo.detail || '')}">
+            Keine Logs auf WarcraftLogs gefunden für diesen Namen/Realm.
+            <a class="mychar-wcl-link" href="${escapeHtml(debugInfo.checkUrl)}" target="_blank" rel="noopener noreferrer">Selbst prüfen ↗</a>
+          </div>
+        </div>`;
+      }
+      const detail = debugInfo.detail || '';
       return `<div class="mychar-wcl-wrap">
         <div class="mychar-card-error" ${detail ? `title="${escapeHtml(detail)}"` : ''}>
           Konnte keine WarcraftLogs-Daten laden.

@@ -75,6 +75,7 @@
     --hero-bg-fallback: #171432;
     --hero-scrim-rgb: 10,8,20;
     --body-vignette-rgb: 44,103,136;
+    --topbar-bg-rgb: 7,22,34;
   }
 
   /* ---------------------------------------------------------------------
@@ -148,6 +149,7 @@
     --hero-bg-fallback: #1a0806;
     --hero-scrim-rgb: 20,8,5;
     --body-vignette-rgb: 219,90,56;
+    --topbar-bg-rgb: 23,11,9;
   }
 
   *{ box-sizing: border-box; }
@@ -349,7 +351,7 @@
     display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "burger countdown auth";
     align-items: center;
     padding: 10px 4vw 10px 16px; gap: 16px;
-    background: rgba(7,22,34,0.86); backdrop-filter: blur(10px);
+    background: rgba(var(--topbar-bg-rgb),0.86); backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--border-soft);
   }
   .burger-btn{
@@ -696,7 +698,7 @@
   }
   .news-badge{
     position: absolute; top: 8px; left: 8px;
-    background: rgba(7,22,34,0.82); border: 1px solid var(--border-soft);
+    background: rgba(var(--topbar-bg-rgb),0.82); border: 1px solid var(--border-soft);
     color: var(--gold-bright); font-size: 10px; letter-spacing: .4px; text-transform: none;
     padding: 3px 8px; border-radius: 999px;
   }
@@ -996,7 +998,7 @@
   .talent-node.can-add:not(.has-points):hover{ border-color: var(--teal-bright); }
   .talent-rank-pip{
     position: absolute; right: 2px; bottom: 1px; font-size: 10.5px; font-weight: 700;
-    color: var(--text); background: rgba(7,22,34,0.85); border-radius: 3px; padding: 0 3px; line-height: 1.4;
+    color: var(--text); background: rgba(var(--topbar-bg-rgb),0.85); border-radius: 3px; padding: 0 3px; line-height: 1.4;
   }
   .talent-attribution{ font-size: 11.5px; color: var(--text-faint); margin-top: 22px; text-align: center; line-height: 1.6; }
   .talent-attribution a{ color: var(--gold-bright); }
@@ -1310,6 +1312,7 @@
     text-transform: uppercase; vertical-align: middle;
   }
   .design-switcher{ display: flex; gap: 8px; }
+  .settings-design-retest-btn{ margin-top: 10px; }
   .design-switcher-option{
     flex: 1; font-family: 'Karla', sans-serif; font-weight: 600; font-size: 13px;
     padding: 9px 10px; border-radius: 4px; border: 1px solid var(--border);
@@ -1834,6 +1837,7 @@
           <button type="button" class="design-switcher-option" data-design-theme="classic">Klassisch</button>
           <button type="button" class="design-switcher-option" data-design-theme="horde">Horde</button>
         </div>
+        <button type="button" class="btn btn-sm btn-outline-gold btn-block settings-design-retest-btn" id="designRevealRetestBtn">🔥 Popup + Burn-Effekt erneut testen</button>
       </div>
     </div>
   </div>
@@ -4456,6 +4460,13 @@
   document.querySelectorAll('#settingsDesignRow .design-switcher-option').forEach(btn => {
     btn.addEventListener('click', () => setDesignTheme(btn.dataset.designTheme));
   });
+  const designRevealRetestBtn = document.getElementById('designRevealRetestBtn');
+  if (designRevealRetestBtn){
+    designRevealRetestBtn.addEventListener('click', () => {
+      els.characterModal.classList.add('hidden'); // out of the way so the reveal popup isn't hidden behind it
+      retestDesignReveal();
+    });
+  }
   els.characterModal.addEventListener('click', (e) => {
     if (e.target === els.characterModal) els.characterModal.classList.add('hidden');
   });
@@ -6499,12 +6510,39 @@
   const DESIGN_THEME_KEY = 'guild-loot-design-theme';
   const DESIGN_BURN_DURATION_MS = 2400;
   let designRevealChecked = false;
+  let designRevealModalWired = false;
 
-  function initDesignReveal(){
-    if (designRevealChecked) return;
+  // Attaches the popup's own click handling exactly once, ever — separate
+  // from initDesignReveal()'s "should this auto-show right now" decision
+  // below, so the admin "Popup + Burn erneut testen" button in User
+  // Settings (see retestDesignReveal()) can pop the same modal open on
+  // demand, as many times as wanted, without stacking up duplicate click
+  // listeners on okBtn (which would fire the burn N times at once).
+  function wireDesignRevealModal(){
+    if (designRevealModalWired) return;
     const modal = document.getElementById('designRevealModal');
     const okBtn = document.getElementById('designRevealOkBtn');
     if (!modal || !okBtn) return; // markup missing for some reason — fail quiet
+    designRevealModalWired = true;
+
+    okBtn.addEventListener('click', () => {
+      modal.classList.add('hidden');
+      startDesignBurn();
+    });
+    // Clicking the dark backdrop (not the card itself) just closes the
+    // prompt without unlocking anything — on a first-time auto-show it'll
+    // ask again next visit, same as never having clicked "Okay" at all; on
+    // an admin test-trigger it just closes it, nothing to undo.
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.classList.add('hidden');
+    });
+  }
+
+  function initDesignReveal(){
+    wireDesignRevealModal();
+    if (designRevealChecked) return;
+    const modal = document.getElementById('designRevealModal');
+    if (!modal) return;
 
     let alreadyRevealed = false;
     try{ alreadyRevealed = localStorage.getItem(DESIGN_REVEAL_KEY) === '1'; }catch(e){}
@@ -6518,16 +6556,20 @@
 
     designRevealChecked = true;
     modal.classList.remove('hidden');
-    okBtn.addEventListener('click', () => {
-      modal.classList.add('hidden');
-      startDesignBurn();
-    });
-    // Clicking the dark backdrop (not the card itself) just closes the
-    // prompt without unlocking anything — it'll ask again next visit,
-    // same as never having clicked "Okay" at all.
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.classList.add('hidden');
-    });
+  }
+
+  // Admin-only "run it again" button in User Settings (#designRevealRetestBtn,
+  // wired below alongside the theme switcher) — pops the exact same modal
+  // open on demand, regardless of whether it's already been unlocked, so
+  // an admin can watch the popup → burn → Horde-reveal sequence as many
+  // times as they want while deciding if they like it. Doesn't touch
+  // either localStorage key — it's just a replay, not a re-unlock (though
+  // clicking "Okay" on it does re-set them, same as any other Okay click,
+  // which is harmless since they'd already be set to the same values).
+  function retestDesignReveal(){
+    wireDesignRevealModal();
+    const modal = document.getElementById('designRevealModal');
+    if (modal) modal.classList.remove('hidden');
   }
 
   function startDesignBurn(){

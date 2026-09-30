@@ -4,6 +4,22 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>rude Guild Page</title>
+<script>
+  // Applies the Horde design-reveal theme before the very first paint for
+  // anyone whose active choice is 'horde' — either they burned through the
+  // reveal, or they flipped the User Settings switcher back to it (see the
+  // "Design reveal" comment in the <style> block below and
+  // initDesignReveal()/setDesignTheme() near the end of the main script)
+  // — otherwise there'd be a one-frame flash of the old navy/gold theme on
+  // every repeat visit while the main script loads and re-applies the
+  // class. Kept deliberately tiny and synchronous, and before <style>, so
+  // it always runs ahead of anything being painted.
+  try{
+    if (localStorage.getItem('guild-loot-design-theme') === 'horde'){
+      document.documentElement.classList.add('theme-horde');
+    }
+  }catch(e){}
+</script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -32,6 +48,106 @@
     --text-faint: #63808f;
     --danger: #b5493f;
     --danger-bright: #d96759;
+
+    /* Extra tokens for a handful of spots that used to be hardcoded hex
+       instead of a variable (gold badge/crest glints, the body/hero/
+       parchment/news-thumb background gradients, form-field backgrounds,
+       the teal button's text/border). Pulled out so the Horde reveal theme
+       below can retint them too — see the "Design reveal" comment further
+       down for what triggers that theme and how. */
+    --gold-bright-rgb: 240,207,107;
+    --badge-hi: #fff6c8;
+    --badge-edge: #b8860b;
+    --badge-text: #3a2600;
+    --crest-shade: #7a5c12;
+    --crest-text: #08202f;
+    --body-grad-1: #08202f;
+    --body-grad-2: #0a2a3c;
+    --field-bg: #08192a;
+    --parchment-grad-1: #0e4a4a;
+    --parchment-grad-2: #0c3247;
+    --parchment-grad-3: #081c2c;
+    --parchment-text: #cfe3e6;
+    --news-thumb-grad-1: #123f59;
+    --news-thumb-grad-2: #0a2436;
+    --teal-btn-text: #eafffb;
+    --teal-btn-border: #1c6961;
+    --hero-bg-fallback: #171432;
+    --hero-scrim-rgb: 10,8,20;
+    --body-vignette-rgb: 44,103,136;
+  }
+
+  /* ---------------------------------------------------------------------
+     Design reveal — dark Horde theme
+     ---------------------------------------------------------------------
+     Applied to <html> (not <body>) as `.theme-horde`, so every var() above
+     resolves to these values instead once it's added — nothing but this
+     block needs to change for the whole site to retint, since the rest of
+     the stylesheet only ever reaches colors through the custom properties
+     above (see the refactor note on the tokens above — a few previously-
+     hardcoded hex values were pulled into vars specifically so this block
+     could reach them too).
+
+     Who gets this class and when (see the big comment above
+     initDesignReveal() near the end of the main script for the full
+     picture, including why there are two separate localStorage keys):
+     - First-time visitors still see the old navy/gold theme. Once an
+       admin is logged in (this is admin-only while being tried out), a
+       one-time popup ("guild-loot-design-revealed" not yet in
+       localStorage) asks whether to unlock the new design; clicking "Okay"
+       burns the old page away top-to-bottom (#designBurnOverlay, driven by
+       startDesignBurn()) and adds this class underneath the burning paper,
+       then sets both localStorage keys.
+     - Once "guild-loot-design-theme" is 'horde', a tiny inline script at
+       the very top of <head> adds this class before first paint (no flash
+       of the old theme on repeat visits).
+     A person can switch back at any time via the "Design" switcher in User
+     Settings (also admin-only for now — see applyAccessControl()/
+     setDesignTheme()); nothing here is destructive, the old :root values
+     above are always still there underneath.
+
+     Palette below isn't invented — it's sampled straight from the guild's
+     own hero reveal artwork (assets/bg-texture-horde.jpg, set as the
+     .hero background further down): dominant-color quantization on the
+     image gave the near-blacks/oxbloods for the backgrounds/borders, and
+     the banner's own glowing red-orange became --gold-bright (rgb
+     219,90,56) almost unchanged. See PROJECT.md for the exact sampling. */
+  html.theme-horde{
+    --bg-deep: #170b09;
+    --bg-panel: #241410;
+    --bg-panel-raised: #3a2019;
+    --border: #6b2e22;
+    --border-soft: #402019;
+    --gold: #7a2a1c;
+    --gold-bright: #db5a38;
+    --teal: #5c2e1c;
+    --teal-bright: #c98456;
+    --text: #f2e3d5;
+    --text-muted: #c9a68c;
+    --text-faint: #8a6a56;
+    --danger: #9c2e28;
+    --danger-bright: #e2705c;
+
+    --gold-bright-rgb: 219,90,56;
+    --badge-hi: #f2c9a8;
+    --badge-edge: #5c1f14;
+    --badge-text: #2a0e07;
+    --crest-shade: #4a1712;
+    --crest-text: #1a0806;
+    --body-grad-1: #2c1409;
+    --body-grad-2: #1f0d08;
+    --field-bg: #1a0d09;
+    --parchment-grad-1: #5c2216;
+    --parchment-grad-2: #38140d;
+    --parchment-grad-3: #1a0806;
+    --parchment-text: #f0ddc8;
+    --news-thumb-grad-1: #4a1c12;
+    --news-thumb-grad-2: #1c0b07;
+    --teal-btn-text: #fff0e0;
+    --teal-btn-border: #8a4a2a;
+    --hero-bg-fallback: #1a0806;
+    --hero-scrim-rgb: 20,8,5;
+    --body-vignette-rgb: 219,90,56;
   }
 
   *{ box-sizing: border-box; }
@@ -40,8 +156,8 @@
     /* Deep-sea navy ambient background, fading into a flat panel color
        below the hero (the hero image/overlay itself is untouched). */
     background:
-      radial-gradient(ellipse 70% 40% at 50% 0%, rgba(44,103,136,0.35), transparent 60%),
-      linear-gradient(180deg, #08202f 0%, #0a2a3c 10%, var(--bg-deep) 30%, var(--bg-deep) 100%);
+      radial-gradient(ellipse 70% 40% at 50% 0%, rgba(var(--body-vignette-rgb),0.35), transparent 60%),
+      linear-gradient(180deg, var(--body-grad-1) 0%, var(--body-grad-2) 10%, var(--bg-deep) 30%, var(--bg-deep) 100%);
     background-attachment: fixed;
     color: var(--text);
     font-family: 'Karla', sans-serif;
@@ -78,7 +194,7 @@
   .btn-sm{ padding: 6px 12px; font-size: 12px; border-radius: 3px; }
   .btn-block{ width: 100%; }
   .btn-ghost{ background: transparent; }
-  .btn-teal{ background: linear-gradient(180deg, var(--teal-bright), var(--teal)); color: #eafffb; border: 1px solid #1c6961; }
+  .btn-teal{ background: linear-gradient(180deg, var(--teal-bright), var(--teal)); color: var(--teal-btn-text); border: 1px solid var(--teal-btn-border); }
   .btn-teal:hover{ filter: brightness(1.08); }
   .btn-outline-gold{ background: transparent; border: 1px solid var(--gold); color: var(--gold-bright); }
   .btn-outline-gold:hover{ background: rgba(201,162,39,0.12); }
@@ -89,7 +205,7 @@
     font-family: 'Karla', sans-serif;
     font-size: 13.5px;
     padding: 8px 10px;
-    background: #08192a;
+    background: var(--field-bg);
     border: 1px solid var(--border);
     border-radius: 4px;
     color: var(--text);
@@ -120,11 +236,11 @@
   .sidebar-brand{ display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 26px; }
   .nav-crest{
     width: 36px; height: 36px; border-radius: 50%; flex: none;
-    background: radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 55%, #7a5c12 100%);
+    background: radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 55%, var(--crest-shade) 100%);
     border: 2px solid var(--gold-bright);
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Cinzel', serif; font-weight: 700; color: #08202f; font-size: 15px;
-    box-shadow: 0 0 10px rgba(240,207,107,0.35);
+    font-family: 'Cinzel', serif; font-weight: 700; color: var(--crest-text); font-size: 15px;
+    box-shadow: 0 0 10px rgba(var(--gold-bright-rgb),0.35);
     cursor: pointer;
   }
   .nav-name{ font-family: 'Cinzel', serif; font-weight: 600; letter-spacing: 1.5px; font-size: 17px; color: var(--text); white-space: nowrap; }
@@ -137,7 +253,7 @@
     border: 1px solid transparent;
   }
   .sidebar-nav-item:hover{ color: var(--text); background: rgba(255,255,255,0.04); }
-  .sidebar-nav-item.active{ color: var(--gold-bright); background: rgba(240,207,107,0.1); border-color: rgba(240,207,107,0.25); }
+  .sidebar-nav-item.active{ color: var(--gold-bright); background: rgba(var(--gold-bright-rgb),0.1); border-color: rgba(var(--gold-bright-rgb),0.25); }
 
   .sidebar-nav-mini{ display: flex; flex-direction: column; gap: 8px; }
   .sidebar-nav-item-mini{
@@ -148,7 +264,7 @@
   }
   .sidebar-nav-item-mini svg{ width: 18px; height: 18px; }
   .sidebar-nav-item-mini:hover{ color: var(--text); background: rgba(255,255,255,0.04); }
-  .sidebar-nav-item-mini.active{ color: var(--gold-bright); background: rgba(240,207,107,0.1); border-color: rgba(240,207,107,0.25); }
+  .sidebar-nav-item-mini.active{ color: var(--gold-bright); background: rgba(var(--gold-bright-rgb),0.1); border-color: rgba(var(--gold-bright-rgb),0.25); }
 
   /* ---------- "Quest available" markers — a WoW-style gold "!" next to a
      sidebar nav item (full rail) or a small dot on its icon (mini rail)
@@ -159,16 +275,16 @@
      script for what actually decides when these show. ---------- */
   .nav-quest-badge{
     flex: none; width: 18px; height: 18px; border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #fff6c8, var(--gold-bright) 55%, #b8860b 100%);
-    border: 1px solid #fff6c8; color: #3a2600; font-family: 'Cinzel', serif; font-weight: 700; font-size: 12px;
+    background: radial-gradient(circle at 35% 30%, var(--badge-hi), var(--gold-bright) 55%, var(--badge-edge) 100%);
+    border: 1px solid var(--badge-hi); color: var(--badge-text); font-family: 'Cinzel', serif; font-weight: 700; font-size: 12px;
     display: flex; align-items: center; justify-content: center; line-height: 1;
-    box-shadow: 0 0 6px rgba(240,207,107,0.6);
+    box-shadow: 0 0 6px rgba(var(--gold-bright-rgb),0.6);
     animation: quest-badge-pulse 2s ease-in-out infinite;
   }
   .nav-quest-badge-mini{
     position: absolute; top: 1px; right: 1px; width: 11px; height: 11px; border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #fff6c8, var(--gold-bright) 55%, #b8860b 100%);
-    border: 1px solid #fff6c8; box-shadow: 0 0 6px rgba(240,207,107,0.7);
+    background: radial-gradient(circle at 35% 30%, var(--badge-hi), var(--gold-bright) 55%, var(--badge-edge) 100%);
+    border: 1px solid var(--badge-hi); box-shadow: 0 0 6px rgba(var(--gold-bright-rgb),0.7);
     animation: quest-badge-pulse 2s ease-in-out infinite;
   }
   @keyframes quest-badge-pulse{
@@ -193,14 +309,14 @@
   }
   .quest-bell-btn:hover:not(.has-pending) .quest-bell-icon-shape{ stroke: var(--text); }
   .quest-bell-btn.has-pending .quest-bell-icon-shape{
-    fill: var(--gold-bright); stroke: #fff6c8; stroke-width: 0.6;
-    filter: drop-shadow(0 0 4px rgba(240,207,107,0.7));
+    fill: var(--gold-bright); stroke: var(--badge-hi); stroke-width: 0.6;
+    filter: drop-shadow(0 0 4px rgba(var(--gold-bright-rgb),0.7));
   }
   .quest-bell-dot{
     position: absolute; top: 3px; right: 4px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px;
-    background: radial-gradient(circle at 35% 30%, #fff6c8, var(--gold-bright) 55%, #b8860b 100%);
-    border: 1px solid #fff6c8; color: #3a2600; font-family: 'Karla', sans-serif; font-weight: 700; font-size: 10px;
-    display: flex; align-items: center; justify-content: center; box-shadow: 0 0 6px rgba(240,207,107,0.6);
+    background: radial-gradient(circle at 35% 30%, var(--badge-hi), var(--gold-bright) 55%, var(--badge-edge) 100%);
+    border: 1px solid var(--badge-hi); color: var(--badge-text); font-family: 'Karla', sans-serif; font-weight: 700; font-size: 10px;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 0 6px rgba(var(--gold-bright-rgb),0.6);
   }
   .quest-popover{
     position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
@@ -218,11 +334,11 @@
     display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 5px;
     color: var(--text); font-size: 13px; text-decoration: none; cursor: pointer;
   }
-  .quest-popover-item:hover{ background: rgba(240,207,107,0.1); }
+  .quest-popover-item:hover{ background: rgba(var(--gold-bright-rgb),0.1); }
   .quest-popover-item-icon{
     flex: none; width: 16px; height: 16px; border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #fff6c8, var(--gold-bright) 55%, #b8860b 100%);
-    color: #3a2600; font-family: 'Cinzel', serif; font-weight: 700; font-size: 11px; line-height: 1;
+    background: radial-gradient(circle at 35% 30%, var(--badge-hi), var(--gold-bright) 55%, var(--badge-edge) 100%);
+    color: var(--badge-text); font-family: 'Cinzel', serif; font-weight: 700; font-size: 11px; line-height: 1;
     display: flex; align-items: center; justify-content: center;
   }
   .quest-popover-empty{ font-size: 12.5px; color: var(--text-muted); padding: 6px 2px; }
@@ -460,19 +576,28 @@
     display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
     padding: 56px 6vw 84px;
     overflow: hidden;
-    background-color: #171432;
+    background-color: var(--hero-bg-fallback);
     background-image: url('assets/bg-texture.jpg');
     background-size: cover;
     background-position: center 42%;
     background-repeat: no-repeat;
+  }
+  /* Horde reveal's own hero artwork (the burning-city/banner piece) —
+     swapped in only for .theme-horde, same treatment (cover, no-repeat,
+     .hero::after scrim below still applies on top of it) as the classic
+     hero image otherwise. Needs assets/bg-texture-horde.jpg uploaded
+     alongside the existing assets/bg-texture.jpg — see README.md. */
+  html.theme-horde .hero{
+    background-image: url('assets/bg-texture-horde.jpg');
+    background-position: center 30%;
   }
   .hero::after{
     /* dark overlay so the hero text stays legible over the artwork, plus a
        soft bottom fade blending the photo into the page background. */
     content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
     background:
-      linear-gradient(90deg, rgba(10,8,20,0.74) 0%, rgba(10,8,20,0.4) 32%, rgba(10,8,20,0.08) 55%, transparent 70%),
-      linear-gradient(180deg, rgba(10,8,20,0.12) 0%, transparent 22%, transparent 68%, rgba(14,11,22,0.6) 100%);
+      linear-gradient(90deg, rgba(var(--hero-scrim-rgb),0.74) 0%, rgba(var(--hero-scrim-rgb),0.4) 32%, rgba(var(--hero-scrim-rgb),0.08) 55%, transparent 70%),
+      linear-gradient(180deg, rgba(var(--hero-scrim-rgb),0.12) 0%, transparent 22%, transparent 68%, rgba(var(--hero-scrim-rgb),0.6) 100%);
   }
   .hero-content{ position: relative; z-index: 3; max-width: 620px; }
   .hero-eyebrow{ font-size: 12.5px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold-bright); margin: 0 0 10px; }
@@ -509,19 +634,19 @@
 
   .parchment{
     position: relative; overflow: hidden;
-    background: linear-gradient(135deg, #0e4a4a 0%, #0c3247 55%, #081c2c 100%);
+    background: linear-gradient(135deg, var(--parchment-grad-1) 0%, var(--parchment-grad-2) 55%, var(--parchment-grad-3) 100%);
     border: 1px solid var(--gold); border-radius: 12px;
-    box-shadow: 0 0 0 1px rgba(240,207,107,0.14) inset, 0 14px 36px rgba(0,0,0,0.4);
+    box-shadow: 0 0 0 1px rgba(var(--gold-bright-rgb),0.14) inset, 0 14px 36px rgba(0,0,0,0.4);
     padding: 40px; display: flex; gap: 40px; align-items: center; flex-wrap: wrap;
   }
   .parchment::before{
     content: ''; position: absolute; top: -60%; right: -8%; width: 320px; height: 320px;
-    background: radial-gradient(circle, rgba(240,207,107,0.16), transparent 70%);
+    background: radial-gradient(circle, rgba(var(--gold-bright-rgb),0.16), transparent 70%);
     pointer-events: none;
   }
   .parchment-eyebrow{ position: relative; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--teal-bright); margin: 0 0 10px; }
   .parchment h2{ position: relative; font-size: 30px; margin: 0 0 14px; color: var(--gold-bright); }
-  .parchment p{ position: relative; color: #cfe3e6; line-height: 1.75; max-width: 640px; margin: 0; flex: 1; min-width: 260px; }
+  .parchment p{ position: relative; color: var(--parchment-text); line-height: 1.75; max-width: 640px; margin: 0; flex: 1; min-width: 260px; }
 
   /* News: a horizontally-scrolling carousel rather than a grid, so it can
      show a different number of cards at once depending on screen size —
@@ -566,7 +691,7 @@
     position: relative;
     aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center;
     color: var(--text-faint); font-size: 11.5px; letter-spacing: 1px; text-transform: uppercase;
-    background: linear-gradient(135deg, #123f59, #0a2436);
+    background: linear-gradient(135deg, var(--news-thumb-grad-1), var(--news-thumb-grad-2));
     background-size: cover; background-position: center;
   }
   .news-badge{
@@ -652,7 +777,7 @@
   .announce-toolbar-sep{ width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
   .announce-toolbar select{
     width: auto; padding: 5px 8px; font-size: 12.5px; height: 28px;
-    background: #08192a; border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted);
+    background: var(--field-bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted);
   }
   .announce-editor{
     width: 100%; min-height: 96px; max-height: 340px; overflow-y: auto; resize: vertical;
@@ -710,10 +835,10 @@
   .forever-role-remove:hover{ color: var(--danger-bright); }
   .forever-add-role-btn{
     width: 100%; margin-top: 2px; padding: 6px 8px; font-size: 11.5px; font-weight: 600;
-    font-family: 'Karla', sans-serif; color: var(--gold-bright); background: rgba(240,207,107,0.08);
+    font-family: 'Karla', sans-serif; color: var(--gold-bright); background: rgba(var(--gold-bright-rgb),0.08);
     border: 1px dashed var(--gold); border-radius: 5px; cursor: pointer;
   }
-  .forever-add-role-btn:hover{ background: rgba(240,207,107,0.16); }
+  .forever-add-role-btn:hover{ background: rgba(var(--gold-bright-rgb),0.16); }
   .forever-my-picks{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
   .forever-pick-chip{
     display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
@@ -733,7 +858,7 @@
   .forever-officer-table th{ text-align: left; padding: 6px 10px; color: var(--gold-bright); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); white-space: nowrap; }
   .forever-officer-table td{ padding: 8px 10px; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
   .forever-officer-table tbody tr:last-child td{ border-bottom: none; }
-  .forever-officer-table tbody tr:hover td{ background: rgba(240,207,107,0.05); }
+  .forever-officer-table tbody tr:hover td{ background: rgba(var(--gold-bright-rgb),0.05); }
   .forever-officer-table th[data-k]{ cursor: pointer; user-select: none; }
   .forever-officer-table th[data-k]:hover{ color: var(--text); }
   .forever-officer-table th[aria-sort="ascending"]::after{ content: " ▲"; font-size: 9px; }
@@ -775,10 +900,10 @@
   .poll-option-remove-btn:hover{ color: var(--danger-bright); border-color: var(--danger); }
   .poll-add-option-btn{
     margin: 2px 0 14px; padding: 6px 10px; font-size: 12px; font-weight: 600; font-family: 'Karla', sans-serif;
-    color: var(--gold-bright); background: rgba(240,207,107,0.08); border: 1px dashed var(--gold);
+    color: var(--gold-bright); background: rgba(var(--gold-bright-rgb),0.08); border: 1px dashed var(--gold);
     border-radius: 5px; cursor: pointer;
   }
-  .poll-add-option-btn:hover{ background: rgba(240,207,107,0.16); }
+  .poll-add-option-btn:hover{ background: rgba(var(--gold-bright-rgb),0.16); }
   .poll-config-grid{ display: flex; flex-wrap: wrap; gap: 20px 28px; margin: 14px 0 16px; }
   .poll-config-field{ display: flex; flex-direction: column; gap: 6px; }
   .poll-config-field-label{ font-size: 11.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; }
@@ -809,7 +934,7 @@
   .setup-screen p{ font-size: 13.5px; color: var(--text-muted); line-height: 1.6; margin: 0 0 12px; }
   .setup-screen ol{ margin: 0 0 14px; padding-left: 20px; }
   .setup-screen li{ font-size: 13.5px; color: var(--text); line-height: 1.7; margin-bottom: 4px; }
-  .setup-screen code{ background: #08192a; border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 12.5px; color: var(--gold-bright); }
+  .setup-screen code{ background: var(--field-bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 12.5px; color: var(--gold-bright); }
   .setup-screen a{ color: var(--gold-bright); }
   .setup-note{ font-size: 12px !important; color: var(--text-faint) !important; border-top: 1px solid var(--border-soft); padding-top: 10px; }
 
@@ -867,7 +992,7 @@
   .talent-node img{ width: 100%; height: 100%; display: block; object-fit: cover; }
   .talent-node.locked{ opacity: 0.35; filter: grayscale(1); cursor: default; }
   .talent-node.has-points{ border-color: var(--gold); }
-  .talent-node.maxed{ border-color: var(--gold-bright); box-shadow: 0 0 8px rgba(240,207,107,0.5); }
+  .talent-node.maxed{ border-color: var(--gold-bright); box-shadow: 0 0 8px rgba(var(--gold-bright-rgb),0.5); }
   .talent-node.can-add:not(.has-points):hover{ border-color: var(--teal-bright); }
   .talent-rank-pip{
     position: absolute; right: 2px; bottom: 1px; font-size: 10.5px; font-weight: 700;
@@ -1003,7 +1128,7 @@
   .apply-textarea{ width: 100%; resize: vertical; }
   .apply-text-input{
     font-family: 'Karla', sans-serif; font-size: 13.5px; padding: 8px 10px;
-    background: #08192a; border: 1px solid var(--border); border-radius: 4px;
+    background: var(--field-bg); border: 1px solid var(--border); border-radius: 4px;
     color: var(--text); width: 100%;
   }
   .apply-spec-checkboxes{ display: flex; flex-wrap: wrap; gap: 6px 16px; }
@@ -1026,10 +1151,10 @@
   .apply-class-pick-specs{ margin-top: 8px; }
   .apply-add-class-btn{
     padding: 7px 12px; font-size: 12.5px; font-weight: 600;
-    font-family: 'Karla', sans-serif; color: var(--gold-bright); background: rgba(240,207,107,0.08);
+    font-family: 'Karla', sans-serif; color: var(--gold-bright); background: rgba(var(--gold-bright-rgb),0.08);
     border: 1px dashed var(--gold); border-radius: 5px; cursor: pointer;
   }
-  .apply-add-class-btn:hover{ background: rgba(240,207,107,0.16); }
+  .apply-add-class-btn:hover{ background: rgba(var(--gold-bright-rgb),0.16); }
   .apply-add-class-btn:disabled{ opacity: .4; cursor: not-allowed; }
 
   .recruit-needs-grid{ display: flex; flex-direction: column; gap: 12px; margin: 4px 0 6px; }
@@ -1068,6 +1193,132 @@
   @media (max-width: 640px){
     .recruit-teaser{ flex-direction: column; align-items: flex-start; }
     .recruit-teaser > .btn{ width: 100%; }
+  }
+
+  /* ---------------------------------------------------------------------
+     Design reveal — popup + burn transition
+     ---------------------------------------------------------------------
+     .design-reveal-modal is the one-time "unlock" prompt (see the "Design
+     reveal" comment up by :root for the full picture — theme, localStorage
+     key, the no-flash <head> script). .design-burn-overlay is the
+     full-screen "the old page burns away top to bottom" transition that
+     plays once its "Okay" button is clicked — see initDesignReveal() near
+     the end of the main script for the show/hide timing and the ember-
+     particle spawning (.design-burn-ember elements it creates and removes
+     on the fly). Both sit above literally everything else on the page.
+     Deliberately not using the --gold/--bg-* etc. tokens: the modal is
+     always ember-colored regardless of which theme is currently active
+     (it's foreshadowing the new one, not matching the old one), and the
+     burn overlay paints the OLD theme's actual colors as fixed hex (not
+     var()) on purpose — html.theme-horde gets added to the live page
+     underneath it right as the burn starts, so if this used var() it would
+     instantly show the new colors instead of "burning away" the old ones. */
+  .design-reveal-modal{
+    position: fixed; inset: 0; z-index: 9000; background: rgba(4,2,1,0.78);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .design-reveal-card{
+    position: relative; background: #170b08; border: 1px solid #a8431f; border-radius: 10px;
+    padding: 32px 28px; max-width: 420px; width: 100%; text-align: center;
+    box-shadow: 0 0 0 1px rgba(226,84,47,0.18) inset, 0 0 46px rgba(226,84,47,0.28), 0 20px 50px rgba(0,0,0,0.55);
+  }
+  .design-reveal-icon{
+    width: 46px; height: 46px; margin: 0 auto 16px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffb27a, #e2542f 55%, #6b1f14 100%);
+    box-shadow: 0 0 18px rgba(226,84,47,0.6);
+  }
+  .design-reveal-card h2{
+    font-family: 'Cinzel', serif; font-size: 19px; margin: 0 0 12px; color: #f2a878; letter-spacing: .4px;
+  }
+  .design-reveal-card p{ font-size: 14px; color: #d9c4b4; line-height: 1.6; margin: 0 0 22px; }
+  .design-reveal-card .btn{
+    background: linear-gradient(180deg, #e2542f, #a8321a); color: #fff2e4; border: 1px solid #f2a878;
+    padding: 11px 32px; font-size: 14.5px;
+  }
+  .design-reveal-card .btn:hover{ filter: brightness(1.08); }
+
+  .design-burn-overlay{
+    position: fixed; inset: 0; z-index: 9500; overflow: hidden; pointer-events: none;
+    display: none;
+  }
+  .design-burn-overlay.burning{ display: block; }
+  .design-burn-paper{
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 70% 40% at 50% 0%, rgba(44,103,136,0.35), transparent 60%),
+      linear-gradient(180deg, #08202f 0%, #0a2a3c 10%, #071b28 30%, #071b28 100%);
+    clip-path: inset(0 0 0 0);
+  }
+  .design-burn-overlay.burning .design-burn-paper{
+    animation: designBurnWipe 2.4s cubic-bezier(.45,0,.4,1) forwards;
+  }
+  @keyframes designBurnWipe{
+    from{ clip-path: inset(0 0 0 0); }
+    to{ clip-path: inset(100% 0 0 0); }
+  }
+  /* The glowing charred edge riding along the wipe — a soft band that
+     fades from "still paper" through char into a bright ember line, so the
+     cutoff reads as burning rather than a hard mechanical wipe. */
+  .design-burn-edge{
+    position: absolute; left: 0; right: 0; top: 0; height: 34px; transform: translateY(-50%);
+    background: linear-gradient(180deg,
+      rgba(10,4,2,0) 0%,
+      rgba(20,7,3,0.9) 38%,
+      rgba(226,84,47,0.95) 66%,
+      rgba(255,205,140,1) 100%);
+    box-shadow: 0 0 26px 8px rgba(226,84,47,0.65), 0 0 60px 18px rgba(226,84,47,0.25);
+    opacity: 0;
+  }
+  .design-burn-overlay.burning .design-burn-edge{
+    opacity: 1;
+    animation: designBurnEdgeMove 2.4s cubic-bezier(.45,0,.4,1) forwards, designBurnFlicker .1s steps(2) infinite;
+  }
+  @keyframes designBurnEdgeMove{
+    from{ top: 0%; }
+    to{ top: 100%; }
+  }
+  @keyframes designBurnFlicker{
+    0%{ filter: brightness(1); }
+    100%{ filter: brightness(1.18); }
+  }
+  .design-burn-embers{ position: absolute; inset: 0; }
+  .design-burn-ember{
+    position: absolute; width: 4px; height: 4px; border-radius: 50%;
+    background: #ffcf8c; box-shadow: 0 0 6px 2px rgba(255,150,60,0.9);
+    animation: designBurnEmberRise .9s ease-out forwards;
+  }
+  @keyframes designBurnEmberRise{
+    0%{ transform: translateY(0) scale(1); opacity: 1; }
+    100%{ transform: translateY(-44px) scale(.3); opacity: 0; }
+  }
+  /* A wipe with no glow/embers is still a perfectly readable transition, so
+     reduced-motion gets an instant cut instead of a slow animated one. */
+  @media (prefers-reduced-motion: reduce){
+    .design-burn-overlay.burning .design-burn-paper{ animation: none; clip-path: inset(100% 0 0 0); }
+    .design-burn-overlay.burning .design-burn-edge{ display: none; }
+  }
+
+  /* Design switcher — lives in User Settings (#characterModal), admin-only
+     for now (toggled in applyAccessControl()). A plain two-option segmented
+     control rather than a checkbox/toggle-switch, since "which of two
+     named designs" reads more clearly that way than on/off would. */
+  .settings-design-row{ margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border-soft); }
+  .settings-design-badge{
+    display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+    background: rgba(var(--gold-bright-rgb),0.14); border: 1px solid var(--gold);
+    color: var(--gold-bright); font-size: 10px; font-weight: 700; letter-spacing: .3px;
+    text-transform: uppercase; vertical-align: middle;
+  }
+  .design-switcher{ display: flex; gap: 8px; }
+  .design-switcher-option{
+    flex: 1; font-family: 'Karla', sans-serif; font-weight: 600; font-size: 13px;
+    padding: 9px 10px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--field-bg); color: var(--text-muted); cursor: pointer;
+    transition: border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .design-switcher-option:hover{ color: var(--text); border-color: var(--gold); }
+  .design-switcher-option.active{
+    background: rgba(var(--gold-bright-rgb),0.14); border-color: var(--gold-bright); color: var(--gold-bright);
   }
 </style>
 </head>
@@ -1569,6 +1820,21 @@
         <button type="button" class="btn btn-teal btn-sm" id="characterSaveBtn">Speichern</button>
         <span id="characterSaveStatus" class="armory-status"></span>
       </div>
+
+      <!-- Design switcher — admin-only while the Horde reveal is being
+           tried out (visibility toggled in applyAccessControl(); click
+           handling + active-state sync in setDesignTheme()/
+           updateDesignSwitcherUI() near initDesignReveal()). Hidden by
+           default in markup too, not just via the "hidden" class, so it
+           never flashes visible for a split second before JS resolves the
+           role on a slow connection. -->
+      <div class="settings-design-row hidden" id="settingsDesignRow">
+        <label class="apply-field-label">Design <span class="settings-design-badge">Admin-Test</span></label>
+        <div class="design-switcher">
+          <button type="button" class="design-switcher-option" data-design-theme="classic">Klassisch</button>
+          <button type="button" class="design-switcher-option" data-design-theme="horde">Horde</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1589,6 +1855,30 @@
 
   <div class="talent-tooltip hidden" id="talentTooltip"></div>
 
+</div>
+
+<!-- Design reveal — one-time "unlock the new design" popup + burn
+     transition. See the CSS comments near :root and near
+     .design-reveal-modal/.design-burn-overlay, and initDesignReveal()/
+     startDesignBurn() in the script below, for how these two get shown,
+     animated and torn down. Deliberately OUTSIDE #publicPage (which stays
+     class="hidden" until Firebase finishes connecting) and before the
+     main script block (so the elements already exist in the DOM by the
+     time bootstrap() runs and calls initDesignReveal()) — the reveal is a
+     purely local/cosmetic thing and has to work even if Firebase is slow,
+     misconfigured, or down. -->
+<div class="design-reveal-modal hidden" id="designRevealModal">
+  <div class="design-reveal-card">
+    <div class="design-reveal-icon"></div>
+    <h2>Ein neues Kapitel beginnt</h2>
+    <p>Die Fraktion wurde gewählt, der Name steht fest. Neues Design jetzt freischalten?</p>
+    <button type="button" class="btn" id="designRevealOkBtn">Okay</button>
+  </div>
+</div>
+<div class="design-burn-overlay" id="designBurnOverlay">
+  <div class="design-burn-paper"></div>
+  <div class="design-burn-edge"></div>
+  <div class="design-burn-embers"></div>
 </div>
 
 <script>
@@ -3895,7 +4185,11 @@
     const loggedIn = !!discordIdentity;
     els.navLoginBtn.classList.toggle('hidden', loggedIn);
     els.accessControlWrap.classList.toggle('hidden', !loggedIn);
-    if (!loggedIn) return;
+    if (!loggedIn){
+      const designRow = document.getElementById('settingsDesignRow');
+      if (designRow) designRow.classList.add('hidden');
+      return;
+    }
     const roleLabel = (ACCESS_ROLES[currentRole] || ACCESS_ROLES.community).label;
     const myProfile = (state.characterProfiles || {})[discordIdentity.id];
     const displayName = (myProfile && myProfile.nickname) ? myProfile.nickname : discordIdentity.username;
@@ -3917,6 +4211,13 @@
       els.accessAvatarImg.classList.add('hidden');
     }
     els.accessManageBtn.classList.toggle('hidden', currentRole !== 'admin');
+    // Design switcher in User Settings — admin-only while this is being
+    // tried out, see the big comment above initDesignReveal().
+    const designRow = document.getElementById('settingsDesignRow');
+    if (designRow){
+      designRow.classList.toggle('hidden', currentRole !== 'admin');
+      if (currentRole === 'admin') updateDesignSwitcherUI();
+    }
   }
 
   els.accessSwitchBtn.addEventListener('click', (e) => {
@@ -4152,6 +4453,9 @@
   els.accessCharactersBtn.addEventListener('click', () => openCharacterModal());
   els.characterSaveBtn.addEventListener('click', () => saveCharacterProfile());
   els.characterModalCloseBtn.addEventListener('click', () => els.characterModal.classList.add('hidden'));
+  document.querySelectorAll('#settingsDesignRow .design-switcher-option').forEach(btn => {
+    btn.addEventListener('click', () => setDesignTheme(btn.dataset.designTheme));
+  });
   els.characterModal.addEventListener('click', (e) => {
     if (e.target === els.characterModal) els.characterModal.classList.add('hidden');
   });
@@ -6066,6 +6370,12 @@
 
   function renderAll(){
     applyAccessControl();
+    // Re-checked on every render (cheap no-op once resolved — see
+    // designRevealChecked) because currentRole only actually becomes
+    // 'admin' asynchronously, sometime after the first renderAll() a login
+    // triggers — the eager call in bootstrap() alone would always see the
+    // default 'community' role and never show anything.
+    initDesignReveal();
     renderNewsGrid();
     renderPollList();
     renderForeverView();
@@ -6149,8 +6459,160 @@
     els.publicPage.classList.remove('hidden');
   }
 
+  // ---------------------------------------------------------------------
+  // Design reveal — one-time "unlock the new (dark Horde) design" popup +
+  // burn transition, plus a manual switcher in User Settings to flip back
+  // and forth afterward. The CSS side (html.theme-horde's palette, the
+  // modal/overlay's own look, the wipe/ember keyframes, the switcher's
+  // segmented-control look) lives near :root and near .design-reveal-modal
+  // /.design-burn-overlay/.design-switcher in the <style> block; this is
+  // the show/hide timing, the two localStorage keys, spawning the ember
+  // particles along the burn line as it moves, and the switcher's click
+  // handling.
+  //
+  // Two separate localStorage flags, deliberately not one:
+  //  - DESIGN_REVEAL_KEY: "has this browser ever unlocked/seen the new
+  //    design" — purely gates whether the one-time popup nags again. Once
+  //    set, it's never cleared by switching themes back to classic.
+  //  - DESIGN_THEME_KEY: "which theme is active right now" ('horde' or
+  //    'classic') — what the no-flash <script> at the very top of <head>
+  //    reads to decide whether to add .theme-horde before first paint, and
+  //    what setDesignTheme() below flips when the User Settings switcher
+  //    is used. Switching back to classic there does NOT re-arm the popup.
+  //
+  // Admin-gated while this is still being tried out: initDesignReveal()
+  // and the switcher's visibility both check currentRole — see
+  // applyAccessControl() for the switcher's visibility toggle, and the
+  // guard at the top of initDesignReveal() below for the popup. Everyone
+  // else sees no difference from before. Widen this later by relaxing (or
+  // dropping) that one check once it's ready for the whole guild.
+  //
+  // initDesignReveal() is called from renderAll() (so it re-checks once
+  // currentRole actually resolves after login) as well as once eagerly
+  // from bootstrap() — designRevealChecked makes repeat calls a cheap
+  // no-op once it has either shown the popup or confirmed there's nothing
+  // to show. Independent of Firebase/Discord being configured at all —
+  // safe to run even on the setup-only screens, though of course
+  // currentRole can only ever resolve to 'admin' once login works.
+  // ---------------------------------------------------------------------
+  const DESIGN_REVEAL_KEY = 'guild-loot-design-revealed';
+  const DESIGN_THEME_KEY = 'guild-loot-design-theme';
+  const DESIGN_BURN_DURATION_MS = 2400;
+  let designRevealChecked = false;
+
+  function initDesignReveal(){
+    if (designRevealChecked) return;
+    const modal = document.getElementById('designRevealModal');
+    const okBtn = document.getElementById('designRevealOkBtn');
+    if (!modal || !okBtn) return; // markup missing for some reason — fail quiet
+
+    let alreadyRevealed = false;
+    try{ alreadyRevealed = localStorage.getItem(DESIGN_REVEAL_KEY) === '1'; }catch(e){}
+    if (alreadyRevealed){ designRevealChecked = true; return; } // nothing to prompt — already unlocked
+
+    // Still admin-only while this is being tried out — for anyone else,
+    // currentRole never becomes 'admin', so this just keeps returning
+    // without ever flipping designRevealChecked, i.e. it quietly re-checks
+    // on every renderAll() in case an admin logs in later in the session.
+    if (currentRole !== 'admin') return;
+
+    designRevealChecked = true;
+    modal.classList.remove('hidden');
+    okBtn.addEventListener('click', () => {
+      modal.classList.add('hidden');
+      startDesignBurn();
+    });
+    // Clicking the dark backdrop (not the card itself) just closes the
+    // prompt without unlocking anything — it'll ask again next visit,
+    // same as never having clicked "Okay" at all.
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.classList.add('hidden');
+    });
+  }
+
+  function startDesignBurn(){
+    const overlay = document.getElementById('designBurnOverlay');
+    const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+    const markUnlocked = () => {
+      try{
+        localStorage.setItem(DESIGN_REVEAL_KEY, '1');
+        localStorage.setItem(DESIGN_THEME_KEY, 'horde');
+      }catch(e){}
+      updateDesignSwitcherUI();
+    };
+
+    if (!overlay){
+      // No overlay markup somehow — still honor the unlock, just instantly.
+      document.documentElement.classList.add('theme-horde');
+      markUnlocked();
+      return;
+    }
+
+    // The new theme goes on right away, hidden under the still-opaque
+    // overlay — by the time the burn wipe has eaten through, the page
+    // underneath is already the one it reveals.
+    document.documentElement.classList.add('theme-horde');
+    overlay.classList.add('burning');
+
+    let emberInterval = null;
+    if (!reduceMotion){
+      const emberLayer = overlay.querySelector('.design-burn-embers');
+      const start = performance.now();
+      emberInterval = setInterval(() => {
+        if (!emberLayer) return;
+        const progress = Math.min(1, (performance.now() - start) / DESIGN_BURN_DURATION_MS);
+        // A couple of embers per tick, scattered along the current burn
+        // line — matches .design-burn-edge's own top:X% position.
+        for (let i = 0; i < 2; i++){
+          const ember = document.createElement('div');
+          ember.className = 'design-burn-ember';
+          ember.style.left = (Math.random() * 100) + '%';
+          ember.style.top = (progress * 100) + '%';
+          ember.addEventListener('animationend', () => ember.remove());
+          emberLayer.appendChild(ember);
+        }
+      }, 70);
+    }
+
+    setTimeout(() => {
+      if (emberInterval) clearInterval(emberInterval);
+      overlay.classList.remove('burning');
+      overlay.querySelectorAll('.design-burn-ember').forEach(el => el.remove());
+      markUnlocked();
+    }, reduceMotion ? 0 : DESIGN_BURN_DURATION_MS + 150);
+  }
+
+  // Manual switcher in User Settings (admin-only for now — see
+  // applyAccessControl()). Instant, no burn animation — that's reserved
+  // for the first-time reveal; this is a deliberate settings change, not a
+  // surprise. Also counts as "seen it" so the popup never nags someone who
+  // only ever used the switcher without going through the burn.
+  function setDesignTheme(theme){
+    const horde = theme === 'horde';
+    document.documentElement.classList.toggle('theme-horde', horde);
+    try{
+      localStorage.setItem(DESIGN_THEME_KEY, horde ? 'horde' : 'classic');
+      localStorage.setItem(DESIGN_REVEAL_KEY, '1');
+    }catch(e){}
+    designRevealChecked = true;
+    const modal = document.getElementById('designRevealModal');
+    if (modal) modal.classList.add('hidden');
+    updateDesignSwitcherUI();
+  }
+
+  function updateDesignSwitcherUI(){
+    const row = document.getElementById('settingsDesignRow');
+    if (!row) return;
+    const horde = document.documentElement.classList.contains('theme-horde');
+    row.querySelectorAll('.design-switcher-option').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.designTheme === (horde ? 'horde' : 'classic'));
+    });
+  }
+
   async function bootstrap(){
     renderPublicShell();
+    initDesignReveal();
 
     if (!isFirebaseConfigured()){
       showSetupOnly(els.setupScreen);

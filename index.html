@@ -1305,65 +1305,37 @@
     animation: designBurnEdgeMove 2.4s cubic-bezier(.45,0,.4,1) forwards;
   }
 
-  /* The "sea of flames" layer — a dense, overlapping wall of individual
-     flame shapes, continuously spawned by startDesignBurn() just above
-     the wipe edge (same pattern as the ember spawner below) and removed
-     once their animation ends, so the whole band reads as a chaotic,
-     wildfire-style curtain eating the page rather than a tidy row of
-     candle flames. Each .design-burn-flame is a small two-layer tongue —
-     an outer red-orange shape (the element itself) with a smaller
-     yellow-white core (::after) sitting inside it, both clipped into a
-     tapered flame silhouette via clip-path. What sells "wildfire" rather
-     than "birthday candles" is density and variety: JS spawns several per
-     tick at random, overlapping x-offsets, with a wide size range (small
-     licks mixed with tall ones) and a random base rotation/lean
-     (--flame-rot, set inline) so neighboring tongues don't all point
-     straight up in a neat row. mix-blend-mode: screen makes overlapping
-     tongues brighten each other like real fire instead of just stacking
-     flat color. Earlier attempts used a plain rounded-blob/egg shape
-     (read as glowing eggs) or ran everything through the same heavy
-     turbulence filter as the edge, which at this element size tore the
-     shapes into unreadable jagged chunks — deliberately NOT using that
-     filter here; the flicker comes from the keyframe animation and
-     randomized per-flame timing/size/rotation instead. */
+  /* The "sea of flames" layer. Earlier versions built this out of
+     discrete CSS flame-tongue divs (clip-path silhouettes, border-radius
+     blobs, …) — however they were shaped, a finite number of
+     independently-animated DOM shapes always reads as "a row of little
+     flame icons", not real fire, because real fire has no individual
+     tongues at all — it's one continuous turbulent mass. So this layer
+     is a <canvas> (created and driven by startFireCanvas() in the main
+     script) running an actual per-pixel fire simulation: a small
+     low-resolution grid where the bottom row is a randomized-intensity
+     "fire source" every frame, each pixel above inherits the intensity of
+     a pixel below it (with a little horizontal jitter and random decay),
+     and the resulting intensity grid is mapped through a black → red →
+     orange → yellow → white → faint-blue palette (see buildFirePalette())
+     — the same family of technique used for the classic "campfire"/"DOOM
+     fire" effect. Rendered small (internal pixels, not CSS px) and then
+     scaled up with the browser's own smoothing, which is what gives it
+     the soft, licking, organic edges instead of a sprite look. The
+     canvas's own top position is updated every frame in lockstep with
+     the burn wipe, mix-blend-mode: screen so bright flame pixels light up
+     the page underneath and near-black/low-alpha ones (the "smoke" end of
+     the palette) stay unobtrusive instead of painting flat dark squares. */
   .design-burn-flames{ position: absolute; inset: 0; mix-blend-mode: screen; }
-  .design-burn-flame{
-    position: absolute; bottom: 0; left: 0;
-    --flame-rot: 0deg;
-    transform-origin: 50% 100%;
-    animation: designBurnFlameLick .8s ease-in-out infinite;
-  }
-  .design-burn-flame::before, .design-burn-flame::after{
-    content: ''; position: absolute; left: 50%; bottom: 0;
-    clip-path: polygon(50% 0%, 73% 20%, 89% 46%, 92% 68%, 78% 88%, 58% 100%,
-      42% 100%, 22% 88%, 8% 68%, 11% 46%, 27% 20%);
-  }
-  .design-burn-flame::before{
-    width: 100%; height: 100%; transform: translateX(-50%);
-    background: linear-gradient(180deg,
-      rgba(255,205,120,0.98) 0%,
-      rgba(242,122,46,0.96) 38%,
-      rgba(168,50,26,0.88) 76%,
-      rgba(90,18,10,0.5) 100%);
-  }
-  .design-burn-flame::after{
-    width: 42%; height: 58%; transform: translateX(-50%);
-    background: linear-gradient(180deg,
-      rgba(255,250,224,0.98) 0%,
-      rgba(255,196,110,0.94) 58%,
-      rgba(255,196,110,0.35) 100%);
-  }
-  /* Vertical lick + sway built on top of each flame's own random lean
-     (--flame-rot, set inline by JS) — real wildfire tongues twist and
-     lean at all angles, they don't all stand straight. Each spawned
-     flame also gets a randomized animation-delay/-duration and blur (set
-     inline by JS) so a whole row never flickers in lockstep and distant/
-     background tongues read as slightly hazier than close ones. */
-  @keyframes designBurnFlameLick{
-    0%{   transform: rotate(var(--flame-rot)) scaleY(.85) scaleX(.92) translateX(0); opacity: .78; }
-    30%{  transform: rotate(calc(var(--flame-rot) + 4deg)) scaleY(1.15) scaleX(1.04) translateX(2px); opacity: 1; }
-    60%{  transform: rotate(calc(var(--flame-rot) - 3deg)) scaleY(.95) scaleX(.96) translateX(-2px); opacity: .9; }
-    100%{ transform: rotate(var(--flame-rot)) scaleY(.85) scaleX(.92) translateX(0); opacity: .78; }
+  .design-burn-fire-canvas{
+    position: absolute; left: 0; width: 100%; height: 340px;
+    transform: translateY(-78%);
+    image-rendering: auto;
+    /* The simulation only runs at ~160×72 internal pixels; blurring the
+       scaled-up result is what turns that blocky grid into soft, licking
+       tongues instead of a visible mosaic — belt-and-braces alongside the
+       browser's own (bilinear) canvas upscaling. */
+    filter: blur(3px) saturate(1.12);
   }
 
   /* Billowing smoke — slow, heavily-blurred dark puffs that drift upward
@@ -6701,6 +6673,129 @@
     if (modal) modal.classList.remove('hidden');
   }
 
+  // Builds the 37-step black → red → orange → yellow → white (→ faint
+  // blue at the very tip, echoing the hottest part of a real flame)
+  // intensity ramp used by the fire canvas below. Index 0 is fully
+  // transparent so "cold" pixels vanish instead of painting flat black
+  // squares; low-mid indices carry partial alpha too, which is what
+  // gives the rising edge of the fire its smoky, dissipating look rather
+  // than a hard silhouette.
+  function buildFirePalette(){
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const palette = [];
+    for (let i = 0; i <= 36; i++){
+      const t = i / 36;
+      let r, g, b, a;
+      if (i === 0){ r = 12; g = 7; b = 8; a = 0; }
+      else if (t < 0.22){ const k = t / 0.22; r = lerp(24,110,k); g = lerp(10,22,k); b = lerp(10,15,k); a = lerp(30,150,k); }
+      else if (t < 0.46){ const k = (t - 0.22) / 0.24; r = lerp(110,221,k); g = lerp(22,80,k); b = lerp(15,28,k); a = lerp(150,225,k); }
+      else if (t < 0.68){ const k = (t - 0.46) / 0.22; r = lerp(221,255,k); g = lerp(80,168,k); b = lerp(28,64,k); a = lerp(225,250,k); }
+      else if (t < 0.88){ const k = (t - 0.68) / 0.20; r = 255; g = lerp(168,244,k); b = lerp(64,196,k); a = 255; }
+      else { const k = (t - 0.88) / 0.12; r = lerp(255,218,k); g = lerp(244,236,k); b = lerp(196,255,k); a = 255; }
+      palette.push([r | 0, g | 0, b | 0, a | 0]);
+    }
+    return palette;
+  }
+  let __firePalette = null;
+
+  // Drives the actual "sea of flames" — a tiny (W×H internal pixels)
+  // fire simulation, the classic technique behind old demoscene/DOOM-
+  // style campfire effects: the bottom row is reseeded with randomized
+  // high intensity every frame (the "fuel"), and every pixel above
+  // inherits a nearby-below pixel's intensity minus a small random decay,
+  // which makes heat appear to rise, flicker and drift sideways on its
+  // own without any hand-authored shapes or keyframes at all — the
+  // turbulence is emergent, which is why it looks like real fire instead
+  // of a row of icons. Rendered at low internal resolution and then
+  // scaled up to full width via the canvas's own (smoothed) CSS sizing,
+  // which turns the blocky simulation into soft, organic-looking tongues.
+  // Returns {stop} so the caller can tear down the rAF loop and remove
+  // the canvas once the burn finishes.
+  function startFireCanvas(container, edgeEl, burnStart, durationMs){
+    const W = 160, H = 92;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'design-burn-fire-canvas';
+    canvas.width = W;
+    canvas.height = H;
+    container.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    if (!ctx){ canvas.remove(); return { stop(){} }; }
+
+    if (!__firePalette) __firePalette = buildFirePalette();
+    const palette = __firePalette;
+    const fire = new Uint8ClampedArray(W * H);
+    const imgData = ctx.createImageData(W, H);
+
+    function reseedBase(){
+      for (let x = 0; x < W; x++){
+        fire[(H - 1) * W + x] = Math.random() < 0.72 ? 36 : 24 + Math.floor(Math.random() * 11);
+      }
+    }
+    reseedBase();
+
+    function step(){
+      // Walking y from 1 upward and writing to row (y-1) while reading
+      // row y is what lets this run as a single forward pass with no
+      // second buffer: row y is only ever read as a *source* before it
+      // later becomes a *destination* once y increments past it.
+      for (let y = 1; y < H; y++){
+        const rowOffset = y * W;
+        for (let x = 0; x < W; x++){
+          const decay = (Math.random() * 2.6) | 0;
+          const spread = ((Math.random() * 3) | 0) - 1;
+          const srcX = x + spread < 0 ? 0 : (x + spread >= W ? W - 1 : x + spread);
+          const srcVal = fire[rowOffset + srcX];
+          const dstIdx = (y - 1) * W + x;
+          fire[dstIdx] = srcVal > decay ? srcVal - decay : 0;
+        }
+      }
+      reseedBase();
+    }
+
+    function render(){
+      const data = imgData.data;
+      for (let i = 0; i < W * H; i++){
+        const c = palette[fire[i]];
+        const o = i * 4;
+        data[o] = c[0]; data[o + 1] = c[1]; data[o + 2] = c[2]; data[o + 3] = c[3];
+      }
+      ctx.putImageData(imgData, 0, 0);
+    }
+
+    let rafId = null;
+    let stopped = false;
+    function frame(){
+      if (stopped) return;
+      // Track the ACTUAL on-screen position of .design-burn-edge rather
+      // than recomputing progress from elapsed time independently — the
+      // edge's own CSS animation runs on a cubic-bezier easing curve, not
+      // linear time, so a separately time-based calculation here would
+      // drift out of sync with it (the fire band visibly detached from
+      // the glowing edge line). Reading its live rect guarantees the two
+      // always line up, however the easing is tuned later.
+      if (edgeEl){
+        const edgeRect = edgeEl.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        canvas.style.top = (edgeRect.top + edgeRect.height / 2 - containerRect.top) + 'px';
+      } else {
+        const progress = Math.min(1, (performance.now() - burnStart) / durationMs);
+        canvas.style.top = (progress * 100) + '%';
+      }
+      step();
+      render();
+      rafId = requestAnimationFrame(frame);
+    }
+    rafId = requestAnimationFrame(frame);
+
+    return {
+      stop(){
+        stopped = true;
+        if (rafId) cancelAnimationFrame(rafId);
+        canvas.remove();
+      }
+    };
+  }
+
   function startDesignBurn(){
     const overlay = document.getElementById('designBurnOverlay');
     const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -6727,7 +6822,7 @@
     overlay.classList.add('burning');
 
     let emberInterval = null;
-    let flameInterval = null;
+    let fireCanvas = null;
     if (!reduceMotion){
       const emberLayer = overlay.querySelector('.design-burn-embers');
       const start = performance.now();
@@ -6746,53 +6841,17 @@
         }
       }, 70);
 
-      // The flame wall itself — a dense, fast-ticking spawn of short-lived
-      // .design-burn-flame tongues, heavily overlapping along the same
-      // burn line as the embers so the edge reads as a chaotic wildfire
-      // front eating the page rather than a tidy row of candle flames.
-      // Three deliberate choices make this read as "wildfire" instead of
-      // "fireplace": (1) a wide size range mixes small licks with much
-      // taller ones in the same tick, for depth; (2) each flame gets a
-      // random base lean (--flame-rot, ±22deg) so neighboring tongues
-      // point every which way instead of all standing straight up; (3) a
-      // random blur (sharper up close, softer/hazier for the "background"
-      // flames) sells the sense of a whole burning tree-line rather than
-      // a single row of shapes. Each tongue only lives a cycle or two
-      // before being replaced by a fresh one at a new random offset/size/
-      // lean — that constant churn is what sells "flickering" rather than
-      // a static row animating in place.
+      // The flame wall itself — a real per-pixel fire simulation running
+      // on a <canvas>, not discrete DOM shapes (see the long comment on
+      // .design-burn-flames in the CSS for why — a finite number of
+      // independently-animated flame divs always read as "icons", never
+      // as actual fire). startFireCanvas() owns its own render loop and
+      // tracks the edge element's live position every frame (see its own
+      // comment for why not time-based); it returns a stop() function we
+      // call during cleanup below.
       const flameLayer = overlay.querySelector('.design-burn-flames');
-      flameInterval = setInterval(() => {
-        if (!flameLayer) return;
-        const progress = Math.min(1, (performance.now() - start) / DESIGN_BURN_DURATION_MS);
-        const topPct = progress * 100;
-        for (let i = 0; i < 5; i++){
-          const flame = document.createElement('div');
-          flame.className = 'design-burn-flame';
-          const big = Math.random() < 0.35;
-          const widthPx = big ? (46 + Math.random() * 34) : (16 + Math.random() * 26);
-          const heightPx = big ? (70 + Math.random() * 60) : (28 + Math.random() * 40);
-          // Spread wider than 0–100% so tongues also spawn partway off
-          // either edge — a wildfire front doesn't stop cleanly at the
-          // viewport, it should feel like it continues past both sides.
-          flame.style.left = (-4 + Math.random() * 108) + '%';
-          flame.style.top = topPct + '%';
-          flame.style.width = widthPx + 'px';
-          flame.style.height = heightPx + 'px';
-          flame.style.marginLeft = (-widthPx / 2) + 'px';
-          flame.style.marginTop = (-heightPx * 0.82) + 'px';
-          flame.style.setProperty('--flame-rot', (Math.random() * 44 - 22) + 'deg');
-          flame.style.filter = 'blur(' + (big ? (1.2 + Math.random() * 1.4) : (0.3 + Math.random() * 0.8)) + 'px)';
-          flame.style.opacity = big ? (0.55 + Math.random() * 0.3) : (0.8 + Math.random() * 0.2);
-          // Randomized duration + a negative delay (so it doesn't start
-          // mid-cycle at scale 0) is what keeps a whole row of flames from
-          // flickering in unison — real fire never pulses in lockstep.
-          flame.style.animationDuration = (0.6 + Math.random() * 0.5) + 's';
-          flame.style.animationDelay = (-Math.random() * 0.9) + 's';
-          flameLayer.appendChild(flame);
-          setTimeout(() => flame.remove(), 1000);
-        }
-      }, 60);
+      const edgeEl = overlay.querySelector('.design-burn-edge');
+      fireCanvas = flameLayer ? startFireCanvas(flameLayer, edgeEl, start, DESIGN_BURN_DURATION_MS) : null;
 
       // Slow, heavily-blurred smoke puffs drifting up off the flame line
       // — see .design-burn-smoke-puff for why this is what separates
@@ -6824,11 +6883,10 @@
 
     setTimeout(() => {
       if (emberInterval) clearInterval(emberInterval);
-      if (flameInterval) clearInterval(flameInterval);
+      if (fireCanvas) fireCanvas.stop();
       if (overlay.__designBurnSmokeInterval) clearInterval(overlay.__designBurnSmokeInterval);
       overlay.classList.remove('burning');
       overlay.querySelectorAll('.design-burn-ember').forEach(el => el.remove());
-      overlay.querySelectorAll('.design-burn-flame').forEach(el => el.remove());
       overlay.querySelectorAll('.design-burn-smoke-puff').forEach(el => el.remove());
       markUnlocked();
     }, reduceMotion ? 0 : DESIGN_BURN_DURATION_MS + 150);

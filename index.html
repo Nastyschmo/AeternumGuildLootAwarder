@@ -865,28 +865,42 @@
   .forever-officer-table th[data-k]:hover{ color: var(--text); }
   .forever-officer-table th[aria-sort="ascending"]::after{ content: " ▲"; font-size: 9px; }
   .forever-officer-table th[aria-sort="descending"]::after{ content: " ▼"; font-size: 9px; }
-  .forever-ov-row{ padding: 12px 0; border-bottom: 1px solid var(--border); }
-  .forever-ov-row:last-child{ border-bottom: none; }
-  .forever-ov-row-head{ display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
-  .forever-ov-class{ font-weight: 600; display: flex; align-items: center; gap: 6px; }
-  .forever-ov-total-line{ font-size: 12px; color: var(--text-faint); font-weight: 600; }
-  /* Each spec is its own labeled row (label always visible, not just on
-     hover) — reuses the same bar-track/bar-fill/count building blocks as
-     the general poll options list, so the two look and behave the same. */
-  .forever-ov-spec-rows{ display: flex; flex-direction: column; gap: 5px; }
-  .forever-ov-spec-row{
-    display: flex; align-items: center; gap: 10px; cursor: pointer;
-    padding: 3px 4px; margin: 0 -4px; border-radius: 4px;
+  /* Class/spec survey overview — a grouped vertical-bar chart (one column
+     per class, one bar per spec within it), closer to a glance-able "race
+     chart" than the old per-spec text rows: every bar's height is scaled
+     against the single largest spec count anywhere in the data
+     (forever-ov-chart's --max-count custom property isn't used directly —
+     see renderForeverOverview()'s heightPct math — this comment just
+     documents the intent), so the tallest bar on the whole chart is always
+     full height and everything else reads relative to it at a glance. Bars
+     are colored by ROLE (tank/healer/damage), not by class or spec, via
+     FOREVER_ROLE_COLORS — same legend as before. Raw vote counts are
+     printed above each bar instead of percentages (easier to read at a
+     glance, and matches how the rest of the page reports poll results).
+     Each bar is still the click target for showVoteDetailsModal (who
+     picked it), same as the old row version. */
+  .forever-ov-chart-wrap{ overflow-x: auto; padding-bottom: 4px; }
+  .forever-ov-chart{ display: flex; align-items: flex-end; gap: 18px; min-width: min-content; padding: 4px 2px 0; }
+  .forever-ov-class-col{ display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+  .forever-ov-bars{ display: flex; align-items: flex-end; gap: 5px; height: 150px; }
+  .forever-ov-bar-col{
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    height: 100%; width: 20px; cursor: pointer; border-radius: 4px 4px 0 0; padding-top: 2px;
   }
-  .forever-ov-spec-row:hover{ background: rgba(255,255,255,0.04); }
-  .forever-ov-spec-label{ width: 130px; flex-shrink: 0; font-size: 12.5px; color: var(--text-muted); }
-  .forever-ov-spec-row .poll-option-bar-track{ flex: 1; }
-  .forever-ov-spec-row .poll-option-count{ min-width: 26px; }
-  .forever-ov-legend{ display: flex; gap: 14px; margin-bottom: 10px; font-size: 12px; color: var(--text-faint); flex-wrap: wrap; }
+  .forever-ov-bar-col:hover{ background: rgba(255,255,255,0.05); }
+  .forever-ov-bar-count{ font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; white-space: nowrap; }
+  .forever-ov-bar{ width: 100%; min-height: 3px; border-radius: 3px 3px 0 0; transition: height 0.25s ease; }
+  .forever-ov-baseline{ width: 100%; height: 1px; background: var(--border); margin-top: 2px; }
+  .forever-ov-class-foot{ display: flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .forever-ov-class-total{ font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+  .forever-ov-legend{ display: flex; gap: 14px; margin-bottom: 14px; font-size: 12px; color: var(--text-faint); flex-wrap: wrap; }
   .forever-ov-legend-item{ display: flex; align-items: center; gap: 5px; }
   .forever-ov-legend-dot{ width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
   @media (max-width: 640px){
-    .forever-ov-spec-label{ width: 96px; font-size: 11.5px; }
+    .forever-ov-chart{ gap: 12px; }
+    .forever-ov-bars{ height: 120px; }
+    .forever-ov-bar-col{ width: 16px; }
+    .forever-ov-class-foot{ font-size: 11px; }
   }
 
   /* ---------- Custom polls — a generic Offi-built voting tool (separate
@@ -6090,7 +6104,6 @@
 
   function renderForeverOverview(){
     const { agg, voterCount } = foreverAggregate();
-    const maxTotal = Math.max(1, ...CLASSES.map(c => agg[c.id].total));
     // Bars/legend are colored by role (Tank/Healer/Damage), not by class or
     // spec slot, so gaps in a role are visible across the whole roster at a
     // glance.
@@ -6101,34 +6114,39 @@
       els.foreverOverview.innerHTML = legendHtml + `<div class="lootlib-note">Noch keine Stimmen.</div>`;
       return;
     }
-    // Each spec gets its own labeled bar row (rather than one combined
-    // multi-color bar per class) so which segment is which spec is always
-    // readable, not just on hover — hover doesn't exist on a phone anyway.
-    // The row is also clickable/tappable, opening a modal listing who
-    // picked it (see showVoteDetailsModal), same as the general poll bars.
-    const rowsHtml = CLASSES.map(cls => {
+    // One global max (the single largest spec count anywhere, across every
+    // class) rather than a per-class max — that's what makes bar heights
+    // comparable at a glance across the whole chart, not just within one
+    // class's own column.
+    const maxSpecCount = Math.max(1, ...CLASSES.flatMap(cls => foreverSpecsForClass(cls.id).map(s => agg[cls.id].specs[s.id] || 0)));
+    // A grouped vertical-bar chart — one column per class, one bar per
+    // spec within it, height scaled against maxSpecCount and colored by
+    // role. Raw counts print above each bar; the spec name itself isn't
+    // printed on the bar (there's no room for a label at this width) but
+    // is still available via the title tooltip and, more importantly, via
+    // tapping the bar — same showVoteDetailsModal click target as before,
+    // which names the spec in its own heading.
+    const chartHtml = CLASSES.map(cls => {
       const data = agg[cls.id];
       const specs = foreverSpecsForClass(cls.id);
-      const specRowsHtml = specs.map((s) => {
-        const count = data.specs[s.id];
-        const pct = (count / maxTotal) * 100;
-        return `<div class="forever-ov-spec-row" data-vote-details-class="${cls.id}" data-vote-details-spec="${s.id}" role="button" tabindex="0">
-          <span class="forever-ov-spec-label">${escapeHtml(s.label)}</span>
-          <div class="poll-option-bar-track"><div class="poll-option-bar-fill" style="width:${pct}%;background:${FOREVER_ROLE_COLORS[s.role]}"></div></div>
-          <span class="poll-option-count">${count}</span>
+      const barsHtml = specs.map((s) => {
+        const count = data.specs[s.id] || 0;
+        const heightPct = Math.max(count > 0 ? 4 : 1.5, (count / maxSpecCount) * 100);
+        return `<div class="forever-ov-bar-col" data-vote-details-class="${cls.id}" data-vote-details-spec="${s.id}" role="button" tabindex="0" title="${escapeHtml(s.label)}: ${count}">
+          <span class="forever-ov-bar-count">${count}</span>
+          <div class="forever-ov-bar" style="height:${heightPct}%;background:${FOREVER_ROLE_COLORS[s.role]}"></div>
         </div>`;
       }).join('');
-      return `<div class="forever-ov-row">
-        <div class="forever-ov-row-head">
-          <div class="forever-ov-class"><span class="forever-class-dot" style="background:${cls.color}"></span>${escapeHtml(cls.label)}</div>
-          <div class="forever-ov-total-line">Gesamt: ${data.total}</div>
-        </div>
-        <div class="forever-ov-spec-rows">${specRowsHtml}</div>
+      return `<div class="forever-ov-class-col">
+        <div class="forever-ov-bars">${barsHtml}</div>
+        <div class="forever-ov-baseline"></div>
+        <div class="forever-ov-class-foot"><span class="forever-class-dot" style="background:${cls.color}"></span>${escapeHtml(cls.label)}</div>
+        <div class="forever-ov-class-total">${data.total} gesamt</div>
       </div>`;
     }).join('');
     els.foreverOverview.innerHTML = legendHtml +
       `<div class="lootlib-note" style="margin-bottom:8px;">${voterCount} Mitglied${voterCount === 1 ? '' : 'er'} haben bisher abgestimmt.</div>` +
-      rowsHtml;
+      `<div class="forever-ov-chart-wrap"><div class="forever-ov-chart">${chartHtml}</div></div>`;
     els.foreverOverview.querySelectorAll('[data-vote-details-class]').forEach(el => {
       el.addEventListener('click', () => {
         const clsId = el.getAttribute('data-vote-details-class');

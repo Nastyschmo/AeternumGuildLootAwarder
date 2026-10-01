@@ -1294,6 +1294,31 @@
     padding: 14px 16px; margin-bottom: 12px;
   }
   .application-card-head{ display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 8px; }
+  /* Review-status row — every application (v1 and v2 alike) gets one of
+     these right under the head: a colored badge for the current status,
+     the dropdown to change it, and (depending on the status) who claimed
+     it or the scheduled interview date. Each status gets its own color so
+     the applications list reads at a glance without opening every card. */
+  .application-status-row{ display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .application-status-badge{
+    display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em;
+    border-radius: 999px; padding: 2px 10px; border: 1px solid transparent;
+  }
+  .application-status-open{ color: var(--text-muted); background: var(--bg-panel-raised); border-color: var(--border); }
+  .application-status-claimed{ color: #7cc4ff; background: rgba(76,158,255,.14); border-color: rgba(76,158,255,.35); }
+  .application-status-interview{ color: #c9a0ff; background: rgba(154,92,255,.14); border-color: rgba(154,92,255,.35); }
+  .application-status-candidate{ color: var(--gold-bright); background: rgba(217,180,96,.14); border-color: rgba(217,180,96,.35); }
+  .application-status-accepted{ color: #7adf9c; background: rgba(74,200,120,.14); border-color: rgba(74,200,120,.35); }
+  .application-status-rejected{ color: #ff9b9b; background: rgba(224,80,80,.14); border-color: rgba(224,80,80,.35); }
+  .application-status-select{
+    font-size: 12px; background: var(--bg-panel-raised); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 3px 6px;
+  }
+  .application-status-meta{ font-size: 12px; color: var(--text-muted); }
+  .application-status-date{
+    font-size: 12px; background: var(--bg-panel-raised); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 2px 6px;
+  }
   .application-class{ font-weight: 700; font-size: 13.5px; }
   .application-specs{ font-size: 12.5px; color: var(--text-muted); }
   .application-applicant{ font-size: 12.5px; color: var(--gold-bright); font-weight: 600; }
@@ -1301,9 +1326,26 @@
   .application-card-head .btn{ margin-left: auto; }
   .application-class-picks{ display: flex; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 8px; }
   .application-class-pick{
-    display: inline-flex; align-items: baseline; gap: 5px;
+    display: inline-flex; align-items: center; gap: 5px;
     background: var(--bg-panel-raised); border: 1px solid var(--border); border-radius: 999px;
     padding: 3px 10px;
+  }
+  /* Quick-glance summary bar at the top of a v2 (chat-form) application
+     card — a handful of scannable stats plus the applied-for class icons,
+     so an officer can judge the gist of an application before reading the
+     full per-class detail blocks below it. */
+  .application-summary-row{
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+    background: var(--bg-panel-raised); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 12px; margin: 6px 0 10px;
+  }
+  .application-stat{ display: flex; flex-direction: column; gap: 1px; }
+  .application-stat-label{ font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-faint); }
+  .application-stat-value{ font-size: 13px; color: var(--text); font-weight: 600; }
+  .application-summary-classchips{ display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+  .application-summary-classchip{
+    display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600;
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px 2px 4px;
   }
   .application-reason, .application-remarks, .application-experience,
   .application-logs, .application-professions, .application-namage{
@@ -3816,9 +3858,29 @@
   // through the old form before this change keeps loading and displaying
   // correctly — nothing already in Firebase needs migrating.
   // ---------------------------------------------------------------------
+  // Review status is independent of the form version (v1 and v2
+  // applications are flagged the exact same way), so it's applied here in
+  // the dispatcher rather than duplicated inside each normalizer.
+  const APPLICATION_STATUSES = {
+    open:      { label: 'Offen' },
+    claimed:   { label: 'Wird bearbeitet' },
+    interview: { label: 'Gespräch geplant' },
+    candidate: { label: 'Potenzieller Kandidat' },
+    accepted:  { label: 'Angenommen' },
+    rejected:  { label: 'Abgelehnt' }
+  };
+  function normalizeApplicationStatusFields(entry){
+    const status = (entry && APPLICATION_STATUSES[entry.status]) ? entry.status : 'open';
+    const claimedBy = (entry && typeof entry.claimedBy === 'string') ? entry.claimedBy : '';
+    const claimedByName = (entry && typeof entry.claimedByName === 'string') ? entry.claimedByName.slice(0, 80) : '';
+    const interviewAt = (entry && typeof entry.interviewAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(entry.interviewAt)) ? entry.interviewAt : '';
+    return { status, claimedBy, claimedByName, interviewAt };
+  }
   function normalizeApplication(entry){
     if (!entry || typeof entry !== 'object') return null;
-    return entry.version === 2 ? normalizeApplicationV2(entry) : normalizeApplicationV1(entry);
+    const base = entry.version === 2 ? normalizeApplicationV2(entry) : normalizeApplicationV1(entry);
+    if (!base) return null;
+    return Object.assign(base, normalizeApplicationStatusFields(entry));
   }
   function normalizeApplicationV1(entry){
     if (!entry || typeof entry !== 'object') return null;
@@ -3916,13 +3978,29 @@
     const extraProfessions = normProfList(entry.extraProfessions).filter(x => !PROFESSION_MAP[x.professionId].primary);
 
     const nickname = typeof entry.nickname === 'string' ? entry.nickname.trim().slice(0, 30) : '';
-    const logsUrl = (typeof entry.logsUrl === 'string' && WARCRAFTLOGS_URL_RE.test(entry.logsUrl))
-      ? entry.logsUrl.trim().slice(0, 300) : '';
+
+    // Logs are per-character (entry.charLogs: {classId: url}) since an
+    // applicant with 2 classes needs to give logs for each. Applications
+    // submitted before this (a single entry.logsUrl string, not attributed
+    // to any particular class) are migrated here rather than dropped —
+    // the one link is attributed to the first applied class so it still
+    // shows up somewhere on the card.
+    const rawCharLogs = (entry.charLogs && typeof entry.charLogs === 'object') ? entry.charLogs : null;
+    const charLogs = {};
+    if (rawCharLogs){
+      picks.forEach(p => {
+        const v = typeof rawCharLogs[p.classId] === 'string' ? rawCharLogs[p.classId].trim().slice(0, 300) : '';
+        if (v && WARCRAFTLOGS_URL_RE.test(v)) charLogs[p.classId] = v;
+      });
+    } else if (typeof entry.logsUrl === 'string' && entry.logsUrl && WARCRAFTLOGS_URL_RE.test(entry.logsUrl) && picks.length){
+      charLogs[picks[0].classId] = entry.logsUrl.trim().slice(0, 300);
+    }
+
     const remarks = typeof entry.remarks === 'string' ? entry.remarks.trim().slice(0, 1000) : '';
 
     return {
       version: 2,
-      firstName, nickname, age, picks, characters, charProfessions, extraProfessions, logsUrl, remarks,
+      firstName, nickname, age, picks, characters, charProfessions, extraProfessions, charLogs, remarks,
       applicantName: (typeof entry.applicantName === 'string' && entry.applicantName) ? entry.applicantName.slice(0, 80) : 'Unbekannt',
       applicantId: typeof entry.applicantId === 'string' ? entry.applicantId : '',
       createdAt: (typeof entry.createdAt === 'number' && entry.createdAt > 0) ? entry.createdAt : 0
@@ -4108,22 +4186,21 @@
     });
     return items;
   }
-  // New applications are an Officer/Admin-only "quest" (regular members
-  // never see the review list at all) — tracked the same way as
-  // Ankündigungen (newest createdAt vs. a per-user "seen up to" marker),
-  // just gated to isOfficerOrAdmin() instead of isMemberOrHigher().
-  function newestApplicationAt(){
-    return Object.values(state.applications || {}).reduce((max, a) => Math.max(max, a.createdAt || 0), 0);
-  }
-  function applicationsSeenAt(){
-    if (!discordIdentity) return 0;
-    const s = state.seenState && state.seenState[discordIdentity.id];
-    return (s && typeof s.applicationsSeenAt === 'number') ? s.applicationsSeenAt : 0;
-  }
+  // New applications are an Officer/Admin-only "quest", gated to
+  // isOfficerOrAdmin() instead of isMemberOrHigher(). Originally tracked
+  // like Ankündigungen (newest createdAt vs. a per-user "seen up to"
+  // marker), but that meant the mark cleared the instant *anyone* opened
+  // the page once, even though the application itself still needed to be
+  // worked — so it looked like the exclamation mark "never goes away"
+  // (every visit just re-confirms there's still unresolved work) while
+  // giving no actual way to resolve it. Now it's status-based instead:
+  // pending means "not yet Angenommen/Abgelehnt" (see
+  // APPLICATION_STATUSES below), so it only clears once someone actually
+  // closes the application out, and stays lit — correctly — for as long
+  // as there's a real decision still outstanding.
   function questPendingApplicationsCount(){
     if (!discordIdentity || !isOfficerOrAdmin()) return 0;
-    const seenAt = applicationsSeenAt();
-    return Object.values(state.applications || {}).filter(a => (a.createdAt || 0) > seenAt).length;
+    return Object.values(state.applications || {}).filter(a => a.status !== 'accepted' && a.status !== 'rejected').length;
   }
   function pageQuestPending(pageId){
     if (pageId === 'announcements') return questPendingAnnouncement();
@@ -4140,17 +4217,6 @@
     if (latest <= announcementsSeenAt()) return;
     if (!state.seenState) state.seenState = {};
     state.seenState[discordIdentity.id] = Object.assign({}, state.seenState[discordIdentity.id], { announcementsSeenAt: latest });
-    refreshQuestUI();
-    saveData('seenState/' + discordIdentity.id);
-  }
-  // Same idea for Bewerbungen, Officer/Admin-only — called when they open
-  // the Bewerbung page (see renderRecruitView).
-  function markApplicationsSeen(){
-    if (!discordIdentity || !isOfficerOrAdmin()) return;
-    const latest = newestApplicationAt();
-    if (latest <= applicationsSeenAt()) return;
-    if (!state.seenState) state.seenState = {};
-    state.seenState[discordIdentity.id] = Object.assign({}, state.seenState[discordIdentity.id], { applicationsSeenAt: latest });
     refreshQuestUI();
     saveData('seenState/' + discordIdentity.id);
   }
@@ -4199,7 +4265,7 @@
         html += `<div class="quest-popover-section-title">Bewerbungen</div>
           <a class="quest-popover-item" data-quest-page="recruit">
             <span class="quest-popover-item-icon" aria-hidden="true">?</span>
-            <span>${applicationsCount} neue Bewerbung${applicationsCount === 1 ? '' : 'en'} warten auf Prüfung</span>
+            <span>${applicationsCount} offene Bewerbung${applicationsCount === 1 ? '' : 'en'} (noch nicht Angenommen/Abgelehnt)</span>
           </a>`;
       }
     }
@@ -4523,9 +4589,9 @@
     // Opening Ankündigungen is what clears its quest "!" — mark up to the
     // newest post that exists right now as seen (no-op if already caught up).
     if (pageId === 'announcements') markAnnouncementsSeen();
-    // Same for Bewerbung — only actually does anything for Officers/Admins
-    // (markApplicationsSeen() itself checks isOfficerOrAdmin()).
-    if (pageId === 'recruit') markApplicationsSeen();
+    // Bewerbungen's quest "!" is status-based now (questPendingApplicationsCount),
+    // not seen/unseen, so there's nothing to mark here on open — it clears
+    // when an application is actually set to Angenommen/Abgelehnt.
   }
 
   // Back/forward now steps through the guild page's own Home /
@@ -6539,6 +6605,7 @@
   let applyChatCharNamesDraft = {};
   let applyChatCharProfDraft = {};
   let applyChatExtraProfDraft = [];
+  let applyChatCharLogsDraft = {};
 
   function applyChatPrimaryProfessions(){ return PROFESSIONS.filter(p => p.primary); }
   function applyChatSecondaryProfessions(){ return PROFESSIONS.filter(p => !p.primary); }
@@ -6559,7 +6626,7 @@
       const prof = PROFESSION_MAP[x.professionId];
       return `<div class="apply-chat-level-row">
         <span class="apply-chat-level-label">${escapeHtml(prof ? prof.label : x.professionId)}</span>
-        <input type="text" inputmode="numeric" class="apply-chat-level-input" data-level-prof="${x.professionId}" maxlength="3" placeholder="Lvl" value="${x.level === 'max' ? '' : (x.level || '')}" ${x.level === 'max' ? 'disabled' : ''}>
+        <input type="text" inputmode="numeric" class="apply-chat-level-input" data-level-prof="${x.professionId}" maxlength="3" placeholder="Lvl" title="Max. ${PROFESSION_MAX_LEVEL}" value="${x.level === 'max' ? '' : (x.level || '')}" ${x.level === 'max' ? 'disabled' : ''}>
         <label class="apply-chat-level-max"><input type="checkbox" data-max-prof="${x.professionId}" ${x.level === 'max' ? 'checked' : ''}> Max</label>
       </div>`;
     }).join('');
@@ -6567,7 +6634,12 @@
   function wireApplyChatProfLevelRows(holder, draftArr, onMaxToggled){
     holder.querySelectorAll('[data-level-prof]').forEach(inp => {
       inp.addEventListener('input', () => {
-        inp.value = inp.value.replace(/[^0-9]/g, '').slice(0, 3);
+        let digits = inp.value.replace(/[^0-9]/g, '').slice(0, 3);
+        // Clamp live while typing (not just on submit) so "488" can't even
+        // sit in the field looking accepted before silently being dropped
+        // to "keine Angabe" later — Classic/TBC/SoD's skill cap is 375.
+        if (digits !== '' && parseInt(digits, 10) > PROFESSION_MAX_LEVEL) digits = String(PROFESSION_MAX_LEVEL);
+        inp.value = digits;
         const item = draftArr.find(x => x.professionId === inp.getAttribute('data-level-prof'));
         if (item) item.level = inp.value;
       });
@@ -6850,21 +6922,49 @@
       skipValue(){ return { value: [], summary: '—' }; }
     },
     {
-      key: 'logsUrl', required: false,
-      bot: 'Bitte teile uns den Link zu deinen aktuellen Warcraftlogs für deine(n) Charakter(e).',
+      // One Warcraftlogs link per applied character — same per-character
+      // pattern as the "characters" and "charProfessions" steps, since an
+      // applicant with 2 classes/characters needs to give logs for each,
+      // not just a single link for whichever one they typed first.
+      key: 'charLogs', required: false,
+      bot: 'Bitte teile uns den Link zu deinen aktuellen Warcraftlogs für diese(n) Charakter(e). (Pro Charakter optional — einfach leer lassen, falls für einen Charakter keine Logs vorhanden sind.)',
       render(container, value){
-        container.innerHTML = `<input type="text" class="apply-text-input" id="applyChatFieldInput" maxlength="300" placeholder="https://www.warcraftlogs.com/character/…" value="${escapeHtml(value || '')}">`;
-        container.querySelector('#applyChatFieldInput').focus();
+        const picks = applyChatAnswers.picks || [];
+        applyChatCharLogsDraft = {};
+        picks.forEach(p => { applyChatCharLogsDraft[p.classId] = (value && value[p.classId]) || ''; });
+        container.innerHTML = picks.map(p => {
+          const cls = CLASS_MAP[p.classId];
+          const charName = (applyChatAnswers.characters || {})[p.classId] || '';
+          return `<div class="apply-chat-char-row">
+            <label class="apply-chat-char-row-label" style="color:${cls.color}">${escapeHtml(cls.label)}${charName ? ' — ' + escapeHtml(charName) : ''}</label>
+            <input type="text" class="apply-text-input" maxlength="300" data-logs-class="${p.classId}" placeholder="https://www.warcraftlogs.com/character/…" value="${escapeHtml(applyChatCharLogsDraft[p.classId])}">
+          </div>`;
+        }).join('');
+        container.querySelectorAll('[data-logs-class]').forEach((inp, idx) => {
+          inp.addEventListener('input', () => { applyChatCharLogsDraft[inp.getAttribute('data-logs-class')] = inp.value; });
+          if (idx === 0) inp.focus();
+        });
       },
-      collect(container){
-        const v = container.querySelector('#applyChatFieldInput').value.trim().slice(0, 300);
-        if (!v) return { ok: true, value: '', summary: '—' };
-        if (!WARCRAFTLOGS_URL_RE.test(v)){
-          return { ok: false, error: 'Bitte gib einen gültigen warcraftlogs.com-Link ein (z.B. Classic, SoD, Fresh oder Retail — oder überspringe die Frage).' };
+      collect(){
+        const picks = applyChatAnswers.picks || [];
+        const out = {};
+        const summaryParts = [];
+        for (const p of picks){
+          const v = (applyChatCharLogsDraft[p.classId] || '').trim().slice(0, 300);
+          if (!v) { summaryParts.push(`${CLASS_MAP[p.classId].label}: —`); continue; }
+          if (!WARCRAFTLOGS_URL_RE.test(v)){
+            return { ok: false, error: `Der Logs-Link für ${CLASS_MAP[p.classId].label} sieht nicht wie ein gültiger warcraftlogs.com-Link aus (z.B. Classic, SoD, Fresh oder Retail — oder lass das Feld leer).` };
+          }
+          out[p.classId] = v;
+          summaryParts.push(`${CLASS_MAP[p.classId].label}: ${v}`);
         }
-        return { ok: true, value: v, summary: v };
+        return { ok: true, value: out, summary: summaryParts.join(' · ') };
       },
-      skipValue(){ return { value: '', summary: '—' }; }
+      skipValue(){
+        const picks = applyChatAnswers.picks || [];
+        const out = {}; picks.forEach(p => { out[p.classId] = ''; });
+        return { value: out, summary: '—' };
+      }
     },
     {
       key: 'remarks', required: false,
@@ -7049,11 +7149,12 @@
       characters: a.characters || {},
       charProfessions: a.charProfessions || {},
       extraProfessions: a.extraProfessions || [],
-      logsUrl: a.logsUrl || '',
+      charLogs: a.charLogs || {},
       remarks: a.remarks || '',
       applicantName: discordIdentity.username,
       applicantId: discordIdentity.id,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      status: 'open'
     };
     els.applySubmitStatus.textContent = 'Wird gesendet…';
     els.applySubmitStatus.className = 'armory-status';
@@ -7134,6 +7235,34 @@
     if (!ok){ state.applications[id] = backup; renderAll(); }
   }
 
+  // Sets an application's review status. "claimed" additionally stamps
+  // who flagged it as being worked — the signed-in Officer/Admin doing
+  // the flagging, not something you pick for someone else — so the card
+  // can show "wird bearbeitet von <Name>" without a separate assignment
+  // UI. Switching away from "interview" doesn't clear the stored date, so
+  // switching back to it (e.g. after re-scheduling) remembers the last
+  // one instead of starting blank.
+  async function setApplicationStatus(id, status){
+    if (!discordIdentity || !isOfficerOrAdmin() || !state.applications || !state.applications[id] || !APPLICATION_STATUSES[status]) return;
+    const backup = state.applications[id];
+    state.applications[id] = Object.assign({}, backup, {
+      status,
+      claimedBy: status === 'claimed' ? discordIdentity.id : backup.claimedBy,
+      claimedByName: status === 'claimed' ? discordIdentity.username : backup.claimedByName
+    });
+    renderApplicationsList();
+    refreshQuestUI();
+    const ok = await saveData('applications/' + id);
+    if (!ok){ state.applications[id] = backup; renderApplicationsList(); refreshQuestUI(); }
+  }
+  async function setApplicationInterviewDate(id, dateStr){
+    if (!discordIdentity || !isOfficerOrAdmin() || !state.applications || !state.applications[id]) return;
+    const backup = state.applications[id];
+    state.applications[id] = Object.assign({}, backup, { interviewAt: /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : '' });
+    const ok = await saveData('applications/' + id);
+    if (!ok){ state.applications[id] = backup; renderApplicationsList(); }
+  }
+
   function renderApplicationsList(){
     const apps = sortedApplications();
     if (!apps.length){
@@ -7159,12 +7288,31 @@
       const contactBtnHtml = a.applicantId
         ? `<a class="btn btn-discord btn-sm" href="https://discord.com/users/${encodeURIComponent(a.applicantId)}" target="_blank" rel="noopener" title="Öffnet das Discord-Profil von ${escapeHtml(a.applicantName)} — von dort direkt 'Nachricht senden'">Auf Discord kontaktieren</a>`
         : '';
+      const status = a.status || 'open';
+      const statusOptionsHtml = Object.keys(APPLICATION_STATUSES)
+        .map(key => `<option value="${key}" ${status === key ? 'selected' : ''}>${APPLICATION_STATUSES[key].label}</option>`).join('');
+      // "Wird bearbeitet von <Name>" only once someone's actually claimed
+      // it; the interview-date field only shows once that status is
+      // picked, so the row doesn't clutter every card with an empty date
+      // input nobody asked for.
+      const claimedMetaHtml = (status === 'claimed' && a.claimedByName)
+        ? `<span class="application-status-meta">von ${escapeHtml(a.claimedByName)}</span>` : '';
+      const interviewDateHtml = status === 'interview'
+        ? `<input type="date" class="application-status-date" data-interview-app="${a.id}" value="${escapeHtml(a.interviewAt || '')}" title="Termin für das Bewerbungsgespräch">`
+        : '';
+      const statusRowHtml = `<div class="application-status-row">
+          <span class="application-status-badge application-status-${status}">${APPLICATION_STATUSES[status].label}</span>
+          <select class="application-status-select" data-status-app="${a.id}" aria-label="Bewerbungsstatus">${statusOptionsHtml}</select>
+          ${claimedMetaHtml}
+          ${interviewDateHtml}
+        </div>`;
       const headHtml = `<div class="application-card-head">
           <span class="application-applicant">${escapeHtml(a.applicantName)}${applicantProfile && applicantProfile.nickname ? ` <span class="access-member-nickname">"${escapeHtml(applicantProfile.nickname)}"</span>` : ''}</span>
           <span class="application-date">${escapeHtml(dateStr)}</span>
           ${contactBtnHtml}
           <button type="button" class="btn btn-ghost btn-sm" data-delete-application="${a.id}">Löschen</button>
-        </div>`;
+        </div>
+        ${statusRowHtml}`;
       return { headHtml, applicantCharactersHtml };
     };
     const profListText = (list) => (Array.isArray(list) && list.length)
@@ -7174,30 +7322,56 @@
     els.applicationsList.innerHTML = apps.map(a => {
       const { headHtml, applicantCharactersHtml } = applicationCardCommonParts(a);
       if (a.version === 2){
-        // Current chat-form shape — one block per picked class (its spec,
-        // the character name given for it, and its main professions),
-        // then the applicant's age/nickname, extra professions, logs link
-        // and remarks.
-        const classBlocksHtml = (a.picks || []).map(p => {
+        // Current chat-form shape. Two layers: a quick-glance summary bar
+        // (the handful of facts an officer scans for first — age, classes,
+        // characters, whether logs/professions were even given) so the
+        // card can be judged in a second or two, then the full per-class
+        // detail blocks below it for anyone who wants to read everything.
+        const charLogs = a.charLogs || {};
+        const picks = a.picks || [];
+        const classChipsHtml = picks.map(p => {
           const cls = CLASS_MAP[p.classId];
+          const iconUrl = foreverClassIconUrl(p.classId);
+          return `<span class="application-summary-classchip">
+            ${iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
+            <span style="color:${cls ? cls.color : 'inherit'}">${escapeHtml(cls ? cls.label : p.classId)}</span>
+          </span>`;
+        }).join('');
+        const profsGivenCount = picks.filter(p => ((a.charProfessions || {})[p.classId] || []).length).length;
+        const logsGivenCount = picks.filter(p => charLogs[p.classId]).length;
+        const summaryStatsHtml = [
+          { label: 'Alter', value: String(a.age) },
+          { label: 'Charakter(e)', value: picks.map(p => (a.characters || {})[p.classId]).filter(Boolean).join(', ') || '—' },
+          { label: 'Hauptberufe', value: profsGivenCount ? `${profsGivenCount}/${picks.length} angegeben` : 'keine Angabe' },
+          { label: 'Logs', value: logsGivenCount ? `${logsGivenCount}/${picks.length} verlinkt` : 'keine Angabe' }
+        ].map(s => `<div class="application-stat"><span class="application-stat-label">${escapeHtml(s.label)}</span><span class="application-stat-value">${escapeHtml(s.value)}</span></div>`).join('');
+        const classBlocksHtml = picks.map(p => {
+          const cls = CLASS_MAP[p.classId];
+          const iconUrl = foreverClassIconUrl(p.classId);
           const specLabels = (p.specs || []).map(s => foreverSpecLabel(p.classId, s)).filter(Boolean).join(', ') || '—';
           const charName = (a.characters || {})[p.classId] || '—';
           const profText = profListText((a.charProfessions || {})[p.classId]);
+          const logUrl = charLogs[p.classId];
           return `<div class="application-class-block">
             <span class="application-class-pick">
+              ${iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
               <span class="application-class" style="color:${cls ? cls.color : 'inherit'}">${escapeHtml(cls ? cls.label : p.classId)}</span>
               <span class="application-specs">${escapeHtml(specLabels)}</span>
             </span>
             <p class="application-namage"><strong>Charakter:</strong> ${escapeHtml(charName)}</p>
             <p class="application-professions"><strong>Hauptberufe:</strong> ${escapeHtml(profText)}</p>
+            <p class="application-logs"><strong>Warcraftlogs:</strong> ${logUrl ? linkifyEscaped(logUrl) : '—'}</p>
           </div>`;
         }).join('');
         return `<div class="application-card">
           ${headHtml}
-          <p class="application-namage"><strong>Vorname &amp; Alter:</strong> ${escapeHtml(a.firstName)}, ${a.age}${a.nickname ? ` <span class="access-member-nickname">Nickname: "${escapeHtml(a.nickname)}"</span>` : ''}</p>
+          <p class="application-namage"><strong>Vorname:</strong> ${escapeHtml(a.firstName)}${a.nickname ? ` <span class="access-member-nickname">Nickname: "${escapeHtml(a.nickname)}"</span>` : ''}</p>
+          <div class="application-summary-row">
+            ${summaryStatsHtml}
+            <div class="application-summary-classchips">${classChipsHtml}</div>
+          </div>
           <div class="application-class-picks application-class-picks-v2">${classBlocksHtml}</div>
           <p class="application-professions"><strong>Zusätzliche Professions:</strong> ${escapeHtml(profListText(a.extraProfessions))}</p>
-          ${a.logsUrl ? `<p class="application-logs"><strong>Warcraftlogs:</strong> ${linkifyEscaped(a.logsUrl)}</p>` : ''}
           ${a.remarks ? `<p class="application-remarks"><strong>Sonstiges:</strong> ${linkifyEscaped(a.remarks)}</p>` : ''}
           ${applicantCharactersHtml}
         </div>`;
@@ -7231,6 +7405,12 @@
     }).join('');
     els.applicationsList.querySelectorAll('[data-delete-application]').forEach(btn => {
       btn.addEventListener('click', () => deleteApplication(btn.getAttribute('data-delete-application')));
+    });
+    els.applicationsList.querySelectorAll('[data-status-app]').forEach(sel => {
+      sel.addEventListener('change', () => setApplicationStatus(sel.getAttribute('data-status-app'), sel.value));
+    });
+    els.applicationsList.querySelectorAll('[data-interview-app]').forEach(inp => {
+      inp.addEventListener('change', () => setApplicationInterviewDate(inp.getAttribute('data-interview-app'), inp.value));
     });
     els.applicationsList.querySelectorAll('[data-refresh-armory]').forEach(btn => {
       btn.addEventListener('click', async () => {

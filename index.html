@@ -1422,6 +1422,47 @@
   .classdive-summary-text p{ margin: 0 0 10px; }
   .classdive-summary-text ul, .classdive-summary-text ol{ margin: 0 0 10px; padding-left: 22px; }
   .classdive-spell-link{ color: var(--teal-bright); border-bottom: 1px dotted var(--teal-bright); cursor: help; }
+  /* Update-Historie + Quellen — always-expanded static cards pinned at
+     the bottom of the page, same card shell as the per-class ones but no
+     toggle/collapse behavior. */
+  .classdive-toggle-static{ cursor: default; }
+  .classdive-toggle-static:hover{ background: none; }
+  .classdive-history-wrap{ overflow-x: auto; }
+  .classdive-history-table{ border-collapse: collapse; width: 100%; font-size: 13px; }
+  .classdive-history-table th, .classdive-history-table td{
+    border: 1px solid var(--border-soft); padding: 7px 10px; text-align: left; vertical-align: top;
+  }
+  .classdive-history-table th{ background: var(--bg-panel-raised); color: var(--gold-bright); font-weight: 700; white-space: nowrap; }
+  .classdive-history-table td:nth-child(1){ white-space: nowrap; color: var(--text-muted); }
+  .classdive-history-table td:nth-child(2){ white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .classdive-history-table tr:nth-child(even) td{ background: rgba(255,255,255,0.02); }
+  .classdive-history-delete{ padding: 0 4px; line-height: 1; min-height: auto; }
+  .classdive-history-add{ margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-soft); }
+  .classdive-history-add-row{ display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .classdive-history-add-date, .classdive-history-add-build{
+    font-size: 12.5px; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 8px;
+  }
+  .classdive-history-add-date{ flex: 1; min-width: 140px; }
+  .classdive-history-add-build{ width: 120px; flex: none; }
+  .classdive-history-add-text{
+    width: 100%; resize: vertical; font-family: inherit; font-size: 12.5px; line-height: 1.4;
+    background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 8px; margin-bottom: 8px;
+  }
+  .classdive-sources-list{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .classdive-source-item{
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 6px; padding: 8px 10px;
+  }
+  .classdive-source-item a{ color: var(--teal-bright); font-size: 13px; word-break: break-word; }
+  .classdive-source-delete{ padding: 0 4px; line-height: 1; min-height: auto; flex-shrink: 0; }
+  .classdive-source-add{ margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-soft); display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
+  .classdive-source-add-label, .classdive-source-add-url{
+    font-size: 12.5px; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 8px; flex: 1; min-width: 180px;
+  }
+  .classdive-source-add .forever-actions{ width: 100%; }
   @media (max-width: 640px){
     .classdive-toggle{ flex-wrap: wrap; }
     .classdive-toggle-meta{ text-align: left; width: 100%; order: 3; }
@@ -4395,6 +4436,71 @@
     CLASSES.forEach(c => { out[c.id] = normalizeClassDeepDiveEntry(src[c.id]); });
     return out;
   }
+
+  // ---------------------------------------------------------------------
+  // Class Deep Dives — two always-expanded cards pinned at the bottom of
+  // the page (below the per-class cards): a beta/build Update-Historie
+  // table, and a Quellen (sources) link list. Both are plain text/links,
+  // not the rich-text editor the summary/updates use above — these are
+  // compact table rows and link lists, not prose. Officer/Admin-editable,
+  // same read access as the rest of the page.
+  // ---------------------------------------------------------------------
+  function normalizeClassDiveHistoryEntry(raw){
+    if (!raw || typeof raw !== 'object') return null;
+    const date = (typeof raw.date === 'string') ? raw.date.trim().slice(0, 40) : '';
+    const build = (typeof raw.build === 'string') ? raw.build.trim().slice(0, 20) : '';
+    const text = (typeof raw.text === 'string') ? raw.text.trim().slice(0, 1000) : '';
+    if (!date && !build && !text) return null;
+    return { date, build, text };
+  }
+  function normalizeClassDiveHistory(raw){
+    const src = (raw && typeof raw === 'object') ? raw : {};
+    const out = {};
+    Object.keys(src).forEach(id => {
+      const e = normalizeClassDiveHistoryEntry(src[id]);
+      if (e) out[id] = e;
+    });
+    return out;
+  }
+  // Only a real http(s) link is accepted — guards against a javascript:
+  // or data: URL ever ending up clickable, same reasoning as everywhere
+  // else user-supplied URLs get rendered as a link.
+  function normalizeClassDiveSourceEntry(raw){
+    if (!raw || typeof raw !== 'object') return null;
+    const url = (typeof raw.url === 'string') ? raw.url.trim().slice(0, 500) : '';
+    if (!/^https?:\/\//i.test(url)) return null;
+    const label = (typeof raw.label === 'string' && raw.label.trim()) ? raw.label.trim().slice(0, 120) : url;
+    return { label, url };
+  }
+  function normalizeClassDiveSources(raw){
+    const src = (raw && typeof raw === 'object') ? raw : {};
+    const out = {};
+    Object.keys(src).forEach(id => {
+      const e = normalizeClassDiveSourceEntry(src[id]);
+      if (e) out[id] = e;
+    });
+    return out;
+  }
+  // The beta build history up to 2026-10-01, backfilled once as fixed seed
+  // content (same pattern as the hard-coded NEWS_ITEMS on Home) rather
+  // than needing to be retyped through the editor row by row. Not
+  // deletable from the UI — only entries added afterward through
+  // "Eintrag hinzufügen" (stored in Firebase under classDiveUpdateHistory)
+  // get a delete button.
+  const CLASSDIVE_HISTORY_SEED = [
+    { date: '16. Sept.', build: '69893', text: 'Build einen Tag vor dem Start, mit vielen Änderungen gegenüber der BlizzCon-Demo. Neue Talente sind Wrack (Hexenmeister) und Flawless Execution (Schurke). Entfernt wurden Vitality, Drain Hope, Restless Blades und Balance of Nature.' },
+    { date: '17. Sept.', build: '–', text: 'Beta-Start mit Levelcap 20' },
+    { date: '18. Sept.', build: '69913', text: 'Kleiner Fix an Launcher, Absturzberichten und Grafikdateien. Die Liste bekannter Probleme wurde erweitert.' },
+    { date: '21. Sept.', build: '–', text: 'Bessere Server-Verbindung für Spieler in der EU' },
+    { date: '22.–23. Sept.', build: '69977', text: 'Mac-Fixes (Anzeige und Stabilität). Gamepad: Charakterauswahl und Quest-Gegenstände funktionieren.' },
+    { date: '24. Sept.', build: '70009', text: 'Erstes großes Update mit Klassen-Balancing, Cooldown Manager, Gamepad-Optionen und Item-Änderungen (Details unten)' },
+    { date: '25. Sept.', build: '–', text: 'Kurzer Server-Neustart mit Stabilitätsfixes' },
+    { date: '27. Sept.', build: '–', text: 'Fehler mit überfüllter Login-Warteschlange behoben' },
+    { date: '28. Sept.', build: '–', text: 'Blizzard geht gegen Goldkäufer und Echtgeldhandel in der Beta vor.' },
+    { date: '29. Sept.', build: '70058', text: 'Gamepad-Fixes: Weltkarte, Aktionsleisten, Tooltips, Bücher und Briefe' },
+    { date: '30. Sept.', build: '70124', text: 'Absturzberichte, Spiel-Loader, ein neues Item-Symbol. Dazu die Ankündigung zur Krieger-Wut.' },
+    { date: '1. Okt.', build: 'neu', text: 'Wartung, danach Levelcap 30. Die Patch Notes folgen.' }
+  ];
   function sortedApplications(){
     return Object.keys(state.applications || {})
       .map(id => Object.assign({ id }, state.applications[id]))
@@ -4530,6 +4636,8 @@
       })(),
       recruitingNeeds: normalizeRecruitingNeeds(parsed.recruitingNeeds),
       classDeepDives: normalizeClassDeepDives(parsed.classDeepDives),
+      classDiveUpdateHistory: normalizeClassDiveHistory(parsed.classDiveUpdateHistory),
+      classDiveSources: normalizeClassDiveSources(parsed.classDiveSources),
       characterProfiles: (() => {
         const raw = (parsed.characterProfiles && typeof parsed.characterProfiles === 'object') ? parsed.characterProfiles : {};
         const out = {};
@@ -8023,6 +8131,52 @@
     const ok = await saveData('classDeepDives/' + classId);
     if (!ok){ state.classDeepDives[classId] = backup; renderClassDeepDivesView(); }
   }
+
+  function newPushId(path){
+    try{ return db ? db.ref(DB_PATH + '/' + path).push().key : null; }catch(e){ return null; }
+  }
+  async function addClassDiveHistoryEntry(date, build, text){
+    if (!discordIdentity || !isOfficerOrAdmin()) return;
+    const entry = normalizeClassDiveHistoryEntry({ date, build, text });
+    if (!entry) return;
+    const id = newPushId('classDiveUpdateHistory') || (Date.now() + '_' + Math.random().toString(36).slice(2, 8));
+    const backup = state.classDiveUpdateHistory;
+    state.classDiveUpdateHistory = Object.assign({}, backup, { [id]: entry });
+    renderClassDeepDivesView();
+    const ok = await saveData('classDiveUpdateHistory/' + id);
+    if (!ok){ state.classDiveUpdateHistory = backup; renderClassDeepDivesView(); }
+  }
+  async function deleteClassDiveHistoryEntry(id){
+    if (!discordIdentity || !isOfficerOrAdmin() || !state.classDiveUpdateHistory || !state.classDiveUpdateHistory[id]) return;
+    const backup = state.classDiveUpdateHistory;
+    const copy = Object.assign({}, backup);
+    delete copy[id];
+    state.classDiveUpdateHistory = copy;
+    renderClassDeepDivesView();
+    const ok = await saveData('classDiveUpdateHistory/' + id);
+    if (!ok){ state.classDiveUpdateHistory = backup; renderClassDeepDivesView(); }
+  }
+  async function addClassDiveSource(label, url){
+    if (!discordIdentity || !isOfficerOrAdmin()) return;
+    const entry = normalizeClassDiveSourceEntry({ label, url });
+    if (!entry) return;
+    const id = newPushId('classDiveSources') || (Date.now() + '_' + Math.random().toString(36).slice(2, 8));
+    const backup = state.classDiveSources;
+    state.classDiveSources = Object.assign({}, backup, { [id]: entry });
+    renderClassDeepDivesView();
+    const ok = await saveData('classDiveSources/' + id);
+    if (!ok){ state.classDiveSources = backup; renderClassDeepDivesView(); }
+  }
+  async function deleteClassDiveSource(id){
+    if (!discordIdentity || !isOfficerOrAdmin() || !state.classDiveSources || !state.classDiveSources[id]) return;
+    const backup = state.classDiveSources;
+    const copy = Object.assign({}, backup);
+    delete copy[id];
+    state.classDiveSources = copy;
+    renderClassDeepDivesView();
+    const ok = await saveData('classDiveSources/' + id);
+    if (!ok){ state.classDiveSources = backup; renderClassDeepDivesView(); }
+  }
   function formatClassDiveDate(dateStr){
     if (!dateStr) return '';
     try{
@@ -8030,6 +8184,93 @@
       return new Date(y, m - 1, d).toLocaleDateString('de-DE');
     }catch(e){ return dateStr; }
   }
+  const CLASSDIVE_CLOCK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>';
+  const CLASSDIVE_LINK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l2.5-2.5a5 5 0 0 0-7.07-7.07L11 4.88"/><path d="M14 11a5 5 0 0 0-7.07 0l-2.5 2.5a5 5 0 0 0 7.07 7.07L13 19.12"/></svg>';
+
+  // Update-Historie — always expanded (no toggle), pinned below the
+  // per-class cards. Rows are the hard-coded CLASSDIVE_HISTORY_SEED
+  // (oldest first, not deletable) followed by whatever Officers/Admins
+  // have added since (Firebase-backed, in push-key/insertion order, so
+  // newly added rows land at the bottom — a forward-reading changelog).
+  function classDiveHistoryCardHtml(canManage){
+    const addedIds = Object.keys(state.classDiveUpdateHistory || {});
+    const seedRows = CLASSDIVE_HISTORY_SEED.map((e, i) => ({ id: 'seed-' + i, entry: e, deletable: false }));
+    const addedRows = addedIds.map(id => ({ id, entry: state.classDiveUpdateHistory[id], deletable: true }));
+    const rows = seedRows.concat(addedRows);
+    const rowsHtml = rows.map(r => `<tr>
+        <td>${escapeHtml(r.entry.date)}</td>
+        <td>${escapeHtml(r.entry.build)}</td>
+        <td>${escapeHtml(r.entry.text)}</td>
+        ${canManage ? `<td>${r.deletable ? `<button type="button" class="btn btn-ghost btn-sm classdive-history-delete" data-delete-history="${r.id}" title="Eintrag löschen">✕</button>` : ''}</td>` : ''}
+      </tr>`).join('');
+    const addFormHtml = canManage
+      ? `<div class="classdive-history-add">
+          <div class="classdive-history-add-row">
+            <input type="text" class="classdive-history-add-date" id="classdiveHistoryDate" placeholder="Datum, z.B. 2. Okt.">
+            <input type="text" class="classdive-history-add-build" id="classdiveHistoryBuild" placeholder="Build (optional)">
+          </div>
+          <textarea class="classdive-history-add-text" id="classdiveHistoryText" rows="2" placeholder="Was ist passiert?"></textarea>
+          <div class="forever-actions">
+            <button type="button" class="btn btn-teal btn-sm" id="classdiveHistoryAddBtn">Eintrag hinzufügen</button>
+          </div>
+        </div>`
+      : '';
+    return `<div class="tac-card classdive-card classdive-card-static">
+      <div class="classdive-toggle classdive-toggle-static">
+        <span class="classdive-general-icon" aria-hidden="true">${CLASSDIVE_CLOCK_ICON}</span>
+        <span class="classdive-toggle-title" style="color:var(--gold-bright)">Update-Historie</span>
+        <span class="classdive-toggle-meta">${rows.length} Eintr${rows.length === 1 ? 'ag' : 'äge'}</span>
+      </div>
+      <div class="classdive-body">
+        <div class="classdive-section">
+          <div class="classdive-history-wrap">
+            <table class="classdive-history-table">
+              <thead><tr><th>Datum</th><th>Build</th><th>Was ist passiert?</th>${canManage ? '<th></th>' : ''}</tr></thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+          ${addFormHtml}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Quellen — always expanded, pinned at the very bottom. Purely a link
+  // list (officer-curated references for the content above), not tied to
+  // any one class.
+  function classDiveSourcesCardHtml(canManage){
+    const ids = Object.keys(state.classDiveSources || {});
+    const sourcesHtml = ids.map(id => {
+      const s = state.classDiveSources[id];
+      return `<li class="classdive-source-item">
+        <a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(s.label)}</a>
+        ${canManage ? `<button type="button" class="btn btn-ghost btn-sm classdive-source-delete" data-delete-source="${id}" title="Quelle löschen">✕</button>` : ''}
+      </li>`;
+    }).join('');
+    const addFormHtml = canManage
+      ? `<div class="classdive-source-add">
+          <input type="text" class="classdive-source-add-label" id="classdiveSourceLabel" placeholder="Beschreibung, z.B. „Blizzard Forum-Post“">
+          <input type="url" class="classdive-source-add-url" id="classdiveSourceUrl" placeholder="https://…">
+          <div class="forever-actions">
+            <button type="button" class="btn btn-teal btn-sm" id="classdiveSourceAddBtn">Quelle hinzufügen</button>
+          </div>
+        </div>`
+      : '';
+    return `<div class="tac-card classdive-card classdive-card-static">
+      <div class="classdive-toggle classdive-toggle-static">
+        <span class="classdive-general-icon" aria-hidden="true">${CLASSDIVE_LINK_ICON}</span>
+        <span class="classdive-toggle-title" style="color:var(--gold-bright)">Quellen</span>
+        <span class="classdive-toggle-meta">${ids.length} Link${ids.length === 1 ? '' : 's'}</span>
+      </div>
+      <div class="classdive-body">
+        <div class="classdive-section">
+          ${ids.length ? `<ul class="classdive-sources-list">${sourcesHtml}</ul>` : `<p class="classdive-empty">Noch keine Quellen hinterlegt.</p>`}
+          ${addFormHtml}
+        </div>
+      </div>
+    </div>`;
+  }
+
   function renderClassDeepDivesView(){
     const loggedIn = !!discordIdentity;
     const hasAccess = loggedIn && isMemberOrHigher();
@@ -8112,7 +8353,7 @@
           </div>
         </div>
       </div>`;
-    }).join('');
+    }).join('') + classDiveHistoryCardHtml(canManage) + classDiveSourcesCardHtml(canManage);
 
     els.classDivesList.querySelectorAll('[data-toggle-classdive]').forEach(btn => {
       btn.addEventListener('click', () => toggleClassDiveExpanded(btn.getAttribute('data-toggle-classdive')));
@@ -8163,6 +8404,32 @@
       if (summaryTextEl) annotateSpellMentions(summaryTextEl, classId);
       cardEl.querySelectorAll('.classdive-update-text').forEach(el => annotateSpellMentions(el, classId));
     });
+
+    // Update-Historie + Quellen — always-expanded static cards, wired
+    // separately since they have no toggle/expand state of their own.
+    els.classDivesList.querySelectorAll('[data-delete-history]').forEach(btn => {
+      btn.addEventListener('click', () => deleteClassDiveHistoryEntry(btn.getAttribute('data-delete-history')));
+    });
+    const historyAddBtn = document.getElementById('classdiveHistoryAddBtn');
+    if (historyAddBtn){
+      historyAddBtn.addEventListener('click', () => {
+        const dateInput = document.getElementById('classdiveHistoryDate');
+        const buildInput = document.getElementById('classdiveHistoryBuild');
+        const textInput = document.getElementById('classdiveHistoryText');
+        addClassDiveHistoryEntry(dateInput ? dateInput.value : '', buildInput ? buildInput.value : '', textInput ? textInput.value : '');
+      });
+    }
+    els.classDivesList.querySelectorAll('[data-delete-source]').forEach(btn => {
+      btn.addEventListener('click', () => deleteClassDiveSource(btn.getAttribute('data-delete-source')));
+    });
+    const sourceAddBtn = document.getElementById('classdiveSourceAddBtn');
+    if (sourceAddBtn){
+      sourceAddBtn.addEventListener('click', () => {
+        const labelInput = document.getElementById('classdiveSourceLabel');
+        const urlInput = document.getElementById('classdiveSourceUrl');
+        addClassDiveSource(labelInput ? labelInput.value : '', urlInput ? urlInput.value : '');
+      });
+    }
   }
 
   function renderRecruitView(){

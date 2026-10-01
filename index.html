@@ -1342,6 +1342,23 @@
     font-size: 12px; background: var(--bg-panel-raised); color: var(--text); border: 1px solid var(--border);
     border-radius: 6px; padding: 2px 6px;
   }
+  /* Recruiting-team-only notes field — deliberately understated (small,
+     muted label) since it's a working scratchpad, not applicant content. */
+  .application-notes-row{ margin: 2px 0 10px; }
+  .application-notes-label{ display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-faint); margin-bottom: 3px; }
+  .application-notes-input{
+    width: 100%; resize: vertical; font-family: inherit; font-size: 12.5px; line-height: 1.4;
+    background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 8px;
+  }
+  /* Brief highlight flash for a #recruit?app=<id> deep link (from a
+     Discord notification) landing on one specific application. */
+  .application-card-highlight{ animation: applicationCardFlash 2.6s ease-out; }
+  @keyframes applicationCardFlash{
+    0%   { box-shadow: 0 0 0 2px var(--gold-bright); }
+    70%  { box-shadow: 0 0 0 2px var(--gold-bright); }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
   .application-class{ font-weight: 700; font-size: 13.5px; }
   .application-specs{ font-size: 12.5px; color: var(--text-muted); }
   .application-applicant{ font-size: 12.5px; color: var(--gold-bright); font-weight: 600; }
@@ -1965,7 +1982,19 @@
             </div>
 
             <div id="recruitLoggedIn" class="hidden">
-              <div class="tac-card apply-chat-card">
+              <!-- Shown instead of the apply-chat-card whenever applying
+                   isn't possible right now: already a guild member, an
+                   existing application that's already Angenommen/
+                   Abgelehnt, or an existing application still in flight
+                   (open/claimed/interview/candidate) — content built
+                   dynamically in renderRecruitApplyGate(). -->
+              <div class="tac-card hidden" id="recruitApplyNotice">
+                <div class="tac-card-title" id="recruitApplyNoticeTitle"></div>
+                <div class="tac-card-note" id="recruitApplyNoticeBody"></div>
+                <div class="forever-actions" id="recruitApplyNoticeActions"></div>
+              </div>
+
+              <div class="tac-card apply-chat-card" id="applyChatCard">
                 <div class="tac-card-title">Deine Bewerbung</div>
                 <div class="tac-card-note">Beantworte die folgenden Fragen Schritt für Schritt wie in einem Chat — wir melden uns danach bei dir auf Discord.</div>
                 <div class="apply-chat-log" id="applyChatLog"></div>
@@ -3163,6 +3192,14 @@
   const WARCRAFTLOGS_CHARACTER_URL = WORKER_URL.replace(/\/mint-token$/, '/warcraftlogs-character');
   const NOTIFY_APPLICATION_URL = WORKER_URL.replace(/\/mint-token$/, '/notify-application');
   const DISCORD_REDIRECT_URI = window.location.origin + window.location.pathname;
+  // #recruit?app=<id> — a link straight into one application on the
+  // Bewerbung page (see pendingDeepLinkApplicationId / showPage), used by
+  // both the "new application" and the "reminder" Discord DMs so clicking
+  // them lands an Officer/Admin directly on the relevant card instead of
+  // just the Bewerbung page in general.
+  function applicationDeepLinkUrl(applicationId){
+    return window.location.origin + window.location.pathname + '#recruit?app=' + encodeURIComponent(applicationId);
+  }
   const DISCORD_IDENTITY_KEY = 'guild-loot-discord-identity';
   const DISCORD_PKCE_VERIFIER_KEY = 'guild-loot-discord-pkce-verifier';
   const DISCORD_OAUTH_STATE_KEY = 'guild-loot-discord-oauth-state';
@@ -3245,7 +3282,11 @@
     const state = randomPkceString(24);
     sessionStorage.setItem(DISCORD_PKCE_VERIFIER_KEY, verifier);
     sessionStorage.setItem(DISCORD_OAUTH_STATE_KEY, state);
-    try{ sessionStorage.setItem(RETURN_ANCHOR_KEY, currentPage); }catch(e){}
+    // Carries a pending #recruit?app=<id> deep link through the Discord
+    // OAuth round-trip too — otherwise clicking a notification link while
+    // logged out would land back on a generic Bewerbung page after login
+    // instead of the specific application it pointed at.
+    try{ sessionStorage.setItem(RETURN_ANCHOR_KEY, currentPage + (pendingDeepLinkApplicationId ? ('::app::' + pendingDeepLinkApplicationId) : '')); }catch(e){}
     const params = new URLSearchParams({
       client_id: DISCORD_CONFIG.clientId,
       redirect_uri: DISCORD_REDIRECT_URI,
@@ -3884,6 +3925,10 @@
   // Review status is independent of the form version (v1 and v2
   // applications are flagged the exact same way), so it's applied here in
   // the dispatcher rather than duplicated inside each normalizer.
+  // How long an applicant has to wait (since applying, or since their last
+  // reminder) before they're allowed to nudge the recruiting team again —
+  // see sendApplicationReminder() / recruitApplyGateState().
+  const APPLICATION_REMINDER_COOLDOWN_DAYS = 14;
   const APPLICATION_STATUSES = {
     open:      { label: 'Offen' },
     claimed:   { label: 'Wird bearbeitet' },
@@ -3897,7 +3942,14 @@
     const claimedBy = (entry && typeof entry.claimedBy === 'string') ? entry.claimedBy : '';
     const claimedByName = (entry && typeof entry.claimedByName === 'string') ? entry.claimedByName.slice(0, 80) : '';
     const interviewAt = (entry && typeof entry.interviewAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(entry.interviewAt)) ? entry.interviewAt : '';
-    return { status, claimedBy, claimedByName, interviewAt };
+    // lastReminderAt gates the applicant's own "Erinnerung senden" button
+    // (see APPLICATION_REMINDER_COOLDOWN_DAYS) — starts unset, so the
+    // cooldown is measured from createdAt until the first reminder is sent.
+    const lastReminderAt = (entry && typeof entry.lastReminderAt === 'number' && entry.lastReminderAt > 0) ? entry.lastReminderAt : 0;
+    // Recruiting-team-only notes — never shown to the applicant, see the
+    // "Notizen" textarea in the officer card and applyAccessControl().
+    const notes = (entry && typeof entry.notes === 'string') ? entry.notes.slice(0, 2000) : '';
+    return { status, claimedBy, claimedByName, interviewAt, lastReminderAt, notes };
   }
   function normalizeApplication(entry){
     if (!entry || typeof entry !== 'object') return null;
@@ -4043,6 +4095,14 @@
     return Object.keys(state.applications || {})
       .map(id => Object.assign({ id }, state.applications[id]))
       .sort((a, b) => b.createdAt - a.createdAt);
+  }
+  // The signed-in person's own most recent application, if they've ever
+  // applied — drives the apply-gate (recruitApplyGateState): can't fill
+  // out a new one on top of an existing one, win or lose.
+  function myLatestApplication(){
+    if (!discordIdentity) return null;
+    const mine = sortedApplications().filter(a => a.applicantId === discordIdentity.id);
+    return mine.length ? mine[0] : null;
   }
   // Which closed (Angenommen/Abgelehnt) applications are currently expanded
   // in the list — purely local UI state (not persisted to Firebase, not
@@ -4447,6 +4507,11 @@
     recruitLoggedOut: document.getElementById('recruitLoggedOut'),
     recruitLoggedIn: document.getElementById('recruitLoggedIn'),
     recruitLoginBtn: document.getElementById('recruitLoginBtn'),
+    applyChatCard: document.getElementById('applyChatCard'),
+    recruitApplyNotice: document.getElementById('recruitApplyNotice'),
+    recruitApplyNoticeTitle: document.getElementById('recruitApplyNoticeTitle'),
+    recruitApplyNoticeBody: document.getElementById('recruitApplyNoticeBody'),
+    recruitApplyNoticeActions: document.getElementById('recruitApplyNoticeActions'),
     applyChatLog: document.getElementById('applyChatLog'),
     applyChatComposer: document.getElementById('applyChatComposer'),
     applyChatQuestionBubble: document.getElementById('applyChatQuestionBubble'),
@@ -4557,7 +4622,22 @@
   const SIDEBAR_COLLAPSED_KEY = 'rude-guild-sidebar-collapsed';
   // Honor a page hash already in the URL (e.g. a reload, or a bookmark
   // someone shared) instead of always resetting to Home.
-  let currentPage = (window.location.hash || '').replace('#', '') || 'home';
+  // A Discord notification can deep-link straight to one application
+  // (#recruit?app=<id>) instead of just the Bewerbung page in general —
+  // parsed out here so showPage()'s own page-id matching never sees the
+  // query part, and consumed once applications actually render (see
+  // applyPendingApplicationDeepLink in renderApplicationsList).
+  let pendingDeepLinkApplicationId = null;
+  let currentPage = (() => {
+    const raw = (window.location.hash || '').replace('#', '');
+    const qIdx = raw.indexOf('?');
+    if (qIdx < 0) return raw || 'home';
+    try{
+      const appId = new URLSearchParams(raw.slice(qIdx + 1)).get('app');
+      if (appId) pendingDeepLinkApplicationId = appId;
+    }catch(e){}
+    return raw.slice(0, qIdx) || 'home';
+  })();
 
   // Phone breakpoint match — the sidebar switches from a permanent rail
   // to a slide-out drawer at the same width the CSS uses (see the
@@ -7116,37 +7196,31 @@
     await saveData('characterProfiles/' + discordIdentity.id);
   }
 
-  // Pings every Officer/Admin who's opted into "Bewerbungen melden" (see
-  // Manage access) via a Discord DM from the guild's own bot, through the
-  // Worker's /notify-application endpoint. Best-effort only — the in-site
-  // quest bell (questPendingApplicationsCount, above) is the notification
-  // that always works regardless of Discord/Worker availability; this is
-  // just the extra "even if you're not on the page" nudge on top of it.
-  // The Worker independently re-reads the application from Firebase
-  // before DMing anyone, so this can't be used to spam arbitrary messages
-  // — see discord-auth-worker.js's handleNotifyApplication.
-  async function notifyOfficersOfNewApplication(applicationId, application){
+  // Who gets DM'd about a given application: every Officer/Admin opted
+  // into "Bewerbungen melden" (Manage access), except the applicant
+  // themselves — so an Officer/Admin who applies while their own account
+  // has the checkbox on doesn't get DM'd about their own application (see
+  // notifyOfficersOfNewApplication's note below, still relevant to the
+  // reminder path too).
+  function applicationNotifyRecipientIds(applicantId){
+    const roles = state.discordRoles || {};
+    return Object.keys(roles).filter(id => roles[id] && roles[id].notifyOnApplications && id !== applicantId);
+  }
+  // Shared send: POSTs to the Worker's /notify-application endpoint and
+  // logs the outcome (not silent — see the Discord-DM debugging session
+  // this was added for). The Worker independently re-reads the
+  // application from Firebase before DMing anyone, so this can't be used
+  // to spam arbitrary messages — see discord-auth-worker.js's
+  // handleNotifyApplication.
+  async function sendDiscordNotification(applicationId, recipientIds, message){
     if (!isWorkerConfigured()){
       console.warn('[notify-application] skipped: Worker URL is not configured (still has the YOUR-WORKER-SUBDOMAIN placeholder).');
-      return;
+      return false;
     }
-    const roles = state.discordRoles || {};
-    // Deliberately excludes the applicant themselves, so an Officer/Admin
-    // who has "Bewerbungen melden" checked for their own account won't get
-    // DM'd about their own application — if you're testing this by applying
-    // with the same Discord account that has the checkbox enabled, that's
-    // why no DM shows up; it's working as intended, not a bug. Test with a
-    // second account (or have someone else apply) to see the DM fire.
-    const recipientIds = Object.keys(roles).filter(id => roles[id] && roles[id].notifyOnApplications && id !== application.applicantId);
     if (!recipientIds.length){
       console.warn('[notify-application] skipped: no recipients. Either nobody has "Bewerbungen melden" checked in Manage Access, or the only person who does is the applicant themself (self-notifications are intentionally excluded).');
-      return;
+      return false;
     }
-    const who = application.firstName || application.applicantName || 'Jemand';
-    const classLabel = (application.picks || [])
-      .map(p => (CLASS_MAP[p.classId] ? CLASS_MAP[p.classId].label : p.classId))
-      .join(' / ');
-    const message = `Neue Bewerbung von ${who}${classLabel ? ' (' + classLabel + ')' : ''} — schau sie dir auf der Gildenseite unter "Bewerbung" an.`;
     try{
       const res = await fetch(NOTIFY_APPLICATION_URL, {
         method: 'POST',
@@ -7157,7 +7231,9 @@
       try{ body = await res.json(); }catch(e){}
       if (!res.ok){
         console.warn('[notify-application] Worker responded with an error:', res.status, body);
-      } else if (body && Array.isArray(body.results)){
+        return false;
+      }
+      if (body && Array.isArray(body.results)){
         // Per-recipient outcome from Discord itself (e.g. "not a guild
         // member", "could not open DM channel" — the latter usually means
         // that person's Discord privacy settings block DMs from server
@@ -7166,6 +7242,7 @@
         if (failed.length) console.warn('[notify-application] Some DMs failed:', failed);
         else console.log('[notify-application] DMs sent to', body.results.length, 'recipient(s).');
       }
+      return true;
     }catch(e){
       // Network/CORS-level failure — most likely the Worker isn't deployed
       // with the /notify-application route yet, or NOTIFY_APPLICATION_URL
@@ -7173,7 +7250,46 @@
       // the browser console instead of looking identical to "nothing
       // happened".
       console.warn('[notify-application] fetch failed:', e);
+      return false;
     }
+  }
+  // Pings every opted-in Officer/Admin via Discord DM when a new
+  // application comes in. Best-effort only — the in-site quest bell
+  // (questPendingApplicationsCount, above) is the notification that
+  // always works regardless of Discord/Worker availability; this is just
+  // the extra "even if you're not on the page" nudge on top of it.
+  async function notifyOfficersOfNewApplication(applicationId, application){
+    const recipientIds = applicationNotifyRecipientIds(application.applicantId);
+    const who = application.firstName || application.applicantName || 'Jemand';
+    const classLabel = (application.picks || [])
+      .map(p => (CLASS_MAP[p.classId] ? CLASS_MAP[p.classId].label : p.classId))
+      .join(' / ');
+    const message = `Neue Bewerbung von ${who}${classLabel ? ' (' + classLabel + ')' : ''} — direkt ansehen: ${applicationDeepLinkUrl(applicationId)}`;
+    await sendDiscordNotification(applicationId, recipientIds, message);
+  }
+  // The applicant's own "Erinnerung senden" button (see
+  // recruitApplyGateState) — same DM mechanism as a new application, just
+  // worded as a nudge and gated by APPLICATION_REMINDER_COOLDOWN_DAYS so
+  // it can't be used to spam the recruiting team. Stamps lastReminderAt
+  // on success so the cooldown re-starts from there.
+  async function sendApplicationReminder(id){
+    if (!discordIdentity || !state.applications || !state.applications[id]) return;
+    const application = state.applications[id];
+    if (application.applicantId !== discordIdentity.id) return;
+    if (application.status === 'accepted' || application.status === 'rejected') return;
+    const recipientIds = applicationNotifyRecipientIds(application.applicantId);
+    const who = application.firstName || application.applicantName || 'Jemand';
+    const classLabel = (application.picks || [])
+      .map(p => (CLASS_MAP[p.classId] ? CLASS_MAP[p.classId].label : p.classId))
+      .join(' / ');
+    const message = `Erinnerung: Die Bewerbung von ${who}${classLabel ? ' (' + classLabel + ')' : ''} wartet noch auf eine Rückmeldung — direkt ansehen: ${applicationDeepLinkUrl(id)}`;
+    els.recruitApplyNoticeActions.querySelectorAll('[data-send-reminder]').forEach(b => { b.disabled = true; b.textContent = 'Wird gesendet…'; });
+    const ok = await sendDiscordNotification(id, recipientIds, message);
+    if (ok){
+      state.applications[id] = Object.assign({}, application, { lastReminderAt: Date.now() });
+      await saveData('applications/' + id);
+    }
+    renderRecruitApplyGate();
   }
 
   async function submitApplication(){
@@ -7307,6 +7423,19 @@
     const ok = await saveData('applications/' + id);
     if (!ok){ state.applications[id] = backup; renderApplicationsList(); }
   }
+  // Recruiting-team-only notes — saved on blur (not per keystroke), and
+  // deliberately doesn't re-render the list on success (would steal focus
+  // / reset cursor position while someone might still be typing in
+  // another field); only rolls back + re-renders on an actual save failure.
+  async function setApplicationNotes(id, notes){
+    if (!discordIdentity || !isOfficerOrAdmin() || !state.applications || !state.applications[id]) return;
+    const backup = state.applications[id];
+    const trimmed = (notes || '').slice(0, 2000);
+    if (trimmed === (backup.notes || '')) return;
+    state.applications[id] = Object.assign({}, backup, { notes: trimmed });
+    const ok = await saveData('applications/' + id);
+    if (!ok){ state.applications[id] = backup; renderApplicationsList(); }
+  }
 
   function renderApplicationsList(){
     const apps = sortedApplications();
@@ -7351,13 +7480,22 @@
           ${claimedMetaHtml}
           ${interviewDateHtml}
         </div>`;
+      // Recruiting-team-only — never shown to the applicant (see
+      // normalizeApplicationStatusFields / applyChatCard visibility).
+      // Saves on blur rather than per keystroke, same as other free-text
+      // fields on this page.
+      const notesHtml = `<div class="application-notes-row">
+          <label class="application-notes-label" for="notes-${a.id}">Notizen (nur fürs Recruitment-Team)</label>
+          <textarea class="application-notes-input" id="notes-${a.id}" data-notes-app="${a.id}" rows="2" maxlength="2000" placeholder="z.B. Eindrücke vom Gespräch, offene Fragen, Kontaktversuche …">${escapeHtml(a.notes || '')}</textarea>
+        </div>`;
       const headHtml = `<div class="application-card-head">
           <span class="application-applicant">${escapeHtml(a.applicantName)}${applicantProfile && applicantProfile.nickname ? ` <span class="access-member-nickname">"${escapeHtml(applicantProfile.nickname)}"</span>` : ''}</span>
           <span class="application-date">${escapeHtml(dateStr)}</span>
           ${contactBtnHtml}
           <button type="button" class="btn btn-ghost btn-sm" data-delete-application="${a.id}">Löschen</button>
         </div>
-        ${statusRowHtml}`;
+        ${statusRowHtml}
+        ${notesHtml}`;
       return { headHtml, applicantCharactersHtml };
     };
     const profListText = (list) => (Array.isArray(list) && list.length)
@@ -7375,10 +7513,10 @@
       const isClosed = status === 'accepted' || status === 'rejected';
       if (!isClosed){
         const inProgressClass = (status === 'claimed' || status === 'interview' || status === 'candidate') ? ' application-card-inprogress' : '';
-        return `<div class="application-card${inProgressClass}">${innerHtml}</div>`;
+        return `<div class="application-card${inProgressClass}" data-application-id="${a.id}">${innerHtml}</div>`;
       }
       const expanded = expandedClosedApplications.has(a.id);
-      return `<div class="application-card application-card-closed${expanded ? ' is-expanded' : ''}">
+      return `<div class="application-card application-card-closed${expanded ? ' is-expanded' : ''}" data-application-id="${a.id}">
         <button type="button" class="application-card-toggle" data-toggle-application="${a.id}">
           <span class="application-status-badge application-status-${status}">${APPLICATION_STATUSES[status].label}</span>
           <span class="application-card-toggle-title">${escapeHtml(applicationCollapsedTitle(a))}</span>
@@ -7484,6 +7622,9 @@
     els.applicationsList.querySelectorAll('[data-interview-app]').forEach(inp => {
       inp.addEventListener('change', () => setApplicationInterviewDate(inp.getAttribute('data-interview-app'), inp.value));
     });
+    els.applicationsList.querySelectorAll('[data-notes-app]').forEach(inp => {
+      inp.addEventListener('blur', () => setApplicationNotes(inp.getAttribute('data-notes-app'), inp.value));
+    });
     els.applicationsList.querySelectorAll('[data-refresh-armory]').forEach(btn => {
       btn.addEventListener('click', async () => {
         btn.disabled = true;
@@ -7492,6 +7633,31 @@
         renderApplicationsList();
       });
     });
+    applyPendingApplicationDeepLink();
+  }
+
+  // Resolves a #recruit?app=<id> deep link (from a Discord notification —
+  // see notifyOfficersOfNewApplication) into actually scrolling to and
+  // highlighting that one application, once the applications list has
+  // something to scroll to. If it's a closed (collapsed) application, that
+  // takes a re-render to open first — this calls itself once more via
+  // renderApplicationsList() in that case, then settles on the second pass.
+  function applyPendingApplicationDeepLink(){
+    if (!pendingDeepLinkApplicationId) return;
+    const id = pendingDeepLinkApplicationId;
+    if (!state.applications || !state.applications[id]){ pendingDeepLinkApplicationId = null; return; }
+    const status = state.applications[id].status || 'open';
+    if ((status === 'accepted' || status === 'rejected') && !expandedClosedApplications.has(id)){
+      expandedClosedApplications.add(id);
+      renderApplicationsList();
+      return;
+    }
+    pendingDeepLinkApplicationId = null;
+    const el = els.applicationsList.querySelector(`[data-application-id="${CSS.escape(id)}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('application-card-highlight');
+    setTimeout(() => el.classList.remove('application-card-highlight'), 2600);
   }
 
   function renderRecruitView(){
@@ -7501,6 +7667,7 @@
     const badges = recruitingNeedsBadges(state.recruitingNeeds || {});
     els.recruitNeedsOverviewBadges.innerHTML = badges || '<span class="recruit-need-badges-empty">Aktuell nichts Bestimmtes — jede Bewerbung ist willkommen!</span>';
     if (!loggedIn) return;
+    renderRecruitApplyGate();
     const canManage = isOfficerOrAdmin();
     els.recruitNeedsEditor.classList.toggle('hidden', !canManage);
     els.applicationsCard.classList.toggle('hidden', !canManage);
@@ -7508,6 +7675,54 @@
       renderRecruitNeedsEditor();
       renderApplicationsList();
     }
+  }
+
+  // Decides whether the signed-in person can fill out a new application
+  // right now, and renders the right thing in its place when they can't:
+  // already a guild member (no need to apply), an existing application
+  // that's already been decided (no re-applying), or an existing
+  // application still in flight (shows its status + a reminder button
+  // once APPLICATION_REMINDER_COOLDOWN_DAYS has passed).
+  function renderRecruitApplyGate(){
+    const existing = myLatestApplication();
+    const alreadyMember = isMemberOrHigher();
+    const blocked = alreadyMember || !!existing;
+    els.applyChatCard.classList.toggle('hidden', blocked);
+    els.recruitApplyNotice.classList.toggle('hidden', !blocked);
+    if (!blocked) return;
+
+    let title = '';
+    let body = '';
+    let actionsHtml = '';
+    if (alreadyMember){
+      title = 'Du bist schon dabei!';
+      body = 'Du bist bereits Mitglied der Gilde — eine Bewerbung brauchst du nicht mehr ;)';
+    } else if (existing.status === 'accepted'){
+      title = 'Deine Bewerbung wurde angenommen!';
+      body = 'Willkommen bei uns — wir haben uns schon bei dir auf Discord gemeldet. Eine erneute Bewerbung ist nicht nötig.';
+    } else if (existing.status === 'rejected'){
+      title = 'Deine Bewerbung wurde bereits entschieden';
+      body = 'Deine letzte Bewerbung wurde leider abgelehnt. Eine erneute Bewerbung ist über diese Seite aktuell nicht möglich — bei Fragen meldet euch gerne direkt auf Discord.';
+    } else {
+      // Still open/claimed/interview/candidate.
+      const dateStr = existing.createdAt ? new Date(existing.createdAt).toLocaleDateString('de-DE') : '';
+      title = 'Du hast dich schon beworben';
+      body = `Eingegangen am ${escapeHtml(dateStr)} — aktueller Status: <strong>${APPLICATION_STATUSES[existing.status].label}</strong>. Wir melden uns, sobald es etwas Neues gibt.`;
+      const cooldownStart = Math.max(existing.createdAt || 0, existing.lastReminderAt || 0);
+      const daysSince = (Date.now() - cooldownStart) / 86400000;
+      if (daysSince >= APPLICATION_REMINDER_COOLDOWN_DAYS){
+        actionsHtml = `<button type="button" class="btn btn-ghost btn-sm" data-send-reminder="${existing.id}">Erinnerung senden</button>`;
+      } else {
+        const daysLeft = Math.ceil(APPLICATION_REMINDER_COOLDOWN_DAYS - daysSince);
+        actionsHtml = `<span class="armory-status">Erinnerung ist in ${daysLeft} Tag${daysLeft === 1 ? '' : 'en'} möglich.</span>`;
+      }
+    }
+    els.recruitApplyNoticeTitle.textContent = title;
+    els.recruitApplyNoticeBody.innerHTML = body;
+    els.recruitApplyNoticeActions.innerHTML = actionsHtml;
+    els.recruitApplyNoticeActions.querySelectorAll('[data-send-reminder]').forEach(btn => {
+      btn.addEventListener('click', () => sendApplicationReminder(btn.getAttribute('data-send-reminder')));
+    });
   }
 
   // Home-page teaser — driven by the same state.recruitingNeeds as the
@@ -8015,7 +8230,11 @@
         startFirebaseSync();
         let returnPage = null;
         try{ returnPage = sessionStorage.getItem(RETURN_ANCHOR_KEY); sessionStorage.removeItem(RETURN_ANCHOR_KEY); }catch(e){}
-        if (returnPage) showPage(returnPage);
+        if (returnPage){
+          const parts = returnPage.split('::app::');
+          if (parts[1]) pendingDeepLinkApplicationId = parts[1];
+          showPage(parts[0]);
+        }
       } else {
         try{ localStorage.removeItem(DISCORD_IDENTITY_KEY); }catch(e){}
         discordIdentity = null;

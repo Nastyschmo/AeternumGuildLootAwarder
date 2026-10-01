@@ -1262,9 +1262,9 @@
      fades from "still paper" through char into a bright ember line, so the
      cutoff reads as burning rather than a hard mechanical wipe. The
      designBurnFireDistort SVG filter (see markup near #designBurnOverlay)
-     pushes its pixels around with animated turbulence so the straight CSS
-     gradient reads as a ragged, flickering fire line instead of a ruler-
-     edge glow. */
+     gives it a very slight organic wobble instead of a ruler-straight
+     glow — kept subtle on purpose, a strong displacement on a thin band
+     tears it into harsh blocky chunks instead of reading as fire. */
   .design-burn-edge{
     position: absolute; left: 0; right: 0; top: 0; height: 34px; transform: translateY(-50%);
     background: linear-gradient(180deg,
@@ -1278,7 +1278,7 @@
   }
   .design-burn-overlay.burning .design-burn-edge{
     opacity: 1;
-    animation: designBurnEdgeMove 2.4s cubic-bezier(.45,0,.4,1) forwards, designBurnFlicker .1s steps(2) infinite;
+    animation: designBurnEdgeMove 2.4s cubic-bezier(.45,0,.4,1) forwards, designBurnFlicker .15s ease-in-out infinite alternate;
   }
   @keyframes designBurnEdgeMove{
     from{ top: 0%; }
@@ -1289,31 +1289,61 @@
     100%{ filter: url(#designBurnFireDistort) brightness(1.18); }
   }
 
-  /* The "sea of flames" layer — a wall of individual flame-tongue divs,
+  /* The "sea of flames" layer — a wall of individual flame shapes,
      continuously spawned by startDesignBurn() just above the wipe edge
      (same pattern as the ember spawner below) and removed once their
-     animation ends. Each tongue is a lopsided blob (asymmetric
-     border-radius so it reads as a flame silhouette rather than a circle),
-     colored from a dark red base to a pale yellow tip, and set to
-     mix-blend-mode: screen so overlapping tongues brighten each other like
-     real fire instead of just stacking flat color. */
-  .design-burn-flames{ position: absolute; inset: 0; mix-blend-mode: screen; filter: url(#designBurnFireDistort); }
+     animation ends, so the whole band reads as a continuous, flickering
+     curtain of fire eating the page rather than a single glowing line.
+     Each .design-burn-flame is a small two-layer campfire flame — an
+     outer red-orange tongue (the element itself) with a smaller
+     yellow-white core (::after) sitting inside it, both clipped into an
+     actual tapered flame silhouette (narrow rounded point at the top,
+     wide rounded base at the bottom) via clip-path, blurred a hair for
+     softness, and set to mix-blend-mode: screen so overlapping tongues
+     brighten each other like real fire instead of just stacking flat
+     color. Earlier attempts used a plain rounded-blob/egg shape (read as
+     glowing eggs, not fire) and, before that, ran everything through the
+     same heavy turbulence filter as the edge, which at this element size
+     tore the shapes into unreadable jagged chunks (looked like a
+     rendering glitch) — deliberately NOT using that filter here; the
+     flicker comes from the keyframe animation and randomized per-flame
+     timing/size instead. */
+  .design-burn-flames{ position: absolute; inset: 0; mix-blend-mode: screen; }
   .design-burn-flame{
-    position: absolute; bottom: 0; width: 26px; height: 38px;
+    position: absolute; bottom: 0; left: 0;
     transform-origin: 50% 100%;
-    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-    background: linear-gradient(180deg,
-      rgba(255,241,189,0.95) 0%,
-      rgba(255,176,64,0.95) 28%,
-      rgba(226,84,47,0.92) 58%,
-      rgba(120,24,12,0.65) 85%,
-      rgba(120,24,12,0) 100%);
-    animation: designBurnFlameLick .5s ease-in-out infinite alternate;
+    filter: blur(.5px);
+    animation: designBurnFlameLick .9s ease-in-out infinite;
   }
+  .design-burn-flame::before, .design-burn-flame::after{
+    content: ''; position: absolute; left: 50%; bottom: 0;
+    clip-path: polygon(50% 0%, 73% 20%, 89% 46%, 92% 68%, 78% 88%, 58% 100%,
+      42% 100%, 22% 88%, 8% 68%, 11% 46%, 27% 20%);
+  }
+  .design-burn-flame::before{
+    width: 100%; height: 100%; transform: translateX(-50%);
+    background: linear-gradient(180deg,
+      rgba(255,205,120,0.98) 0%,
+      rgba(242,122,46,0.96) 42%,
+      rgba(168,50,26,0.88) 78%,
+      rgba(120,24,12,0.55) 100%);
+  }
+  .design-burn-flame::after{
+    width: 42%; height: 58%; transform: translateX(-50%);
+    background: linear-gradient(180deg,
+      rgba(255,250,224,0.98) 0%,
+      rgba(255,196,110,0.94) 60%,
+      rgba(255,196,110,0.4) 100%);
+  }
+  /* Gentle vertical lick + sway, not a violent jitter — real campfire
+     flames lean and taper, they don't vibrate. Each spawned flame also
+     gets a randomized animation-delay/-duration (set inline by JS) so a
+     whole row never flickers in lockstep. */
   @keyframes designBurnFlameLick{
-    0%{ transform: translateY(0) scaleY(.85) scaleX(.9) skewX(-4deg); opacity: .85; }
-    50%{ transform: translateY(-6px) scaleY(1.15) scaleX(1.05) skewX(3deg); opacity: 1; }
-    100%{ transform: translateY(-2px) scaleY(1) scaleX(.95) skewX(-2deg); opacity: .92; }
+    0%{   transform: scaleY(.88) scaleX(.94) translateX(0)    rotate(-2deg); opacity: .82; }
+    30%{  transform: scaleY(1.08) scaleX(1)   translateX(1px) rotate(1deg);  opacity: 1;   }
+    60%{  transform: scaleY(.96) scaleX(.97)  translateX(-1px) rotate(-1deg); opacity: .92; }
+    100%{ transform: scaleY(.88) scaleX(.94) translateX(0)    rotate(-2deg); opacity: .82; }
   }
 
   .design-burn-embers{ position: absolute; inset: 0; }
@@ -1914,19 +1944,23 @@
     <button type="button" class="btn" id="designRevealOkBtn">Okay</button>
   </div>
 </div>
-<!-- Jagged, living fire-edge distortion for the burn wipe — feTurbulence
-     generates an organic noise field, its animated `seed` keeps the noise
-     shifting over time, and feDisplacementMap uses it to warp whatever the
-     filter is applied to (.design-burn-paper's clip-path edge, and the
-     flame glow riding on it below) from a clean straight line into a
-     flickering, irregular char line. 0×0 and visually hidden — this <svg>
-     only exists to be referenced by id from CSS `filter: url(#...)`. -->
+<!-- Subtle, living wobble for the burn-edge glow — feTurbulence generates
+     an organic noise field, its animated `seed` keeps the noise shifting
+     over time, and feDisplacementMap uses it to nudge .design-burn-edge
+     from a dead-straight line into a slightly irregular one. Deliberately
+     a LOW scale: this band is only ~34px tall, and a strong displacement
+     at that size doesn't read as "fire", it tears the gradient into harsh
+     blocky chunks that look like a rendering glitch. The actual flame
+     look comes from the .design-burn-flame shapes (see CSS), not from
+     this filter — this just keeps the glow line from looking ruler-flat.
+     0×0 and visually hidden — this <svg> only exists to be referenced by
+     id from CSS `filter: url(#...)`. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <filter id="designBurnFireDistort" x="-30%" y="-100%" width="160%" height="300%">
-    <feTurbulence type="fractalNoise" baseFrequency="0.012 0.09" numOctaves="2" seed="7" result="designBurnNoise">
-      <animate attributeName="seed" values="2;9;16;23;2" dur="1.6s" repeatCount="indefinite" />
+  <filter id="designBurnFireDistort" x="-20%" y="-40%" width="140%" height="180%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.015 0.06" numOctaves="2" seed="7" result="designBurnNoise">
+      <animate attributeName="seed" values="2;9;16;23;2" dur="1.8s" repeatCount="indefinite" />
     </feTurbulence>
-    <feDisplacementMap in="SourceGraphic" in2="designBurnNoise" scale="46" xChannelSelector="R" yChannelSelector="G" />
+    <feDisplacementMap in="SourceGraphic" in2="designBurnNoise" scale="7" xChannelSelector="R" yChannelSelector="G" />
   </filter>
 </svg>
 <div class="design-burn-overlay" id="designBurnOverlay">
@@ -6684,17 +6718,21 @@
         for (let i = 0; i < 3; i++){
           const flame = document.createElement('div');
           flame.className = 'design-burn-flame';
-          const widthPx = 20 + Math.random() * 22;
-          const heightPx = 30 + Math.random() * 34;
+          const widthPx = 22 + Math.random() * 24;
+          const heightPx = 36 + Math.random() * 34;
           flame.style.left = (Math.random() * 100) + '%';
           flame.style.top = topPct + '%';
           flame.style.width = widthPx + 'px';
           flame.style.height = heightPx + 'px';
           flame.style.marginLeft = (-widthPx / 2) + 'px';
-          flame.style.marginTop = (-heightPx * 0.78) + 'px';
-          flame.style.animationDuration = (0.4 + Math.random() * 0.35) + 's';
+          flame.style.marginTop = (-heightPx * 0.8) + 'px';
+          // Randomized duration + a negative delay (so it doesn't start
+          // mid-cycle at scale 0) is what keeps a whole row of flames from
+          // flickering in unison — real fire never pulses in lockstep.
+          flame.style.animationDuration = (0.7 + Math.random() * 0.5) + 's';
+          flame.style.animationDelay = (-Math.random() * 0.9) + 's';
           flameLayer.appendChild(flame);
-          setTimeout(() => flame.remove(), 550);
+          setTimeout(() => flame.remove(), 900);
         }
       }, 90);
     }

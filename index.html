@@ -1288,32 +1288,50 @@
     0%{ filter: url(#designBurnFireDistort) brightness(1); }
     100%{ filter: url(#designBurnFireDistort) brightness(1.18); }
   }
+  /* A wide, soft haze riding along with the edge — the "glow of a horizon
+     on fire" rather than a thin line. Big blur radius, low opacity, pure
+     warm orange — this is what reads as ambient fire-light bouncing off
+     smoke/air at a distance, filling in the gaps between individual
+     flame tongues so the band feels continuous even where the tongues
+     themselves don't overlap. */
+  .design-burn-haze{
+    position: absolute; left: -10%; right: -10%; top: 0; height: 140px; transform: translateY(-60%);
+    background: radial-gradient(ellipse 60% 100% at 50% 60%, rgba(255,140,55,0.55), transparent 72%);
+    filter: blur(14px);
+    opacity: 0;
+  }
+  .design-burn-overlay.burning .design-burn-haze{
+    opacity: 1;
+    animation: designBurnEdgeMove 2.4s cubic-bezier(.45,0,.4,1) forwards;
+  }
 
-  /* The "sea of flames" layer — a wall of individual flame shapes,
-     continuously spawned by startDesignBurn() just above the wipe edge
-     (same pattern as the ember spawner below) and removed once their
-     animation ends, so the whole band reads as a continuous, flickering
-     curtain of fire eating the page rather than a single glowing line.
-     Each .design-burn-flame is a small two-layer campfire flame — an
-     outer red-orange tongue (the element itself) with a smaller
-     yellow-white core (::after) sitting inside it, both clipped into an
-     actual tapered flame silhouette (narrow rounded point at the top,
-     wide rounded base at the bottom) via clip-path, blurred a hair for
-     softness, and set to mix-blend-mode: screen so overlapping tongues
-     brighten each other like real fire instead of just stacking flat
-     color. Earlier attempts used a plain rounded-blob/egg shape (read as
-     glowing eggs, not fire) and, before that, ran everything through the
-     same heavy turbulence filter as the edge, which at this element size
-     tore the shapes into unreadable jagged chunks (looked like a
-     rendering glitch) — deliberately NOT using that filter here; the
-     flicker comes from the keyframe animation and randomized per-flame
-     timing/size instead. */
+  /* The "sea of flames" layer — a dense, overlapping wall of individual
+     flame shapes, continuously spawned by startDesignBurn() just above
+     the wipe edge (same pattern as the ember spawner below) and removed
+     once their animation ends, so the whole band reads as a chaotic,
+     wildfire-style curtain eating the page rather than a tidy row of
+     candle flames. Each .design-burn-flame is a small two-layer tongue —
+     an outer red-orange shape (the element itself) with a smaller
+     yellow-white core (::after) sitting inside it, both clipped into a
+     tapered flame silhouette via clip-path. What sells "wildfire" rather
+     than "birthday candles" is density and variety: JS spawns several per
+     tick at random, overlapping x-offsets, with a wide size range (small
+     licks mixed with tall ones) and a random base rotation/lean
+     (--flame-rot, set inline) so neighboring tongues don't all point
+     straight up in a neat row. mix-blend-mode: screen makes overlapping
+     tongues brighten each other like real fire instead of just stacking
+     flat color. Earlier attempts used a plain rounded-blob/egg shape
+     (read as glowing eggs) or ran everything through the same heavy
+     turbulence filter as the edge, which at this element size tore the
+     shapes into unreadable jagged chunks — deliberately NOT using that
+     filter here; the flicker comes from the keyframe animation and
+     randomized per-flame timing/size/rotation instead. */
   .design-burn-flames{ position: absolute; inset: 0; mix-blend-mode: screen; }
   .design-burn-flame{
     position: absolute; bottom: 0; left: 0;
+    --flame-rot: 0deg;
     transform-origin: 50% 100%;
-    filter: blur(.5px);
-    animation: designBurnFlameLick .9s ease-in-out infinite;
+    animation: designBurnFlameLick .8s ease-in-out infinite;
   }
   .design-burn-flame::before, .design-burn-flame::after{
     content: ''; position: absolute; left: 50%; bottom: 0;
@@ -1324,26 +1342,48 @@
     width: 100%; height: 100%; transform: translateX(-50%);
     background: linear-gradient(180deg,
       rgba(255,205,120,0.98) 0%,
-      rgba(242,122,46,0.96) 42%,
-      rgba(168,50,26,0.88) 78%,
-      rgba(120,24,12,0.55) 100%);
+      rgba(242,122,46,0.96) 38%,
+      rgba(168,50,26,0.88) 76%,
+      rgba(90,18,10,0.5) 100%);
   }
   .design-burn-flame::after{
     width: 42%; height: 58%; transform: translateX(-50%);
     background: linear-gradient(180deg,
       rgba(255,250,224,0.98) 0%,
-      rgba(255,196,110,0.94) 60%,
-      rgba(255,196,110,0.4) 100%);
+      rgba(255,196,110,0.94) 58%,
+      rgba(255,196,110,0.35) 100%);
   }
-  /* Gentle vertical lick + sway, not a violent jitter — real campfire
-     flames lean and taper, they don't vibrate. Each spawned flame also
-     gets a randomized animation-delay/-duration (set inline by JS) so a
-     whole row never flickers in lockstep. */
+  /* Vertical lick + sway built on top of each flame's own random lean
+     (--flame-rot, set inline by JS) — real wildfire tongues twist and
+     lean at all angles, they don't all stand straight. Each spawned
+     flame also gets a randomized animation-delay/-duration and blur (set
+     inline by JS) so a whole row never flickers in lockstep and distant/
+     background tongues read as slightly hazier than close ones. */
   @keyframes designBurnFlameLick{
-    0%{   transform: scaleY(.88) scaleX(.94) translateX(0)    rotate(-2deg); opacity: .82; }
-    30%{  transform: scaleY(1.08) scaleX(1)   translateX(1px) rotate(1deg);  opacity: 1;   }
-    60%{  transform: scaleY(.96) scaleX(.97)  translateX(-1px) rotate(-1deg); opacity: .92; }
-    100%{ transform: scaleY(.88) scaleX(.94) translateX(0)    rotate(-2deg); opacity: .82; }
+    0%{   transform: rotate(var(--flame-rot)) scaleY(.85) scaleX(.92) translateX(0); opacity: .78; }
+    30%{  transform: rotate(calc(var(--flame-rot) + 4deg)) scaleY(1.15) scaleX(1.04) translateX(2px); opacity: 1; }
+    60%{  transform: rotate(calc(var(--flame-rot) - 3deg)) scaleY(.95) scaleX(.96) translateX(-2px); opacity: .9; }
+    100%{ transform: rotate(var(--flame-rot)) scaleY(.85) scaleX(.92) translateX(0); opacity: .78; }
+  }
+
+  /* Billowing smoke — slow, heavily-blurred dark puffs that drift upward
+     off the flame line and dissolve. This is what separates "wildfire"
+     from "clean fireplace": real fire this size throws up smoke, and the
+     drifting dark haze reads as scale/danger even though it's only a
+     handful of blurred circles. Sits above the flames (not screen-
+     blended — a lightening blend would make dark smoke invisible) but
+     below the embers, which should still read as bright sparks escaping
+     through it. */
+  .design-burn-smoke{ position: absolute; inset: 0; }
+  .design-burn-smoke-puff{
+    position: absolute; left: 0; top: 0; border-radius: 50%;
+    background: radial-gradient(circle at 42% 38%, rgba(94,58,42,0.55), rgba(40,22,16,0.4) 55%, rgba(20,12,10,0) 78%);
+    animation: designBurnSmokeRise 1.7s ease-out forwards;
+  }
+  @keyframes designBurnSmokeRise{
+    0%{ transform: translateY(0) scale(.5); opacity: 0; }
+    15%{ opacity: .65; }
+    100%{ transform: translateY(-120px) scale(1.5); opacity: 0; }
   }
 
   .design-burn-embers{ position: absolute; inset: 0; }
@@ -1362,7 +1402,9 @@
   @media (prefers-reduced-motion: reduce){
     .design-burn-overlay.burning .design-burn-paper{ animation: none; clip-path: inset(100% 0 0 0); }
     .design-burn-overlay.burning .design-burn-edge{ display: none; }
+    .design-burn-overlay.burning .design-burn-haze{ display: none; }
     .design-burn-flames{ display: none; }
+    .design-burn-smoke{ display: none; }
   }
 
   /* Design switcher — lives in User Settings (#characterModal), admin-only
@@ -1965,8 +2007,10 @@
 </svg>
 <div class="design-burn-overlay" id="designBurnOverlay">
   <div class="design-burn-paper"></div>
+  <div class="design-burn-haze"></div>
   <div class="design-burn-edge"></div>
   <div class="design-burn-flames"></div>
+  <div class="design-burn-smoke"></div>
   <div class="design-burn-embers"></div>
 </div>
 
@@ -6702,47 +6746,90 @@
         }
       }, 70);
 
-      // The flame wall itself — a denser, faster-ticking spawn of short-
-      // lived .design-burn-flame tongues, packed shoulder-to-shoulder along
-      // the same burn line as the embers so the edge reads as an actual
-      // sheet of fire eating the page rather than a single glowing line.
-      // Each tongue only lives one flicker cycle or two before being
-      // replaced by a fresh one at a new random offset/size — that
-      // constant churn is what sells "flickering" rather than a static row
-      // of shapes animating in place.
+      // The flame wall itself — a dense, fast-ticking spawn of short-lived
+      // .design-burn-flame tongues, heavily overlapping along the same
+      // burn line as the embers so the edge reads as a chaotic wildfire
+      // front eating the page rather than a tidy row of candle flames.
+      // Three deliberate choices make this read as "wildfire" instead of
+      // "fireplace": (1) a wide size range mixes small licks with much
+      // taller ones in the same tick, for depth; (2) each flame gets a
+      // random base lean (--flame-rot, ±22deg) so neighboring tongues
+      // point every which way instead of all standing straight up; (3) a
+      // random blur (sharper up close, softer/hazier for the "background"
+      // flames) sells the sense of a whole burning tree-line rather than
+      // a single row of shapes. Each tongue only lives a cycle or two
+      // before being replaced by a fresh one at a new random offset/size/
+      // lean — that constant churn is what sells "flickering" rather than
+      // a static row animating in place.
       const flameLayer = overlay.querySelector('.design-burn-flames');
       flameInterval = setInterval(() => {
         if (!flameLayer) return;
         const progress = Math.min(1, (performance.now() - start) / DESIGN_BURN_DURATION_MS);
         const topPct = progress * 100;
-        for (let i = 0; i < 3; i++){
+        for (let i = 0; i < 5; i++){
           const flame = document.createElement('div');
           flame.className = 'design-burn-flame';
-          const widthPx = 22 + Math.random() * 24;
-          const heightPx = 36 + Math.random() * 34;
-          flame.style.left = (Math.random() * 100) + '%';
+          const big = Math.random() < 0.35;
+          const widthPx = big ? (46 + Math.random() * 34) : (16 + Math.random() * 26);
+          const heightPx = big ? (70 + Math.random() * 60) : (28 + Math.random() * 40);
+          // Spread wider than 0–100% so tongues also spawn partway off
+          // either edge — a wildfire front doesn't stop cleanly at the
+          // viewport, it should feel like it continues past both sides.
+          flame.style.left = (-4 + Math.random() * 108) + '%';
           flame.style.top = topPct + '%';
           flame.style.width = widthPx + 'px';
           flame.style.height = heightPx + 'px';
           flame.style.marginLeft = (-widthPx / 2) + 'px';
-          flame.style.marginTop = (-heightPx * 0.8) + 'px';
+          flame.style.marginTop = (-heightPx * 0.82) + 'px';
+          flame.style.setProperty('--flame-rot', (Math.random() * 44 - 22) + 'deg');
+          flame.style.filter = 'blur(' + (big ? (1.2 + Math.random() * 1.4) : (0.3 + Math.random() * 0.8)) + 'px)';
+          flame.style.opacity = big ? (0.55 + Math.random() * 0.3) : (0.8 + Math.random() * 0.2);
           // Randomized duration + a negative delay (so it doesn't start
           // mid-cycle at scale 0) is what keeps a whole row of flames from
           // flickering in unison — real fire never pulses in lockstep.
-          flame.style.animationDuration = (0.7 + Math.random() * 0.5) + 's';
+          flame.style.animationDuration = (0.6 + Math.random() * 0.5) + 's';
           flame.style.animationDelay = (-Math.random() * 0.9) + 's';
           flameLayer.appendChild(flame);
-          setTimeout(() => flame.remove(), 900);
+          setTimeout(() => flame.remove(), 1000);
         }
-      }, 90);
+      }, 60);
+
+      // Slow, heavily-blurred smoke puffs drifting up off the flame line
+      // — see .design-burn-smoke-puff for why this is what separates
+      // "wildfire" from a clean fireplace flame.
+      const smokeLayer = overlay.querySelector('.design-burn-smoke');
+      let smokeInterval = null;
+      smokeInterval = setInterval(() => {
+        if (!smokeLayer) return;
+        const progress = Math.min(1, (performance.now() - start) / DESIGN_BURN_DURATION_MS);
+        const topPct = progress * 100;
+        const puff = document.createElement('div');
+        puff.className = 'design-burn-smoke-puff';
+        const sizePx = 60 + Math.random() * 90;
+        puff.style.left = (Math.random() * 100) + '%';
+        puff.style.top = topPct + '%';
+        puff.style.width = sizePx + 'px';
+        puff.style.height = sizePx + 'px';
+        puff.style.marginLeft = (-sizePx / 2) + 'px';
+        puff.style.marginTop = (-sizePx / 2) + 'px';
+        puff.style.filter = 'blur(' + (6 + Math.random() * 5) + 'px)';
+        puff.addEventListener('animationend', () => puff.remove());
+        smokeLayer.appendChild(puff);
+      }, 220);
+      // Stashed on the overlay element itself (rather than a third
+      // top-level `let`) purely so the cleanup block below has one place
+      // to look regardless of which branch created it.
+      overlay.__designBurnSmokeInterval = smokeInterval;
     }
 
     setTimeout(() => {
       if (emberInterval) clearInterval(emberInterval);
       if (flameInterval) clearInterval(flameInterval);
+      if (overlay.__designBurnSmokeInterval) clearInterval(overlay.__designBurnSmokeInterval);
       overlay.classList.remove('burning');
       overlay.querySelectorAll('.design-burn-ember').forEach(el => el.remove());
       overlay.querySelectorAll('.design-burn-flame').forEach(el => el.remove());
+      overlay.querySelectorAll('.design-burn-smoke-puff').forEach(el => el.remove());
       markUnlocked();
     }, reduceMotion ? 0 : DESIGN_BURN_DURATION_MS + 150);
   }

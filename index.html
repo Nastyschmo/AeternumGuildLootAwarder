@@ -1421,6 +1421,7 @@
   .classdive-summary-text h1{ font-size: 20px; } .classdive-summary-text h2{ font-size: 16px; } .classdive-summary-text h3{ font-size: 14px; }
   .classdive-summary-text p{ margin: 0 0 10px; }
   .classdive-summary-text ul, .classdive-summary-text ol{ margin: 0 0 10px; padding-left: 22px; }
+  .classdive-spell-link{ color: var(--teal-bright); border-bottom: 1px dotted var(--teal-bright); cursor: help; }
   @media (max-width: 640px){
     .classdive-toggle{ flex-wrap: wrap; }
     .classdive-toggle-meta{ text-align: left; width: 100%; order: 3; }
@@ -2976,6 +2977,104 @@
       });
       btn.addEventListener('mousemove', positionTalentTooltip);
       btn.addEventListener('mouseleave', hideTalentTooltip);
+    });
+  }
+
+  // ---- Auto-linked spell/ability names in free text (Class Deep Dives) --
+  // Scans rendered rich text for the class's own spellbook ability names
+  // (the "tabs" sections only — general abilities like "Attack"/"Block" are
+  // deliberately excluded, they're too generic a word to safely autolink in
+  // free-form prose) and wraps each mention in a span that reuses the exact
+  // same hover tooltip + tooltip positioning as the Talent Builder's own
+  // Zauberbuch panel, so an officer typing/pasting a deep dive gets live
+  // tooltips on every ability it mentions for free, backed by the same data.
+  function escapeRegExp(str){
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  const classDiveSpellIndexCache = {};
+  // index: array of { name, ranks, cls } sorted longest-name-first so the
+  // matcher greedily prefers "Shadow Word: Death" over a shorter prefix.
+  function classDiveSpellIndexFor(classId){
+    if (classDiveSpellIndexCache[classId]) return classDiveSpellIndexCache[classId];
+    let entries = [];
+    if (classId === 'general'){
+      // The general card has no single class — merge every class's
+      // spellbook. On a name collision between classes, the first class
+      // (CLASSES order) wins; ambiguous, but still useful.
+      const seen = new Set();
+      CLASSES.forEach(c => {
+        classDiveSpellIndexFor(c.id).forEach(e => {
+          if (seen.has(e.name)) return;
+          seen.add(e.name);
+          entries.push(e);
+        });
+      });
+    } else {
+      const clsInfo = CLASS_MAP[classId];
+      const book = clsInfo && SPELLBOOK_DATA[clsInfo.label];
+      if (book){
+        const allSpells = [];
+        (book.tabs || []).forEach(sec => (sec.spells || []).forEach(s => allSpells.push(s)));
+        entries = groupSpellRanks(allSpells).map(g => ({ name: g.name, ranks: g.ranks, cls: clsInfo.label }));
+      }
+    }
+    entries.sort((a, b) => b.name.length - a.name.length);
+    classDiveSpellIndexCache[classId] = entries;
+    return entries;
+  }
+  const CLASSDIVE_WORDISH_RE = /[A-Za-zÀ-ÖØ-öø-ÿ0-9']/;
+  function annotateSpellMentions(rootEl, classId){
+    if (!rootEl) return;
+    const index = classDiveSpellIndexFor(classId);
+    if (!index.length) return;
+    const byName = new Map(index.map(e => [e.name, e]));
+    const pattern = index.map(e => escapeRegExp(e.name)).join('|');
+    if (!pattern) return;
+    const regex = new RegExp(pattern, 'g');
+    const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+    const textNodes = [];
+    let node;
+    while ((node = walker.nextNode())) textNodes.push(node);
+    textNodes.forEach(textNode => {
+      const text = textNode.nodeValue;
+      regex.lastIndex = 0;
+      let match;
+      let lastEnd = 0;
+      const frag = document.createDocumentFragment();
+      let any = false;
+      while ((match = regex.exec(text))){
+        const start = match.index, end = start + match[0].length;
+        const before = text[start - 1], after = text[end];
+        if ((before && CLASSDIVE_WORDISH_RE.test(before)) || (after && CLASSDIVE_WORDISH_RE.test(after))){
+          regex.lastIndex = start + 1;
+          continue;
+        }
+        any = true;
+        if (start > lastEnd) frag.appendChild(document.createTextNode(text.slice(lastEnd, start)));
+        const entry = byName.get(match[0]);
+        const span = document.createElement('span');
+        span.className = 'classdive-spell-link';
+        span.setAttribute('data-spell-name', entry.name);
+        span.setAttribute('data-spell-cls', entry.cls);
+        span.textContent = match[0];
+        frag.appendChild(span);
+        lastEnd = end;
+      }
+      if (!any) return;
+      if (lastEnd < text.length) frag.appendChild(document.createTextNode(text.slice(lastEnd)));
+      textNode.parentNode.replaceChild(frag, textNode);
+    });
+    rootEl.querySelectorAll('.classdive-spell-link').forEach(span => {
+      span.addEventListener('mouseenter', (evt) => {
+        if (!els.talentTooltip) return;
+        const entry = byName.get(span.getAttribute('data-spell-name'));
+        if (!entry) return;
+        els.talentTooltip.innerHTML = spellTooltipHtml(span.getAttribute('data-spell-cls'), entry.name, entry.ranks);
+        els.talentTooltip.classList.remove('hidden');
+        positionTalentTooltip(evt);
+      });
+      span.addEventListener('mousemove', positionTalentTooltip);
+      span.addEventListener('mouseleave', hideTalentTooltip);
     });
   }
 
@@ -7936,7 +8035,7 @@
           </div>`
         : '';
 
-      return `<div class="tac-card classdive-card${c.isGeneral ? ' classdive-card-general' : ''}">
+      return `<div class="tac-card classdive-card${c.isGeneral ? ' classdive-card-general' : ''}" data-classdive-card="${c.id}">
         <button type="button" class="classdive-toggle" data-toggle-classdive="${c.id}">
           ${c.isGeneral ? `<span class="classdive-general-icon" aria-hidden="true">${c.icon}</span>` : (iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : '')}
           <span class="classdive-toggle-title" style="color:${c.color}">${escapeHtml(c.label)}</span>
@@ -7997,6 +8096,17 @@
     });
     els.classDivesList.querySelectorAll('[data-delete-update]').forEach(btn => {
       btn.addEventListener('click', () => deleteClassDiveUpdate(btn.getAttribute('data-delete-update'), btn.getAttribute('data-delete-update-id')));
+    });
+    // Auto-link ability/spell names mentioned in the read-only text against
+    // that card's own Talent Builder spellbook, with the exact same hover
+    // tooltip. Only the displayed (non-editing) summary and the saved
+    // update entries — never the live editor, so nothing fights the
+    // officer's cursor while they're typing.
+    els.classDivesList.querySelectorAll('[data-classdive-card]').forEach(cardEl => {
+      const classId = cardEl.getAttribute('data-classdive-card');
+      const summaryTextEl = cardEl.querySelector('.classdive-section .classdive-summary-text');
+      if (summaryTextEl) annotateSpellMentions(summaryTextEl, classId);
+      cardEl.querySelectorAll('.classdive-update-text').forEach(el => annotateSpellMentions(el, classId));
     });
   }
 

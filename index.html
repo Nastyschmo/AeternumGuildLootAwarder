@@ -3788,6 +3788,21 @@
     };
   }
 
+  // Classic/TBC/SoD professions cap out at 375 skill (not Retail's much
+  // higher caps), so that's the ceiling for a profession "level" answer —
+  // shared between the chat form's own input validation and the
+  // normalizer that re-validates whatever actually got saved.
+  const PROFESSION_MAX_LEVEL = 375;
+  // Applicants can be logging their characters on any of Warcraft Logs'
+  // separate sites (Classic Era "vanilla", Season of Discovery "sod",
+  // Classic Progression/Anniversary "classic" or "fresh", or plain
+  // retail), each under its own subdomain, with a locale prefix in front
+  // of that for non-English UIs (e.g. de.fresh.warcraftlogs.com) — so
+  // this only pins the domain itself (warcraftlogs.com) and otherwise
+  // accepts any subdomain chain in front of it, rather than guessing at
+  // which specific game-version subdomains exist today.
+  const WARCRAFTLOGS_URL_RE = /^https:\/\/([a-z0-9-]+\.)*warcraftlogs\.com(\/|$)/i;
+
   // ---------------------------------------------------------------------
   // Recruiting — member-submitted applications, plus an Admin/Officer-
   // editable "which classes/specs are we currently looking for" list that
@@ -3891,7 +3906,7 @@
       new Map(
         (Array.isArray(list) ? list : [])
           .filter(x => x && typeof x.professionId === 'string' && PROFESSION_MAP[x.professionId]
-            && (x.level === 'max' || (typeof x.level === 'number' && x.level >= 1 && x.level <= 300)))
+            && (x.level === 'max' || (typeof x.level === 'number' && x.level >= 1 && x.level <= PROFESSION_MAX_LEVEL)))
           .map(x => [x.professionId, { professionId: x.professionId, level: x.level }])
       ).values()
     );
@@ -3901,7 +3916,7 @@
     const extraProfessions = normProfList(entry.extraProfessions).filter(x => !PROFESSION_MAP[x.professionId].primary);
 
     const nickname = typeof entry.nickname === 'string' ? entry.nickname.trim().slice(0, 30) : '';
-    const logsUrl = (typeof entry.logsUrl === 'string' && /^https:\/\/(www\.)?warcraftlogs\.com\//i.test(entry.logsUrl))
+    const logsUrl = (typeof entry.logsUrl === 'string' && WARCRAFTLOGS_URL_RE.test(entry.logsUrl))
       ? entry.logsUrl.trim().slice(0, 300) : '';
     const remarks = typeof entry.remarks === 'string' ? entry.remarks.trim().slice(0, 1000) : '';
 
@@ -6527,14 +6542,15 @@
 
   function applyChatPrimaryProfessions(){ return PROFESSIONS.filter(p => p.primary); }
   function applyChatSecondaryProfessions(){ return PROFESSIONS.filter(p => !p.primary); }
-  // A profession level is either a number 1–300 (Classic's skill cap) or
-  // the literal string 'max' (the "Max" checkbox) — anything else (left
-  // blank, garbage input) is treated as "not actually given" and dropped,
-  // same as leaving the whole profession unchecked.
+  // A profession level is either a number 1–375 (Classic/TBC/SoD's skill
+  // cap — see PROFESSION_MAX_LEVEL) or the literal string 'max' (the
+  // "Max" checkbox) — anything else (left blank, garbage input, over the
+  // cap) is treated as "not actually given" and dropped, same as leaving
+  // the whole profession unchecked.
   function applyChatValidLevel(level){
     if (level === 'max') return 'max';
     const n = parseInt(level, 10);
-    return (Number.isFinite(n) && n >= 1 && n <= 300) ? n : null;
+    return (Number.isFinite(n) && n >= 1 && n <= PROFESSION_MAX_LEVEL) ? n : null;
   }
   // Shared level-input markup for a profession draft entry — used by both
   // the per-character profession step and the "extra professions" step.
@@ -6843,8 +6859,8 @@
       collect(container){
         const v = container.querySelector('#applyChatFieldInput').value.trim().slice(0, 300);
         if (!v) return { ok: true, value: '', summary: '—' };
-        if (!/^https:\/\/(www\.)?warcraftlogs\.com\//i.test(v)){
-          return { ok: false, error: 'Bitte gib einen gültigen warcraftlogs.com-Link ein (oder überspringe die Frage).' };
+        if (!WARCRAFTLOGS_URL_RE.test(v)){
+          return { ok: false, error: 'Bitte gib einen gültigen warcraftlogs.com-Link ein (z.B. Classic, SoD, Fresh oder Retail — oder überspringe die Frage).' };
         }
         return { ok: true, value: v, summary: v };
       },
@@ -6965,24 +6981,53 @@
   // before DMing anyone, so this can't be used to spam arbitrary messages
   // — see discord-auth-worker.js's handleNotifyApplication.
   async function notifyOfficersOfNewApplication(applicationId, application){
-    if (!isWorkerConfigured()) return;
+    if (!isWorkerConfigured()){
+      console.warn('[notify-application] skipped: Worker URL is not configured (still has the YOUR-WORKER-SUBDOMAIN placeholder).');
+      return;
+    }
     const roles = state.discordRoles || {};
+    // Deliberately excludes the applicant themselves, so an Officer/Admin
+    // who has "Bewerbungen melden" checked for their own account won't get
+    // DM'd about their own application — if you're testing this by applying
+    // with the same Discord account that has the checkbox enabled, that's
+    // why no DM shows up; it's working as intended, not a bug. Test with a
+    // second account (or have someone else apply) to see the DM fire.
     const recipientIds = Object.keys(roles).filter(id => roles[id] && roles[id].notifyOnApplications && id !== application.applicantId);
-    if (!recipientIds.length) return;
+    if (!recipientIds.length){
+      console.warn('[notify-application] skipped: no recipients. Either nobody has "Bewerbungen melden" checked in Manage Access, or the only person who does is the applicant themself (self-notifications are intentionally excluded).');
+      return;
+    }
     const who = application.firstName || application.applicantName || 'Jemand';
     const classLabel = (application.picks || [])
       .map(p => (CLASS_MAP[p.classId] ? CLASS_MAP[p.classId].label : p.classId))
       .join(' / ');
     const message = `Neue Bewerbung von ${who}${classLabel ? ' (' + classLabel + ')' : ''} — schau sie dir auf der Gildenseite unter "Bewerbung" an.`;
     try{
-      await fetch(NOTIFY_APPLICATION_URL, {
+      const res = await fetch(NOTIFY_APPLICATION_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ applicationId, recipientIds, message })
       });
+      let body = null;
+      try{ body = await res.json(); }catch(e){}
+      if (!res.ok){
+        console.warn('[notify-application] Worker responded with an error:', res.status, body);
+      } else if (body && Array.isArray(body.results)){
+        // Per-recipient outcome from Discord itself (e.g. "not a guild
+        // member", "could not open DM channel" — the latter usually means
+        // that person's Discord privacy settings block DMs from server
+        // members/bots they haven't interacted with).
+        const failed = body.results.filter(r => !r.ok);
+        if (failed.length) console.warn('[notify-application] Some DMs failed:', failed);
+        else console.log('[notify-application] DMs sent to', body.results.length, 'recipient(s).');
+      }
     }catch(e){
-      // Silent — the in-site bell above already covers this, and this
-      // Worker call is a pure bonus on top of it.
+      // Network/CORS-level failure — most likely the Worker isn't deployed
+      // with the /notify-application route yet, or NOTIFY_APPLICATION_URL
+      // is unreachable. Logged (not silent) so this is diagnosable from
+      // the browser console instead of looking identical to "nothing
+      // happened".
+      console.warn('[notify-application] fetch failed:', e);
     }
   }
 

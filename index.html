@@ -4238,13 +4238,14 @@
   // worked — so it looked like the exclamation mark "never goes away"
   // (every visit just re-confirms there's still unresolved work) while
   // giving no actual way to resolve it. Now it's status-based instead:
-  // pending means "not yet Angenommen/Abgelehnt" (see
-  // APPLICATION_STATUSES below), so it only clears once someone actually
-  // closes the application out, and stays lit — correctly — for as long
-  // as there's a real decision still outstanding.
+  // only truly untouched applications ("Offen" — see APPLICATION_STATUSES
+  // below) count as a quest. The moment anyone sets a status on it at all
+  // — even just "Wird bearbeitet" — it's considered someone's business
+  // and stops demanding attention from everyone else; it only becomes a
+  // quest again if it's explicitly set back to Offen.
   function questPendingApplicationsCount(){
     if (!discordIdentity || !isOfficerOrAdmin()) return 0;
-    return Object.values(state.applications || {}).filter(a => a.status !== 'accepted' && a.status !== 'rejected').length;
+    return Object.values(state.applications || {}).filter(a => (a.status || 'open') === 'open').length;
   }
   function pageQuestPending(pageId){
     if (pageId === 'announcements') return questPendingAnnouncement();
@@ -4309,7 +4310,7 @@
         html += `<div class="quest-popover-section-title">Bewerbungen</div>
           <a class="quest-popover-item" data-quest-page="recruit">
             <span class="quest-popover-item-icon" aria-hidden="true">?</span>
-            <span>${applicationsCount} offene Bewerbung${applicationsCount === 1 ? '' : 'en'} (noch nicht Angenommen/Abgelehnt)</span>
+            <span>${applicationsCount} offene Bewerbung${applicationsCount === 1 ? '' : 'en'} (noch nicht in Bearbeitung)</span>
           </a>`;
       }
     }

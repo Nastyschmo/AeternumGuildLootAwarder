@@ -866,10 +866,11 @@
   .forever-officer-table th[aria-sort="ascending"]::after{ content: " ▲"; font-size: 9px; }
   .forever-officer-table th[aria-sort="descending"]::after{ content: " ▼"; font-size: 9px; }
   /* First/Second Char cells — the class icon + the spec/talent-tree icon
-     (same ones used on the chart above), plus a small class-color dot,
-     right next to the text. The separate Tank/Healer/Damage role dot was
-     dropped — the spec icon alone already conveys the role, so the dot
-     was redundant once the icon was added. */
+     (same ones used on the chart above), with the class+spec text itself
+     set in the class's own color instead of a separate color dot next to
+     it. The earlier class-color dot and the Tank/Healer/Damage role dot
+     were both dropped — the icons plus the colored text now carry all of
+     that at a glance, so the dots were redundant. */
   .forever-pick-cell{ display: inline-flex; align-items: center; gap: 6px; }
   .forever-pick-icon{ width: 20px; height: 20px; flex-shrink: 0; }
   /* When the table is sorted by First/Second Char, identical-class rows
@@ -5969,7 +5970,7 @@
       return (d * foreverOfficerSortDir) || a.member.localeCompare(b.member, 'de', { sensitivity: 'base' });
     });
     const pickCellHtml = (info) => info
-      ? `<span class="forever-pick-cell">${info.classIconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${info.classIconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}${info.iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${info.iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}<span class="forever-class-dot" style="background:${info.classColor}"></span>${escapeHtml(info.label)}</span>`
+      ? `<span class="forever-pick-cell">${info.classIconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${info.classIconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}${info.iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${info.iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}<span style="color:${info.classColor}">${escapeHtml(info.label)}</span></span>`
       : '—';
     // Grouping only makes sense when the table is actually sorted by one
     // of the two class columns — sorting by Mitglied interleaves classes

@@ -427,6 +427,14 @@
   .access-member-characters-row{ display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 4px 0 42px; }
   .access-member-characters-empty{ font-size: 11.5px; color: var(--text-muted); font-style: italic; }
   .access-member-armory-refresh{ font-size: 11px; padding: 2px 8px; }
+  /* "Notify me about new applications" — only shown for Admin/Officer
+     rows (see canNotify in renderAccessModal), indented to line up under
+     the name/select above it rather than the avatar. */
+  .access-member-notify{
+    display: flex; align-items: center; gap: 6px; padding: 4px 4px 0 42px;
+    font-size: 11.5px; color: var(--text-muted); cursor: pointer;
+  }
+  .access-member-notify input{ cursor: pointer; }
 
   /* Character chips — shared between Manage access and Bewerbungen. */
   .character-chips{ display: flex; flex-wrap: wrap; gap: 6px; }
@@ -1230,6 +1238,52 @@
   .apply-add-class-btn:hover{ background: rgba(var(--gold-bright-rgb),0.16); }
   .apply-add-class-btn:disabled{ opacity: .4; cursor: not-allowed; }
 
+  /* ---- Bewerbung chat-bot flow ---- */
+  .apply-chat-card{ display: flex; flex-direction: column; }
+  .apply-chat-log{
+    display: flex; flex-direction: column; gap: 8px; max-height: 420px;
+    overflow-y: auto; margin-bottom: 4px; padding-right: 2px;
+  }
+  .apply-chat-bubble{
+    max-width: 86%; padding: 8px 13px; border-radius: 12px; font-size: 13px;
+    line-height: 1.5; word-break: break-word;
+  }
+  .apply-chat-bubble-bot{
+    align-self: flex-start; background: var(--bg-panel-raised);
+    border: 1px solid var(--border-soft); color: var(--text);
+    border-bottom-left-radius: 3px;
+  }
+  .apply-chat-bubble-user{
+    align-self: flex-end; background: rgba(var(--gold-bright-rgb),0.14);
+    border: 1px solid rgba(var(--gold-bright-rgb),0.35); color: var(--gold-bright);
+    font-weight: 600; border-bottom-right-radius: 3px; white-space: pre-wrap;
+  }
+  .apply-chat-composer{ display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .apply-chat-input-area{ display: flex; flex-direction: column; gap: 8px; }
+  .apply-chat-error{ font-size: 12px; color: var(--danger-bright); }
+  .apply-chat-actions{ display: flex; align-items: center; gap: 8px; }
+  .apply-chat-done{ display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .apply-chat-char-row{ display: flex; align-items: center; gap: 10px; }
+  .apply-chat-char-row-label{ min-width: 90px; font-weight: 700; font-size: 13px; flex: none; }
+  .apply-chat-prof-block{
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    background: rgba(255,255,255,0.02);
+  }
+  .apply-chat-prof-block + .apply-chat-prof-block{ margin-top: 10px; }
+  .apply-chat-prof-head{ font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+  .apply-chat-level-rows{ display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .apply-chat-level-row{ display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+  .apply-chat-level-label{ min-width: 110px; color: var(--text-muted); }
+  .apply-chat-level-input{ width: 56px; font-size: 12.5px; padding: 4px 6px; }
+  .apply-chat-level-max{ display: flex; align-items: center; gap: 4px; color: var(--text-muted); cursor: pointer; }
+  .application-class-picks-v2{ flex-direction: column; gap: 10px; }
+  .application-class-block{
+    border: 1px solid var(--border-soft); border-radius: 8px; padding: 8px 10px;
+    background: rgba(255,255,255,0.015);
+  }
+  .application-class-block .application-class-pick{ margin-bottom: 4px; }
+  .application-class-block p{ margin: 2px 0; }
+
   .recruit-needs-grid{ display: flex; flex-direction: column; gap: 12px; margin: 4px 0 6px; }
   .recruit-needs-row{ display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
   .recruit-needs-class{ min-width: 90px; font-weight: 700; font-size: 13px; flex: none; }
@@ -1846,32 +1900,26 @@
             </div>
 
             <div id="recruitLoggedIn" class="hidden">
-              <div class="tac-card">
+              <div class="tac-card apply-chat-card">
                 <div class="tac-card-title">Deine Bewerbung</div>
-                <div class="tac-card-note">Beantworte die folgenden Fragen — wir melden uns danach bei dir auf Discord. Felder mit * sind Pflicht.</div>
-
-                <label class="apply-field-label" for="applyNameAgeInput">Wie heißt du und wie alt bist du?</label>
-                <input type="text" id="applyNameAgeInput" class="apply-text-input" maxlength="200" placeholder="z.B. Max, 24">
-
-                <label class="apply-field-label">Welche Klassen/Specs hast du vor zu spielen? *</label>
-                <div id="applyClassPicks" class="apply-class-picks"></div>
-                <button type="button" class="apply-add-class-btn" id="applyAddClassBtn">+ Weitere Klasse hinzufügen</button>
-
-                <label class="apply-field-label" for="applyExperienceInput">Welche Erfahrungen hast du bisher in WoW? (Versionen, Speedrungilden, Parsegilden…) *</label>
-                <textarea id="applyExperienceInput" class="apply-textarea" rows="3" maxlength="1500" placeholder="Erzähl uns von deiner WoW-Erfahrung…"></textarea>
-
-                <label class="apply-field-label" for="applyLogsInput">Falls vorhanden, poste hier gerne deine Logs.</label>
-                <textarea id="applyLogsInput" class="apply-textarea" rows="2" maxlength="800" placeholder="Links zu Warcraftlogs o.ä. (optional)"></textarea>
-
-                <label class="apply-field-label">Welche Berufe planst du zu Forever zu skillen? *</label>
-                <div id="applyProfessionsGrid" class="apply-profession-grid"></div>
-
-                <label class="apply-field-label" for="applyRemarksInput">Möchtest du uns sonst noch etwas über dich erzählen? (optional)</label>
-                <textarea id="applyRemarksInput" class="apply-textarea" rows="2" maxlength="1000" placeholder="Alles, was du uns sonst noch mitgeben möchtest…"></textarea>
-
-                <div class="forever-actions">
-                  <button type="button" class="btn btn-teal btn-sm" id="applySubmitBtn">Bewerbung absenden</button>
-                  <span id="applySubmitStatus" class="armory-status"></span>
+                <div class="tac-card-note">Beantworte die folgenden Fragen Schritt für Schritt wie in einem Chat — wir melden uns danach bei dir auf Discord.</div>
+                <div class="apply-chat-log" id="applyChatLog"></div>
+                <div class="apply-chat-composer" id="applyChatComposer">
+                  <div class="apply-chat-bubble apply-chat-bubble-bot" id="applyChatQuestionBubble"></div>
+                  <div class="apply-chat-input-area" id="applyChatInputArea"></div>
+                  <div class="apply-chat-error hidden" id="applyChatError"></div>
+                  <div class="apply-chat-actions">
+                    <button type="button" class="btn btn-ghost btn-sm hidden" id="applyChatSkipBtn">Überspringen</button>
+                    <button type="button" class="btn btn-teal btn-sm" id="applyChatNextBtn">Weiter</button>
+                  </div>
+                </div>
+                <div class="apply-chat-done hidden" id="applyChatDoneArea">
+                  <div class="apply-chat-bubble apply-chat-bubble-bot">Alles klar — das war's! Schick uns deine Bewerbung ab, sobald du bereit bist.</div>
+                  <div class="forever-actions">
+                    <button type="button" class="btn btn-teal btn-sm" id="applySubmitBtn">Bewerbung absenden</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="applyChatRestartBtn">Von vorn beginnen</button>
+                    <span id="applySubmitStatus" class="armory-status"></span>
+                  </div>
                 </div>
               </div>
 
@@ -3048,6 +3096,7 @@
   const WOWHEAD_NEWS_URL = WORKER_URL.replace(/\/mint-token$/, '/wowhead-news');
   const ARMORY_CHARACTER_URL = WORKER_URL.replace(/\/mint-token$/, '/armory-character');
   const WARCRAFTLOGS_CHARACTER_URL = WORKER_URL.replace(/\/mint-token$/, '/warcraftlogs-character');
+  const NOTIFY_APPLICATION_URL = WORKER_URL.replace(/\/mint-token$/, '/notify-application');
   const DISCORD_REDIRECT_URI = window.location.origin + window.location.pathname;
   const DISCORD_IDENTITY_KEY = 'guild-loot-discord-identity';
   const DISCORD_PKCE_VERIFIER_KEY = 'guild-loot-discord-pkce-verifier';
@@ -3294,7 +3343,12 @@
       : (existing ? existing.role : 'community');
     const changed = !existing || existing.role !== resolvedRole
       || existing.username !== discordIdentity.username || existing.avatar !== discordIdentity.avatar;
-    state.discordRoles[discordIdentity.id] = { role: resolvedRole, username: discordIdentity.username, avatar: discordIdentity.avatar };
+    // Object.assign (not a fresh object literal) on top of `existing` —
+    // this entry can carry extra per-user settings beyond role/username/
+    // avatar now (notifyOnApplications, see "Manage access" below), and a
+    // plain overwrite here would silently wipe that setting back to unset
+    // on this person's very next login.
+    state.discordRoles[discordIdentity.id] = Object.assign({}, existing, { role: resolvedRole, username: discordIdentity.username, avatar: discordIdentity.avatar });
     currentRole = resolvedRole;
     return changed;
   }
@@ -3308,6 +3362,17 @@
     // someone whose role just changed visibly moves to their new group
     // instead of staying in the old one until the modal is reopened.
     if (!els.accessModal.classList.contains('hidden')) renderAccessModal();
+    await saveData('discordRoles/' + discordId);
+  }
+
+  // "Notify this person about new applications" toggle, shown in Manage
+  // access next to each member's role — independent of role (an Admin or
+  // Officer can opt out, and in principle anyone could opt in, though the
+  // checkbox is only rendered for Officer/Admin rows since only they can
+  // see the applications list in the first place).
+  async function setDiscordUserNotify(discordId, enabled){
+    if (!state.discordRoles || !state.discordRoles[discordId]) return;
+    state.discordRoles[discordId].notifyOnApplications = !!enabled;
     await saveData('discordRoles/' + discordId);
   }
 
@@ -3727,8 +3792,20 @@
   // Recruiting — member-submitted applications, plus an Admin/Officer-
   // editable "which classes/specs are we currently looking for" list that
   // the Home page teaser and this page's overview both read from.
+  //
+  // The application form used to be one flat page (normalizeApplicationV1
+  // below); it's since been rebuilt as a chat-bot-style Q&A flow with a
+  // different, richer set of fields (normalizeApplicationV2). Both
+  // normalizers stay around and normalizeApplication() dispatches between
+  // them by the entry's `version` field, so any application submitted
+  // through the old form before this change keeps loading and displaying
+  // correctly — nothing already in Firebase needs migrating.
   // ---------------------------------------------------------------------
   function normalizeApplication(entry){
+    if (!entry || typeof entry !== 'object') return null;
+    return entry.version === 2 ? normalizeApplicationV2(entry) : normalizeApplicationV1(entry);
+  }
+  function normalizeApplicationV1(entry){
     if (!entry || typeof entry !== 'object') return null;
     // Applications can list more than one class (an applicant's main plus
     // an alt, say) — `picks` is an array of { classId, specs }. Older
@@ -3774,6 +3851,63 @@
     const remarks = typeof entry.remarks === 'string' ? entry.remarks.trim().slice(0, 1000) : '';
     return {
       picks, experience, professions, nameAge, logs, remarks,
+      applicantName: (typeof entry.applicantName === 'string' && entry.applicantName) ? entry.applicantName.slice(0, 80) : 'Unbekannt',
+      applicantId: typeof entry.applicantId === 'string' ? entry.applicantId : '',
+      createdAt: (typeof entry.createdAt === 'number' && entry.createdAt > 0) ? entry.createdAt : 0
+    };
+  }
+  // The current chat-bot form's shape — see APPLY_CHAT_STEPS further down
+  // for where each field is collected. firstName, age, picks (1–2 classes)
+  // and characters (one name per picked class) are the required
+  // questions; everything else is optional and defaults to "nothing
+  // given" rather than failing the whole application.
+  function normalizeApplicationV2(entry){
+    if (!entry || typeof entry !== 'object') return null;
+    const firstName = typeof entry.firstName === 'string' ? entry.firstName.trim().slice(0, 60) : '';
+    const age = (typeof entry.age === 'number' && entry.age >= 12 && entry.age <= 99) ? entry.age : null;
+
+    const seenClassIds = new Set();
+    const picks = [];
+    for (const p of (Array.isArray(entry.picks) ? entry.picks : [])){
+      if (picks.length >= 2) break;
+      if (!p || typeof p.classId !== 'string' || !CLASS_MAP[p.classId] || seenClassIds.has(p.classId)) continue;
+      const validSpecIds = foreverSpecsForClass(p.classId).map(s => s.id);
+      const specs = Array.from(new Set((Array.isArray(p.specs) ? p.specs : []).filter(s => typeof s === 'string' && validSpecIds.includes(s))));
+      if (!specs.length) continue;
+      seenClassIds.add(p.classId);
+      picks.push({ classId: p.classId, specs });
+    }
+
+    const rawCharacters = (entry.characters && typeof entry.characters === 'object') ? entry.characters : {};
+    const characters = {};
+    picks.forEach(p => {
+      const name = typeof rawCharacters[p.classId] === 'string' ? rawCharacters[p.classId].trim().slice(0, 24) : '';
+      if (name) characters[p.classId] = name;
+    });
+
+    if (!firstName || !age || !picks.length || Object.keys(characters).length !== picks.length) return null;
+
+    const normProfList = (list) => Array.from(
+      new Map(
+        (Array.isArray(list) ? list : [])
+          .filter(x => x && typeof x.professionId === 'string' && PROFESSION_MAP[x.professionId]
+            && (x.level === 'max' || (typeof x.level === 'number' && x.level >= 1 && x.level <= 300)))
+          .map(x => [x.professionId, { professionId: x.professionId, level: x.level }])
+      ).values()
+    );
+    const rawCharProf = (entry.charProfessions && typeof entry.charProfessions === 'object') ? entry.charProfessions : {};
+    const charProfessions = {};
+    picks.forEach(p => { charProfessions[p.classId] = normProfList(rawCharProf[p.classId]).slice(0, 2); });
+    const extraProfessions = normProfList(entry.extraProfessions).filter(x => !PROFESSION_MAP[x.professionId].primary);
+
+    const nickname = typeof entry.nickname === 'string' ? entry.nickname.trim().slice(0, 30) : '';
+    const logsUrl = (typeof entry.logsUrl === 'string' && /^https:\/\/(www\.)?warcraftlogs\.com\//i.test(entry.logsUrl))
+      ? entry.logsUrl.trim().slice(0, 300) : '';
+    const remarks = typeof entry.remarks === 'string' ? entry.remarks.trim().slice(0, 1000) : '';
+
+    return {
+      version: 2,
+      firstName, nickname, age, picks, characters, charProfessions, extraProfessions, logsUrl, remarks,
       applicantName: (typeof entry.applicantName === 'string' && entry.applicantName) ? entry.applicantName.slice(0, 80) : 'Unbekannt',
       applicantId: typeof entry.applicantId === 'string' ? entry.applicantId : '',
       createdAt: (typeof entry.createdAt === 'number' && entry.createdAt > 0) ? entry.createdAt : 0
@@ -3959,9 +4093,27 @@
     });
     return items;
   }
+  // New applications are an Officer/Admin-only "quest" (regular members
+  // never see the review list at all) — tracked the same way as
+  // Ankündigungen (newest createdAt vs. a per-user "seen up to" marker),
+  // just gated to isOfficerOrAdmin() instead of isMemberOrHigher().
+  function newestApplicationAt(){
+    return Object.values(state.applications || {}).reduce((max, a) => Math.max(max, a.createdAt || 0), 0);
+  }
+  function applicationsSeenAt(){
+    if (!discordIdentity) return 0;
+    const s = state.seenState && state.seenState[discordIdentity.id];
+    return (s && typeof s.applicationsSeenAt === 'number') ? s.applicationsSeenAt : 0;
+  }
+  function questPendingApplicationsCount(){
+    if (!discordIdentity || !isOfficerOrAdmin()) return 0;
+    const seenAt = applicationsSeenAt();
+    return Object.values(state.applications || {}).filter(a => (a.createdAt || 0) > seenAt).length;
+  }
   function pageQuestPending(pageId){
     if (pageId === 'announcements') return questPendingAnnouncement();
     if (pageId === 'forever') return questPendingPollItems().length > 0;
+    if (pageId === 'recruit') return questPendingApplicationsCount() > 0;
     return false;
   }
   // Marks Ankündigungen as "seen" up to the newest post that exists right
@@ -3972,7 +4124,18 @@
     const latest = newestAnnouncementAt();
     if (latest <= announcementsSeenAt()) return;
     if (!state.seenState) state.seenState = {};
-    state.seenState[discordIdentity.id] = { announcementsSeenAt: latest };
+    state.seenState[discordIdentity.id] = Object.assign({}, state.seenState[discordIdentity.id], { announcementsSeenAt: latest });
+    refreshQuestUI();
+    saveData('seenState/' + discordIdentity.id);
+  }
+  // Same idea for Bewerbungen, Officer/Admin-only — called when they open
+  // the Bewerbung page (see renderRecruitView).
+  function markApplicationsSeen(){
+    if (!discordIdentity || !isOfficerOrAdmin()) return;
+    const latest = newestApplicationAt();
+    if (latest <= applicationsSeenAt()) return;
+    if (!state.seenState) state.seenState = {};
+    state.seenState[discordIdentity.id] = Object.assign({}, state.seenState[discordIdentity.id], { applicationsSeenAt: latest });
     refreshQuestUI();
     saveData('seenState/' + discordIdentity.id);
   }
@@ -3989,7 +4152,8 @@
     if (!show) return;
     const announcementPending = questPendingAnnouncement();
     const pollItems = questPendingPollItems();
-    const totalCount = (announcementPending ? 1 : 0) + pollItems.length;
+    const applicationsCount = questPendingApplicationsCount();
+    const totalCount = (announcementPending ? 1 : 0) + pollItems.length + applicationsCount;
     // The bell icon itself is the WoW "!" quest mark — filled gold when
     // there's something pending, just its empty outline when you're
     // caught up (see the .has-pending CSS). Each item inside the dropdown
@@ -4016,6 +4180,13 @@
             <span>${escapeHtml(it.title)}</span>
           </a>`).join('');
       }
+      if (applicationsCount){
+        html += `<div class="quest-popover-section-title">Bewerbungen</div>
+          <a class="quest-popover-item" data-quest-page="recruit">
+            <span class="quest-popover-item-icon" aria-hidden="true">?</span>
+            <span>${applicationsCount} neue Bewerbung${applicationsCount === 1 ? '' : 'en'} warten auf Prüfung</span>
+          </a>`;
+      }
     }
     els.questPopoverList.innerHTML = html;
     els.questPopoverList.querySelectorAll('[data-quest-page]').forEach(a => {
@@ -4033,14 +4204,16 @@
   let pollComposerOptionDrafts = ['', '']; // composer's in-progress option text inputs, always >= POLL_MIN_OPTIONS
   let pollVoteDrafts = {}; // { [pollId]: [optionId, ...] } — per-poll in-progress selection before "Absenden"
   let pollCardManualOpen = {}; // { [pollId]: true|false } — same collapse-override convention as votings/announcements
-  // In-progress class+spec picks for the application form — an array so an
-  // applicant can apply with more than one class (e.g. their main and an
-  // alt), each entry independently multi-selecting specs via checkboxes.
-  // Always has at least one row; resetApplyComposerPicks() restores that.
-  let applyComposerPicks = [{ classId: CLASSES[0].id, specs: [] }];
-  // In-progress profession checkbox selection for the application form —
-  // a flat array of PROFESSIONS ids.
-  let applyComposerProfessions = [];
+  // Chat-bot-style application flow state — see "Bewerbung chat engine"
+  // further down for the step definitions and rendering. applyChatAnswers
+  // accumulates one validated value per step (keyed by step.key);
+  // applyChatStepIndex is how many steps have been answered so far (also
+  // the index of the step currently being asked). Per-step in-progress
+  // drafts for the more complex steps (class picks, character names,
+  // profession pickers) live in their own `applyChat*Draft` variables,
+  // declared right next to the step that uses them.
+  let applyChatStepIndex = 0;
+  let applyChatAnswers = {};
   let recruitingNeedsDraft = null; // officer's in-progress edit of state.recruitingNeeds, only written back on "Speichern"
 
   const els = {
@@ -4148,13 +4321,15 @@
     recruitLoggedOut: document.getElementById('recruitLoggedOut'),
     recruitLoggedIn: document.getElementById('recruitLoggedIn'),
     recruitLoginBtn: document.getElementById('recruitLoginBtn'),
-    applyNameAgeInput: document.getElementById('applyNameAgeInput'),
-    applyClassPicks: document.getElementById('applyClassPicks'),
-    applyAddClassBtn: document.getElementById('applyAddClassBtn'),
-    applyExperienceInput: document.getElementById('applyExperienceInput'),
-    applyLogsInput: document.getElementById('applyLogsInput'),
-    applyProfessionsGrid: document.getElementById('applyProfessionsGrid'),
-    applyRemarksInput: document.getElementById('applyRemarksInput'),
+    applyChatLog: document.getElementById('applyChatLog'),
+    applyChatComposer: document.getElementById('applyChatComposer'),
+    applyChatQuestionBubble: document.getElementById('applyChatQuestionBubble'),
+    applyChatInputArea: document.getElementById('applyChatInputArea'),
+    applyChatError: document.getElementById('applyChatError'),
+    applyChatSkipBtn: document.getElementById('applyChatSkipBtn'),
+    applyChatNextBtn: document.getElementById('applyChatNextBtn'),
+    applyChatDoneArea: document.getElementById('applyChatDoneArea'),
+    applyChatRestartBtn: document.getElementById('applyChatRestartBtn'),
     applySubmitBtn: document.getElementById('applySubmitBtn'),
     applySubmitStatus: document.getElementById('applySubmitStatus'),
     recruitNeedsEditor: document.getElementById('recruitNeedsEditor'),
@@ -4333,6 +4508,9 @@
     // Opening Ankündigungen is what clears its quest "!" — mark up to the
     // newest post that exists right now as seen (no-op if already caught up).
     if (pageId === 'announcements') markAnnouncementsSeen();
+    // Same for Bewerbung — only actually does anything for Officers/Admins
+    // (markApplicationsSeen() itself checks isOfficerOrAdmin()).
+    if (pageId === 'recruit') markApplicationsSeen();
   }
 
   // Back/forward now steps through the guild page's own Home /
@@ -4514,6 +4692,16 @@
       const profile = (state.characterProfiles || {})[id];
       const nickHtml = (profile && profile.nickname) ? ` <span class="access-member-nickname">"${escapeHtml(profile.nickname)}"</span>` : '';
       const { chipsHtml, hasCharacters } = characterBlockHtml(id);
+      // Only Admins/Officers can even see the applications list, so the
+      // "notify me about new applications" toggle only makes sense — and
+      // is only shown — for rows currently in one of those two roles.
+      const canNotify = m.role === 'admin' || m.role === 'officer';
+      const notifyHtml = canNotify
+        ? `<label class="access-member-notify" title="Bei neuer Bewerbung per Discord-DM und In-Site-Hinweis benachrichtigen">
+            <input type="checkbox" class="access-member-notify-checkbox" data-notify-discord-id="${id}" ${m.notifyOnApplications ? 'checked' : ''}>
+            Bewerbungen melden
+          </label>`
+        : '';
       return `
         <div class="access-member-block">
           <div class="access-member-row">
@@ -4521,6 +4709,7 @@
             <span class="access-member-name">${escapeHtml(m.username || 'Unknown')}${nickHtml}${isSelf ? ' (you)' : ''}</span>
             <select class="access-member-role-select" data-discord-id="${id}" ${isSelf ? 'disabled title="You can\'t change your own role — ask another Admin, or use a second Discord account."' : ''}>${roleOptHtml(m.role)}</select>
           </div>
+          ${notifyHtml}
           <div class="access-member-characters-row">
             <div class="character-chips">${chipsHtml}</div>
             ${hasCharacters ? `<button type="button" class="btn btn-ghost btn-sm access-member-armory-refresh" data-refresh-armory="${id}">Aktualisieren</button>` : ''}
@@ -4541,6 +4730,9 @@
     }).join('');
     els.accessMemberList.querySelectorAll('.access-member-role-select:not([disabled])').forEach(sel => {
       sel.addEventListener('change', (e) => setDiscordUserRole(sel.getAttribute('data-discord-id'), e.target.value));
+    });
+    els.accessMemberList.querySelectorAll('[data-notify-discord-id]').forEach(cb => {
+      cb.addEventListener('change', () => setDiscordUserNotify(cb.getAttribute('data-notify-discord-id'), cb.checked));
     });
     els.accessMemberList.querySelectorAll('[data-refresh-armory]').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -6314,15 +6506,71 @@
   els.newsGrid.addEventListener('scroll', updateNewsCarouselArrows);
   window.addEventListener('resize', updateNewsCarouselArrows);
 
-  // ---- Recruiting / Bewerbung: render + save/submit functions ---------
-  // An applicant can apply with more than one class (e.g. their main and an
-  // alt) — applyComposerPicks holds one { classId, specs: [] } row per
-  // class, each row picking its own class from a dropdown (already-used
-  // classes are disabled in the other rows so the same class can't be
-  // added twice) and one or more specs via checkboxes, same as before.
-  function renderApplyClassPicks(){
-    const usedClassIds = new Set(applyComposerPicks.map(p => p.classId));
-    els.applyClassPicks.innerHTML = applyComposerPicks.map((pick, i) => {
+  // ---- Recruiting / Bewerbung: chat-bot-style application flow --------
+  // Walks the applicant through APPLY_CHAT_STEPS one question at a time —
+  // a bot-message bubble plus an input area for that one question, same
+  // feel as a chat bot. Each step owns its own render()/collect() pair:
+  // render(container, previousValue) builds whatever input UI that
+  // question needs into the given container; collect(container) reads it
+  // back out, returning { ok:true, value, summary } on success (value is
+  // what gets stored in applyChatAnswers, summary is the short text shown
+  // in the transcript's "user" bubble) or { ok:false, error } to block
+  // advancing. Optional steps also provide skipValue() for the
+  // "Überspringen" button. The more complex steps (class picks, character
+  // names, profession pickers) keep their own in-progress draft in a
+  // dedicated applyChat*Draft variable declared just above them, mutated
+  // directly by their own input handlers and read by collect().
+  let applyChatPicksDraft = [];
+  let applyChatCharNamesDraft = {};
+  let applyChatCharProfDraft = {};
+  let applyChatExtraProfDraft = [];
+
+  function applyChatPrimaryProfessions(){ return PROFESSIONS.filter(p => p.primary); }
+  function applyChatSecondaryProfessions(){ return PROFESSIONS.filter(p => !p.primary); }
+  // A profession level is either a number 1–300 (Classic's skill cap) or
+  // the literal string 'max' (the "Max" checkbox) — anything else (left
+  // blank, garbage input) is treated as "not actually given" and dropped,
+  // same as leaving the whole profession unchecked.
+  function applyChatValidLevel(level){
+    if (level === 'max') return 'max';
+    const n = parseInt(level, 10);
+    return (Number.isFinite(n) && n >= 1 && n <= 300) ? n : null;
+  }
+  // Shared level-input markup for a profession draft entry — used by both
+  // the per-character profession step and the "extra professions" step.
+  function applyChatProfLevelRowsHtml(list){
+    return list.map(x => {
+      const prof = PROFESSION_MAP[x.professionId];
+      return `<div class="apply-chat-level-row">
+        <span class="apply-chat-level-label">${escapeHtml(prof ? prof.label : x.professionId)}</span>
+        <input type="text" inputmode="numeric" class="apply-chat-level-input" data-level-prof="${x.professionId}" maxlength="3" placeholder="Lvl" value="${x.level === 'max' ? '' : (x.level || '')}" ${x.level === 'max' ? 'disabled' : ''}>
+        <label class="apply-chat-level-max"><input type="checkbox" data-max-prof="${x.professionId}" ${x.level === 'max' ? 'checked' : ''}> Max</label>
+      </div>`;
+    }).join('');
+  }
+  function wireApplyChatProfLevelRows(holder, draftArr, onMaxToggled){
+    holder.querySelectorAll('[data-level-prof]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        inp.value = inp.value.replace(/[^0-9]/g, '').slice(0, 3);
+        const item = draftArr.find(x => x.professionId === inp.getAttribute('data-level-prof'));
+        if (item) item.level = inp.value;
+      });
+    });
+    holder.querySelectorAll('[data-max-prof]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const item = draftArr.find(x => x.professionId === cb.getAttribute('data-max-prof'));
+        if (item) item.level = cb.checked ? 'max' : '';
+        onMaxToggled();
+      });
+    });
+  }
+  // Same class-pick UI as before (dropdown + spec checkboxes, one row per
+  // class, already-used classes disabled in the other rows), just capped
+  // at 2 rows total and operating on applyChatPicksDraft/an arbitrary
+  // container instead of the old fixed applyClassPicks element.
+  function renderApplyChatPicksUI(container){
+    const usedClassIds = new Set(applyChatPicksDraft.map(p => p.classId));
+    const rowsHtml = applyChatPicksDraft.map((pick, i) => {
       const classOptions = CLASSES.map(c => {
         const disabled = usedClassIds.has(c.id) && c.id !== pick.classId;
         return `<option value="${c.id}" ${pick.classId === c.id ? 'selected' : ''} ${disabled ? 'disabled' : ''}>${escapeHtml(c.label)}</option>`;
@@ -6336,33 +6584,34 @@
       return `<div class="apply-class-pick-row" data-pick-index="${i}">
         <div class="apply-class-pick-head">
           <div class="poll-config-field">
-            <span class="poll-config-field-label">Klasse *</span>
+            <span class="poll-config-field-label">Klasse</span>
             <select data-pick-class-index="${i}">${classOptions}</select>
           </div>
-          ${applyComposerPicks.length > 1 ? `<button type="button" class="apply-class-pick-remove" data-remove-pick-index="${i}" title="Entfernen">✕</button>` : ''}
+          ${applyChatPicksDraft.length > 1 ? `<button type="button" class="apply-class-pick-remove" data-remove-pick-index="${i}" title="Entfernen">✕</button>` : ''}
         </div>
         <div class="poll-config-field apply-class-pick-specs">
-          <span class="poll-config-field-label">Spezialisierung(en) *</span>
+          <span class="poll-config-field-label">Spezialisierung(en)</span>
           <div class="apply-spec-checkboxes">${specsHtml}</div>
         </div>
       </div>`;
     }).join('');
+    const addDisabled = applyChatPicksDraft.length >= 2;
+    container.innerHTML = `<div class="apply-class-picks">${rowsHtml}</div>
+      <button type="button" class="apply-add-class-btn" id="applyChatAddClassBtn" ${addDisabled ? 'disabled' : ''}>+ Weitere Klasse hinzufügen (max. 2)</button>`;
 
-    els.applyClassPicks.querySelectorAll('[data-pick-class-index]').forEach(select => {
+    container.querySelectorAll('[data-pick-class-index]').forEach(select => {
       select.addEventListener('change', () => {
         const i = Number(select.getAttribute('data-pick-class-index'));
-        // Switching a row's class invalidates whatever specs were picked
-        // for the previous class, since spec ids are only valid per-class.
-        applyComposerPicks[i].classId = select.value;
-        applyComposerPicks[i].specs = [];
-        renderApplyClassPicks();
+        applyChatPicksDraft[i].classId = select.value;
+        applyChatPicksDraft[i].specs = [];
+        renderApplyChatPicksUI(container);
       });
     });
-    els.applyClassPicks.querySelectorAll('[data-pick-spec]').forEach(cb => {
+    container.querySelectorAll('[data-pick-spec]').forEach(cb => {
       const i = Number(cb.closest('[data-pick-index]').getAttribute('data-pick-index'));
       cb.addEventListener('change', () => {
         const specId = cb.getAttribute('data-pick-spec');
-        const pick = applyComposerPicks[i];
+        const pick = applyChatPicksDraft[i];
         if (cb.checked){
           if (!pick.specs.includes(specId)) pick.specs.push(specId);
         } else {
@@ -6370,93 +6619,376 @@
         }
       });
     });
-    els.applyClassPicks.querySelectorAll('[data-remove-pick-index]').forEach(btn => {
+    container.querySelectorAll('[data-remove-pick-index]').forEach(btn => {
       btn.addEventListener('click', () => {
         const i = Number(btn.getAttribute('data-remove-pick-index'));
-        applyComposerPicks.splice(i, 1);
-        renderApplyClassPicks();
+        applyChatPicksDraft.splice(i, 1);
+        renderApplyChatPicksUI(container);
       });
     });
-
-    els.applyAddClassBtn.disabled = applyComposerPicks.length >= CLASSES.length;
+    const addBtn = container.querySelector('#applyChatAddClassBtn');
+    if (addBtn) addBtn.addEventListener('click', () => {
+      if (applyChatPicksDraft.length >= 2) return;
+      const usedIds = new Set(applyChatPicksDraft.map(p => p.classId));
+      const nextClass = CLASSES.find(c => !usedIds.has(c.id));
+      if (!nextClass) return;
+      applyChatPicksDraft.push({ classId: nextClass.id, specs: [] });
+      renderApplyChatPicksUI(container);
+    });
   }
 
-  // Profession checkboxes for the application form — primary professions
-  // in one row, secondary (first aid/cooking/fishing, which everyone can
-  // have alongside their primaries) in a second, visually separated row.
-  function renderApplyProfessionCheckboxes(){
-    const renderGroup = (list) => list.map(p => `
-      <label class="poll-checkbox-field">
-        <input type="checkbox" data-profession="${p.id}" ${applyComposerProfessions.includes(p.id) ? 'checked' : ''}>
-        ${escapeHtml(p.label)}
-      </label>`).join('');
-    const primary = PROFESSIONS.filter(p => p.primary);
-    const secondary = PROFESSIONS.filter(p => !p.primary);
-    els.applyProfessionsGrid.innerHTML = `
-      <div class="apply-spec-checkboxes">${renderGroup(primary)}</div>
-      <div class="apply-profession-secondary-label">Jeder kann zusätzlich:</div>
-      <div class="apply-spec-checkboxes">${renderGroup(secondary)}</div>
-    `;
-    els.applyProfessionsGrid.querySelectorAll('[data-profession]').forEach(cb => {
-      cb.addEventListener('change', () => {
-        const id = cb.getAttribute('data-profession');
-        if (cb.checked){
-          if (!applyComposerProfessions.includes(id)) applyComposerProfessions.push(id);
-        } else {
-          applyComposerProfessions = applyComposerProfessions.filter(p => p !== id);
+  const APPLY_CHAT_STEPS = [
+    {
+      key: 'firstName', required: true,
+      bot: 'Wie ist dein richtiger Vorname?',
+      render(container, value){
+        container.innerHTML = `<input type="text" class="apply-text-input" id="applyChatFieldInput" maxlength="60" placeholder="z.B. Max" value="${escapeHtml(value || '')}">`;
+        container.querySelector('#applyChatFieldInput').focus();
+      },
+      collect(container){
+        const v = container.querySelector('#applyChatFieldInput').value.trim().slice(0, 60);
+        if (!v) return { ok: false, error: 'Bitte gib deinen Vornamen ein.' };
+        return { ok: true, value: v, summary: v };
+      }
+    },
+    {
+      key: 'nickname', required: false,
+      bot: 'Wie ist dein Nickname? Falls er noch nicht in deinen Einstellungen gespeichert ist, übernehmen wir ihn direkt von deiner Antwort hier.',
+      render(container, value){
+        const saved = (discordIdentity && state.characterProfiles[discordIdentity.id] && state.characterProfiles[discordIdentity.id].nickname) || '';
+        container.innerHTML = `<input type="text" class="apply-text-input" id="applyChatFieldInput" maxlength="30" placeholder="z.B. Nasty" value="${escapeHtml(value != null ? value : saved)}">`;
+        container.querySelector('#applyChatFieldInput').focus();
+      },
+      collect(container){
+        const v = container.querySelector('#applyChatFieldInput').value.trim().slice(0, 30);
+        return { ok: true, value: v, summary: v || '—' };
+      },
+      skipValue(){ return { value: '', summary: '—' }; }
+    },
+    {
+      key: 'age', required: true,
+      bot: 'Wie alt bist du?',
+      render(container, value){
+        container.innerHTML = `<input type="text" inputmode="numeric" class="apply-text-input" id="applyChatFieldInput" maxlength="3" placeholder="z.B. 24" value="${value != null ? escapeHtml(String(value)) : ''}">`;
+        const input = container.querySelector('#applyChatFieldInput');
+        input.addEventListener('input', () => { input.value = input.value.replace(/[^0-9]/g, ''); });
+        input.focus();
+      },
+      collect(container){
+        const raw = container.querySelector('#applyChatFieldInput').value.trim();
+        if (!/^[0-9]{1,3}$/.test(raw)) return { ok: false, error: 'Bitte gib dein Alter als Zahl ein.' };
+        const n = parseInt(raw, 10);
+        if (n < 12 || n > 99) return { ok: false, error: 'Bitte gib ein realistisches Alter ein.' };
+        return { ok: true, value: n, summary: String(n) };
+      }
+    },
+    {
+      key: 'picks', required: true,
+      bot: 'Für welche Klasse(n) und Spezialisierung(en) bewirbst du dich? (maximal 2 Klassen)',
+      render(container, value){
+        applyChatPicksDraft = (Array.isArray(value) && value.length ? value : [{ classId: CLASSES[0].id, specs: [] }])
+          .map(p => ({ classId: p.classId, specs: (p.specs || []).slice() }));
+        renderApplyChatPicksUI(container);
+      },
+      collect(){
+        const picks = applyChatPicksDraft
+          .filter(p => CLASS_MAP[p.classId] && p.specs.length)
+          .slice(0, 2)
+          .map(p => ({ classId: p.classId, specs: p.specs.slice() }));
+        if (!picks.length) return { ok: false, error: 'Bitte wähle mindestens eine Klasse mit Spezialisierung aus.' };
+        const summary = picks.map(p => `${CLASS_MAP[p.classId].label} (${p.specs.map(s => foreverSpecLabel(p.classId, s)).join(', ')})`).join(' · ');
+        return { ok: true, value: picks, summary };
+      }
+    },
+    {
+      key: 'characters', required: true,
+      bot: 'Mit welchen Charakteren (Charakternamen) bewirbst du dich auf diese Klassen?',
+      render(container, value){
+        const picks = applyChatAnswers.picks || [];
+        applyChatCharNamesDraft = {};
+        picks.forEach(p => { applyChatCharNamesDraft[p.classId] = (value && value[p.classId]) || ''; });
+        container.innerHTML = picks.map(p => {
+          const cls = CLASS_MAP[p.classId];
+          return `<div class="apply-chat-char-row">
+            <label class="apply-chat-char-row-label" style="color:${cls.color}">${escapeHtml(cls.label)}</label>
+            <input type="text" class="apply-text-input" maxlength="24" data-char-class="${p.classId}" placeholder="Charaktername" value="${escapeHtml(applyChatCharNamesDraft[p.classId])}">
+          </div>`;
+        }).join('');
+        container.querySelectorAll('[data-char-class]').forEach((inp, idx) => {
+          inp.addEventListener('input', () => { applyChatCharNamesDraft[inp.getAttribute('data-char-class')] = inp.value; });
+          if (idx === 0) inp.focus();
+        });
+      },
+      collect(){
+        const picks = applyChatAnswers.picks || [];
+        const out = {};
+        for (const p of picks){
+          const name = (applyChatCharNamesDraft[p.classId] || '').trim().slice(0, 24);
+          if (!name) return { ok: false, error: 'Bitte gib für jede Klasse einen Charakternamen an.' };
+          out[p.classId] = name;
         }
-      });
-    });
-  }
-  els.applyAddClassBtn.addEventListener('click', () => {
-    const usedClassIds = new Set(applyComposerPicks.map(p => p.classId));
-    const nextClass = CLASSES.find(c => !usedClassIds.has(c.id));
-    if (!nextClass) return;
-    applyComposerPicks.push({ classId: nextClass.id, specs: [] });
-    renderApplyClassPicks();
-  });
-  renderApplyClassPicks();
-  renderApplyProfessionCheckboxes();
+        const summary = picks.map(p => `${CLASS_MAP[p.classId].label}: ${out[p.classId]}`).join(' · ');
+        return { ok: true, value: out, summary };
+      }
+    },
+    {
+      key: 'charProfessions', required: false,
+      bot: 'Welche Hauptberufe hast du auf dieser/diesen Klasse(n)? (maximal 2 pro Charakter — das Profession-Level ist optional)',
+      render(container, value){
+        const picks = applyChatAnswers.picks || [];
+        applyChatCharProfDraft = {};
+        picks.forEach(p => {
+          applyChatCharProfDraft[p.classId] = (value && value[p.classId])
+            ? value[p.classId].map(x => ({ professionId: x.professionId, level: x.level === 'max' ? 'max' : String(x.level || '') }))
+            : [];
+        });
+        container.innerHTML = picks.map(p => {
+          const cls = CLASS_MAP[p.classId];
+          const charName = (applyChatAnswers.characters || {})[p.classId] || '';
+          const optsHtml = applyChatPrimaryProfessions().map(prof => `
+            <label class="poll-checkbox-field">
+              <input type="checkbox" data-prof-class="${p.classId}" data-prof-id="${prof.id}" ${applyChatCharProfDraft[p.classId].some(x => x.professionId === prof.id) ? 'checked' : ''}>
+              ${escapeHtml(prof.label)}
+            </label>`).join('');
+          return `<div class="apply-chat-prof-block">
+            <div class="apply-chat-prof-head" style="color:${cls.color}">${escapeHtml(cls.label)}${charName ? ' — ' + escapeHtml(charName) : ''}</div>
+            <div class="apply-spec-checkboxes">${optsHtml}</div>
+            <div class="apply-chat-level-rows" data-levels-for="${p.classId}"></div>
+          </div>`;
+        }).join('');
+        const refreshLevels = (classId) => {
+          const holder = container.querySelector(`[data-levels-for="${classId}"]`);
+          holder.innerHTML = applyChatProfLevelRowsHtml(applyChatCharProfDraft[classId]);
+          wireApplyChatProfLevelRows(holder, applyChatCharProfDraft[classId], () => refreshLevels(classId));
+        };
+        container.querySelectorAll('[data-prof-class]').forEach(cb => {
+          cb.addEventListener('change', () => {
+            const classId = cb.getAttribute('data-prof-class');
+            const profId = cb.getAttribute('data-prof-id');
+            const arr = applyChatCharProfDraft[classId];
+            if (cb.checked){
+              if (arr.length >= 2){ cb.checked = false; return; }
+              arr.push({ professionId: profId, level: '' });
+            } else {
+              const idx = arr.findIndex(x => x.professionId === profId);
+              if (idx >= 0) arr.splice(idx, 1);
+            }
+            refreshLevels(classId);
+          });
+        });
+        picks.forEach(p => refreshLevels(p.classId));
+      },
+      collect(){
+        const picks = applyChatAnswers.picks || [];
+        const out = {};
+        const summaryParts = [];
+        picks.forEach(p => {
+          const arr = (applyChatCharProfDraft[p.classId] || [])
+            .map(x => ({ professionId: x.professionId, level: applyChatValidLevel(x.level) }))
+            .filter(x => x.level !== null);
+          out[p.classId] = arr;
+          const label = arr.length ? arr.map(x => `${PROFESSION_MAP[x.professionId].label} (${x.level === 'max' ? 'Max' : x.level})`).join(', ') : 'keine Angabe';
+          summaryParts.push(`${CLASS_MAP[p.classId].label}: ${label}`);
+        });
+        return { ok: true, value: out, summary: summaryParts.join(' · ') };
+      },
+      skipValue(){
+        const picks = applyChatAnswers.picks || [];
+        const out = {}; picks.forEach(p => { out[p.classId] = []; });
+        return { value: out, summary: 'keine Angabe' };
+      }
+    },
+    {
+      key: 'extraProfessions', required: false,
+      bot: 'Hast Du zusätzliche Professions wie Erste Hilfe, Kochkunst und/oder Angeln?',
+      render(container, value){
+        applyChatExtraProfDraft = (Array.isArray(value) ? value : []).map(x => ({ professionId: x.professionId, level: x.level === 'max' ? 'max' : String(x.level || '') }));
+        const optsHtml = applyChatSecondaryProfessions().map(prof => `
+          <label class="poll-checkbox-field">
+            <input type="checkbox" data-extra-prof="${prof.id}" ${applyChatExtraProfDraft.some(x => x.professionId === prof.id) ? 'checked' : ''}>
+            ${escapeHtml(prof.label)}
+          </label>`).join('');
+        container.innerHTML = `<div class="apply-spec-checkboxes">${optsHtml}</div><div class="apply-chat-level-rows" id="applyChatExtraLevels"></div>`;
+        const holder = container.querySelector('#applyChatExtraLevels');
+        const refresh = () => {
+          holder.innerHTML = applyChatProfLevelRowsHtml(applyChatExtraProfDraft);
+          wireApplyChatProfLevelRows(holder, applyChatExtraProfDraft, refresh);
+        };
+        container.querySelectorAll('[data-extra-prof]').forEach(cb => {
+          cb.addEventListener('change', () => {
+            const profId = cb.getAttribute('data-extra-prof');
+            if (cb.checked){ applyChatExtraProfDraft.push({ professionId: profId, level: '' }); }
+            else { applyChatExtraProfDraft = applyChatExtraProfDraft.filter(x => x.professionId !== profId); }
+            refresh();
+          });
+        });
+        refresh();
+      },
+      collect(){
+        const arr = applyChatExtraProfDraft
+          .map(x => ({ professionId: x.professionId, level: applyChatValidLevel(x.level) }))
+          .filter(x => x.level !== null);
+        const summary = arr.length ? arr.map(x => `${PROFESSION_MAP[x.professionId].label} (${x.level === 'max' ? 'Max' : x.level})`).join(', ') : '—';
+        return { ok: true, value: arr, summary };
+      },
+      skipValue(){ return { value: [], summary: '—' }; }
+    },
+    {
+      key: 'logsUrl', required: false,
+      bot: 'Bitte teile uns den Link zu deinen aktuellen Warcraftlogs für deine(n) Charakter(e).',
+      render(container, value){
+        container.innerHTML = `<input type="text" class="apply-text-input" id="applyChatFieldInput" maxlength="300" placeholder="https://www.warcraftlogs.com/character/…" value="${escapeHtml(value || '')}">`;
+        container.querySelector('#applyChatFieldInput').focus();
+      },
+      collect(container){
+        const v = container.querySelector('#applyChatFieldInput').value.trim().slice(0, 300);
+        if (!v) return { ok: true, value: '', summary: '—' };
+        if (!/^https:\/\/(www\.)?warcraftlogs\.com\//i.test(v)){
+          return { ok: false, error: 'Bitte gib einen gültigen warcraftlogs.com-Link ein (oder überspringe die Frage).' };
+        }
+        return { ok: true, value: v, summary: v };
+      },
+      skipValue(){ return { value: '', summary: '—' }; }
+    },
+    {
+      key: 'remarks', required: false,
+      bot: 'Möchtest Du uns sonst noch etwas über dich erzählen oder uns mitteilen?',
+      render(container, value){
+        container.innerHTML = `<textarea class="apply-textarea" id="applyChatFieldInput" rows="3" maxlength="1000" placeholder="Alles, was du uns sonst noch mitgeben möchtest…">${escapeHtml(value || '')}</textarea>`;
+        container.querySelector('#applyChatFieldInput').focus();
+      },
+      collect(container){
+        const v = container.querySelector('#applyChatFieldInput').value.trim().slice(0, 1000);
+        return { ok: true, value: v, summary: v || '—' };
+      },
+      skipValue(){ return { value: '', summary: '—' }; }
+    }
+  ];
 
-  function resetApplyComposer(){
-    els.applyNameAgeInput.value = '';
-    els.applyExperienceInput.value = '';
-    els.applyLogsInput.value = '';
-    els.applyRemarksInput.value = '';
-    applyComposerPicks = [{ classId: CLASSES[0].id, specs: [] }];
-    applyComposerProfessions = [];
-    renderApplyClassPicks();
-    renderApplyProfessionCheckboxes();
+  let applyChatSummaries = {};
+
+  function resetApplyChat(){
+    applyChatStepIndex = 0;
+    applyChatAnswers = {};
+    applyChatSummaries = {};
+    els.applyChatDoneArea.classList.add('hidden');
+    els.applyChatComposer.classList.remove('hidden');
+    els.applySubmitStatus.textContent = '';
+    els.applySubmitStatus.className = 'armory-status';
+    renderApplyChatTranscript();
+    renderApplyChatCurrentStep();
+  }
+
+  function renderApplyChatTranscript(){
+    els.applyChatLog.innerHTML = APPLY_CHAT_STEPS.slice(0, applyChatStepIndex).map(step => `
+      <div class="apply-chat-bubble apply-chat-bubble-bot">${escapeHtml(step.bot)}</div>
+      <div class="apply-chat-bubble apply-chat-bubble-user">${escapeHtml(applyChatSummaries[step.key] != null ? applyChatSummaries[step.key] : '—')}</div>
+    `).join('');
+    els.applyChatLog.scrollTop = els.applyChatLog.scrollHeight;
+  }
+
+  function renderApplyChatCurrentStep(){
+    els.applyChatError.classList.add('hidden');
+    els.applyChatError.textContent = '';
+    if (applyChatStepIndex >= APPLY_CHAT_STEPS.length){
+      els.applyChatComposer.classList.add('hidden');
+      els.applyChatDoneArea.classList.remove('hidden');
+      return;
+    }
+    els.applyChatComposer.classList.remove('hidden');
+    els.applyChatDoneArea.classList.add('hidden');
+    const step = APPLY_CHAT_STEPS[applyChatStepIndex];
+    els.applyChatQuestionBubble.textContent = step.bot;
+    step.render(els.applyChatInputArea, applyChatAnswers[step.key]);
+    els.applyChatSkipBtn.classList.toggle('hidden', !!step.required);
+  }
+
+  function applyChatGoNext(){
+    const step = APPLY_CHAT_STEPS[applyChatStepIndex];
+    if (!step) return;
+    const result = step.collect(els.applyChatInputArea);
+    if (!result.ok){
+      els.applyChatError.textContent = result.error || 'Bitte prüfe deine Eingabe.';
+      els.applyChatError.classList.remove('hidden');
+      return;
+    }
+    applyChatAnswers[step.key] = result.value;
+    applyChatSummaries[step.key] = result.summary;
+    applyChatStepIndex++;
+    renderApplyChatTranscript();
+    renderApplyChatCurrentStep();
+  }
+
+  function applyChatSkipStep(){
+    const step = APPLY_CHAT_STEPS[applyChatStepIndex];
+    if (!step || step.required) return;
+    const skip = step.skipValue ? step.skipValue() : { value: '', summary: '—' };
+    applyChatAnswers[step.key] = skip.value;
+    applyChatSummaries[step.key] = skip.summary;
+    applyChatStepIndex++;
+    renderApplyChatTranscript();
+    renderApplyChatCurrentStep();
+  }
+
+  els.applyChatNextBtn.addEventListener('click', applyChatGoNext);
+  els.applyChatSkipBtn.addEventListener('click', applyChatSkipStep);
+  els.applyChatRestartBtn.addEventListener('click', resetApplyChat);
+  // Enter submits the current step for simple single-line fields — but not
+  // inside the remarks textarea, where Enter should just insert a newline.
+  els.applyChatInputArea.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target && e.target.tagName !== 'TEXTAREA'){
+      e.preventDefault();
+      applyChatGoNext();
+    }
+  });
+
+  // If this applicant hasn't saved a nickname yet (Q2), their chat answer
+  // becomes their saved nickname too — same Firebase field User Settings
+  // itself writes to, never overwriting one that's already set.
+  async function applyChatSaveNicknameIfNeeded(nickname){
+    if (!discordIdentity || !nickname) return;
+    if (!state.characterProfiles) state.characterProfiles = {};
+    const existing = state.characterProfiles[discordIdentity.id];
+    if (existing && existing.nickname) return;
+    state.characterProfiles[discordIdentity.id] = normalizeCharacterProfile(Object.assign({}, existing, { nickname }));
+    renderAll();
+    await saveData('characterProfiles/' + discordIdentity.id);
+  }
+
+  // Pings every Officer/Admin who's opted into "Bewerbungen melden" (see
+  // Manage access) via a Discord DM from the guild's own bot, through the
+  // Worker's /notify-application endpoint. Best-effort only — the in-site
+  // quest bell (questPendingApplicationsCount, above) is the notification
+  // that always works regardless of Discord/Worker availability; this is
+  // just the extra "even if you're not on the page" nudge on top of it.
+  // The Worker independently re-reads the application from Firebase
+  // before DMing anyone, so this can't be used to spam arbitrary messages
+  // — see discord-auth-worker.js's handleNotifyApplication.
+  async function notifyOfficersOfNewApplication(applicationId, application){
+    if (!isWorkerConfigured()) return;
+    const roles = state.discordRoles || {};
+    const recipientIds = Object.keys(roles).filter(id => roles[id] && roles[id].notifyOnApplications && id !== application.applicantId);
+    if (!recipientIds.length) return;
+    const who = application.firstName || application.applicantName || 'Jemand';
+    const classLabel = (application.picks || [])
+      .map(p => (CLASS_MAP[p.classId] ? CLASS_MAP[p.classId].label : p.classId))
+      .join(' / ');
+    const message = `Neue Bewerbung von ${who}${classLabel ? ' (' + classLabel + ')' : ''} — schau sie dir auf der Gildenseite unter "Bewerbung" an.`;
+    try{
+      await fetch(NOTIFY_APPLICATION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicationId, recipientIds, message })
+      });
+    }catch(e){
+      // Silent — the in-site bell above already covers this, and this
+      // Worker call is a pure bonus on top of it.
+    }
   }
 
   async function submitApplication(){
-    if (!discordIdentity) return;
-    // Only keep rows that ended up with a real class and at least one spec
-    // — an extra row that got added but left blank shouldn't block or
-    // corrupt the submission, it's just silently dropped.
-    const picks = applyComposerPicks
-      .filter(p => CLASS_MAP[p.classId] && p.specs.length)
-      .map(p => ({ classId: p.classId, specs: p.specs.slice() }));
-    if (!picks.length){
-      els.applySubmitStatus.textContent = 'Bitte wähle mindestens eine Klasse mit Spezialisierung aus.';
-      els.applySubmitStatus.className = 'armory-status armory-status-error';
-      return;
-    }
-    const experience = els.applyExperienceInput.value.trim().slice(0, 1500);
-    if (!experience){
-      els.applySubmitStatus.textContent = 'Bitte erzähl uns kurz von deiner WoW-Erfahrung.';
-      els.applySubmitStatus.className = 'armory-status armory-status-error';
-      return;
-    }
-    const professions = applyComposerProfessions.filter(p => PROFESSION_MAP[p]);
-    if (!professions.length){
-      els.applySubmitStatus.textContent = 'Bitte gib an, welche Berufe du zu Forever skillen möchtest.';
-      els.applySubmitStatus.className = 'armory-status armory-status-error';
-      return;
-    }
-    const nameAge = els.applyNameAgeInput.value.trim().slice(0, 200);
-    const logs = els.applyLogsInput.value.trim().slice(0, 800);
-    const remarks = els.applyRemarksInput.value.trim().slice(0, 1000);
+    if (!discordIdentity || applyChatStepIndex < APPLY_CHAT_STEPS.length) return;
+    const a = applyChatAnswers;
 
     let id = null;
     try{ id = db ? db.ref(DB_PATH + '/applications').push().key : null; }catch(e){}
@@ -6464,7 +6996,16 @@
 
     if (!state.applications) state.applications = {};
     state.applications[id] = {
-      picks, experience, professions, nameAge, logs, remarks,
+      version: 2,
+      firstName: a.firstName || '',
+      nickname: a.nickname || '',
+      age: a.age || null,
+      picks: a.picks || [],
+      characters: a.characters || {},
+      charProfessions: a.charProfessions || {},
+      extraProfessions: a.extraProfessions || [],
+      logsUrl: a.logsUrl || '',
+      remarks: a.remarks || '',
       applicantName: discordIdentity.username,
       applicantId: discordIdentity.id,
       createdAt: Date.now()
@@ -6474,9 +7015,12 @@
     renderAll();
     const ok = await saveData('applications/' + id);
     if (ok){
-      resetApplyComposer();
+      const nicknameToSave = a.nickname;
+      resetApplyChat();
       els.applySubmitStatus.textContent = 'Bewerbung gesendet — wir melden uns bei dir!';
       els.applySubmitStatus.className = 'armory-status armory-status-ok';
+      applyChatSaveNicknameIfNeeded(nicknameToSave);
+      notifyOfficersOfNewApplication(id, state.applications[id]).catch(() => {});
     } else {
       delete state.applications[id];
       els.applySubmitStatus.textContent = 'Konnte nicht gesendet werden — bitte später erneut versuchen.';
@@ -6484,6 +7028,14 @@
       renderAll();
     }
   }
+  // Builds the first question's UI once at load — the chat composer sits
+  // inside the (initially hidden) #recruitLoggedIn block, so this doesn't
+  // show anything until someone actually logs in and opens Bewerbung, but
+  // it needs to run once regardless so the first question is ready the
+  // moment that block unhides. Not called again on every renderAll() (that
+  // would wipe an applicant's in-progress answers on every Firebase sync)
+  // — only an explicit restart (or a fresh page load) resets the chat.
+  resetApplyChat();
 
   function ensureRecruitingNeedsDraftLoaded(){
     if (!recruitingNeedsDraft) recruitingNeedsDraft = JSON.parse(JSON.stringify(state.recruitingNeeds || {}));
@@ -6543,7 +7095,70 @@
       els.applicationsList.innerHTML = `<div class="lootlib-note">Noch keine Bewerbungen.</div>`;
       return;
     }
+    // applicationCardCommonHtml holds the bits identical between the old
+    // flat-form applications (v1) and the new chat-form ones (v2) — the
+    // head row (name/date/contact/delete) and the "already has a saved
+    // User Settings profile" block — while each version formats its own
+    // body below that.
+    const applicationCardCommonParts = (a) => {
+      const dateStr = a.createdAt ? new Date(a.createdAt).toLocaleDateString('de-DE') : '';
+      const applicantProfile = a.applicantId ? (state.characterProfiles || {})[a.applicantId] : null;
+      const hasApplicantCharacters = !!(applicantProfile && applicantProfile.characters && applicantProfile.characters.length);
+      const applicantCharactersHtml = hasApplicantCharacters
+        ? `<div class="application-characters">
+            <strong>Charaktere (User Settings):</strong>
+            <div class="character-chips">${applicantProfile.characters.map(characterChipHtml).join('')}</div>
+            <button type="button" class="btn btn-ghost btn-sm access-member-armory-refresh" data-refresh-armory="${a.applicantId}">Aktualisieren</button>
+          </div>`
+        : '';
+      const contactBtnHtml = a.applicantId
+        ? `<a class="btn btn-discord btn-sm" href="https://discord.com/users/${encodeURIComponent(a.applicantId)}" target="_blank" rel="noopener" title="Öffnet das Discord-Profil von ${escapeHtml(a.applicantName)} — von dort direkt 'Nachricht senden'">Auf Discord kontaktieren</a>`
+        : '';
+      const headHtml = `<div class="application-card-head">
+          <span class="application-applicant">${escapeHtml(a.applicantName)}${applicantProfile && applicantProfile.nickname ? ` <span class="access-member-nickname">"${escapeHtml(applicantProfile.nickname)}"</span>` : ''}</span>
+          <span class="application-date">${escapeHtml(dateStr)}</span>
+          ${contactBtnHtml}
+          <button type="button" class="btn btn-ghost btn-sm" data-delete-application="${a.id}">Löschen</button>
+        </div>`;
+      return { headHtml, applicantCharactersHtml };
+    };
+    const profListText = (list) => (Array.isArray(list) && list.length)
+      ? list.map(x => `${PROFESSION_MAP[x.professionId] ? PROFESSION_MAP[x.professionId].label : x.professionId} (${x.level === 'max' ? 'Max' : x.level})`).join(', ')
+      : '—';
+
     els.applicationsList.innerHTML = apps.map(a => {
+      const { headHtml, applicantCharactersHtml } = applicationCardCommonParts(a);
+      if (a.version === 2){
+        // Current chat-form shape — one block per picked class (its spec,
+        // the character name given for it, and its main professions),
+        // then the applicant's age/nickname, extra professions, logs link
+        // and remarks.
+        const classBlocksHtml = (a.picks || []).map(p => {
+          const cls = CLASS_MAP[p.classId];
+          const specLabels = (p.specs || []).map(s => foreverSpecLabel(p.classId, s)).filter(Boolean).join(', ') || '—';
+          const charName = (a.characters || {})[p.classId] || '—';
+          const profText = profListText((a.charProfessions || {})[p.classId]);
+          return `<div class="application-class-block">
+            <span class="application-class-pick">
+              <span class="application-class" style="color:${cls ? cls.color : 'inherit'}">${escapeHtml(cls ? cls.label : p.classId)}</span>
+              <span class="application-specs">${escapeHtml(specLabels)}</span>
+            </span>
+            <p class="application-namage"><strong>Charakter:</strong> ${escapeHtml(charName)}</p>
+            <p class="application-professions"><strong>Hauptberufe:</strong> ${escapeHtml(profText)}</p>
+          </div>`;
+        }).join('');
+        return `<div class="application-card">
+          ${headHtml}
+          <p class="application-namage"><strong>Vorname &amp; Alter:</strong> ${escapeHtml(a.firstName)}, ${a.age}${a.nickname ? ` <span class="access-member-nickname">Nickname: "${escapeHtml(a.nickname)}"</span>` : ''}</p>
+          <div class="application-class-picks application-class-picks-v2">${classBlocksHtml}</div>
+          <p class="application-professions"><strong>Zusätzliche Professions:</strong> ${escapeHtml(profListText(a.extraProfessions))}</p>
+          ${a.logsUrl ? `<p class="application-logs"><strong>Warcraftlogs:</strong> ${linkifyEscaped(a.logsUrl)}</p>` : ''}
+          ${a.remarks ? `<p class="application-remarks"><strong>Sonstiges:</strong> ${linkifyEscaped(a.remarks)}</p>` : ''}
+          ${applicantCharactersHtml}
+        </div>`;
+      }
+      // Legacy (v1) flat-form application — unchanged formatting, for
+      // anything submitted before the chat-form rebuild.
       const picksHtml = (a.picks || []).map(p => {
         const cls = CLASS_MAP[p.classId];
         const specLabels = (p.specs || []).map(s => foreverSpecLabel(p.classId, s)).filter(Boolean).join(', ') || '—';
@@ -6552,44 +7167,14 @@
           <span class="application-specs">${escapeHtml(specLabels)}</span>
         </span>`;
       }).join('');
-      const dateStr = a.createdAt ? new Date(a.createdAt).toLocaleDateString('de-DE') : '';
       // Professions is either an array of known PROFESSIONS ids (current
       // form) or a legacy free-text string (applications submitted before
       // the checkbox list existed) — display either correctly.
       const professionsText = Array.isArray(a.professions)
         ? a.professions.map(id => (PROFESSION_MAP[id] ? PROFESSION_MAP[id].label : id)).join(', ')
         : a.professions;
-      // If this applicant has since logged in and set up "Meine
-      // Charaktere", show that saved nickname/character info here too —
-      // officers manage applicants mostly by their in-game/Discord
-      // character names, not their Discord username.
-      const applicantProfile = a.applicantId ? (state.characterProfiles || {})[a.applicantId] : null;
-      const hasApplicantCharacters = !!(applicantProfile && applicantProfile.characters && applicantProfile.characters.length);
-      const applicantCharactersHtml = hasApplicantCharacters
-        ? `<div class="application-characters">
-            <strong>Charaktere:</strong>
-            <div class="character-chips">${applicantProfile.characters.map(characterChipHtml).join('')}</div>
-            <button type="button" class="btn btn-ghost btn-sm access-member-armory-refresh" data-refresh-armory="${a.applicantId}">Aktualisieren</button>
-          </div>`
-        : '';
-      // Direct link into Discord's own profile view for this applicant —
-      // one click gets an Officer to "Nachricht senden" instead of having
-      // to search the member list by username by hand. Uses applicantId
-      // (their stable Discord user id from OAuth), which — unlike the
-      // username — never changes, so this keeps working even if they
-      // rename themselves on Discord later. Only shown when we actually
-      // have an id (always true for anything submitted through the real
-      // form; guarded anyway for old/malformed data).
-      const contactBtnHtml = a.applicantId
-        ? `<a class="btn btn-discord btn-sm" href="https://discord.com/users/${encodeURIComponent(a.applicantId)}" target="_blank" rel="noopener" title="Öffnet das Discord-Profil von ${escapeHtml(a.applicantName)} — von dort direkt 'Nachricht senden'">Auf Discord kontaktieren</a>`
-        : '';
       return `<div class="application-card">
-        <div class="application-card-head">
-          <span class="application-applicant">${escapeHtml(a.applicantName)}${applicantProfile && applicantProfile.nickname ? ` <span class="access-member-nickname">"${escapeHtml(applicantProfile.nickname)}"</span>` : ''}</span>
-          <span class="application-date">${escapeHtml(dateStr)}</span>
-          ${contactBtnHtml}
-          <button type="button" class="btn btn-ghost btn-sm" data-delete-application="${a.id}">Löschen</button>
-        </div>
+        ${headHtml}
         <div class="application-class-picks">${picksHtml}</div>
         ${a.nameAge ? `<p class="application-namage"><strong>Name &amp; Alter:</strong> ${escapeHtml(a.nameAge)}</p>` : ''}
         <p class="application-experience"><strong>Erfahrung:</strong> ${linkifyEscaped(a.experience)}</p>

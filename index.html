@@ -872,6 +872,11 @@
      without reading the label. */
   .forever-pick-cell{ display: inline-flex; align-items: center; gap: 6px; }
   .forever-pick-role-dot{ width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  /* The same talent-tree icon used on the chart bars, shrunk down to sit
+     inline in a table row next to the class/role dots — gives the table
+     the same "WoW character" the chart already has instead of relying on
+     color dots alone. */
+  .forever-pick-icon{ width: 20px; height: 20px; flex-shrink: 0; }
   /* When the table is sorted by First/Second Char, identical-class rows
      already sort next to each other alphabetically — this just makes that
      grouping visible, so the eye can jump straight to "where does the
@@ -898,12 +903,12 @@
      Each bar is still the click target for showVoteDetailsModal (who
      picked it), same as the old row version. */
   .forever-ov-chart-wrap{ overflow-x: auto; padding-bottom: 4px; }
-  .forever-ov-chart{ display: flex; align-items: flex-end; gap: 22px; min-width: min-content; padding: 4px 2px 0; }
+  .forever-ov-chart{ display: flex; align-items: flex-end; gap: 10px; min-width: min-content; padding: 4px 2px 0; flex-wrap: wrap; }
   .forever-ov-class-col{ display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
-  .forever-ov-bars{ display: flex; align-items: flex-end; gap: 6px; height: 150px; }
+  .forever-ov-bars{ display: flex; align-items: flex-end; gap: 3px; height: 140px; }
   .forever-ov-bar-col{
     display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-    height: 100%; width: 34px; cursor: pointer; border-radius: 4px 4px 0 0; padding-top: 2px;
+    height: 100%; width: 24px; cursor: pointer; border-radius: 4px 4px 0 0; padding-top: 2px;
   }
   .forever-ov-bar-col:hover{ background: rgba(255,255,255,0.05); }
   .forever-ov-bar-count{ font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; white-space: nowrap; }
@@ -923,13 +928,13 @@
      below both went up to a size where the frame and the art read
      clearly, using Wowhead's 'large' (56×56) source instead of 'medium'
      to stay sharp at that size. */
-  .forever-ov-spec-icons{ display: flex; gap: 6px; margin-top: 6px; }
-  .forever-ov-spec-icon-wrap{ width: 34px; display: flex; justify-content: center; cursor: pointer; }
+  .forever-ov-spec-icons{ display: flex; gap: 3px; margin-top: 6px; }
+  .forever-ov-spec-icon-wrap{ width: 24px; display: flex; justify-content: center; cursor: pointer; }
   .wow-icon-frame{
     border-radius: 4px; display: block; border: 1px solid #000;
     box-shadow: 0 0 0 1px rgba(201,162,97,0.85), 0 1px 3px rgba(0,0,0,0.55);
   }
-  .forever-ov-spec-icon{ width: 30px; height: 30px; }
+  .forever-ov-spec-icon{ width: 22px; height: 22px; }
   .forever-ov-spec-icon-wrap:hover .forever-ov-spec-icon{ box-shadow: 0 0 0 1px var(--gold-bright), 0 0 6px rgba(var(--gold-bright-rgb),0.6); }
   .forever-ov-baseline{ width: 100%; height: 1px; background: var(--border); margin-top: 7px; }
   /* Class icon (also from TALENT_DATA/Wowhead, same as above) to the left
@@ -937,20 +942,20 @@
      instead of the page's default text color — ties the footer visually
      to both the bars above (role colors) and the rest of the page (class
      colors are used the same way in the officer table, picker, etc). */
-  .forever-ov-class-foot{ display: flex; align-items: center; gap: 7px; margin-top: 9px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
-  .forever-ov-class-icon{ width: 26px; height: 26px; flex-shrink: 0; }
-  .forever-ov-class-total{ font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+  .forever-ov-class-foot{ display: flex; align-items: center; gap: 5px; margin-top: 9px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .forever-ov-class-icon{ width: 20px; height: 20px; flex-shrink: 0; }
+  .forever-ov-class-total{ font-size: 10.5px; color: var(--text-faint); margin-top: 2px; }
   .forever-ov-legend{ display: flex; gap: 14px; margin-bottom: 14px; font-size: 12px; color: var(--text-faint); flex-wrap: wrap; }
   .forever-ov-legend-item{ display: flex; align-items: center; gap: 5px; }
   .forever-ov-legend-dot{ width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
   @media (max-width: 640px){
-    .forever-ov-chart{ gap: 16px; }
-    .forever-ov-bars{ height: 120px; }
-    .forever-ov-bar-col{ width: 26px; }
-    .forever-ov-spec-icon-wrap{ width: 26px; }
-    .forever-ov-spec-icon{ width: 22px; height: 22px; }
-    .forever-ov-class-icon{ width: 22px; height: 22px; }
-    .forever-ov-class-foot{ font-size: 11px; }
+    .forever-ov-chart{ gap: 8px; }
+    .forever-ov-bars{ height: 110px; }
+    .forever-ov-bar-col{ width: 20px; }
+    .forever-ov-spec-icon-wrap{ width: 20px; }
+    .forever-ov-spec-icon{ width: 18px; height: 18px; }
+    .forever-ov-class-icon{ width: 18px; height: 18px; }
+    .forever-ov-class-foot{ font-size: 10.5px; }
   }
 
   /* ---------- Custom polls — a generic Offi-built voting tool (separate
@@ -5928,7 +5933,8 @@
         classId: p.classId,
         label: `${cls ? cls.label : p.classId} (${foreverSpecLabel(p.classId, p.spec)})`,
         classColor: cls ? cls.color : '#888',
-        roleColor: specDef ? FOREVER_ROLE_COLORS[specDef.role] : null
+        roleColor: specDef ? FOREVER_ROLE_COLORS[specDef.role] : null,
+        iconUrl: foreverSpecIconUrl(p.classId, p.spec)
       };
     };
     // Precompute each row's three sortable columns once, up front — the
@@ -5962,7 +5968,7 @@
       return (d * foreverOfficerSortDir) || a.member.localeCompare(b.member, 'de', { sensitivity: 'base' });
     });
     const pickCellHtml = (info) => info
-      ? `<span class="forever-pick-cell"><span class="forever-class-dot" style="background:${info.classColor}"></span>${info.roleColor ? `<span class="forever-pick-role-dot" style="background:${info.roleColor}"></span>` : ''}${escapeHtml(info.label)}</span>`
+      ? `<span class="forever-pick-cell">${info.iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${info.iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}<span class="forever-class-dot" style="background:${info.classColor}"></span>${info.roleColor ? `<span class="forever-pick-role-dot" style="background:${info.roleColor}"></span>` : ''}${escapeHtml(info.label)}</span>`
       : '—';
     // Grouping only makes sense when the table is actually sorted by one
     // of the two class columns — sorting by Mitglied interleaves classes

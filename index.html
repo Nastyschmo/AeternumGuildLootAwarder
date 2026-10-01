@@ -865,17 +865,12 @@
   .forever-officer-table th[data-k]:hover{ color: var(--text); }
   .forever-officer-table th[aria-sort="ascending"]::after{ content: " ▲"; font-size: 9px; }
   .forever-officer-table th[aria-sort="descending"]::after{ content: " ▼"; font-size: 9px; }
-  /* First/Second Char cells — a class-color dot (same circular dot used
-     everywhere else on the page for "this is class X") plus a small
-     square role dot (same shape as the chart legend above, Tank/Healer/
-     Damage) right next to the text, so a glance at the row tells you both
-     without reading the label. */
+  /* First/Second Char cells — the class icon + the spec/talent-tree icon
+     (same ones used on the chart above), plus a small class-color dot,
+     right next to the text. The separate Tank/Healer/Damage role dot was
+     dropped — the spec icon alone already conveys the role, so the dot
+     was redundant once the icon was added. */
   .forever-pick-cell{ display: inline-flex; align-items: center; gap: 6px; }
-  .forever-pick-role-dot{ width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
-  /* The same talent-tree icon used on the chart bars, shrunk down to sit
-     inline in a table row next to the class/role dots — gives the table
-     the same "WoW character" the chart already has instead of relying on
-     color dots alone. */
   .forever-pick-icon{ width: 20px; height: 20px; flex-shrink: 0; }
   /* When the table is sorted by First/Second Char, identical-class rows
      already sort next to each other alphabetically — this just makes that
@@ -903,7 +898,13 @@
      Each bar is still the click target for showVoteDetailsModal (who
      picked it), same as the old row version. */
   .forever-ov-chart-wrap{ overflow-x: auto; padding-bottom: 4px; }
-  .forever-ov-chart{ display: flex; align-items: flex-end; gap: 10px; min-width: min-content; padding: 4px 2px 0; flex-wrap: wrap; }
+  /* justify-content:space-between spreads the class columns across the
+     card's full width instead of packing them to the left — at wide
+     viewports the tightened column widths (see below) leave slack space,
+     and without this the chart looked like it was missing content on the
+     right. flex-wrap stays on as a fallback for narrow windows where even
+     evenly-spread columns wouldn't fit on one line. */
+  .forever-ov-chart{ display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; width: 100%; min-width: min-content; padding: 4px 2px 0; flex-wrap: wrap; }
   .forever-ov-class-col{ display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
   .forever-ov-bars{ display: flex; align-items: flex-end; gap: 3px; height: 140px; }
   .forever-ov-bar-col{
@@ -5922,19 +5923,19 @@
     }
     const memberLabel = (e) => memberDisplayLabel(e.uid, e.username);
     // Carries classId/colors alongside the label now (not just a plain
-    // string) so the cell can render the class-color + role-color dots,
-    // and so the grouping logic below can tell "same class as the row
-    // above" apart from "same label text" without re-parsing the string.
+    // string) so the cell can render the class-color dot and spec/class
+    // icons, and so the grouping logic below can tell "same class as the
+    // row above" apart from "same label text" without re-parsing the
+    // string.
     const pickInfo = (p) => {
       if (!p) return null;
       const cls = CLASS_MAP[p.classId];
-      const specDef = foreverSpecsForClass(p.classId).find(s => s.id === p.spec);
       return {
         classId: p.classId,
         label: `${cls ? cls.label : p.classId} (${foreverSpecLabel(p.classId, p.spec)})`,
         classColor: cls ? cls.color : '#888',
-        roleColor: specDef ? FOREVER_ROLE_COLORS[specDef.role] : null,
-        iconUrl: foreverSpecIconUrl(p.classId, p.spec)
+        iconUrl: foreverSpecIconUrl(p.classId, p.spec),
+        classIconUrl: foreverClassIconUrl(p.classId)
       };
     };
     // Precompute each row's three sortable columns once, up front — the
@@ -5968,7 +5969,7 @@
       return (d * foreverOfficerSortDir) || a.member.localeCompare(b.member, 'de', { sensitivity: 'base' });
     });
     const pickCellHtml = (info) => info
-      ? `<span class="forever-pick-cell">${info.iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${info.iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}<span class="forever-class-dot" style="background:${info.classColor}"></span>${info.roleColor ? `<span class="forever-pick-role-dot" style="background:${info.roleColor}"></span>` : ''}${escapeHtml(info.label)}</span>`
+      ? `<span class="forever-pick-cell">${info.classIconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${info.classIconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}${info.iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${info.iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}<span class="forever-class-dot" style="background:${info.classColor}"></span>${escapeHtml(info.label)}</span>`
       : '—';
     // Grouping only makes sense when the table is actually sorted by one
     // of the two class columns — sorting by Mitglied interleaves classes

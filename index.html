@@ -865,6 +865,24 @@
   .forever-officer-table th[data-k]:hover{ color: var(--text); }
   .forever-officer-table th[aria-sort="ascending"]::after{ content: " ▲"; font-size: 9px; }
   .forever-officer-table th[aria-sort="descending"]::after{ content: " ▼"; font-size: 9px; }
+  /* First/Second Char cells — a class-color dot (same circular dot used
+     everywhere else on the page for "this is class X") plus a small
+     square role dot (same shape as the chart legend above, Tank/Healer/
+     Damage) right next to the text, so a glance at the row tells you both
+     without reading the label. */
+  .forever-pick-cell{ display: inline-flex; align-items: center; gap: 6px; }
+  .forever-pick-role-dot{ width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  /* When the table is sorted by First/Second Char, identical-class rows
+     already sort next to each other alphabetically — this just makes that
+     grouping visible, so the eye can jump straight to "where does the
+     next class start" instead of reading every row. Only applied when
+     sorted by one of those two columns (renderForeverOfficerTable decides
+     that); sorting by Mitglied interleaves classes, so grouping wouldn't
+     mean anything there. */
+  .forever-officer-table tr.forever-officer-group-start td{
+    border-top: 2px solid rgba(var(--gold-bright-rgb),0.4);
+    padding-top: 13px;
+  }
   /* Class/spec survey overview — a grouped vertical-bar chart (one column
      per class, one bar per spec within it), closer to a glance-able "race
      chart" than the old per-spec text rows: every bar's height is scaled
@@ -880,26 +898,58 @@
      Each bar is still the click target for showVoteDetailsModal (who
      picked it), same as the old row version. */
   .forever-ov-chart-wrap{ overflow-x: auto; padding-bottom: 4px; }
-  .forever-ov-chart{ display: flex; align-items: flex-end; gap: 18px; min-width: min-content; padding: 4px 2px 0; }
+  .forever-ov-chart{ display: flex; align-items: flex-end; gap: 22px; min-width: min-content; padding: 4px 2px 0; }
   .forever-ov-class-col{ display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
-  .forever-ov-bars{ display: flex; align-items: flex-end; gap: 5px; height: 150px; }
+  .forever-ov-bars{ display: flex; align-items: flex-end; gap: 6px; height: 150px; }
   .forever-ov-bar-col{
     display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-    height: 100%; width: 20px; cursor: pointer; border-radius: 4px 4px 0 0; padding-top: 2px;
+    height: 100%; width: 34px; cursor: pointer; border-radius: 4px 4px 0 0; padding-top: 2px;
   }
   .forever-ov-bar-col:hover{ background: rgba(255,255,255,0.05); }
   .forever-ov-bar-count{ font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; white-space: nowrap; }
   .forever-ov-bar{ width: 100%; min-height: 3px; border-radius: 3px 3px 0 0; transition: height 0.25s ease; }
-  .forever-ov-baseline{ width: 100%; height: 1px; background: var(--border); margin-top: 2px; }
-  .forever-ov-class-foot{ display: flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  /* A real, chunky talent icon per bar, directly underneath it — this row
+     sits OUTSIDE .forever-ov-bars on purpose (a sibling, not nested
+     inside a bar-col) so it never gets caught up in the bars' own height
+     scaling; it just needs to line up column-for-column with the bars
+     above it, which matching width+gap values (34px / 6px, same as
+     .forever-ov-bar-col) takes care of. This is what makes classes with
+     several specs in the same role (e.g. two DPS specs) instantly tell-
+     apart-able — the bar color alone can't do that since same-role bars
+     share a color. Sized and framed to actually look like a WoW ability
+     icon (a bordered square with a warm bronze "ring" and a drop shadow,
+     not a plain flat thumbnail) rather than a generic small avatar — at
+     18px that framing was barely visible, so this and the class icon
+     below both went up to a size where the frame and the art read
+     clearly, using Wowhead's 'large' (56×56) source instead of 'medium'
+     to stay sharp at that size. */
+  .forever-ov-spec-icons{ display: flex; gap: 6px; margin-top: 6px; }
+  .forever-ov-spec-icon-wrap{ width: 34px; display: flex; justify-content: center; cursor: pointer; }
+  .wow-icon-frame{
+    border-radius: 4px; display: block; border: 1px solid #000;
+    box-shadow: 0 0 0 1px rgba(201,162,97,0.85), 0 1px 3px rgba(0,0,0,0.55);
+  }
+  .forever-ov-spec-icon{ width: 30px; height: 30px; }
+  .forever-ov-spec-icon-wrap:hover .forever-ov-spec-icon{ box-shadow: 0 0 0 1px var(--gold-bright), 0 0 6px rgba(var(--gold-bright-rgb),0.6); }
+  .forever-ov-baseline{ width: 100%; height: 1px; background: var(--border); margin-top: 7px; }
+  /* Class icon (also from TALENT_DATA/Wowhead, same as above) to the left
+     of the class name, with the name itself set in the class's own color
+     instead of the page's default text color — ties the footer visually
+     to both the bars above (role colors) and the rest of the page (class
+     colors are used the same way in the officer table, picker, etc). */
+  .forever-ov-class-foot{ display: flex; align-items: center; gap: 7px; margin-top: 9px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+  .forever-ov-class-icon{ width: 26px; height: 26px; flex-shrink: 0; }
   .forever-ov-class-total{ font-size: 11px; color: var(--text-faint); margin-top: 2px; }
   .forever-ov-legend{ display: flex; gap: 14px; margin-bottom: 14px; font-size: 12px; color: var(--text-faint); flex-wrap: wrap; }
   .forever-ov-legend-item{ display: flex; align-items: center; gap: 5px; }
   .forever-ov-legend-dot{ width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
   @media (max-width: 640px){
-    .forever-ov-chart{ gap: 12px; }
+    .forever-ov-chart{ gap: 16px; }
     .forever-ov-bars{ height: 120px; }
-    .forever-ov-bar-col{ width: 16px; }
+    .forever-ov-bar-col{ width: 26px; }
+    .forever-ov-spec-icon-wrap{ width: 26px; }
+    .forever-ov-spec-icon{ width: 22px; height: 22px; }
+    .forever-ov-class-icon{ width: 22px; height: 22px; }
     .forever-ov-class-foot{ font-size: 11px; }
   }
 
@@ -2415,8 +2465,8 @@
     return `M${x1} ${y1} V${midY} H${x2} V${y2}`;
   }
 
-  function talentIconUrl(icon){
-    return `https://wow.zamimg.com/images/wow/icons/medium/${icon}.jpg`;
+  function talentIconUrl(icon, size){
+    return `https://wow.zamimg.com/images/wow/icons/${size || 'medium'}/${icon}.jpg`;
   }
 
   function renderTalentClassSelector(){
@@ -3400,6 +3450,41 @@
   function foreverSpecRole(classId, specId){
     const found = foreverSpecsForClass(classId).find(s => s.id === specId);
     return found ? found.role : 'damage';
+  }
+  // Reuses the Talent Builder's own TALENT_DATA (class/tree icon names,
+  // same Wowhead CDN via talentIconUrl — see that section's own comment)
+  // instead of hand-listing icons a second time, so the class/spec survey
+  // overview always matches whatever the Talent Builder already shows.
+  // TALENT_DATA is keyed by the class's display name ("Warrior", …),
+  // which is exactly CLASS_MAP[id].label, and each class's `trees` array
+  // is keyed by the spec's display name — which matches FOREVER_SPECS'
+  // own labels for every spec except Druid's "Feral Tank": that's a
+  // survey-only split of Classic's single "Feral Combat" tree into its
+  // two voteable roles (Cat DPS / Bear tank), so it has no talent tree of
+  // its own and falls back to looking up the "Feral Combat" tree instead
+  // (FOREVER_SPEC_ICON_LABEL_OVERRIDE below) — fine for the tank half,
+  // since that tree's own TALENT_DATA icon (ability_racial_bearform) IS a
+  // bear icon, but wrong for the DPS/Cat half, which gets its own direct
+  // icon override instead (FOREVER_SPEC_ICON_NAME_OVERRIDE) rather than
+  // inheriting the bear one. 'large' (not Talent Builder's 'medium') is
+  // used here since these render much bigger than a talent grid square.
+  const FOREVER_SPEC_ICON_LABEL_OVERRIDE = { druid: { feral_tank: 'Feral Combat' } };
+  const FOREVER_SPEC_ICON_NAME_OVERRIDE = { druid: { feral: 'ability_druid_catform' } };
+  function foreverClassIconUrl(classId){
+    const cls = CLASS_MAP[classId];
+    const data = cls && TALENT_DATA[cls.label];
+    return data ? talentIconUrl(data.icon, 'large') : null;
+  }
+  function foreverSpecIconUrl(classId, specId){
+    const nameOverride = (FOREVER_SPEC_ICON_NAME_OVERRIDE[classId] || {})[specId];
+    if (nameOverride) return talentIconUrl(nameOverride, 'large');
+    const cls = CLASS_MAP[classId];
+    const data = cls && TALENT_DATA[cls.label];
+    if (!data) return null;
+    const overrideLabel = (FOREVER_SPEC_ICON_LABEL_OVERRIDE[classId] || {})[specId];
+    const lookupLabel = overrideLabel || foreverSpecLabel(classId, specId);
+    const tree = data.trees.find(t => t.name === lookupLabel);
+    return tree ? talentIconUrl(tree.icon, 'large') : null;
   }
 
   // Defensive coercion for one user's survey entry — re-validates every
@@ -5831,10 +5916,20 @@
       return;
     }
     const memberLabel = (e) => memberDisplayLabel(e.uid, e.username);
-    const pickLabel = (p) => {
-      if (!p) return '—';
+    // Carries classId/colors alongside the label now (not just a plain
+    // string) so the cell can render the class-color + role-color dots,
+    // and so the grouping logic below can tell "same class as the row
+    // above" apart from "same label text" without re-parsing the string.
+    const pickInfo = (p) => {
+      if (!p) return null;
       const cls = CLASS_MAP[p.classId];
-      return `${cls ? cls.label : p.classId} (${foreverSpecLabel(p.classId, p.spec)})`;
+      const specDef = foreverSpecsForClass(p.classId).find(s => s.id === p.spec);
+      return {
+        classId: p.classId,
+        label: `${cls ? cls.label : p.classId} (${foreverSpecLabel(p.classId, p.spec)})`,
+        classColor: cls ? cls.color : '#888',
+        roleColor: specDef ? FOREVER_ROLE_COLORS[specDef.role] : null
+      };
     };
     // Precompute each row's three sortable columns once, up front — the
     // First/Second Char columns sort by the same text shown in the cell
@@ -5855,18 +5950,41 @@
       const first = e.picks[firstIdx] || e.picks[0];
       const secondIdx = firstIdx === 0 ? 1 : 0;
       const second = e.picks.length > 1 ? (e.picks[secondIdx] || null) : null;
-      return { member: memberLabel(e), first: pickLabel(first), second: second ? pickLabel(second) : '—' };
+      return { member: memberLabel(e), first: pickInfo(first), second: pickInfo(second) };
     });
-    const sortKeyFn = { member: r => r.member, first: r => r.first, second: r => r.second }[foreverOfficerSortK] || (r => r.member);
+    const sortKeyFn = {
+      member: r => r.member,
+      first: r => r.first ? r.first.label : '',
+      second: r => r.second ? r.second.label : ''
+    }[foreverOfficerSortK] || (r => r.member);
     rows.sort((a, b) => {
       const d = sortKeyFn(a).localeCompare(sortKeyFn(b), 'de', { sensitivity: 'base' });
       return (d * foreverOfficerSortDir) || a.member.localeCompare(b.member, 'de', { sensitivity: 'base' });
     });
-    const rowsHtml = rows.map(r => `<tr>
+    const pickCellHtml = (info) => info
+      ? `<span class="forever-pick-cell"><span class="forever-class-dot" style="background:${info.classColor}"></span>${info.roleColor ? `<span class="forever-pick-role-dot" style="background:${info.roleColor}"></span>` : ''}${escapeHtml(info.label)}</span>`
+      : '—';
+    // Grouping only makes sense when the table is actually sorted by one
+    // of the two class columns — sorting by Mitglied interleaves classes
+    // in alphabetical-by-name order, so a "class changed" border there
+    // would land in effectively random places rather than meaning
+    // anything.
+    const groupBy = (foreverOfficerSortK === 'first' || foreverOfficerSortK === 'second') ? foreverOfficerSortK : null;
+    let prevGroupKey = null;
+    const rowsHtml = rows.map(r => {
+      let groupStart = false;
+      if (groupBy){
+        const pick = r[groupBy];
+        const groupKey = pick ? pick.classId : '\u0000none';
+        groupStart = prevGroupKey !== null && groupKey !== prevGroupKey;
+        prevGroupKey = groupKey;
+      }
+      return `<tr${groupStart ? ' class="forever-officer-group-start"' : ''}>
         <td>${escapeHtml(r.member)}</td>
-        <td>${escapeHtml(r.first)}</td>
-        <td>${escapeHtml(r.second)}</td>
-      </tr>`).join('');
+        <td>${pickCellHtml(r.first)}</td>
+        <td>${pickCellHtml(r.second)}</td>
+      </tr>`;
+    }).join('');
     const sortAttr = (k) => k === foreverOfficerSortK ? (foreverOfficerSortDir > 0 ? 'ascending' : 'descending') : 'none';
     els.foreverOfficerTable.innerHTML = `<thead><tr>
         <th data-k="member" aria-sort="${sortAttr('member')}">Mitglied</th>
@@ -6121,11 +6239,13 @@
     const maxSpecCount = Math.max(1, ...CLASSES.flatMap(cls => foreverSpecsForClass(cls.id).map(s => agg[cls.id].specs[s.id] || 0)));
     // A grouped vertical-bar chart — one column per class, one bar per
     // spec within it, height scaled against maxSpecCount and colored by
-    // role. Raw counts print above each bar; the spec name itself isn't
-    // printed on the bar (there's no room for a label at this width) but
-    // is still available via the title tooltip and, more importantly, via
-    // tapping the bar — same showVoteDetailsModal click target as before,
-    // which names the spec in its own heading.
+    // role. Raw counts print above each bar, and each bar's own talent-
+    // tree icon prints directly below it (see .forever-ov-spec-icons'
+    // comment for why that's a separate row rather than nested in the
+    // bar) — that's what tells same-role specs apart at a glance (e.g. a
+    // class with two Damage specs: same bar color, different icon). Both
+    // the bar and its icon are click targets for showVoteDetailsModal
+    // (who picked it), same as before.
     const chartHtml = CLASSES.map(cls => {
       const data = agg[cls.id];
       const specs = foreverSpecsForClass(cls.id);
@@ -6137,10 +6257,21 @@
           <div class="forever-ov-bar" style="height:${heightPct}%;background:${FOREVER_ROLE_COLORS[s.role]}"></div>
         </div>`;
       }).join('');
+      const iconsHtml = specs.map((s) => {
+        const iconUrl = foreverSpecIconUrl(cls.id, s.id);
+        return `<div class="forever-ov-spec-icon-wrap" data-vote-details-class="${cls.id}" data-vote-details-spec="${s.id}" role="button" tabindex="0" title="${escapeHtml(s.label)}">
+          ${iconUrl ? `<img class="forever-ov-spec-icon wow-icon-frame" src="${iconUrl}" alt="${escapeHtml(s.label)}" loading="lazy" onerror="this.style.visibility='hidden'">` : ''}
+        </div>`;
+      }).join('');
+      const classIconUrl = foreverClassIconUrl(cls.id);
       return `<div class="forever-ov-class-col">
         <div class="forever-ov-bars">${barsHtml}</div>
+        <div class="forever-ov-spec-icons">${iconsHtml}</div>
         <div class="forever-ov-baseline"></div>
-        <div class="forever-ov-class-foot"><span class="forever-class-dot" style="background:${cls.color}"></span>${escapeHtml(cls.label)}</div>
+        <div class="forever-ov-class-foot">
+          ${classIconUrl ? `<img class="forever-ov-class-icon wow-icon-frame" src="${classIconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
+          <span style="color:${cls.color}">${escapeHtml(cls.label)}</span>
+        </div>
         <div class="forever-ov-class-total">${data.total} gesamt</div>
       </div>`;
     }).join('');

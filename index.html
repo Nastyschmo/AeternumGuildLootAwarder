@@ -799,7 +799,14 @@
   .announce-editor:empty::before{ content: attr(data-placeholder); color: var(--text-faint); }
   .announce-editor h1{ font-family: 'Cinzel', serif; font-size: 22px; color: var(--gold-bright); margin: 4px 0 10px; }
   .announce-editor h2{ font-family: 'Cinzel', serif; font-size: 17px; color: var(--gold-bright); margin: 4px 0 8px; }
+  .announce-editor h3{ font-family: 'Cinzel', serif; font-size: 14px; color: var(--gold-bright); margin: 4px 0 8px; }
   .announce-editor p{ margin: 0 0 10px; }
+  /* A pasted table keeps its grid instead of rendering borderless — same
+     table styling used for the read-only view (Announcements, Class Deep
+     Dives), so what Officers see while editing matches what gets saved. */
+  .announce-editor table{ border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 13px; }
+  .announce-editor th, .announce-editor td{ border: 1px solid var(--border-soft); padding: 6px 9px; text-align: left; vertical-align: top; }
+  .announce-editor th{ background: var(--bg-panel-raised); color: var(--gold-bright); font-weight: 700; }
   .announce-card-edit-actions{ display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 
   /* ---------- WoW Forever survey ---------- */
@@ -1361,6 +1368,9 @@
   }
   /* Class Deep Dives — one collapsed-by-default card per class. */
   .classdive-card{ padding: 0; margin-bottom: 12px; overflow: hidden; }
+  .classdive-card-general{ border-color: var(--gold-bright); margin-bottom: 20px; }
+  .classdive-general-icon{ display: inline-flex; width: 22px; height: 22px; flex-shrink: 0; color: var(--gold-bright); }
+  .classdive-general-icon svg{ width: 100%; height: 100%; }
   .classdive-toggle{
     display: flex; align-items: center; gap: 10px; width: 100%;
     background: none; border: none; cursor: pointer; text-align: left;
@@ -1375,30 +1385,42 @@
   .classdive-section-head{ display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
   .classdive-section-title{ font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--gold-bright); margin-bottom: 6px; }
   .classdive-section-head .classdive-section-title{ margin-bottom: 0; }
-  .classdive-summary-text{ font-size: 13.5px; line-height: 1.6; color: var(--text); white-space: pre-wrap; }
-  .classdive-summary-edit{
-    width: 100%; resize: vertical; font-family: inherit; font-size: 13px; line-height: 1.5;
-    background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px;
-    padding: 8px 10px; margin-bottom: 8px;
-  }
+  .classdive-summary-text{ font-size: 13.5px; line-height: 1.6; color: var(--text); }
+  .classdive-summary-edit{ min-height: 140px; }
   .classdive-empty{ font-size: 13px; color: var(--text-faint); font-style: italic; margin: 2px 0; }
   .classdive-updates{ display: flex; flex-direction: column; gap: 8px; }
   .classdive-update{ background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 6px; padding: 8px 10px; }
   .classdive-update-head{ display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .classdive-update-date{ font-size: 11px; font-weight: 700; color: var(--text-muted); }
   .classdive-update-delete{ padding: 0 4px; line-height: 1; min-height: auto; }
-  .classdive-update-text{ font-size: 13px; line-height: 1.5; color: var(--text); white-space: pre-wrap; margin-top: 3px; }
+  .classdive-update-text{ font-size: 13px; line-height: 1.5; color: var(--text); margin-top: 3px; }
   .classdive-add-update{ margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-soft); }
-  .classdive-add-update-row{ display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
   .classdive-add-update-date{
     font-size: 12px; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border);
-    border-radius: 6px; padding: 5px 6px; flex: none;
+    border-radius: 6px; padding: 5px 6px; margin-bottom: 8px;
   }
-  .classdive-add-update-text{
-    flex: 1; min-width: 200px; resize: vertical; font-family: inherit; font-size: 12.5px; line-height: 1.4;
-    background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px;
-    padding: 6px 8px;
+  .classdive-add-update-text{ min-height: 56px; font-size: 12.5px; }
+  /* Rich-text content (summary + each update) can now include a pasted
+     table — give it theme-consistent borders instead of the browser
+     default so it actually reads as a table on our dark background. */
+  .classdive-summary-text table, .classdive-update-text table, .announce-card-text table{
+    border-collapse: collapse; width: 100%; margin: 8px 0 14px; font-size: 13px;
   }
+  .classdive-summary-text th, .classdive-summary-text td,
+  .classdive-update-text th, .classdive-update-text td,
+  .announce-card-text th, .announce-card-text td{
+    border: 1px solid var(--border-soft); padding: 6px 9px; text-align: left; vertical-align: top;
+  }
+  .classdive-summary-text th, .classdive-update-text th, .announce-card-text th{
+    background: var(--bg-panel-raised); color: var(--gold-bright); font-weight: 700;
+  }
+  .classdive-summary-text tr:nth-child(even) td, .announce-card-text tr:nth-child(even) td{ background: rgba(255,255,255,0.02); }
+  .classdive-summary-text h1, .classdive-summary-text h2, .classdive-summary-text h3{
+    font-family: 'Cinzel', serif; color: var(--gold-bright); margin: 14px 0 8px;
+  }
+  .classdive-summary-text h1{ font-size: 20px; } .classdive-summary-text h2{ font-size: 16px; } .classdive-summary-text h3{ font-size: 14px; }
+  .classdive-summary-text p{ margin: 0 0 10px; }
+  .classdive-summary-text ul, .classdive-summary-text ol{ margin: 0 0 10px; padding-left: 22px; }
   @media (max-width: 640px){
     .classdive-toggle{ flex-wrap: wrap; }
     .classdive-toggle-meta{ text-align: left; width: 100%; order: 3; }
@@ -3829,12 +3851,22 @@
     return (profile && profile.nickname) ? `${profile.nickname} (${fallback})` : fallback;
   }
 
-  // Announcements store a small allow-listed subset of formatted HTML (so
-  // Offis can use H1/H2/bold/italic/underline/size/lists), never raw
-  // attacker-controlled markup. This sanitizer re-runs on every load (not
-  // just at save time) as defense in depth against anything written
-  // directly to Firebase, bypassing the app's own editor.
-  const ANNOUNCE_ALLOWED_TAGS = new Set(['H1', 'H2', 'B', 'STRONG', 'I', 'EM', 'U', 'BR', 'DIV', 'P', 'UL', 'OL', 'LI', 'FONT', 'SPAN']);
+  // Shared rich-text sanitizer. Used by Announcements and by Class Deep
+  // Dives (summary + per-update text), which both let Offis paste in
+  // formatted content and store a small allow-listed subset of HTML
+  // instead of plain text, never raw attacker-controlled markup. Tables are
+  // included because Blizzard's own class deep dives are usually laid out
+  // as tables, and losing that structure on paste was the whole complaint
+  // that led to this. This sanitizer re-runs on every load (not just at
+  // save time) as defense in depth against anything written directly to
+  // Firebase, bypassing the app's own editor.
+  const ANNOUNCE_ALLOWED_TAGS = new Set([
+    'H1', 'H2', 'H3', 'B', 'STRONG', 'I', 'EM', 'U', 'BR', 'HR', 'DIV', 'P', 'UL', 'OL', 'LI', 'FONT', 'SPAN',
+    'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH'
+  ]);
+  // Attributes allowed on specific tags, beyond the FONT "size" exception
+  // below — table cells need colspan/rowspan to survive a pasted table.
+  const ANNOUNCE_ALLOWED_ATTRS = { TD: new Set(['colspan', 'rowspan']), TH: new Set(['colspan', 'rowspan']) };
   function sanitizeRichText(html){
     const container = document.createElement('div');
     container.innerHTML = String(html ?? '');
@@ -3853,8 +3885,10 @@
           node.removeChild(child);
           return;
         }
+        const allowedAttrs = ANNOUNCE_ALLOWED_ATTRS[child.tagName];
         Array.from(child.attributes).forEach(attr => {
           if (child.tagName === 'FONT' && attr.name === 'size' && /^[1-7]$/.test(attr.value)) return;
+          if (allowedAttrs && allowedAttrs.has(attr.name.toLowerCase()) && /^\d{1,2}$/.test(attr.value)) return;
           child.removeAttribute(attr.name);
         });
         clean(child);
@@ -4166,18 +4200,31 @@
   // it got there. Gated to Member+ (same as Ankündigungen) — see
   // renderClassDeepDivesView.
   // ---------------------------------------------------------------------
+  // Like announcements, the Deep Dive summary and each Patch-Update entry
+  // store a small allow-listed subset of formatted HTML (headings, bold,
+  // lists, and — unlike announcements — tables, since Blizzard's own class
+  // deep dives are usually laid out as tables) rather than plain text, so
+  // pasting a formatted deep dive in keeps its structure instead of
+  // collapsing into one unformatted wall of text. Entries saved before this
+  // existed are plain text and get wrapped into a paragraph instead.
   function normalizeClassDeepDiveUpdate(raw){
     if (!raw || typeof raw !== 'object' || typeof raw.text !== 'string' || !raw.text.trim()) return null;
+    const html = looksLikeHtml(raw.text) ? sanitizeRichText(raw.text) : legacyPlainTextToHtml(raw.text);
+    if (!stripHtmlToText(html).trim()) return null;
     return {
       id: (typeof raw.id === 'string' && raw.id) ? raw.id : (Date.now() + '_' + Math.random().toString(36).slice(2, 8)),
       date: (typeof raw.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.date)) ? raw.date : '',
-      text: raw.text.trim().slice(0, 2000),
+      text: html,
       createdAt: (typeof raw.createdAt === 'number' && raw.createdAt > 0) ? raw.createdAt : 0
     };
   }
   function normalizeClassDeepDiveEntry(raw){
     const src = (raw && typeof raw === 'object') ? raw : {};
-    const summary = typeof src.summary === 'string' ? src.summary.slice(0, 20000) : '';
+    let summary = '';
+    if (typeof src.summary === 'string' && src.summary.trim()){
+      const html = looksLikeHtml(src.summary) ? sanitizeRichText(src.summary) : legacyPlainTextToHtml(src.summary);
+      if (stripHtmlToText(html).trim()) summary = html;
+    }
     const summaryUpdatedAt = (typeof src.summaryUpdatedAt === 'number' && src.summaryUpdatedAt > 0) ? src.summaryUpdatedAt : 0;
     const updates = (Array.isArray(src.updates) ? src.updates : [])
       .map(normalizeClassDeepDiveUpdate)
@@ -4191,6 +4238,7 @@
   function normalizeClassDeepDives(raw){
     const src = (raw && typeof raw === 'object') ? raw : {};
     const out = {};
+    out.general = normalizeClassDeepDiveEntry(src.general);
     CLASSES.forEach(c => { out[c.id] = normalizeClassDeepDiveEntry(src[c.id]); });
     return out;
   }
@@ -7787,24 +7835,25 @@
     else expandedClassDives.add(classId);
     renderClassDeepDivesView();
   }
-  async function saveClassDiveSummary(classId, text){
+  async function saveClassDiveSummary(classId, html){
     if (!discordIdentity || !isOfficerOrAdmin() || !state.classDeepDives || !state.classDeepDives[classId]) return;
+    const sanitized = sanitizeRichText(html || '');
     const backup = state.classDeepDives[classId];
-    state.classDeepDives[classId] = Object.assign({}, backup, { summary: (text || '').slice(0, 20000), summaryUpdatedAt: Date.now() });
+    state.classDeepDives[classId] = Object.assign({}, backup, { summary: sanitized, summaryUpdatedAt: Date.now() });
     editingClassDiveSummary.delete(classId);
     renderClassDeepDivesView();
     const ok = await saveData('classDeepDives/' + classId);
     if (!ok){ state.classDeepDives[classId] = backup; renderClassDeepDivesView(); }
   }
-  async function addClassDiveUpdate(classId, dateStr, text){
+  async function addClassDiveUpdate(classId, dateStr, html){
     if (!discordIdentity || !isOfficerOrAdmin() || !state.classDeepDives || !state.classDeepDives[classId]) return;
-    const trimmed = (text || '').trim();
-    if (!trimmed) return;
+    const sanitized = sanitizeRichText(html || '');
+    if (!stripHtmlToText(sanitized).trim()) return;
     const backup = state.classDeepDives[classId];
     const entry = {
       id: Date.now() + '_' + Math.random().toString(36).slice(2, 8),
       date: /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : '',
-      text: trimmed.slice(0, 2000),
+      text: sanitized,
       createdAt: Date.now()
     };
     state.classDeepDives[classId] = normalizeClassDeepDiveEntry(Object.assign({}, backup, { updates: [entry, ...backup.updates] }));
@@ -7836,26 +7885,35 @@
     if (!hasAccess) return;
     const canManage = isOfficerOrAdmin();
     const dives = state.classDeepDives || {};
-    els.classDivesList.innerHTML = CLASSES.map(c => {
+    const generalPseudo = {
+      id: 'general', label: 'Allgemein', color: 'var(--gold-bright)',
+      isGeneral: true,
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M9 7h7M9 11h7"/></svg>'
+    };
+    els.classDivesList.innerHTML = [generalPseudo, ...CLASSES].map(c => {
       const dive = dives[c.id] || { summary: '', summaryUpdatedAt: 0, updates: [] };
-      const iconUrl = foreverClassIconUrl(c.id);
+      const iconUrl = c.isGeneral ? '' : foreverClassIconUrl(c.id);
       const expanded = expandedClassDives.has(c.id);
       const editingSummary = editingClassDiveSummary.has(c.id);
       const metaText = dive.summaryUpdatedAt
         ? `${dive.updates.length} Update${dive.updates.length === 1 ? '' : 's'} · Deep Dive zuletzt aktualisiert am ${new Date(dive.summaryUpdatedAt).toLocaleDateString('de-DE')}`
         : (dive.updates.length ? `${dive.updates.length} Update${dive.updates.length === 1 ? '' : 's'} · noch kein Deep Dive hinterlegt` : 'Noch keine Einträge');
 
+      const summaryPlaceholder = escapeHtml(c.isGeneral
+        ? 'Allgemeine WoW Forever Infos (Regelwerk, serverweite Besonderheiten, etc.) hier einfügen oder reinkopieren…'
+        : `Blizzards Class Deep Dive für ${c.label} hier einfügen oder reinkopieren…`);
       const summaryBodyHtml = editingSummary
-        ? `<textarea class="classdive-summary-edit" id="classdive-summary-edit-${c.id}" rows="10" maxlength="20000" placeholder="Blizzards Class Deep Dive für ${escapeHtml(c.label)} hier einfügen…">${escapeHtml(dive.summary)}</textarea>
+        ? `<div class="announce-toolbar" id="classdive-summary-toolbar-${c.id}">${announceToolbarMarkup()}</div>
+           <div class="announce-editor classdive-summary-edit" id="classdive-summary-edit-${c.id}" contenteditable="true" data-placeholder="${summaryPlaceholder}">${dive.summary}</div>
            <div class="forever-actions">
              <button type="button" class="btn btn-teal btn-sm" data-save-summary="${c.id}">Speichern</button>
              <button type="button" class="btn btn-ghost btn-sm" data-cancel-summary="${c.id}">Abbrechen</button>
            </div>`
         : (dive.summary
-            ? `<div class="classdive-summary-text">${escapeHtml(dive.summary)}</div>`
-            : `<p class="classdive-empty">Noch kein Deep Dive hinterlegt.</p>`);
+            ? `<div class="classdive-summary-text">${dive.summary}</div>`
+            : `<p class="classdive-empty">${c.isGeneral ? 'Noch keine allgemeinen Infos hinterlegt.' : 'Noch kein Deep Dive hinterlegt.'}</p>`);
       const summaryEditBtnHtml = (canManage && !editingSummary)
-        ? `<button type="button" class="btn btn-ghost btn-sm" data-edit-summary="${c.id}">${dive.summary ? 'Bearbeiten' : 'Deep Dive hinzufügen'}</button>`
+        ? `<button type="button" class="btn btn-ghost btn-sm" data-edit-summary="${c.id}">${dive.summary ? 'Bearbeiten' : (c.isGeneral ? 'Infos hinzufügen' : 'Deep Dive hinzufügen')}</button>`
         : '';
 
       const updatesListHtml = dive.updates.length
@@ -7864,24 +7922,23 @@
               <span class="classdive-update-date">${escapeHtml(formatClassDiveDate(u.date))}</span>
               ${canManage ? `<button type="button" class="btn btn-ghost btn-sm classdive-update-delete" data-delete-update="${c.id}" data-delete-update-id="${u.id}" title="Eintrag löschen">✕</button>` : ''}
             </div>
-            <div class="classdive-update-text">${escapeHtml(u.text)}</div>
+            <div class="classdive-update-text">${u.text}</div>
           </div>`).join('')
         : `<p class="classdive-empty">Noch keine Patch-Updates erfasst.</p>`;
       const addUpdateFormHtml = canManage
         ? `<div class="classdive-add-update">
-            <div class="classdive-add-update-row">
-              <input type="date" class="classdive-add-update-date" id="classdive-update-date-${c.id}" value="${new Date().toISOString().slice(0, 10)}">
-              <textarea class="classdive-add-update-text" id="classdive-update-text-${c.id}" rows="2" maxlength="2000" placeholder="Was hat sich geändert? z.B. 'Buff auf X-Talent, Nerf auf Y-Prozentsatz'…"></textarea>
-            </div>
+            <input type="date" class="classdive-add-update-date" id="classdive-update-date-${c.id}" value="${new Date().toISOString().slice(0, 10)}">
+            <div class="announce-toolbar classdive-add-update-toolbar" id="classdive-update-toolbar-${c.id}">${announceToolbarMarkup()}</div>
+            <div class="announce-editor classdive-add-update-text" id="classdive-update-text-${c.id}" contenteditable="true" data-placeholder="Was hat sich geändert? z.B. 'Buff auf X-Talent, Nerf auf Y-Prozentsatz'… (auch Einfügen mit Formatierung geht)"></div>
             <div class="forever-actions">
               <button type="button" class="btn btn-teal btn-sm" data-add-update="${c.id}">Update hinzufügen</button>
             </div>
           </div>`
         : '';
 
-      return `<div class="tac-card classdive-card">
+      return `<div class="tac-card classdive-card${c.isGeneral ? ' classdive-card-general' : ''}">
         <button type="button" class="classdive-toggle" data-toggle-classdive="${c.id}">
-          ${iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
+          ${c.isGeneral ? `<span class="classdive-general-icon" aria-hidden="true">${c.icon}</span>` : (iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : '')}
           <span class="classdive-toggle-title" style="color:${c.color}">${escapeHtml(c.label)}</span>
           <span class="classdive-toggle-meta">${escapeHtml(metaText)}</span>
           <span class="classdive-toggle-arrow" aria-hidden="true">${expanded ? '▲' : '▼'}</span>
@@ -7889,7 +7946,7 @@
         <div class="classdive-body ${expanded ? '' : 'hidden'}">
           <div class="classdive-section">
             <div class="classdive-section-head">
-              <span class="classdive-section-title">Deep Dive</span>
+              <span class="classdive-section-title">${c.isGeneral ? 'Allgemeine Infos' : 'Deep Dive'}</span>
               ${summaryEditBtnHtml}
             </div>
             ${summaryBodyHtml}
@@ -7915,17 +7972,28 @@
     els.classDivesList.querySelectorAll('[data-save-summary]').forEach(btn => {
       btn.addEventListener('click', () => {
         const classId = btn.getAttribute('data-save-summary');
-        const textarea = document.getElementById('classdive-summary-edit-' + classId);
-        saveClassDiveSummary(classId, textarea ? textarea.value : '');
+        const editor = document.getElementById('classdive-summary-edit-' + classId);
+        saveClassDiveSummary(classId, editor ? editor.innerHTML : '');
       });
     });
     els.classDivesList.querySelectorAll('[data-add-update]').forEach(btn => {
       btn.addEventListener('click', () => {
         const classId = btn.getAttribute('data-add-update');
         const dateInput = document.getElementById('classdive-update-date-' + classId);
-        const textInput = document.getElementById('classdive-update-text-' + classId);
-        addClassDiveUpdate(classId, dateInput ? dateInput.value : '', textInput ? textInput.value : '');
+        const editor = document.getElementById('classdive-update-text-' + classId);
+        addClassDiveUpdate(classId, dateInput ? dateInput.value : '', editor ? editor.innerHTML : '');
       });
+    });
+    // Rich-text toolbars: the summary editor only exists while editing, the
+    // add-update editor exists for every card whenever canManage — wire up
+    // whichever of each are currently in the DOM.
+    [...CLASSES, generalPseudo].forEach(c => {
+      const summaryToolbar = document.getElementById('classdive-summary-toolbar-' + c.id);
+      const summaryEditor = document.getElementById('classdive-summary-edit-' + c.id);
+      if (summaryToolbar && summaryEditor) wireAnnounceToolbar(summaryToolbar, summaryEditor);
+      const updateToolbar = document.getElementById('classdive-update-toolbar-' + c.id);
+      const updateEditor = document.getElementById('classdive-update-text-' + c.id);
+      if (updateToolbar && updateEditor) wireAnnounceToolbar(updateToolbar, updateEditor);
     });
     els.classDivesList.querySelectorAll('[data-delete-update]').forEach(btn => {
       btn.addEventListener('click', () => deleteClassDiveUpdate(btn.getAttribute('data-delete-update'), btn.getAttribute('data-delete-update-id')));

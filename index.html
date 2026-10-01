@@ -1260,7 +1260,11 @@
   }
   /* The glowing charred edge riding along the wipe — a soft band that
      fades from "still paper" through char into a bright ember line, so the
-     cutoff reads as burning rather than a hard mechanical wipe. */
+     cutoff reads as burning rather than a hard mechanical wipe. The
+     designBurnFireDistort SVG filter (see markup near #designBurnOverlay)
+     pushes its pixels around with animated turbulence so the straight CSS
+     gradient reads as a ragged, flickering fire line instead of a ruler-
+     edge glow. */
   .design-burn-edge{
     position: absolute; left: 0; right: 0; top: 0; height: 34px; transform: translateY(-50%);
     background: linear-gradient(180deg,
@@ -1270,6 +1274,7 @@
       rgba(255,205,140,1) 100%);
     box-shadow: 0 0 26px 8px rgba(226,84,47,0.65), 0 0 60px 18px rgba(226,84,47,0.25);
     opacity: 0;
+    filter: url(#designBurnFireDistort);
   }
   .design-burn-overlay.burning .design-burn-edge{
     opacity: 1;
@@ -1280,9 +1285,37 @@
     to{ top: 100%; }
   }
   @keyframes designBurnFlicker{
-    0%{ filter: brightness(1); }
-    100%{ filter: brightness(1.18); }
+    0%{ filter: url(#designBurnFireDistort) brightness(1); }
+    100%{ filter: url(#designBurnFireDistort) brightness(1.18); }
   }
+
+  /* The "sea of flames" layer — a wall of individual flame-tongue divs,
+     continuously spawned by startDesignBurn() just above the wipe edge
+     (same pattern as the ember spawner below) and removed once their
+     animation ends. Each tongue is a lopsided blob (asymmetric
+     border-radius so it reads as a flame silhouette rather than a circle),
+     colored from a dark red base to a pale yellow tip, and set to
+     mix-blend-mode: screen so overlapping tongues brighten each other like
+     real fire instead of just stacking flat color. */
+  .design-burn-flames{ position: absolute; inset: 0; mix-blend-mode: screen; filter: url(#designBurnFireDistort); }
+  .design-burn-flame{
+    position: absolute; bottom: 0; width: 26px; height: 38px;
+    transform-origin: 50% 100%;
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    background: linear-gradient(180deg,
+      rgba(255,241,189,0.95) 0%,
+      rgba(255,176,64,0.95) 28%,
+      rgba(226,84,47,0.92) 58%,
+      rgba(120,24,12,0.65) 85%,
+      rgba(120,24,12,0) 100%);
+    animation: designBurnFlameLick .5s ease-in-out infinite alternate;
+  }
+  @keyframes designBurnFlameLick{
+    0%{ transform: translateY(0) scaleY(.85) scaleX(.9) skewX(-4deg); opacity: .85; }
+    50%{ transform: translateY(-6px) scaleY(1.15) scaleX(1.05) skewX(3deg); opacity: 1; }
+    100%{ transform: translateY(-2px) scaleY(1) scaleX(.95) skewX(-2deg); opacity: .92; }
+  }
+
   .design-burn-embers{ position: absolute; inset: 0; }
   .design-burn-ember{
     position: absolute; width: 4px; height: 4px; border-radius: 50%;
@@ -1293,11 +1326,13 @@
     0%{ transform: translateY(0) scale(1); opacity: 1; }
     100%{ transform: translateY(-44px) scale(.3); opacity: 0; }
   }
-  /* A wipe with no glow/embers is still a perfectly readable transition, so
-     reduced-motion gets an instant cut instead of a slow animated one. */
+  /* A wipe with no glow/embers/flames is still a perfectly readable
+     transition, so reduced-motion gets an instant cut instead of a slow
+     animated one. */
   @media (prefers-reduced-motion: reduce){
     .design-burn-overlay.burning .design-burn-paper{ animation: none; clip-path: inset(100% 0 0 0); }
     .design-burn-overlay.burning .design-burn-edge{ display: none; }
+    .design-burn-flames{ display: none; }
   }
 
   /* Design switcher — lives in User Settings (#characterModal), admin-only
@@ -1879,9 +1914,25 @@
     <button type="button" class="btn" id="designRevealOkBtn">Okay</button>
   </div>
 </div>
+<!-- Jagged, living fire-edge distortion for the burn wipe — feTurbulence
+     generates an organic noise field, its animated `seed` keeps the noise
+     shifting over time, and feDisplacementMap uses it to warp whatever the
+     filter is applied to (.design-burn-paper's clip-path edge, and the
+     flame glow riding on it below) from a clean straight line into a
+     flickering, irregular char line. 0×0 and visually hidden — this <svg>
+     only exists to be referenced by id from CSS `filter: url(#...)`. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="designBurnFireDistort" x="-30%" y="-100%" width="160%" height="300%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.012 0.09" numOctaves="2" seed="7" result="designBurnNoise">
+      <animate attributeName="seed" values="2;9;16;23;2" dur="1.6s" repeatCount="indefinite" />
+    </feTurbulence>
+    <feDisplacementMap in="SourceGraphic" in2="designBurnNoise" scale="46" xChannelSelector="R" yChannelSelector="G" />
+  </filter>
+</svg>
 <div class="design-burn-overlay" id="designBurnOverlay">
   <div class="design-burn-paper"></div>
   <div class="design-burn-edge"></div>
+  <div class="design-burn-flames"></div>
   <div class="design-burn-embers"></div>
 </div>
 
@@ -6598,6 +6649,7 @@
     overlay.classList.add('burning');
 
     let emberInterval = null;
+    let flameInterval = null;
     if (!reduceMotion){
       const emberLayer = overlay.querySelector('.design-burn-embers');
       const start = performance.now();
@@ -6615,12 +6667,44 @@
           emberLayer.appendChild(ember);
         }
       }, 70);
+
+      // The flame wall itself — a denser, faster-ticking spawn of short-
+      // lived .design-burn-flame tongues, packed shoulder-to-shoulder along
+      // the same burn line as the embers so the edge reads as an actual
+      // sheet of fire eating the page rather than a single glowing line.
+      // Each tongue only lives one flicker cycle or two before being
+      // replaced by a fresh one at a new random offset/size — that
+      // constant churn is what sells "flickering" rather than a static row
+      // of shapes animating in place.
+      const flameLayer = overlay.querySelector('.design-burn-flames');
+      flameInterval = setInterval(() => {
+        if (!flameLayer) return;
+        const progress = Math.min(1, (performance.now() - start) / DESIGN_BURN_DURATION_MS);
+        const topPct = progress * 100;
+        for (let i = 0; i < 3; i++){
+          const flame = document.createElement('div');
+          flame.className = 'design-burn-flame';
+          const widthPx = 20 + Math.random() * 22;
+          const heightPx = 30 + Math.random() * 34;
+          flame.style.left = (Math.random() * 100) + '%';
+          flame.style.top = topPct + '%';
+          flame.style.width = widthPx + 'px';
+          flame.style.height = heightPx + 'px';
+          flame.style.marginLeft = (-widthPx / 2) + 'px';
+          flame.style.marginTop = (-heightPx * 0.78) + 'px';
+          flame.style.animationDuration = (0.4 + Math.random() * 0.35) + 's';
+          flameLayer.appendChild(flame);
+          setTimeout(() => flame.remove(), 550);
+        }
+      }, 90);
     }
 
     setTimeout(() => {
       if (emberInterval) clearInterval(emberInterval);
+      if (flameInterval) clearInterval(flameInterval);
       overlay.classList.remove('burning');
       overlay.querySelectorAll('.design-burn-ember').forEach(el => el.remove());
+      overlay.querySelectorAll('.design-burn-flame').forEach(el => el.remove());
       markUnlocked();
     }, reduceMotion ? 0 : DESIGN_BURN_DURATION_MS + 150);
   }

@@ -92,13 +92,14 @@
      Who gets this class and when (see the big comment above
      initDesignReveal() near the end of the main script for the full
      picture, including why there are two separate localStorage keys):
-     - First-time visitors still see the old navy/gold theme. Once an
-       admin is logged in (this is admin-only while being tried out), a
-       one-time popup ("guild-loot-design-revealed" not yet in
-       localStorage) asks whether to unlock the new design; clicking "Okay"
-       burns the old page away top-to-bottom (#designBurnOverlay, driven by
-       startDesignBurn()) and adds this class underneath the burning paper,
-       then sets both localStorage keys.
+     - First-time visitors still see the old navy/gold theme. On the very
+       first page load in a given browser ("guild-loot-design-revealed" not
+       yet in localStorage), a one-time popup asks whether to unlock the
+       new design — rolled out to everyone as of 2026-10-01, no longer
+       admin-only. Clicking "Okay" burns the old page away top-to-bottom
+       (#designBurnOverlay, driven by startDesignBurn()) and adds this
+       class underneath the burning paper, then sets both localStorage
+       keys.
      - Once "guild-loot-design-theme" is 'horde', a tiny inline script at
        the very top of <head> adds this class before first paint (no flash
        of the old theme on repeat visits).
@@ -1536,7 +1537,7 @@
   }
   .design-reveal-card{
     position: relative; background: #170b08; border: 1px solid #a8431f; border-radius: 10px;
-    padding: 32px 28px; max-width: 420px; width: 100%; text-align: center;
+    padding: 32px 28px; max-width: 520px; width: 100%; max-height: 86vh; overflow-y: auto; text-align: center;
     box-shadow: 0 0 0 1px rgba(226,84,47,0.18) inset, 0 0 46px rgba(226,84,47,0.28), 0 20px 50px rgba(0,0,0,0.55);
   }
   .design-reveal-icon{
@@ -1547,7 +1548,15 @@
   .design-reveal-card h2{
     font-family: 'Cinzel', serif; font-size: 19px; margin: 0 0 12px; color: #f2a878; letter-spacing: .4px;
   }
-  .design-reveal-card p{ font-size: 14px; color: #d9c4b4; line-height: 1.6; margin: 0 0 22px; }
+  .design-reveal-card p{ font-size: 14px; color: #d9c4b4; line-height: 1.6; margin: 0 0 16px; text-align: left; }
+  .design-reveal-card p:first-of-type{ text-align: center; }
+  .design-reveal-card blockquote{
+    margin: 0 0 16px; padding: 10px 14px; text-align: left; border-left: 3px solid #e2542f;
+    background: rgba(226,84,47,0.08); border-radius: 0 6px 6px 0;
+  }
+  .design-reveal-card blockquote p{ margin: 0; font-style: italic; color: #f2cab0; }
+  .design-reveal-card blockquote cite{ display: block; margin-top: 4px; font-style: normal; font-size: 12px; color: #c99a7f; }
+  .design-reveal-card .btn{ margin-top: 6px; }
   .design-reveal-card .btn{
     background: linear-gradient(180deg, #e2542f, #a8321a); color: #fff2e4; border: 1px solid #f2a878;
     padding: 11px 32px; font-size: 14.5px;
@@ -2298,8 +2307,11 @@
   <div class="design-reveal-card">
     <div class="design-reveal-icon"></div>
     <h2>Ein neues Kapitel beginnt</h2>
-    <p>Die Fraktion wurde gewählt, der Name steht fest. Neues Design jetzt freischalten?</p>
-    <button type="button" class="btn" id="designRevealOkBtn">Okay</button>
+    <p>Die Fraktion wurde gewählt, der Name steht fest — und vor uns liegt nichts Geringeres als eine neue Welt. WoW: Forever bringt Dungeons, die noch niemand von uns betreten hat, Raids, an denen wir uns gemeinsam die Zähne ausbeißen werden, und ganz neue Möglichkeiten, die wir heute noch gar nicht alle kennen. Genau dafür gibt es rude.</p>
+    <p>Ob ihr lieber allein durch die Open World streift, euch im offenen PvP mit anderen messt oder als eingespielter Haufen durch den nächsten Dungeon zieht: Es ist die Freude am Entdecken, am gemeinsamen Erlebnis und ja — auch am ehrlichen Gewinnen und Verlieren, die diese Gilde ausmacht. Neue Chars, neue Strategien, neue Gesichter im Discord. Wir erleben ein Spiel neu, das wir eigentlich schon in- und auswendig kennen, und genau das macht's so besonders.</p>
+    <blockquote><p>„Wir haben so viel geschafft, wir schaffen das.“</p><cite>— Angela Merkel, vermutlich nicht über Loot-Rolls, trifft's aber trotzdem ziemlich gut</cite></blockquote>
+    <p>Das neue Design hier ist unser kleiner Soundtrack zu diesem Aufbruch — ein frischer Anstrich für ein neues Kapitel, das wir zusammen schreiben. Bereit, einzutauchen?</p>
+    <button type="button" class="btn" id="designRevealOkBtn">Auf geht's!</button>
   </div>
 </div>
 <!-- Subtle, living wobble for the burn-edge glow — feTurbulence generates
@@ -8455,7 +8467,18 @@
   // that's already been decided (no re-applying), or an existing
   // application still in flight (shows its status + a reminder button
   // once APPLICATION_REMINDER_COOLDOWN_DAYS has passed).
+  //
+  // Deliberate exception: an Admin always sees the apply chat, regardless
+  // of being a guild member or already having an application on file — so
+  // an Admin can run through the Bewerbung flow end-to-end for testing
+  // without needing a second Discord account. Officers and regular Guild
+  // Members still go through the normal gate below.
   function renderRecruitApplyGate(){
+    if (currentRole === 'admin'){
+      els.applyChatCard.classList.remove('hidden');
+      els.recruitApplyNotice.classList.add('hidden');
+      return;
+    }
     const existing = myLatestApplication();
     const alreadyMember = isMemberOrHigher();
     const blocked = alreadyMember || !!existing;
@@ -8637,12 +8660,14 @@
   //    what setDesignTheme() below flips when the User Settings switcher
   //    is used. Switching back to classic there does NOT re-arm the popup.
   //
-  // Admin-gated while this is still being tried out: initDesignReveal()
-  // and the switcher's visibility both check currentRole — see
-  // applyAccessControl() for the switcher's visibility toggle, and the
-  // guard at the top of initDesignReveal() below for the popup. Everyone
-  // else sees no difference from before. Widen this later by relaxing (or
-  // dropping) that one check once it's ready for the whole guild.
+  // Rolled out to everyone as of 2026-10-01 — initDesignReveal() no longer
+  // checks currentRole, so every visitor gets the one-time popup the first
+  // time they open the page (still per-browser, via DESIGN_REVEAL_KEY).
+  // The manual theme SWITCHER in User Settings stays Admin-only on
+  // purpose though (see applyAccessControl()'s designRow toggle) — Members
+  // and Officers get the new design via the popup and that's it, no
+  // ongoing back-and-forth switcher for them; only an Admin can still
+  // flip back to Classic to compare, or re-trigger the popup to demo it.
   //
   // initDesignReveal() is called from renderAll() (so it re-checks once
   // currentRole actually resolves after login) as well as once eagerly
@@ -8693,12 +8718,6 @@
     let alreadyRevealed = false;
     try{ alreadyRevealed = localStorage.getItem(DESIGN_REVEAL_KEY) === '1'; }catch(e){}
     if (alreadyRevealed){ designRevealChecked = true; return; } // nothing to prompt — already unlocked
-
-    // Still admin-only while this is being tried out — for anyone else,
-    // currentRole never becomes 'admin', so this just keeps returning
-    // without ever flipping designRevealChecked, i.e. it quietly re-checks
-    // on every renderAll() in case an admin logs in later in the session.
-    if (currentRole !== 'admin') return;
 
     designRevealChecked = true;
     modal.classList.remove('hidden');

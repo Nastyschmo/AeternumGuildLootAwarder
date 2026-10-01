@@ -2991,16 +2991,40 @@
   function escapeRegExp(str){
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
+  // Builds a readable tooltip for a talent-tree talent, independent of
+  // anyone's actual allocated points (unlike the live Talent Builder's own
+  // tooltip) — a Deep Dive mention isn't about "my current build", so this
+  // always shows the talent's full/final-rank description.
+  function classDiveTalentTooltipHtml(talent){
+    let html = `<div class="talent-tip-title">${escapeHtml(talent.name)}</div>`;
+    html += `<div class="talent-tip-rank">${talent.max > 1 ? `Talent — bis zu ${talent.max} Ränge` : 'Talent'}</div>`;
+    const desc = Array.isArray(talent.desc) ? talent.desc[talent.desc.length - 1] : talent.desc;
+    if (desc) html += `<div class="talent-tip-desc">${escapeHtml(desc)}</div>`;
+    if (talent.cost) html += `<div class="talent-tip-cost">${escapeHtml(talent.cost)}</div>`;
+    if (talent.req) html += `<div class="talent-tip-req ok">Benötigt: ${escapeHtml(talent.req)} (max)</div>`;
+    return html;
+  }
+  function classDiveRacialTooltipHtml(name, desc, race){
+    let html = `<div class="talent-tip-title">${escapeHtml(name)}</div>`;
+    html += `<div class="talent-tip-rank">Volks-Fähigkeit${race ? ' — ' + escapeHtml(race) : ''}</div>`;
+    if (desc) html += `<div class="talent-tip-desc">${escapeHtml(desc)}</div>`;
+    return html;
+  }
   const classDiveSpellIndexCache = {};
-  // index: array of { name, ranks, cls } sorted longest-name-first so the
-  // matcher greedily prefers "Shadow Word: Death" over a shorter prefix.
+  // index: array of { name, kind, cls, ... } sorted longest-name-first so
+  // the matcher greedily prefers "Shadow Word: Death" over a shorter
+  // prefix. Pulls from three sources, since a Blizzard class deep dive
+  // talks about all three: the base spellbook ("tabs" sections only —
+  // general abilities like "Attack"/"Block" are deliberately excluded,
+  // too generic a word to safely autolink in free-form prose), the talent
+  // trees, and that class's available racial abilities.
   function classDiveSpellIndexFor(classId){
     if (classDiveSpellIndexCache[classId]) return classDiveSpellIndexCache[classId];
     let entries = [];
     if (classId === 'general'){
-      // The general card has no single class — merge every class's
-      // spellbook. On a name collision between classes, the first class
-      // (CLASSES order) wins; ambiguous, but still useful.
+      // The general card has no single class — merge every class's index.
+      // On a name collision between classes, the first class (CLASSES
+      // order) wins; ambiguous, but still useful.
       const seen = new Set();
       CLASSES.forEach(c => {
         classDiveSpellIndexFor(c.id).forEach(e => {
@@ -3011,16 +3035,47 @@
       });
     } else {
       const clsInfo = CLASS_MAP[classId];
-      const book = clsInfo && SPELLBOOK_DATA[clsInfo.label];
-      if (book){
-        const allSpells = [];
-        (book.tabs || []).forEach(sec => (sec.spells || []).forEach(s => allSpells.push(s)));
-        entries = groupSpellRanks(allSpells).map(g => ({ name: g.name, ranks: g.ranks, cls: clsInfo.label }));
+      const label = clsInfo && clsInfo.label;
+      if (label){
+        const seen = new Set();
+        const book = SPELLBOOK_DATA[label];
+        if (book){
+          const allSpells = [];
+          (book.tabs || []).forEach(sec => (sec.spells || []).forEach(s => allSpells.push(s)));
+          groupSpellRanks(allSpells).forEach(g => {
+            if (seen.has(g.name)) return;
+            seen.add(g.name);
+            entries.push({ name: g.name, kind: 'spell', cls: label, ranks: g.ranks });
+          });
+        }
+        const talentBook = TALENT_DATA[label];
+        if (talentBook){
+          (talentBook.trees || []).forEach(tree => (tree.talents || []).forEach(t => {
+            if (!t || !t.name || seen.has(t.name)) return;
+            seen.add(t.name);
+            entries.push({ name: t.name, kind: 'talent', cls: label, talent: t });
+          }));
+        }
+        ['Horde', 'Alliance'].forEach(faction => {
+          (RACIAL_DATA[faction] || []).forEach(race => {
+            if (!race.classes || !race.classes.includes(label)) return;
+            (race.abilities || []).forEach(([name, desc]) => {
+              if (!name || seen.has(name)) return;
+              seen.add(name);
+              entries.push({ name, kind: 'racial', cls: label, desc, race: race.race });
+            });
+          });
+        });
       }
     }
     entries.sort((a, b) => b.name.length - a.name.length);
     classDiveSpellIndexCache[classId] = entries;
     return entries;
+  }
+  function classDiveMentionTooltipHtml(entry){
+    if (entry.kind === 'talent') return classDiveTalentTooltipHtml(entry.talent);
+    if (entry.kind === 'racial') return classDiveRacialTooltipHtml(entry.name, entry.desc, entry.race);
+    return spellTooltipHtml(entry.cls, entry.name, entry.ranks);
   }
   const CLASSDIVE_WORDISH_RE = /[A-Za-zÀ-ÖØ-öø-ÿ0-9']/;
   function annotateSpellMentions(rootEl, classId){
@@ -3055,7 +3110,6 @@
         const span = document.createElement('span');
         span.className = 'classdive-spell-link';
         span.setAttribute('data-spell-name', entry.name);
-        span.setAttribute('data-spell-cls', entry.cls);
         span.textContent = match[0];
         frag.appendChild(span);
         lastEnd = end;
@@ -3069,7 +3123,7 @@
         if (!els.talentTooltip) return;
         const entry = byName.get(span.getAttribute('data-spell-name'));
         if (!entry) return;
-        els.talentTooltip.innerHTML = spellTooltipHtml(span.getAttribute('data-spell-cls'), entry.name, entry.ranks);
+        els.talentTooltip.innerHTML = classDiveMentionTooltipHtml(entry);
         els.talentTooltip.classList.remove('hidden');
         positionTalentTooltip(evt);
       });
@@ -7546,8 +7600,9 @@
     els.recruitApplyNoticeActions.querySelectorAll('[data-send-reminder]').forEach(b => { b.disabled = true; b.textContent = 'Wird gesendet…'; });
     const ok = await sendDiscordNotification(id, recipientIds, message);
     if (ok){
-      state.applications[id] = Object.assign({}, application, { lastReminderAt: Date.now() });
-      await saveData('applications/' + id);
+      const lastReminderAt = Date.now();
+      state.applications[id] = Object.assign({}, application, { lastReminderAt });
+      await saveDataPartial('applications/' + id, { lastReminderAt });
     }
     renderRecruitApplyGate();
   }
@@ -8220,6 +8275,24 @@
       const ref = path ? db.ref(DB_PATH + '/' + path) : db.ref(DB_PATH);
       const value = path ? getByPath(state, path) : state;
       await ref.set(value === undefined ? null : value);
+      return true;
+    }catch(e){
+      setStatus('Could not save — check your Firebase rules and connection', true);
+      return false;
+    }
+  }
+
+  // Like saveData, but writes only the given child keys at `path` (a
+  // Firebase .update(), not a full .set() of the whole node). Used where a
+  // non-officer writes to a node they don't otherwise own/control in full —
+  // e.g. an applicant stamping lastReminderAt on their own already-existing
+  // application — so the Firebase rule only has to grant that one specific
+  // child path instead of the whole record.
+  async function saveDataPartial(path, patch){
+    setStatus('Saving…', false);
+    if (!db){ setStatus('Not connected to Firebase — see setup instructions', true); return false; }
+    try{
+      await db.ref(DB_PATH + '/' + path).update(patch);
       return true;
     }catch(e){
       setStatus('Could not save — check your Firebase rules and connection', true);

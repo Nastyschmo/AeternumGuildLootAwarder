@@ -1292,7 +1292,30 @@
   .application-card{
     background: var(--bg-panel-raised); border: 1px solid var(--border-soft); border-radius: 8px;
     padding: 14px 16px; margin-bottom: 12px;
+    transition: opacity .15s ease;
   }
+  /* In-progress (Wird bearbeitet / Gespräch geplant / Potenzieller
+     Kandidat) — dimmed so it doesn't read as "needs attention" the same
+     way an untouched Offen application does; full brightness on hover so
+     it's still easy to read once you're actually looking at it. */
+  .application-card-inprogress{ opacity: .68; }
+  .application-card-inprogress:hover, .application-card-inprogress:focus-within{ opacity: 1; }
+  /* Closed (Angenommen / Abgelehnt) — collapses to a single toggle row
+     (status badge + "Applicant — Characters") so a growing pile of
+     finished applications doesn't bury the ones still open; click to
+     expand the full card back open. */
+  .application-card-closed{ padding: 0; opacity: .6; }
+  .application-card-closed:hover, .application-card-closed.is-expanded{ opacity: .9; }
+  .application-card-toggle{
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    background: none; border: none; cursor: pointer; text-align: left;
+    padding: 10px 16px; color: var(--text-muted); font-size: 13px; font-family: inherit;
+  }
+  .application-card-toggle:hover{ color: var(--text); }
+  .application-card-toggle-title{ font-weight: 600; flex: 1; }
+  .application-card-toggle-arrow{ font-size: 10px; color: var(--text-faint); }
+  .application-card-closed .application-card-body{ display: none; padding: 0 16px 14px; }
+  .application-card-closed.is-expanded .application-card-body{ display: block; }
   .application-card-head{ display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 8px; }
   /* Review-status row — every application (v1 and v2 alike) gets one of
      these right under the head: a colored badge for the current status,
@@ -4020,6 +4043,27 @@
     return Object.keys(state.applications || {})
       .map(id => Object.assign({ id }, state.applications[id]))
       .sort((a, b) => b.createdAt - a.createdAt);
+  }
+  // Which closed (Angenommen/Abgelehnt) applications are currently expanded
+  // in the list — purely local UI state (not persisted to Firebase, not
+  // per-user), reset on page reload. Closed applications render collapsed
+  // by default (see renderApplicationsList) so a long history of finished
+  // applications doesn't bury the ones still needing attention.
+  const expandedClosedApplications = new Set();
+  function toggleApplicationExpanded(id){
+    if (expandedClosedApplications.has(id)) expandedClosedApplications.delete(id);
+    else expandedClosedApplications.add(id);
+    renderApplicationsList();
+  }
+  // "<Applicant> — <Char1, Char2>" — the collapsed title for a closed
+  // application. v1 (legacy) applications never had per-class character
+  // names (just a free-text nameAge field), so they collapse to just the
+  // applicant's name.
+  function applicationCollapsedTitle(a){
+    const chars = (a.version === 2 && Array.isArray(a.picks))
+      ? a.picks.map(p => (a.characters || {})[p.classId]).filter(Boolean).join(', ')
+      : '';
+    return `${a.applicantName || 'Unbekannt'}${chars ? ' — ' + chars : ''}`;
   }
   // Small shared formatter: "Warrior (Protection, Fury)" — used by the
   // Home teaser, the recruiting-page overview, and the officer's
@@ -7318,6 +7362,30 @@
     const profListText = (list) => (Array.isArray(list) && list.length)
       ? list.map(x => `${PROFESSION_MAP[x.professionId] ? PROFESSION_MAP[x.professionId].label : x.professionId} (${x.level === 'max' ? 'Max' : x.level})`).join(', ')
       : '—';
+    // Wraps a card's inner content with the right outer shell for its
+    // status: Offen stays exactly as before (full-strength card, nothing
+    // extra to do); an in-progress one (claimed/interview/candidate) gets
+    // dimmed so it reads as "someone's on this" rather than "needs you
+    // too"; a closed one (Angenommen/Abgelehnt) collapses to a one-line
+    // toggle — applicant + character names only — so a growing pile of
+    // finished applications doesn't bury the ones still open.
+    const wrapApplicationCard = (a, innerHtml) => {
+      const status = a.status || 'open';
+      const isClosed = status === 'accepted' || status === 'rejected';
+      if (!isClosed){
+        const inProgressClass = (status === 'claimed' || status === 'interview' || status === 'candidate') ? ' application-card-inprogress' : '';
+        return `<div class="application-card${inProgressClass}">${innerHtml}</div>`;
+      }
+      const expanded = expandedClosedApplications.has(a.id);
+      return `<div class="application-card application-card-closed${expanded ? ' is-expanded' : ''}">
+        <button type="button" class="application-card-toggle" data-toggle-application="${a.id}">
+          <span class="application-status-badge application-status-${status}">${APPLICATION_STATUSES[status].label}</span>
+          <span class="application-card-toggle-title">${escapeHtml(applicationCollapsedTitle(a))}</span>
+          <span class="application-card-toggle-arrow" aria-hidden="true">${expanded ? '▲' : '▼'}</span>
+        </button>
+        <div class="application-card-body">${innerHtml}</div>
+      </div>`;
+    };
 
     els.applicationsList.innerHTML = apps.map(a => {
       const { headHtml, applicantCharactersHtml } = applicationCardCommonParts(a);
@@ -7363,7 +7431,7 @@
             <p class="application-logs"><strong>Warcraftlogs:</strong> ${logUrl ? linkifyEscaped(logUrl) : '—'}</p>
           </div>`;
         }).join('');
-        return `<div class="application-card">
+        return wrapApplicationCard(a, `
           ${headHtml}
           <p class="application-namage"><strong>Vorname:</strong> ${escapeHtml(a.firstName)}${a.nickname ? ` <span class="access-member-nickname">Nickname: "${escapeHtml(a.nickname)}"</span>` : ''}</p>
           <div class="application-summary-row">
@@ -7374,7 +7442,7 @@
           <p class="application-professions"><strong>Zusätzliche Professions:</strong> ${escapeHtml(profListText(a.extraProfessions))}</p>
           ${a.remarks ? `<p class="application-remarks"><strong>Sonstiges:</strong> ${linkifyEscaped(a.remarks)}</p>` : ''}
           ${applicantCharactersHtml}
-        </div>`;
+        `);
       }
       // Legacy (v1) flat-form application — unchanged formatting, for
       // anything submitted before the chat-form rebuild.
@@ -7392,7 +7460,7 @@
       const professionsText = Array.isArray(a.professions)
         ? a.professions.map(id => (PROFESSION_MAP[id] ? PROFESSION_MAP[id].label : id)).join(', ')
         : a.professions;
-      return `<div class="application-card">
+      return wrapApplicationCard(a, `
         ${headHtml}
         <div class="application-class-picks">${picksHtml}</div>
         ${a.nameAge ? `<p class="application-namage"><strong>Name &amp; Alter:</strong> ${escapeHtml(a.nameAge)}</p>` : ''}
@@ -7401,10 +7469,13 @@
         <p class="application-professions"><strong>Berufe (Forever):</strong> ${escapeHtml(professionsText)}</p>
         ${a.remarks ? `<p class="application-remarks"><strong>Sonstiges:</strong> ${linkifyEscaped(a.remarks)}</p>` : ''}
         ${applicantCharactersHtml}
-      </div>`;
+      `);
     }).join('');
     els.applicationsList.querySelectorAll('[data-delete-application]').forEach(btn => {
       btn.addEventListener('click', () => deleteApplication(btn.getAttribute('data-delete-application')));
+    });
+    els.applicationsList.querySelectorAll('[data-toggle-application]').forEach(btn => {
+      btn.addEventListener('click', () => toggleApplicationExpanded(btn.getAttribute('data-toggle-application')));
     });
     els.applicationsList.querySelectorAll('[data-status-app]').forEach(sel => {
       sel.addEventListener('change', () => setApplicationStatus(sel.getAttribute('data-status-app'), sel.value));

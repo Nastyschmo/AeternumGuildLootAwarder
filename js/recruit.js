@@ -1,0 +1,1020 @@
+// Bewerbung: chat-style application flow, Discord notifications, recruiting
+// needs editor, applications list for Officers/Admins, and the Bewerbung
+// page/teaser rendering.
+//
+// Classic (non-module) script — shares the global scope with the other
+// js/*.js files; load order is set in index.html. Code that runs at load
+// time may only use files loaded before this one.
+
+// ---- Recruiting / Bewerbung: chat-bot-style application flow --------
+// Walks the applicant through APPLY_CHAT_STEPS one question at a time —
+// a bot-message bubble plus an input area for that one question, same
+// feel as a chat bot. Each step owns its own render()/collect() pair:
+// render(container, previousValue) builds whatever input UI that
+// question needs into the given container; collect(container) reads it
+// back out, returning { ok:true, value, summary } on success (value is
+// what gets stored in applyChatAnswers, summary is the short text shown
+// in the transcript's "user" bubble) or { ok:false, error } to block
+// advancing. Optional steps also provide skipValue() for the
+// "Überspringen" button. The more complex steps (class picks, character
+// names, profession pickers) keep their own in-progress draft in a
+// dedicated applyChat*Draft variable declared just above them, mutated
+// directly by their own input handlers and read by collect().
+let applyChatPicksDraft = [];
+let applyChatCharNamesDraft = {};
+let applyChatCharProfDraft = {};
+let applyChatExtraProfDraft = [];
+let applyChatCharLogsDraft = {};
+
+function applyChatPrimaryProfessions(){ return PROFESSIONS.filter(p => p.primary); }
+function applyChatSecondaryProfessions(){ return PROFESSIONS.filter(p => !p.primary); }
+// A profession level is either a number 1–375 (Classic/TBC/SoD's skill
+// cap — see PROFESSION_MAX_LEVEL) or the literal string 'max' (the
+// "Max" checkbox) — anything else (left blank, garbage input, over the
+// cap) is treated as "not actually given" and dropped, same as leaving
+// the whole profession unchecked.
+function applyChatValidLevel(level){
+  if (level === 'max') return 'max';
+  const n = parseInt(level, 10);
+  return (Number.isFinite(n) && n >= 1 && n <= PROFESSION_MAX_LEVEL) ? n : null;
+}
+// Shared level-input markup for a profession draft entry — used by both
+// the per-character profession step and the "extra professions" step.
+function applyChatProfLevelRowsHtml(list){
+  return list.map(x => {
+    const prof = PROFESSION_MAP[x.professionId];
+    return `<div class="apply-chat-level-row">
+      <span class="apply-chat-level-label">${escapeHtml(prof ? prof.label : x.professionId)}</span>
+      <input type="text" inputmode="numeric" class="apply-chat-level-input" data-level-prof="${x.professionId}" maxlength="3" placeholder="Lvl" title="Max. ${PROFESSION_MAX_LEVEL}" value="${x.level === 'max' ? '' : (x.level || '')}" ${x.level === 'max' ? 'disabled' : ''}>
+      <label class="apply-chat-level-max"><input type="checkbox" data-max-prof="${x.professionId}" ${x.level === 'max' ? 'checked' : ''}> Max</label>
+    </div>`;
+  }).join('');
+}
+function wireApplyChatProfLevelRows(holder, draftArr, onMaxToggled){
+  holder.querySelectorAll('[data-level-prof]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      let digits = inp.value.replace(/[^0-9]/g, '').slice(0, 3);
+      // Clamp live while typing (not just on submit) so "488" can't even
+      // sit in the field looking accepted before silently being dropped
+      // to "keine Angabe" later — Classic/TBC/SoD's skill cap is 375.
+      if (digits !== '' && parseInt(digits, 10) > PROFESSION_MAX_LEVEL) digits = String(PROFESSION_MAX_LEVEL);
+      inp.value = digits;
+      const item = draftArr.find(x => x.professionId === inp.getAttribute('data-level-prof'));
+      if (item) item.level = inp.value;
+    });
+  });
+  holder.querySelectorAll('[data-max-prof]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const item = draftArr.find(x => x.professionId === cb.getAttribute('data-max-prof'));
+      if (item) item.level = cb.checked ? 'max' : '';
+      onMaxToggled();
+    });
+  });
+}
+// Same class-pick UI as before (dropdown + spec checkboxes, one row per
+// class, already-used classes disabled in the other rows), just capped
+// at 2 rows total and operating on applyChatPicksDraft/an arbitrary
+// container instead of the old fixed applyClassPicks element.
+function renderApplyChatPicksUI(container){
+  const usedClassIds = new Set(applyChatPicksDraft.map(p => p.classId));
+  const rowsHtml = applyChatPicksDraft.map((pick, i) => {
+    const classOptions = CLASSES.map(c => {
+      const disabled = usedClassIds.has(c.id) && c.id !== pick.classId;
+      return `<option value="${c.id}" ${pick.classId === c.id ? 'selected' : ''} ${disabled ? 'disabled' : ''}>${escapeHtml(c.label)}</option>`;
+    }).join('');
+    const specs = foreverSpecsForClass(pick.classId);
+    const specsHtml = specs.map(s => `
+      <label class="poll-checkbox-field">
+        <input type="checkbox" data-pick-spec="${s.id}" ${pick.specs.includes(s.id) ? 'checked' : ''}>
+        ${escapeHtml(s.label)}
+      </label>`).join('');
+    return `<div class="apply-class-pick-row" data-pick-index="${i}">
+      <div class="apply-class-pick-head">
+        <div class="poll-config-field">
+          <span class="poll-config-field-label">Klasse</span>
+          <select data-pick-class-index="${i}">${classOptions}</select>
+        </div>
+        ${applyChatPicksDraft.length > 1 ? `<button type="button" class="apply-class-pick-remove" data-remove-pick-index="${i}" title="Entfernen">✕</button>` : ''}
+      </div>
+      <div class="poll-config-field apply-class-pick-specs">
+        <span class="poll-config-field-label">Spezialisierung(en)</span>
+        <div class="apply-spec-checkboxes">${specsHtml}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const addDisabled = applyChatPicksDraft.length >= 2;
+  container.innerHTML = `<div class="apply-class-picks">${rowsHtml}</div>
+    <button type="button" class="apply-add-class-btn" id="applyChatAddClassBtn" ${addDisabled ? 'disabled' : ''}>+ Weitere Klasse hinzufügen (max. 2)</button>`;
+
+  container.querySelectorAll('[data-pick-class-index]').forEach(select => {
+    select.addEventListener('change', () => {
+      const i = Number(select.getAttribute('data-pick-class-index'));
+      applyChatPicksDraft[i].classId = select.value;
+      applyChatPicksDraft[i].specs = [];
+      renderApplyChatPicksUI(container);
+    });
+  });
+  container.querySelectorAll('[data-pick-spec]').forEach(cb => {
+    const i = Number(cb.closest('[data-pick-index]').getAttribute('data-pick-index'));
+    cb.addEventListener('change', () => {
+      const specId = cb.getAttribute('data-pick-spec');
+      const pick = applyChatPicksDraft[i];
+      if (cb.checked){
+        if (!pick.specs.includes(specId)) pick.specs.push(specId);
+      } else {
+        pick.specs = pick.specs.filter(s => s !== specId);
+      }
+    });
+  });
+  container.querySelectorAll('[data-remove-pick-index]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = Number(btn.getAttribute('data-remove-pick-index'));
+      applyChatPicksDraft.splice(i, 1);
+      renderApplyChatPicksUI(container);
+    });
+  });
+  const addBtn = container.querySelector('#applyChatAddClassBtn');
+  if (addBtn) addBtn.addEventListener('click', () => {
+    if (applyChatPicksDraft.length >= 2) return;
+    const usedIds = new Set(applyChatPicksDraft.map(p => p.classId));
+    const nextClass = CLASSES.find(c => !usedIds.has(c.id));
+    if (!nextClass) return;
+    applyChatPicksDraft.push({ classId: nextClass.id, specs: [] });
+    renderApplyChatPicksUI(container);
+  });
+}
+
+const APPLY_CHAT_STEPS = [
+  {
+    key: 'firstName', required: true,
+    bot: 'Wie ist dein richtiger Vorname?',
+    render(container, value){
+      container.innerHTML = `<input type="text" class="apply-text-input" id="applyChatFieldInput" maxlength="60" placeholder="z.B. Max" value="${escapeHtml(value || '')}">`;
+      container.querySelector('#applyChatFieldInput').focus();
+    },
+    collect(container){
+      const v = container.querySelector('#applyChatFieldInput').value.trim().slice(0, 60);
+      if (!v) return { ok: false, error: 'Bitte gib deinen Vornamen ein.' };
+      return { ok: true, value: v, summary: v };
+    }
+  },
+  {
+    key: 'nickname', required: false,
+    bot: 'Wie ist dein Nickname? Falls er noch nicht in deinen Einstellungen gespeichert ist, übernehmen wir ihn direkt von deiner Antwort hier.',
+    render(container, value){
+      const saved = (discordIdentity && state.characterProfiles[discordIdentity.id] && state.characterProfiles[discordIdentity.id].nickname) || '';
+      container.innerHTML = `<input type="text" class="apply-text-input" id="applyChatFieldInput" maxlength="30" placeholder="z.B. Nasty" value="${escapeHtml(value != null ? value : saved)}">`;
+      container.querySelector('#applyChatFieldInput').focus();
+    },
+    collect(container){
+      const v = container.querySelector('#applyChatFieldInput').value.trim().slice(0, 30);
+      return { ok: true, value: v, summary: v || '—' };
+    },
+    skipValue(){ return { value: '', summary: '—' }; }
+  },
+  {
+    key: 'age', required: true,
+    bot: 'Wie alt bist du?',
+    render(container, value){
+      container.innerHTML = `<input type="text" inputmode="numeric" class="apply-text-input" id="applyChatFieldInput" maxlength="3" placeholder="z.B. 24" value="${value != null ? escapeHtml(String(value)) : ''}">`;
+      const input = container.querySelector('#applyChatFieldInput');
+      input.addEventListener('input', () => { input.value = input.value.replace(/[^0-9]/g, ''); });
+      input.focus();
+    },
+    collect(container){
+      const raw = container.querySelector('#applyChatFieldInput').value.trim();
+      if (!/^[0-9]{1,3}$/.test(raw)) return { ok: false, error: 'Bitte gib dein Alter als Zahl ein.' };
+      const n = parseInt(raw, 10);
+      if (n < 12 || n > 99) return { ok: false, error: 'Bitte gib ein realistisches Alter ein.' };
+      return { ok: true, value: n, summary: String(n) };
+    }
+  },
+  {
+    key: 'picks', required: true,
+    bot: 'Für welche Klasse(n) und Spezialisierung(en) bewirbst du dich? (maximal 2 Klassen)',
+    render(container, value){
+      applyChatPicksDraft = (Array.isArray(value) && value.length ? value : [{ classId: CLASSES[0].id, specs: [] }])
+        .map(p => ({ classId: p.classId, specs: (p.specs || []).slice() }));
+      renderApplyChatPicksUI(container);
+    },
+    collect(){
+      const picks = applyChatPicksDraft
+        .filter(p => CLASS_MAP[p.classId] && p.specs.length)
+        .slice(0, 2)
+        .map(p => ({ classId: p.classId, specs: p.specs.slice() }));
+      if (!picks.length) return { ok: false, error: 'Bitte wähle mindestens eine Klasse mit Spezialisierung aus.' };
+      const summary = picks.map(p => `${CLASS_MAP[p.classId].label} (${p.specs.map(s => foreverSpecLabel(p.classId, s)).join(', ')})`).join(' · ');
+      return { ok: true, value: picks, summary };
+    }
+  },
+  {
+    key: 'characters', required: true,
+    bot: 'Mit welchen Charakteren (Charakternamen) bewirbst du dich auf diese Klassen?',
+    render(container, value){
+      const picks = applyChatAnswers.picks || [];
+      applyChatCharNamesDraft = {};
+      picks.forEach(p => { applyChatCharNamesDraft[p.classId] = (value && value[p.classId]) || ''; });
+      container.innerHTML = picks.map(p => {
+        const cls = CLASS_MAP[p.classId];
+        return `<div class="apply-chat-char-row">
+          <label class="apply-chat-char-row-label" style="color:${cls.color}">${escapeHtml(cls.label)}</label>
+          <input type="text" class="apply-text-input" maxlength="24" data-char-class="${p.classId}" placeholder="Charaktername" value="${escapeHtml(applyChatCharNamesDraft[p.classId])}">
+        </div>`;
+      }).join('');
+      container.querySelectorAll('[data-char-class]').forEach((inp, idx) => {
+        inp.addEventListener('input', () => { applyChatCharNamesDraft[inp.getAttribute('data-char-class')] = inp.value; });
+        if (idx === 0) inp.focus();
+      });
+    },
+    collect(){
+      const picks = applyChatAnswers.picks || [];
+      const out = {};
+      for (const p of picks){
+        const name = (applyChatCharNamesDraft[p.classId] || '').trim().slice(0, 24);
+        if (!name) return { ok: false, error: 'Bitte gib für jede Klasse einen Charakternamen an.' };
+        out[p.classId] = name;
+      }
+      const summary = picks.map(p => `${CLASS_MAP[p.classId].label}: ${out[p.classId]}`).join(' · ');
+      return { ok: true, value: out, summary };
+    }
+  },
+  {
+    key: 'charProfessions', required: false,
+    bot: 'Welche Hauptberufe hast du auf dieser/diesen Klasse(n)? (maximal 2 pro Charakter — das Profession-Level ist optional)',
+    render(container, value){
+      const picks = applyChatAnswers.picks || [];
+      applyChatCharProfDraft = {};
+      picks.forEach(p => {
+        applyChatCharProfDraft[p.classId] = (value && value[p.classId])
+          ? value[p.classId].map(x => ({ professionId: x.professionId, level: x.level === 'max' ? 'max' : String(x.level || '') }))
+          : [];
+      });
+      container.innerHTML = picks.map(p => {
+        const cls = CLASS_MAP[p.classId];
+        const charName = (applyChatAnswers.characters || {})[p.classId] || '';
+        const optsHtml = applyChatPrimaryProfessions().map(prof => `
+          <label class="poll-checkbox-field">
+            <input type="checkbox" data-prof-class="${p.classId}" data-prof-id="${prof.id}" ${applyChatCharProfDraft[p.classId].some(x => x.professionId === prof.id) ? 'checked' : ''}>
+            ${escapeHtml(prof.label)}
+          </label>`).join('');
+        return `<div class="apply-chat-prof-block">
+          <div class="apply-chat-prof-head" style="color:${cls.color}">${escapeHtml(cls.label)}${charName ? ' — ' + escapeHtml(charName) : ''}</div>
+          <div class="apply-spec-checkboxes">${optsHtml}</div>
+          <div class="apply-chat-level-rows" data-levels-for="${p.classId}"></div>
+        </div>`;
+      }).join('');
+      const refreshLevels = (classId) => {
+        const holder = container.querySelector(`[data-levels-for="${classId}"]`);
+        holder.innerHTML = applyChatProfLevelRowsHtml(applyChatCharProfDraft[classId]);
+        wireApplyChatProfLevelRows(holder, applyChatCharProfDraft[classId], () => refreshLevels(classId));
+      };
+      container.querySelectorAll('[data-prof-class]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const classId = cb.getAttribute('data-prof-class');
+          const profId = cb.getAttribute('data-prof-id');
+          const arr = applyChatCharProfDraft[classId];
+          if (cb.checked){
+            if (arr.length >= 2){ cb.checked = false; return; }
+            arr.push({ professionId: profId, level: '' });
+          } else {
+            const idx = arr.findIndex(x => x.professionId === profId);
+            if (idx >= 0) arr.splice(idx, 1);
+          }
+          refreshLevels(classId);
+        });
+      });
+      picks.forEach(p => refreshLevels(p.classId));
+    },
+    collect(){
+      const picks = applyChatAnswers.picks || [];
+      const out = {};
+      const summaryParts = [];
+      picks.forEach(p => {
+        const arr = (applyChatCharProfDraft[p.classId] || [])
+          .map(x => ({ professionId: x.professionId, level: applyChatValidLevel(x.level) }))
+          .filter(x => x.level !== null);
+        out[p.classId] = arr;
+        const label = arr.length ? arr.map(x => `${PROFESSION_MAP[x.professionId].label} (${x.level === 'max' ? 'Max' : x.level})`).join(', ') : 'keine Angabe';
+        summaryParts.push(`${CLASS_MAP[p.classId].label}: ${label}`);
+      });
+      return { ok: true, value: out, summary: summaryParts.join(' · ') };
+    },
+    skipValue(){
+      const picks = applyChatAnswers.picks || [];
+      const out = {}; picks.forEach(p => { out[p.classId] = []; });
+      return { value: out, summary: 'keine Angabe' };
+    }
+  },
+  {
+    key: 'extraProfessions', required: false,
+    bot: 'Hast Du zusätzliche Professions wie Erste Hilfe, Kochkunst und/oder Angeln?',
+    render(container, value){
+      applyChatExtraProfDraft = (Array.isArray(value) ? value : []).map(x => ({ professionId: x.professionId, level: x.level === 'max' ? 'max' : String(x.level || '') }));
+      const optsHtml = applyChatSecondaryProfessions().map(prof => `
+        <label class="poll-checkbox-field">
+          <input type="checkbox" data-extra-prof="${prof.id}" ${applyChatExtraProfDraft.some(x => x.professionId === prof.id) ? 'checked' : ''}>
+          ${escapeHtml(prof.label)}
+        </label>`).join('');
+      container.innerHTML = `<div class="apply-spec-checkboxes">${optsHtml}</div><div class="apply-chat-level-rows" id="applyChatExtraLevels"></div>`;
+      const holder = container.querySelector('#applyChatExtraLevels');
+      const refresh = () => {
+        holder.innerHTML = applyChatProfLevelRowsHtml(applyChatExtraProfDraft);
+        wireApplyChatProfLevelRows(holder, applyChatExtraProfDraft, refresh);
+      };
+      container.querySelectorAll('[data-extra-prof]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const profId = cb.getAttribute('data-extra-prof');
+          if (cb.checked){ applyChatExtraProfDraft.push({ professionId: profId, level: '' }); }
+          else { applyChatExtraProfDraft = applyChatExtraProfDraft.filter(x => x.professionId !== profId); }
+          refresh();
+        });
+      });
+      refresh();
+    },
+    collect(){
+      const arr = applyChatExtraProfDraft
+        .map(x => ({ professionId: x.professionId, level: applyChatValidLevel(x.level) }))
+        .filter(x => x.level !== null);
+      const summary = arr.length ? arr.map(x => `${PROFESSION_MAP[x.professionId].label} (${x.level === 'max' ? 'Max' : x.level})`).join(', ') : '—';
+      return { ok: true, value: arr, summary };
+    },
+    skipValue(){ return { value: [], summary: '—' }; }
+  },
+  {
+    // One Warcraftlogs link per applied character — same per-character
+    // pattern as the "characters" and "charProfessions" steps, since an
+    // applicant with 2 classes/characters needs to give logs for each,
+    // not just a single link for whichever one they typed first.
+    key: 'charLogs', required: false,
+    bot: 'Bitte teile uns den Link zu deinen aktuellen Warcraftlogs für diese(n) Charakter(e). (Pro Charakter optional — einfach leer lassen, falls für einen Charakter keine Logs vorhanden sind.)',
+    render(container, value){
+      const picks = applyChatAnswers.picks || [];
+      applyChatCharLogsDraft = {};
+      picks.forEach(p => { applyChatCharLogsDraft[p.classId] = (value && value[p.classId]) || ''; });
+      container.innerHTML = picks.map(p => {
+        const cls = CLASS_MAP[p.classId];
+        const charName = (applyChatAnswers.characters || {})[p.classId] || '';
+        return `<div class="apply-chat-char-row">
+          <label class="apply-chat-char-row-label" style="color:${cls.color}">${escapeHtml(cls.label)}${charName ? ' — ' + escapeHtml(charName) : ''}</label>
+          <input type="text" class="apply-text-input" maxlength="300" data-logs-class="${p.classId}" placeholder="https://www.warcraftlogs.com/character/…" value="${escapeHtml(applyChatCharLogsDraft[p.classId])}">
+        </div>`;
+      }).join('');
+      container.querySelectorAll('[data-logs-class]').forEach((inp, idx) => {
+        inp.addEventListener('input', () => { applyChatCharLogsDraft[inp.getAttribute('data-logs-class')] = inp.value; });
+        if (idx === 0) inp.focus();
+      });
+    },
+    collect(){
+      const picks = applyChatAnswers.picks || [];
+      const out = {};
+      const summaryParts = [];
+      for (const p of picks){
+        const v = (applyChatCharLogsDraft[p.classId] || '').trim().slice(0, 300);
+        if (!v) { summaryParts.push(`${CLASS_MAP[p.classId].label}: —`); continue; }
+        if (!WARCRAFTLOGS_URL_RE.test(v)){
+          return { ok: false, error: `Der Logs-Link für ${CLASS_MAP[p.classId].label} sieht nicht wie ein gültiger warcraftlogs.com-Link aus (z.B. Classic, SoD, Fresh oder Retail — oder lass das Feld leer).` };
+        }
+        out[p.classId] = v;
+        summaryParts.push(`${CLASS_MAP[p.classId].label}: ${v}`);
+      }
+      return { ok: true, value: out, summary: summaryParts.join(' · ') };
+    },
+    skipValue(){
+      const picks = applyChatAnswers.picks || [];
+      const out = {}; picks.forEach(p => { out[p.classId] = ''; });
+      return { value: out, summary: '—' };
+    }
+  },
+  {
+    key: 'remarks', required: false,
+    bot: 'Möchtest Du uns sonst noch etwas über dich erzählen oder uns mitteilen?',
+    render(container, value){
+      container.innerHTML = `<textarea class="apply-textarea" id="applyChatFieldInput" rows="3" maxlength="1000" placeholder="Alles, was du uns sonst noch mitgeben möchtest…">${escapeHtml(value || '')}</textarea>`;
+      container.querySelector('#applyChatFieldInput').focus();
+    },
+    collect(container){
+      const v = container.querySelector('#applyChatFieldInput').value.trim().slice(0, 1000);
+      return { ok: true, value: v, summary: v || '—' };
+    },
+    skipValue(){ return { value: '', summary: '—' }; }
+  }
+];
+
+let applyChatSummaries = {};
+
+function resetApplyChat(){
+  applyChatStepIndex = 0;
+  applyChatAnswers = {};
+  applyChatSummaries = {};
+  els.applyChatDoneArea.classList.add('hidden');
+  els.applyChatComposer.classList.remove('hidden');
+  els.applySubmitStatus.textContent = '';
+  els.applySubmitStatus.className = 'armory-status';
+  renderApplyChatTranscript();
+  renderApplyChatCurrentStep();
+}
+
+function renderApplyChatTranscript(){
+  els.applyChatLog.innerHTML = APPLY_CHAT_STEPS.slice(0, applyChatStepIndex).map(step => `
+    <div class="apply-chat-bubble apply-chat-bubble-bot">${escapeHtml(step.bot)}</div>
+    <div class="apply-chat-bubble apply-chat-bubble-user">${escapeHtml(applyChatSummaries[step.key] != null ? applyChatSummaries[step.key] : '—')}</div>
+  `).join('');
+  els.applyChatLog.scrollTop = els.applyChatLog.scrollHeight;
+}
+
+function renderApplyChatCurrentStep(){
+  els.applyChatError.classList.add('hidden');
+  els.applyChatError.textContent = '';
+  if (applyChatStepIndex >= APPLY_CHAT_STEPS.length){
+    els.applyChatComposer.classList.add('hidden');
+    els.applyChatDoneArea.classList.remove('hidden');
+    return;
+  }
+  els.applyChatComposer.classList.remove('hidden');
+  els.applyChatDoneArea.classList.add('hidden');
+  const step = APPLY_CHAT_STEPS[applyChatStepIndex];
+  els.applyChatQuestionBubble.textContent = step.bot;
+  step.render(els.applyChatInputArea, applyChatAnswers[step.key]);
+  els.applyChatSkipBtn.classList.toggle('hidden', !!step.required);
+}
+
+function applyChatGoNext(){
+  const step = APPLY_CHAT_STEPS[applyChatStepIndex];
+  if (!step) return;
+  const result = step.collect(els.applyChatInputArea);
+  if (!result.ok){
+    els.applyChatError.textContent = result.error || 'Bitte prüfe deine Eingabe.';
+    els.applyChatError.classList.remove('hidden');
+    return;
+  }
+  applyChatAnswers[step.key] = result.value;
+  applyChatSummaries[step.key] = result.summary;
+  applyChatStepIndex++;
+  renderApplyChatTranscript();
+  renderApplyChatCurrentStep();
+}
+
+function applyChatSkipStep(){
+  const step = APPLY_CHAT_STEPS[applyChatStepIndex];
+  if (!step || step.required) return;
+  const skip = step.skipValue ? step.skipValue() : { value: '', summary: '—' };
+  applyChatAnswers[step.key] = skip.value;
+  applyChatSummaries[step.key] = skip.summary;
+  applyChatStepIndex++;
+  renderApplyChatTranscript();
+  renderApplyChatCurrentStep();
+}
+
+els.applyChatNextBtn.addEventListener('click', applyChatGoNext);
+els.applyChatSkipBtn.addEventListener('click', applyChatSkipStep);
+els.applyChatRestartBtn.addEventListener('click', resetApplyChat);
+// Enter submits the current step for simple single-line fields — but not
+// inside the remarks textarea, where Enter should just insert a newline.
+els.applyChatInputArea.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target && e.target.tagName !== 'TEXTAREA'){
+    e.preventDefault();
+    applyChatGoNext();
+  }
+});
+
+// If this applicant hasn't saved a nickname yet (Q2), their chat answer
+// becomes their saved nickname too — same Firebase field User Settings
+// itself writes to, never overwriting one that's already set.
+async function applyChatSaveNicknameIfNeeded(nickname){
+  if (!discordIdentity || !nickname) return;
+  if (!state.characterProfiles) state.characterProfiles = {};
+  const existing = state.characterProfiles[discordIdentity.id];
+  if (existing && existing.nickname) return;
+  state.characterProfiles[discordIdentity.id] = normalizeCharacterProfile(Object.assign({}, existing, { nickname }));
+  renderAll();
+  await saveData('characterProfiles/' + discordIdentity.id);
+}
+
+// Shared send: POSTs to the Worker's /notify-application endpoint and
+// logs the outcome (not silent — see the Discord-DM debugging session
+// this was added for). Only the application id and the kind of nudge
+// are sent: the Worker builds the DM text and picks the recipients
+// (every Officer/Admin opted into "Bewerbungen melden" in Manage access,
+// minus the applicant) itself from Firebase, and enforces the 10-minute
+// window / one-DM-per-application / reminder cooldown server-side — see
+// discord-auth-worker.js's handleNotifyApplication. Returns the parsed
+// Worker response on success, or null.
+async function sendDiscordNotification(applicationId, kind){
+  if (!isWorkerConfigured()){
+    console.warn('[notify-application] skipped: Worker URL is not configured (still has the YOUR-WORKER-SUBDOMAIN placeholder).');
+    return null;
+  }
+  try{
+    const res = await fetch(NOTIFY_APPLICATION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ applicationId, kind })
+    });
+    let body = null;
+    try{ body = await res.json(); }catch(e){}
+    if (!res.ok){
+      console.warn('[notify-application] Worker responded with an error:', res.status, body);
+      return null;
+    }
+    if (body && body.reason === 'no_recipients'){
+      console.warn('[notify-application] no recipients. Either nobody has "Bewerbungen melden" checked in Manage Access, or the only person who does is the applicant themself (self-notifications are intentionally excluded).');
+    } else if (body && Array.isArray(body.results)){
+      // Per-recipient outcome from Discord itself (e.g. "not a guild
+      // member", "could not open DM channel" — the latter usually means
+      // that person's Discord privacy settings block DMs from server
+      // members/bots they haven't interacted with).
+      const failed = body.results.filter(r => !r.ok);
+      if (failed.length) console.warn('[notify-application] Some DMs failed:', failed);
+      else console.log('[notify-application] DMs sent to', body.results.length, 'recipient(s).');
+    }
+    return body || {};
+  }catch(e){
+    // Network/CORS-level failure — most likely the Worker isn't deployed
+    // with the /notify-application route yet, or NOTIFY_APPLICATION_URL
+    // is unreachable. Logged (not silent) so this is diagnosable from
+    // the browser console instead of looking identical to "nothing
+    // happened".
+    console.warn('[notify-application] fetch failed:', e);
+    return null;
+  }
+}
+// Pings every opted-in Officer/Admin via Discord DM when a new
+// application comes in. Best-effort only — the in-site quest bell
+// (questPendingApplicationsCount, above) is the notification that
+// always works regardless of Discord/Worker availability; this is just
+// the extra "even if you're not on the page" nudge on top of it.
+async function notifyOfficersOfNewApplication(applicationId){
+  await sendDiscordNotification(applicationId, 'new');
+}
+// The applicant's own "Erinnerung senden" button (see
+// recruitApplyGateState) — same DM mechanism as a new application, just
+// worded as a nudge and gated by APPLICATION_REMINDER_COOLDOWN_DAYS so
+// it can't be used to spam the recruiting team. The Worker enforces the
+// cooldown and stamps lastReminderAt itself; the local copy is only
+// updated here so the button switches to its cooldown state right away.
+async function sendApplicationReminder(id){
+  if (!discordIdentity || !state.applications || !state.applications[id]) return;
+  const application = state.applications[id];
+  if (application.applicantId !== discordIdentity.id) return;
+  if (application.status === 'accepted' || application.status === 'rejected') return;
+  els.recruitApplyNoticeActions.querySelectorAll('[data-send-reminder]').forEach(b => { b.disabled = true; b.textContent = 'Wird gesendet…'; });
+  const result = await sendDiscordNotification(id, 'reminder');
+  if (result){
+    const lastReminderAt = Date.now();
+    state.applications[id] = Object.assign({}, application, { lastReminderAt, reminderSentAt: lastReminderAt });
+  }
+  renderRecruitApplyGate();
+}
+
+async function submitApplication(){
+  if (!discordIdentity || applyChatStepIndex < APPLY_CHAT_STEPS.length) return;
+  const a = applyChatAnswers;
+
+  let id = null;
+  try{ id = db ? db.ref(DB_PATH + '/applications').push().key : null; }catch(e){}
+  if (!id) id = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+
+  if (!state.applications) state.applications = {};
+  state.applications[id] = {
+    version: 2,
+    firstName: a.firstName || '',
+    nickname: a.nickname || '',
+    age: a.age || null,
+    picks: a.picks || [],
+    characters: a.characters || {},
+    charProfessions: a.charProfessions || {},
+    extraProfessions: a.extraProfessions || [],
+    charLogs: a.charLogs || {},
+    remarks: a.remarks || '',
+    applicantName: discordIdentity.username,
+    applicantId: discordIdentity.id,
+    createdAt: Date.now(),
+    status: 'open'
+  };
+  els.applySubmitStatus.textContent = 'Wird gesendet…';
+  els.applySubmitStatus.className = 'armory-status';
+  renderAll();
+  const ok = await saveData('applications/' + id);
+  if (ok){
+    const nicknameToSave = a.nickname;
+    resetApplyChat();
+    els.applySubmitStatus.textContent = 'Bewerbung gesendet — wir melden uns bei dir!';
+    els.applySubmitStatus.className = 'armory-status armory-status-ok';
+    applyChatSaveNicknameIfNeeded(nicknameToSave);
+    notifyOfficersOfNewApplication(id).catch(() => {});
+  } else {
+    delete state.applications[id];
+    els.applySubmitStatus.textContent = 'Konnte nicht gesendet werden — bitte später erneut versuchen.';
+    els.applySubmitStatus.className = 'armory-status armory-status-error';
+    renderAll();
+  }
+}
+// Builds the first question's UI once at load — the chat composer sits
+// inside the (initially hidden) #recruitLoggedIn block, so this doesn't
+// show anything until someone actually logs in and opens Bewerbung, but
+// it needs to run once regardless so the first question is ready the
+// moment that block unhides. Not called again on every renderAll() (that
+// would wipe an applicant's in-progress answers on every Firebase sync)
+// — only an explicit restart (or a fresh page load) resets the chat.
+resetApplyChat();
+
+function ensureRecruitingNeedsDraftLoaded(){
+  if (!recruitingNeedsDraft) recruitingNeedsDraft = JSON.parse(JSON.stringify(state.recruitingNeeds || {}));
+}
+
+function renderRecruitNeedsEditor(){
+  ensureRecruitingNeedsDraftLoaded();
+  els.recruitNeedsEditorGrid.innerHTML = CLASSES.map(c => {
+    const specs = foreverSpecsForClass(c.id);
+    const checked = recruitingNeedsDraft[c.id] || [];
+    return `<div class="recruit-needs-row">
+      <span class="recruit-needs-class" style="color:${c.color}">${escapeHtml(c.label)}</span>
+      <div class="recruit-needs-specs">
+        ${specs.map(s => `<label class="poll-checkbox-field"><input type="checkbox" data-need-class="${c.id}" data-need-spec="${s.id}" ${checked.includes(s.id) ? 'checked' : ''}> ${escapeHtml(s.label)}</label>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  els.recruitNeedsEditorGrid.querySelectorAll('[data-need-class]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const cls = cb.getAttribute('data-need-class');
+      const spec = cb.getAttribute('data-need-spec');
+      if (!recruitingNeedsDraft[cls]) recruitingNeedsDraft[cls] = [];
+      if (cb.checked){
+        if (!recruitingNeedsDraft[cls].includes(spec)) recruitingNeedsDraft[cls].push(spec);
+      } else {
+        recruitingNeedsDraft[cls] = recruitingNeedsDraft[cls].filter(s => s !== spec);
+        if (!recruitingNeedsDraft[cls].length) delete recruitingNeedsDraft[cls];
+      }
+    });
+  });
+}
+
+async function saveRecruitingNeeds(){
+  if (!discordIdentity || !isOfficerOrAdmin()) return;
+  ensureRecruitingNeedsDraftLoaded();
+  state.recruitingNeeds = normalizeRecruitingNeeds(recruitingNeedsDraft);
+  els.recruitNeedsSaveStatus.textContent = 'Speichern…';
+  els.recruitNeedsSaveStatus.className = 'armory-status';
+  renderAll();
+  const ok = await saveData('recruitingNeeds');
+  els.recruitNeedsSaveStatus.textContent = ok ? 'Gespeichert!' : 'Konnte nicht gespeichert werden.';
+  els.recruitNeedsSaveStatus.className = 'armory-status ' + (ok ? 'armory-status-ok' : 'armory-status-error');
+}
+
+async function deleteApplication(id){
+  if (!discordIdentity || !isOfficerOrAdmin() || !state.applications || !state.applications[id]) return;
+  const backup = state.applications[id];
+  delete state.applications[id];
+  renderAll();
+  const ok = await saveData('applications/' + id);
+  if (!ok){ state.applications[id] = backup; renderAll(); }
+}
+
+// Sets an application's review status. "claimed" additionally stamps
+// who flagged it as being worked — the signed-in Officer/Admin doing
+// the flagging, not something you pick for someone else — so the card
+// can show "wird bearbeitet von <Name>" without a separate assignment
+// UI. Switching away from "interview" doesn't clear the stored date, so
+// switching back to it (e.g. after re-scheduling) remembers the last
+// one instead of starting blank.
+async function setApplicationStatus(id, status){
+  if (!discordIdentity || !isOfficerOrAdmin() || !state.applications || !state.applications[id] || !APPLICATION_STATUSES[status]) return;
+  const backup = state.applications[id];
+  state.applications[id] = Object.assign({}, backup, {
+    status,
+    claimedBy: status === 'claimed' ? discordIdentity.id : backup.claimedBy,
+    claimedByName: status === 'claimed' ? discordIdentity.username : backup.claimedByName
+  });
+  renderApplicationsList();
+  refreshQuestUI();
+  const ok = await saveData('applications/' + id);
+  if (!ok){ state.applications[id] = backup; renderApplicationsList(); refreshQuestUI(); }
+}
+async function setApplicationInterviewDate(id, dateStr){
+  if (!discordIdentity || !isOfficerOrAdmin() || !state.applications || !state.applications[id]) return;
+  const backup = state.applications[id];
+  state.applications[id] = Object.assign({}, backup, { interviewAt: /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : '' });
+  const ok = await saveData('applications/' + id);
+  if (!ok){ state.applications[id] = backup; renderApplicationsList(); }
+}
+// Recruiting-team-only notes — saved on blur (not per keystroke), and
+// deliberately doesn't re-render the list on success (would steal focus
+// / reset cursor position while someone might still be typing in
+// another field); only rolls back + re-renders on an actual save failure.
+async function setApplicationNotes(id, notes){
+  if (!discordIdentity || !isOfficerOrAdmin() || !state.applications || !state.applications[id]) return;
+  const backup = state.applications[id];
+  const trimmed = (notes || '').slice(0, 2000);
+  if (trimmed === (backup.notes || '')) return;
+  state.applications[id] = Object.assign({}, backup, { notes: trimmed });
+  const ok = await saveData('applications/' + id);
+  if (!ok){ state.applications[id] = backup; renderApplicationsList(); }
+}
+
+function renderApplicationsList(){
+  const apps = sortedApplications();
+  if (!apps.length){
+    els.applicationsList.innerHTML = `<div class="lootlib-note">Noch keine Bewerbungen.</div>`;
+    return;
+  }
+  // applicationCardCommonHtml holds the bits identical between the old
+  // flat-form applications (v1) and the new chat-form ones (v2) — the
+  // head row (name/date/contact/delete) and the "already has a saved
+  // User Settings profile" block — while each version formats its own
+  // body below that.
+  const applicationCardCommonParts = (a) => {
+    const dateStr = a.createdAt ? new Date(a.createdAt).toLocaleDateString('de-DE') : '';
+    const applicantProfile = a.applicantId ? (state.characterProfiles || {})[a.applicantId] : null;
+    const hasApplicantCharacters = !!(applicantProfile && applicantProfile.characters && applicantProfile.characters.length);
+    const applicantCharactersHtml = hasApplicantCharacters
+      ? `<div class="application-characters">
+          <strong>Charaktere (User Settings):</strong>
+          <div class="character-chips">${applicantProfile.characters.map(characterChipHtml).join('')}</div>
+          <button type="button" class="btn btn-ghost btn-sm access-member-armory-refresh" data-refresh-armory="${a.applicantId}">Aktualisieren</button>
+        </div>`
+      : '';
+    const contactBtnHtml = a.applicantId
+      ? `<a class="btn btn-discord btn-sm" href="https://discord.com/users/${encodeURIComponent(a.applicantId)}" target="_blank" rel="noopener" title="Öffnet das Discord-Profil von ${escapeHtml(a.applicantName)} — von dort direkt 'Nachricht senden'">Auf Discord kontaktieren</a>`
+      : '';
+    const status = a.status || 'open';
+    const statusOptionsHtml = Object.keys(APPLICATION_STATUSES)
+      .map(key => `<option value="${key}" ${status === key ? 'selected' : ''}>${APPLICATION_STATUSES[key].label}</option>`).join('');
+    // "Wird bearbeitet von <Name>" only once someone's actually claimed
+    // it; the interview-date field only shows once that status is
+    // picked, so the row doesn't clutter every card with an empty date
+    // input nobody asked for.
+    const claimedMetaHtml = (status === 'claimed' && a.claimedByName)
+      ? `<span class="application-status-meta">von ${escapeHtml(a.claimedByName)}</span>` : '';
+    const interviewDateHtml = status === 'interview'
+      ? `<input type="date" class="application-status-date" data-interview-app="${a.id}" value="${escapeHtml(a.interviewAt || '')}" title="Termin für das Bewerbungsgespräch">`
+      : '';
+    const statusRowHtml = `<div class="application-status-row">
+        <span class="application-status-badge application-status-${status}">${APPLICATION_STATUSES[status].label}</span>
+        <select class="application-status-select" data-status-app="${a.id}" aria-label="Bewerbungsstatus">${statusOptionsHtml}</select>
+        ${claimedMetaHtml}
+        ${interviewDateHtml}
+      </div>`;
+    // Recruiting-team-only — never shown to the applicant (see
+    // normalizeApplicationStatusFields / applyChatCard visibility).
+    // Saves on blur rather than per keystroke, same as other free-text
+    // fields on this page.
+    const notesHtml = `<div class="application-notes-row">
+        <label class="application-notes-label" for="notes-${a.id}">Notizen (nur fürs Recruitment-Team)</label>
+        <textarea class="application-notes-input" id="notes-${a.id}" data-notes-app="${a.id}" rows="2" maxlength="2000" placeholder="z.B. Eindrücke vom Gespräch, offene Fragen, Kontaktversuche …">${escapeHtml(a.notes || '')}</textarea>
+      </div>`;
+    const headHtml = `<div class="application-card-head">
+        <span class="application-applicant">${escapeHtml(a.applicantName)}${applicantProfile && applicantProfile.nickname ? ` <span class="access-member-nickname">"${escapeHtml(applicantProfile.nickname)}"</span>` : ''}</span>
+        <span class="application-date">${escapeHtml(dateStr)}</span>
+        ${contactBtnHtml}
+        <button type="button" class="btn btn-ghost btn-sm" data-delete-application="${a.id}">Löschen</button>
+      </div>
+      ${statusRowHtml}
+      ${notesHtml}`;
+    return { headHtml, applicantCharactersHtml };
+  };
+  const profListText = (list) => (Array.isArray(list) && list.length)
+    ? list.map(x => `${PROFESSION_MAP[x.professionId] ? PROFESSION_MAP[x.professionId].label : x.professionId} (${x.level === 'max' ? 'Max' : x.level})`).join(', ')
+    : '—';
+  // Wraps a card's inner content with the right outer shell for its
+  // status: Offen stays exactly as before (full-strength card, nothing
+  // extra to do); an in-progress one (claimed/interview/candidate) gets
+  // dimmed so it reads as "someone's on this" rather than "needs you
+  // too"; a closed one (Angenommen/Abgelehnt) collapses to a one-line
+  // toggle — applicant + character names only — so a growing pile of
+  // finished applications doesn't bury the ones still open.
+  const wrapApplicationCard = (a, innerHtml) => {
+    const status = a.status || 'open';
+    const isClosed = status === 'accepted' || status === 'rejected';
+    if (!isClosed){
+      const inProgressClass = (status === 'claimed' || status === 'interview' || status === 'candidate') ? ' application-card-inprogress' : '';
+      return `<div class="application-card${inProgressClass}" data-application-id="${a.id}">${innerHtml}</div>`;
+    }
+    const expanded = expandedClosedApplications.has(a.id);
+    return `<div class="application-card application-card-closed${expanded ? ' is-expanded' : ''}" data-application-id="${a.id}">
+      <button type="button" class="application-card-toggle" data-toggle-application="${a.id}">
+        <span class="application-status-badge application-status-${status}">${APPLICATION_STATUSES[status].label}</span>
+        <span class="application-card-toggle-title">${escapeHtml(applicationCollapsedTitle(a))}</span>
+        <span class="application-card-toggle-arrow" aria-hidden="true">${expanded ? '▲' : '▼'}</span>
+      </button>
+      <div class="application-card-body">${innerHtml}</div>
+    </div>`;
+  };
+
+  els.applicationsList.innerHTML = apps.map(a => {
+    const { headHtml, applicantCharactersHtml } = applicationCardCommonParts(a);
+    if (a.version === 2){
+      // Current chat-form shape. Two layers: a quick-glance summary bar
+      // (the handful of facts an officer scans for first — age, classes,
+      // characters, whether logs/professions were even given) so the
+      // card can be judged in a second or two, then the full per-class
+      // detail blocks below it for anyone who wants to read everything.
+      const charLogs = a.charLogs || {};
+      const picks = a.picks || [];
+      const classChipsHtml = picks.map(p => {
+        const cls = CLASS_MAP[p.classId];
+        const iconUrl = foreverClassIconUrl(p.classId);
+        return `<span class="application-summary-classchip">
+          ${iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
+          <span style="color:${cls ? cls.color : 'inherit'}">${escapeHtml(cls ? cls.label : p.classId)}</span>
+        </span>`;
+      }).join('');
+      const profsGivenCount = picks.filter(p => ((a.charProfessions || {})[p.classId] || []).length).length;
+      const logsGivenCount = picks.filter(p => charLogs[p.classId]).length;
+      const summaryStatsHtml = [
+        { label: 'Alter', value: String(a.age) },
+        { label: 'Charakter(e)', value: picks.map(p => (a.characters || {})[p.classId]).filter(Boolean).join(', ') || '—' },
+        { label: 'Hauptberufe', value: profsGivenCount ? `${profsGivenCount}/${picks.length} angegeben` : 'keine Angabe' },
+        { label: 'Logs', value: logsGivenCount ? `${logsGivenCount}/${picks.length} verlinkt` : 'keine Angabe' }
+      ].map(s => `<div class="application-stat"><span class="application-stat-label">${escapeHtml(s.label)}</span><span class="application-stat-value">${escapeHtml(s.value)}</span></div>`).join('');
+      const classBlocksHtml = picks.map(p => {
+        const cls = CLASS_MAP[p.classId];
+        const iconUrl = foreverClassIconUrl(p.classId);
+        const specLabels = (p.specs || []).map(s => foreverSpecLabel(p.classId, s)).filter(Boolean).join(', ') || '—';
+        const charName = (a.characters || {})[p.classId] || '—';
+        const profText = profListText((a.charProfessions || {})[p.classId]);
+        const logUrl = charLogs[p.classId];
+        return `<div class="application-class-block">
+          <span class="application-class-pick">
+            ${iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
+            <span class="application-class" style="color:${cls ? cls.color : 'inherit'}">${escapeHtml(cls ? cls.label : p.classId)}</span>
+            <span class="application-specs">${escapeHtml(specLabels)}</span>
+          </span>
+          <p class="application-namage"><strong>Charakter:</strong> ${escapeHtml(charName)}</p>
+          <p class="application-professions"><strong>Hauptberufe:</strong> ${escapeHtml(profText)}</p>
+          <p class="application-logs"><strong>Warcraftlogs:</strong> ${logUrl ? linkifyEscaped(logUrl) : '—'}</p>
+        </div>`;
+      }).join('');
+      return wrapApplicationCard(a, `
+        ${headHtml}
+        <p class="application-namage"><strong>Vorname:</strong> ${escapeHtml(a.firstName)}${a.nickname ? ` <span class="access-member-nickname">Nickname: "${escapeHtml(a.nickname)}"</span>` : ''}</p>
+        <div class="application-summary-row">
+          ${summaryStatsHtml}
+          <div class="application-summary-classchips">${classChipsHtml}</div>
+        </div>
+        <div class="application-class-picks application-class-picks-v2">${classBlocksHtml}</div>
+        <p class="application-professions"><strong>Zusätzliche Professions:</strong> ${escapeHtml(profListText(a.extraProfessions))}</p>
+        ${a.remarks ? `<p class="application-remarks"><strong>Sonstiges:</strong> ${linkifyEscaped(a.remarks)}</p>` : ''}
+        ${applicantCharactersHtml}
+      `);
+    }
+    // Legacy (v1) flat-form application — unchanged formatting, for
+    // anything submitted before the chat-form rebuild.
+    const picksHtml = (a.picks || []).map(p => {
+      const cls = CLASS_MAP[p.classId];
+      const specLabels = (p.specs || []).map(s => foreverSpecLabel(p.classId, s)).filter(Boolean).join(', ') || '—';
+      return `<span class="application-class-pick">
+        <span class="application-class" style="color:${cls ? cls.color : 'inherit'}">${escapeHtml(cls ? cls.label : p.classId)}</span>
+        <span class="application-specs">${escapeHtml(specLabels)}</span>
+      </span>`;
+    }).join('');
+    // Professions is either an array of known PROFESSIONS ids (current
+    // form) or a legacy free-text string (applications submitted before
+    // the checkbox list existed) — display either correctly.
+    const professionsText = Array.isArray(a.professions)
+      ? a.professions.map(id => (PROFESSION_MAP[id] ? PROFESSION_MAP[id].label : id)).join(', ')
+      : a.professions;
+    return wrapApplicationCard(a, `
+      ${headHtml}
+      <div class="application-class-picks">${picksHtml}</div>
+      ${a.nameAge ? `<p class="application-namage"><strong>Name &amp; Alter:</strong> ${escapeHtml(a.nameAge)}</p>` : ''}
+      <p class="application-experience"><strong>Erfahrung:</strong> ${linkifyEscaped(a.experience)}</p>
+      ${a.logs ? `<p class="application-logs"><strong>Logs:</strong> ${linkifyEscaped(a.logs)}</p>` : ''}
+      <p class="application-professions"><strong>Berufe (Forever):</strong> ${escapeHtml(professionsText)}</p>
+      ${a.remarks ? `<p class="application-remarks"><strong>Sonstiges:</strong> ${linkifyEscaped(a.remarks)}</p>` : ''}
+      ${applicantCharactersHtml}
+    `);
+  }).join('');
+  els.applicationsList.querySelectorAll('[data-delete-application]').forEach(btn => {
+    btn.addEventListener('click', () => deleteApplication(btn.getAttribute('data-delete-application')));
+  });
+  els.applicationsList.querySelectorAll('[data-toggle-application]').forEach(btn => {
+    btn.addEventListener('click', () => toggleApplicationExpanded(btn.getAttribute('data-toggle-application')));
+  });
+  els.applicationsList.querySelectorAll('[data-status-app]').forEach(sel => {
+    sel.addEventListener('change', () => setApplicationStatus(sel.getAttribute('data-status-app'), sel.value));
+  });
+  els.applicationsList.querySelectorAll('[data-interview-app]').forEach(inp => {
+    inp.addEventListener('change', () => setApplicationInterviewDate(inp.getAttribute('data-interview-app'), inp.value));
+  });
+  els.applicationsList.querySelectorAll('[data-notes-app]').forEach(inp => {
+    inp.addEventListener('blur', () => setApplicationNotes(inp.getAttribute('data-notes-app'), inp.value));
+  });
+  els.applicationsList.querySelectorAll('[data-refresh-armory]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Lädt…';
+      await refreshMemberArmoryData(btn.getAttribute('data-refresh-armory'));
+      renderApplicationsList();
+    });
+  });
+  applyPendingApplicationDeepLink();
+}
+
+// Resolves a #recruit?app=<id> deep link (from a Discord notification —
+// see notifyOfficersOfNewApplication) into actually scrolling to and
+// highlighting that one application, once the applications list has
+// something to scroll to. If it's a closed (collapsed) application, that
+// takes a re-render to open first — this calls itself once more via
+// renderApplicationsList() in that case, then settles on the second pass.
+function applyPendingApplicationDeepLink(){
+  if (!pendingDeepLinkApplicationId) return;
+  const id = pendingDeepLinkApplicationId;
+  if (!state.applications || !state.applications[id]){ pendingDeepLinkApplicationId = null; return; }
+  const status = state.applications[id].status || 'open';
+  if ((status === 'accepted' || status === 'rejected') && !expandedClosedApplications.has(id)){
+    expandedClosedApplications.add(id);
+    renderApplicationsList();
+    return;
+  }
+  pendingDeepLinkApplicationId = null;
+  const el = els.applicationsList.querySelector(`[data-application-id="${CSS.escape(id)}"]`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.add('application-card-highlight');
+  setTimeout(() => el.classList.remove('application-card-highlight'), 2600);
+}
+
+function renderRecruitView(){
+  const loggedIn = !!discordIdentity;
+  els.recruitLoggedOut.classList.toggle('hidden', loggedIn);
+  els.recruitLoggedIn.classList.toggle('hidden', !loggedIn);
+  const badges = recruitingNeedsBadges(state.recruitingNeeds || {});
+  els.recruitNeedsOverviewBadges.innerHTML = badges || '<span class="recruit-need-badges-empty">Aktuell nichts Bestimmtes — jede Bewerbung ist willkommen!</span>';
+  if (!loggedIn) return;
+  renderRecruitApplyGate();
+  const canManage = isOfficerOrAdmin();
+  els.recruitNeedsEditor.classList.toggle('hidden', !canManage);
+  els.applicationsCard.classList.toggle('hidden', !canManage);
+  if (canManage){
+    renderRecruitNeedsEditor();
+    renderApplicationsList();
+  }
+}
+
+// Decides whether the signed-in person can fill out a new application
+// right now, and renders the right thing in its place when they can't:
+// already a guild member (no need to apply), an existing application
+// that's already been decided (no re-applying), or an existing
+// application still in flight (shows its status + a reminder button
+// once APPLICATION_REMINDER_COOLDOWN_DAYS has passed).
+//
+// Deliberate exception: an Admin always sees the apply chat, regardless
+// of being a guild member or already having an application on file — so
+// an Admin can run through the Bewerbung flow end-to-end for testing
+// without needing a second Discord account. Officers and regular Guild
+// Members still go through the normal gate below.
+function renderRecruitApplyGate(){
+  if (currentRole === 'admin'){
+    els.applyChatCard.classList.remove('hidden');
+    els.recruitApplyNotice.classList.add('hidden');
+    return;
+  }
+  const existing = myLatestApplication();
+  const alreadyMember = isMemberOrHigher();
+  const blocked = alreadyMember || !!existing;
+  els.applyChatCard.classList.toggle('hidden', blocked);
+  els.recruitApplyNotice.classList.toggle('hidden', !blocked);
+  if (!blocked) return;
+
+  let title = '';
+  let body = '';
+  let actionsHtml = '';
+  if (alreadyMember){
+    title = 'Du bist schon dabei!';
+    body = 'Du bist bereits Mitglied der Gilde — eine Bewerbung brauchst du nicht mehr ;)';
+  } else if (existing.status === 'accepted'){
+    title = 'Deine Bewerbung wurde angenommen!';
+    body = 'Willkommen bei uns — wir haben uns schon bei dir auf Discord gemeldet. Eine erneute Bewerbung ist nicht nötig.';
+  } else if (existing.status === 'rejected'){
+    title = 'Deine Bewerbung wurde bereits entschieden';
+    body = 'Deine letzte Bewerbung wurde leider abgelehnt. Eine erneute Bewerbung ist über diese Seite aktuell nicht möglich — bei Fragen meldet euch gerne direkt auf Discord.';
+  } else {
+    // Still open/claimed/interview/candidate.
+    const dateStr = existing.createdAt ? new Date(existing.createdAt).toLocaleDateString('de-DE') : '';
+    title = 'Du hast dich schon beworben';
+    body = `Eingegangen am ${escapeHtml(dateStr)} — aktueller Status: <strong>${APPLICATION_STATUSES[existing.status].label}</strong>. Wir melden uns, sobald es etwas Neues gibt.`;
+    const cooldownStart = Math.max(existing.createdAt || 0, existing.lastReminderAt || 0);
+    const daysSince = (Date.now() - cooldownStart) / 86400000;
+    if (daysSince >= APPLICATION_REMINDER_COOLDOWN_DAYS){
+      actionsHtml = `<button type="button" class="btn btn-ghost btn-sm" data-send-reminder="${existing.id}">Erinnerung senden</button>`;
+    } else {
+      const daysLeft = Math.ceil(APPLICATION_REMINDER_COOLDOWN_DAYS - daysSince);
+      actionsHtml = `<span class="armory-status">Erinnerung ist in ${daysLeft} Tag${daysLeft === 1 ? '' : 'en'} möglich.</span>`;
+    }
+  }
+  els.recruitApplyNoticeTitle.textContent = title;
+  els.recruitApplyNoticeBody.innerHTML = body;
+  els.recruitApplyNoticeActions.innerHTML = actionsHtml;
+  els.recruitApplyNoticeActions.querySelectorAll('[data-send-reminder]').forEach(btn => {
+    btn.addEventListener('click', () => sendApplicationReminder(btn.getAttribute('data-send-reminder')));
+  });
+}
+
+// Home-page teaser — driven by the same state.recruitingNeeds as the
+// recruiting page's own overview, so the two never say different things.
+function renderRecruitTeaser(){
+  const badges = recruitingNeedsBadges(state.recruitingNeeds || {});
+  els.recruitTeaserNeeds.innerHTML = badges
+    ? `<p class="recruit-need-label">Aktuell besonders gesucht:</p><div class="recruit-need-badges">${badges}</div>`
+    : '';
+}

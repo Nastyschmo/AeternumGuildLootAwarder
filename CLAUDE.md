@@ -34,7 +34,7 @@ Worker.
   "Rules-Update nötig" markiert werden (siehe Work Log 2026-10-01 – Tests
   laufen gegen ein gemocktes Firebase und fangen fehlende Rules nicht ab).
   Ein neuer Top-Level-Key unter `guild-loot-data` braucht **beide**: einen
-  Eintrag in `SYNCED_KEYS` (index.html) und eine eigene `.read`-Regel in
+  Eintrag in `SYNCED_KEYS` (js/app.js) und eine eigene `.read`-Regel in
   `README.md` § 6f – eine Root-`.read`-Regel gibt es bewusst nicht mehr.
 - Nach jeder abgeschlossenen Aufgabe: `PROJECT.md` aktualisieren
   (Work Log oben ergänzen, offene Tasks/Known Issues pflegen) – im selben PR.
@@ -51,9 +51,17 @@ Worker.
 
 ## Code-Konventionen
 
-- Aktuell steckt die gesamte App in `index.html` (HTML + CSS + JS). Geplant
-  ist ein schrittweises Aufteilen in mehrere Dateien – bis dahin Änderungen
-  im bestehenden Stil halten.
+- Aufbau: `index.html` (HTML-Gerüst), `css/main.css` (Styles),
+  `data/talentsforever.js` (Spiel-Daten) und `js/*.js` (App-Logik, eine
+  Datei pro Bereich: `core.js` → `state.js` → Feature-Dateien → `app.js`
+  zuletzt; Reihenfolge siehe `<script>`-Tags in `index.html`, Inhalt siehe
+  Kopfkommentar jeder Datei). Alle Scripts sind klassische `<script>`-Tags
+  ohne Bundler; ihre Top-Level-Deklarationen teilen sich den globalen
+  Scope (keine Namen wählen, die mit `window`-Eigenschaften kollidieren).
+- Code, der beim Laden sofort läuft (Event-Listener-Verdrahtung,
+  Top-Level-Aufrufe, `const`-Initialisierer), darf nur auf Dateien
+  zugreifen, die **vorher** geladen werden. Funktionsrümpfe dürfen alles
+  aufrufen. Neue Feature-Dateien vor `app.js` einhängen.
 - Farben immer über die CSS-Custom-Properties in `:root` (nie hartkodierte
   Hex-Werte), damit das Horde-Theme (`html.theme-horde`) greift.
 - Nutzereingaben in HTML immer über `escapeHtml()` bzw. für Rich Text über

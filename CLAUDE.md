@@ -26,7 +26,7 @@ Worker.
   PR und in `PROJECT.md`.
 - **Testen vor dem Merge** über Cloudflare Pages (README § 8): Claude legt
   den Stand eines Feature-Branches per Force-Push auf den Branch `preview`,
-  der User testet unter `https://preview.<projekt>.pages.dev/`. `preview`
+  der User testet unter `https://preview.aeternumguildlootawarder.pages.dev/`. `preview`
   ist ein reiner Wegwerf-Branch – nie darauf aufbauen, nie nach `main`
   mergen. Achtung: Die Preview nutzt die Live-Datenbank.
 - **Kleine, fokussierte Änderungen**: ein Thema pro PR.

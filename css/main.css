@@ -1,0 +1,1792 @@
+/* Main stylesheet for the rude Guild Page (moved out of index.html's
+   <style> block). Asset URLs are relative to this file, hence ../assets/.
+   The two rules that reference the inline SVG filter
+   #designBurnFireDistort stay inline in index.html: a fragment-only
+   url(#id) in an external stylesheet isn't reliably resolved against the
+   page across browsers. */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Karla:wght@400;500;600;700&display=swap');
+
+/* WoW Forever-inspired palette: dusk mountain sky, gold ornamentation,
+   teal CTAs, warm parchment panels — original color/typography language,
+   not a reproduction of any specific Blizzard artwork or logo. */
+:root{
+  /* Deep-sea navy palette (swapped from the earlier purple scheme) —
+     gold/teal accents and the hero/parchment sections keep their own
+     colors, only the general background/panel/border/text tones below
+     come from this palette. */
+  --bg-deep: #071b28;
+  --bg-panel: #0c2f44;
+  --bg-panel-raised: #12415c;
+  --border: #2c6788;
+  --border-soft: #1a3f56;
+  --gold: #c9a227;
+  --gold-bright: #f0cf6b;
+  --teal: #1f7a72;
+  --teal-bright: #2fae9e;
+  --text: #e6eef2;
+  --text-muted: #9ab3c4;
+  --text-faint: #63808f;
+  --danger: #b5493f;
+  --danger-bright: #d96759;
+
+  /* Extra tokens for a handful of spots that used to be hardcoded hex
+     instead of a variable (gold badge/crest glints, the body/hero/
+     parchment/news-thumb background gradients, form-field backgrounds,
+     the teal button's text/border). Pulled out so the Horde reveal theme
+     below can retint them too — see the "Design reveal" comment further
+     down for what triggers that theme and how. */
+  --gold-bright-rgb: 240,207,107;
+  --badge-hi: #fff6c8;
+  --badge-edge: #b8860b;
+  --badge-text: #3a2600;
+  --crest-shade: #7a5c12;
+  --crest-text: #08202f;
+  --body-grad-1: #08202f;
+  --body-grad-2: #0a2a3c;
+  --field-bg: #08192a;
+  --parchment-grad-1: #0e4a4a;
+  --parchment-grad-2: #0c3247;
+  --parchment-grad-3: #081c2c;
+  --parchment-text: #cfe3e6;
+  --news-thumb-grad-1: #123f59;
+  --news-thumb-grad-2: #0a2436;
+  --teal-btn-text: #eafffb;
+  --teal-btn-border: #1c6961;
+  --hero-bg-fallback: #171432;
+  --hero-scrim-rgb: 10,8,20;
+  --body-vignette-rgb: 44,103,136;
+  --topbar-bg-rgb: 7,22,34;
+}
+
+/* ---------------------------------------------------------------------
+   Design reveal — dark Horde theme
+   ---------------------------------------------------------------------
+   Applied to <html> (not <body>) as `.theme-horde`, so every var() above
+   resolves to these values instead once it's added — nothing but this
+   block needs to change for the whole site to retint, since the rest of
+   the stylesheet only ever reaches colors through the custom properties
+   above (see the refactor note on the tokens above — a few previously-
+   hardcoded hex values were pulled into vars specifically so this block
+   could reach them too).
+
+   Who gets this class and when (see the big comment above
+   initDesignReveal() near the end of the main script for the full
+   picture, including why there are two separate localStorage keys):
+   - First-time visitors still see the old navy/gold theme. On the very
+     first page load in a given browser ("guild-loot-design-revealed" not
+     yet in localStorage), a one-time popup asks whether to unlock the
+     new design — rolled out to everyone as of 2026-10-01, no longer
+     admin-only. Clicking "Okay" burns the old page away top-to-bottom
+     (#designBurnOverlay, driven by startDesignBurn()) and adds this
+     class underneath the burning paper, then sets both localStorage
+     keys.
+   - Once "guild-loot-design-theme" is 'horde', a tiny inline script at
+     the very top of <head> adds this class before first paint (no flash
+     of the old theme on repeat visits).
+   A person can switch back at any time via the "Design" switcher in User
+   Settings (also admin-only for now — see applyAccessControl()/
+   setDesignTheme()); nothing here is destructive, the old :root values
+   above are always still there underneath.
+
+   Palette below isn't invented — it's sampled straight from the guild's
+   own hero reveal artwork (assets/bg-texture-horde.jpg, set as the
+   .hero background further down): dominant-color quantization on the
+   image gave the near-blacks/oxbloods for the backgrounds/borders, and
+   the banner's own glowing red-orange became --gold-bright (rgb
+   219,90,56) almost unchanged. See PROJECT.md for the exact sampling. */
+html.theme-horde{
+  --bg-deep: #170b09;
+  --bg-panel: #241410;
+  --bg-panel-raised: #3a2019;
+  --border: #6b2e22;
+  --border-soft: #402019;
+  --gold: #7a2a1c;
+  --gold-bright: #db5a38;
+  --teal: #5c2e1c;
+  --teal-bright: #c98456;
+  --text: #f2e3d5;
+  --text-muted: #c9a68c;
+  --text-faint: #8a6a56;
+  --danger: #9c2e28;
+  --danger-bright: #e2705c;
+
+  --gold-bright-rgb: 219,90,56;
+  --badge-hi: #f2c9a8;
+  --badge-edge: #5c1f14;
+  --badge-text: #2a0e07;
+  --crest-shade: #4a1712;
+  --crest-text: #1a0806;
+  --body-grad-1: #2c1409;
+  --body-grad-2: #1f0d08;
+  --field-bg: #1a0d09;
+  --parchment-grad-1: #5c2216;
+  --parchment-grad-2: #38140d;
+  --parchment-grad-3: #1a0806;
+  --parchment-text: #f0ddc8;
+  --news-thumb-grad-1: #4a1c12;
+  --news-thumb-grad-2: #1c0b07;
+  --teal-btn-text: #fff0e0;
+  --teal-btn-border: #8a4a2a;
+  --hero-bg-fallback: #1a0806;
+  --hero-scrim-rgb: 20,8,5;
+  --body-vignette-rgb: 219,90,56;
+  --topbar-bg-rgb: 23,11,9;
+}
+
+*{ box-sizing: border-box; }
+html, body{ margin: 0; padding: 0; }
+body{
+  /* Deep-sea navy ambient background, fading into a flat panel color
+     below the hero (the hero image/overlay itself is untouched). */
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(var(--body-vignette-rgb),0.35), transparent 60%),
+    linear-gradient(180deg, var(--body-grad-1) 0%, var(--body-grad-2) 10%, var(--bg-deep) 30%, var(--bg-deep) 100%);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: 'Karla', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+a{ color: inherit; }
+.hidden{ display: none !important; }
+
+h1, h2, h3{ font-family: 'Cinzel', serif; }
+
+/* ---------- Buttons / inputs ---------- */
+.btn{
+  font-family: 'Karla', sans-serif;
+  font-weight: 600;
+  font-size: 13.5px;
+  padding: 10px 20px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel-raised);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, filter .15s ease;
+  white-space: nowrap;
+  /* .btn is also used on <a> tags (e.g. the applicant "Auf Discord
+     kontaktieren" link) — kill the browser's default link underline and
+     make it lay out identically to a real <button>. */
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn:hover{ border-color: var(--gold); }
+.btn-sm{ padding: 6px 12px; font-size: 12px; border-radius: 3px; }
+.btn-block{ width: 100%; }
+.btn-ghost{ background: transparent; }
+.btn-teal{ background: linear-gradient(180deg, var(--teal-bright), var(--teal)); color: var(--teal-btn-text); border: 1px solid var(--teal-btn-border); }
+.btn-teal:hover{ filter: brightness(1.08); }
+.btn-outline-gold{ background: transparent; border: 1px solid var(--gold); color: var(--gold-bright); }
+.btn-outline-gold:hover{ background: rgba(201,162,39,0.12); }
+.btn-discord{ background: #5865F2; color: #fff; border: 1px solid #4752c4; }
+.btn-discord:hover{ background: #4752c4; }
+
+select, textarea{
+  font-family: 'Karla', sans-serif;
+  font-size: 13.5px;
+  padding: 8px 10px;
+  background: var(--field-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  width: 100%;
+}
+select:focus, textarea:focus{ outline: none; border-color: var(--gold); }
+
+/* ---------- Shell: collapsible sidebar + main area ---------- */
+.shell{ display: flex; align-items: stretch; min-height: 100vh; }
+.sidebar{
+  width: 240px; flex: none; overflow: hidden;
+  background: var(--bg-panel); border-right: 1px solid var(--border-soft);
+  transition: width .2s ease, border-color .2s ease;
+  /* Pinned in place while the page scrolls, so the nav (and the
+     burger toggle) stays reachable even when scrolled to the bottom. */
+  position: sticky; top: 0; height: 100vh; align-self: flex-start;
+}
+/* Collapsed = a slim icon-only rail rather than nothing, so navigation
+   stays reachable without expanding the full sidebar. */
+.sidebar.collapsed{ width: 64px; }
+.sidebar-inner{ width: 240px; padding: 20px 16px; height: 100%; overflow-y: auto; }
+.sidebar.collapsed .sidebar-inner{ display: none; }
+.sidebar-inner-mini{
+  display: none; width: 64px; height: 100%; padding: 20px 0;
+  flex-direction: column; align-items: center; gap: 18px; overflow-y: auto;
+}
+.sidebar.collapsed .sidebar-inner-mini{ display: flex; }
+.sidebar-brand{ display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 26px; }
+.nav-crest{
+  width: 36px; height: 36px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold) 55%, var(--crest-shade) 100%);
+  border: 2px solid var(--gold-bright);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Cinzel', serif; font-weight: 700; color: var(--crest-text); font-size: 15px;
+  box-shadow: 0 0 10px rgba(var(--gold-bright-rgb),0.35);
+  cursor: pointer;
+}
+.nav-name{ font-family: 'Cinzel', serif; font-weight: 600; letter-spacing: 1.5px; font-size: 17px; color: var(--text); white-space: nowrap; }
+.sidebar-nav{ display: flex; flex-direction: column; gap: 4px; }
+.sidebar-nav-item{
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px; border-radius: 6px;
+  color: var(--text-muted); font-size: 14px; font-weight: 600;
+  text-decoration: none; cursor: pointer; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.sidebar-nav-item:hover{ color: var(--text); background: rgba(255,255,255,0.04); }
+.sidebar-nav-item.active{ color: var(--gold-bright); background: rgba(var(--gold-bright-rgb),0.1); border-color: rgba(var(--gold-bright-rgb),0.25); }
+
+.sidebar-nav-mini{ display: flex; flex-direction: column; gap: 8px; }
+.sidebar-nav-item-mini{
+  position: relative;
+  width: 38px; height: 38px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); cursor: pointer; border: 1px solid transparent;
+}
+.sidebar-nav-item-mini svg{ width: 18px; height: 18px; }
+.sidebar-nav-item-mini:hover{ color: var(--text); background: rgba(255,255,255,0.04); }
+.sidebar-nav-item-mini.active{ color: var(--gold-bright); background: rgba(var(--gold-bright-rgb),0.1); border-color: rgba(var(--gold-bright-rgb),0.25); }
+
+/* ---------- "Quest available" markers — a WoW-style gold "!" next to a
+   sidebar nav item (full rail) or a small dot on its icon (mini rail)
+   when that page has something open for you: an unread announcement,
+   or an open poll/the class survey you haven't voted in yet. Purely
+   visual sugar around data that's already tracked elsewhere (votes,
+   seenState/<uid>) — see pageQuestPending() / renderQuestBell() in the
+   script for what actually decides when these show. ---------- */
+.nav-quest-badge{
+  flex: none; width: 18px; height: 18px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--badge-hi), var(--gold-bright) 55%, var(--badge-edge) 100%);
+  border: 1px solid var(--badge-hi); color: var(--badge-text); font-family: 'Cinzel', serif; font-weight: 700; font-size: 12px;
+  display: flex; align-items: center; justify-content: center; line-height: 1;
+  box-shadow: 0 0 6px rgba(var(--gold-bright-rgb),0.6);
+  animation: quest-badge-pulse 2s ease-in-out infinite;
+}
+.nav-quest-badge-mini{
+  position: absolute; top: 1px; right: 1px; width: 11px; height: 11px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--badge-hi), var(--gold-bright) 55%, var(--badge-edge) 100%);
+  border: 1px solid var(--badge-hi); box-shadow: 0 0 6px rgba(var(--gold-bright-rgb),0.7);
+  animation: quest-badge-pulse 2s ease-in-out infinite;
+}
+@keyframes quest-badge-pulse{
+  0%, 100%{ transform: scale(1); opacity: 1; }
+  50%{ transform: scale(1.18); opacity: 0.85; }
+}
+
+/* ---------- Quest bell — topbar dropdown summarizing every pending
+   "quest" at once (unread Ankündigungen + open Abstimmungen you haven't
+   voted in), so you don't have to click through each nav item to find
+   out. Reuses the same popover chrome as the account popover. ---------- */
+.quest-bell-wrap{ position: relative; }
+.quest-bell-btn{ position: relative; display: flex; align-items: center; justify-content: center; padding: 8px 10px; }
+.quest-bell-btn svg.quest-bell-icon{ width: 16px; height: 22px; overflow: visible; }
+/* The bell button itself is styled as a WoW "quest available" mark — a
+   filled gold "!" when something's pending, and just its empty outline
+   ("ein leerer Rahmen") when you're caught up. Toggled by the
+   .has-pending class in renderQuestBell(), not by swapping markup. */
+.quest-bell-icon-shape{ transition: fill .15s, stroke .15s; }
+.quest-bell-btn:not(.has-pending) .quest-bell-icon-shape{
+  fill: none; stroke: var(--text-muted); stroke-width: 1.6;
+}
+.quest-bell-btn:hover:not(.has-pending) .quest-bell-icon-shape{ stroke: var(--text); }
+.quest-bell-btn.has-pending .quest-bell-icon-shape{
+  fill: var(--gold-bright); stroke: var(--badge-hi); stroke-width: 0.6;
+  filter: drop-shadow(0 0 4px rgba(var(--gold-bright-rgb),0.7));
+}
+.quest-bell-dot{
+  position: absolute; top: 3px; right: 4px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, var(--badge-hi), var(--gold-bright) 55%, var(--badge-edge) 100%);
+  border: 1px solid var(--badge-hi); color: var(--badge-text); font-family: 'Karla', sans-serif; font-weight: 700; font-size: 10px;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 0 6px rgba(var(--gold-bright-rgb),0.6);
+}
+.quest-popover{
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
+  width: 280px; max-height: 360px; overflow-y: auto;
+  background: var(--bg-panel-raised); border: 1px solid var(--gold);
+  border-radius: 6px; padding: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.quest-popover-title{ font-family: 'Cinzel', serif; color: var(--gold-bright); font-size: 13px; margin-bottom: 10px; }
+.quest-popover-section-title{
+  font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: .6px; text-transform: uppercase;
+  color: var(--text-muted); margin: 12px 0 6px;
+}
+.quest-popover-section-title:first-child{ margin-top: 0; }
+.quest-popover-item{
+  display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 5px;
+  color: var(--text); font-size: 13px; text-decoration: none; cursor: pointer;
+}
+.quest-popover-item:hover{ background: rgba(var(--gold-bright-rgb),0.1); }
+.quest-popover-item-icon{
+  flex: none; width: 16px; height: 16px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--badge-hi), var(--gold-bright) 55%, var(--badge-edge) 100%);
+  color: var(--badge-text); font-family: 'Cinzel', serif; font-weight: 700; font-size: 11px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.quest-popover-empty{ font-size: 12.5px; color: var(--text-muted); padding: 6px 2px; }
+
+.main-area{ flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.topbar{
+  position: sticky; top: 0; z-index: 50;
+  display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "burger countdown auth";
+  align-items: center;
+  padding: 10px 4vw 10px 16px; gap: 16px;
+  background: rgba(var(--topbar-bg-rgb),0.86); backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-soft);
+}
+.burger-btn{
+  grid-area: burger;
+  width: 38px; height: 38px; flex: none; border-radius: 6px;
+  background: var(--bg-panel-raised); border: 1px solid var(--border);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  cursor: pointer; padding: 0;
+}
+.burger-btn:hover{ border-color: var(--gold); }
+.burger-btn span{ display: block; width: 16px; height: 2px; background: var(--text-muted); border-radius: 1px; }
+.burger-btn:hover span{ background: var(--gold-bright); }
+.nav-auth{ grid-area: auth; justify-self: end; display: flex; align-items: center; gap: 10px; }
+
+/* ---------- Release countdown pill (topbar, top-mid, every page) ---------- */
+.topbar-countdown{
+  grid-area: countdown; justify-self: center;
+  display: flex; align-items: center; gap: 10px; max-width: 100%;
+}
+.topbar-countdown-logo{ width: 40px; height: auto; flex: none; }
+.topbar-countdown-body{ display: flex; flex-direction: column; line-height: 1.25; white-space: nowrap; }
+.topbar-countdown-label{ font-size: 10.5px; font-weight: 600; color: var(--gold-bright); }
+.topbar-countdown-timer{ font-size: 15px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; font-family: 'Cinzel', serif; }
+@media (max-width: 760px){
+  .topbar{ grid-template-columns: auto auto; grid-template-areas: "burger auth" "countdown countdown"; row-gap: 10px; }
+  .topbar-countdown{ justify-self: center; }
+}
+@media (max-width: 420px){
+  .topbar-countdown-logo{ width: 32px; }
+  .topbar-countdown-label{ display: none; }
+}
+
+/* ---------- Account / access control (reused across nav) ---------- */
+.access-control{ position: relative; }
+#accessSwitchBtn{ display: flex; align-items: center; gap: 7px; }
+.access-avatar{ width: 20px; height: 20px; border-radius: 50%; flex: none; }
+.access-popover{
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
+  width: 220px; background: var(--bg-panel-raised); border: 1px solid var(--gold);
+  border-radius: 6px; padding: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.access-popover-title{ font-family: 'Cinzel', serif; color: var(--gold-bright); font-size: 13px; margin-bottom: 4px; word-break: break-word; }
+.access-popover-sub{ font-size: 11.5px; color: var(--text-muted); margin-bottom: 12px; }
+.access-popover-characters{ font-size: 11px; color: var(--teal-bright); margin: -6px 0 12px; }
+.access-popover .btn-block{ margin-top: 6px; }
+
+.access-modal{
+  position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,0.65);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.access-modal-card{
+  background: var(--bg-panel); border: 1px solid var(--gold); border-radius: 8px;
+  padding: 22px 24px; max-width: 480px; width: 100%; max-height: 80vh; overflow-y: auto;
+}
+.access-modal-header{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.access-modal-header h2{ color: var(--gold-bright); font-size: 18px; margin: 0; }
+.access-modal-note{ font-size: 12.5px; color: var(--text-muted); margin: 0 0 14px; line-height: 1.5; }
+.access-role-group{ margin-bottom: 6px; }
+.access-role-group:last-child{ margin-bottom: 0; }
+.access-role-group-head{
+  font-family: 'Cinzel', serif; font-size: 11.5px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--gold-bright); padding: 10px 4px 4px; border-bottom: 1px solid var(--gold);
+}
+.access-role-group-count{ color: var(--text-muted); font-family: 'Karla', sans-serif; letter-spacing: 0; text-transform: none; font-size: 11px; }
+.access-member-block{ padding: 8px 0; border-bottom: 1px solid var(--border-soft); }
+.access-member-block:last-child{ border-bottom: none; }
+.access-member-row{ display: flex; align-items: center; gap: 10px; padding: 0 4px; }
+.access-member-avatar{ width: 28px; height: 28px; border-radius: 50%; flex: none; background: var(--bg-panel-raised); }
+.access-member-name{ flex: 1; min-width: 0; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.access-member-nickname{ font-weight: 400; color: var(--text-muted); }
+.access-member-role-select{ width: auto; font-size: 12px; padding: 4px 8px; }
+.access-member-role-select:disabled{ opacity: 0.55; cursor: not-allowed; }
+.access-member-characters-row{ display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 4px 0 42px; }
+.access-member-characters-empty{ font-size: 11.5px; color: var(--text-muted); font-style: italic; }
+.access-member-armory-refresh{ font-size: 11px; padding: 2px 8px; }
+/* "Notify me about new applications" — only shown for Admin/Officer
+   rows (see canNotify in renderAccessModal), indented to line up under
+   the name/select above it rather than the avatar. */
+.access-member-notify{
+  display: flex; align-items: center; gap: 6px; padding: 4px 4px 0 42px;
+  font-size: 11.5px; color: var(--text-muted); cursor: pointer;
+}
+.access-member-notify input{ cursor: pointer; }
+
+/* Character chips — shared between Manage access and Bewerbungen. */
+.character-chips{ display: flex; flex-wrap: wrap; gap: 6px; }
+.character-chip{
+  display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px;
+  background: var(--bg-panel-raised); border: 1px solid var(--border-soft); border-radius: 20px;
+  padding: 3px 10px; color: var(--text);
+}
+.character-chip-main{ border-color: var(--gold); color: var(--gold-bright); }
+.character-chip-realm{ color: var(--text-muted); font-size: 10.5px; }
+.character-chip-meta{ color: var(--teal-bright); font-size: 10.5px; }
+.character-chip-meta-error{ color: var(--text-muted); font-style: italic; }
+
+/* "User Settings" (formerly "Meine Charaktere verwalten") composer. */
+.character-composer-row{
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 8px 0; border-bottom: 1px solid var(--border-soft);
+}
+.character-composer-row:last-child{ border-bottom: none; }
+.character-composer-name{ flex: 1 1 140px; min-width: 0; }
+.character-composer-realm{ flex: 1 1 100px; min-width: 0; }
+.character-composer-main-label{ display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+.character-composer-list{ margin: 4px 0 12px; }
+
+.application-characters{ margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-soft); }
+.application-characters strong{ display: block; margin-bottom: 6px; font-size: 12.5px; }
+.application-characters .character-chips{ margin-bottom: 8px; }
+
+/* ---------- "Meine Charaktere" page — character cards, own fantasy/
+   gold styling language (tac-card look), not a copy of Blizzard's own
+   Armory page design. ---------- */
+.mychar-page-actions{ display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+/* Widened from 280px so the equipment grid's two columns (icon + name +
+   enchant text) have room to breathe without wrapping awkwardly. */
+.mychar-grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 18px; }
+.mychar-card{
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-top: 3px solid var(--gold);
+  border-radius: 8px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;
+}
+.mychar-card-head{ display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.mychar-card-name{ font-family: 'Cinzel', serif; font-size: 16px; color: var(--gold-bright); font-weight: 600; }
+.mychar-main-badge{ font-family: 'Karla', sans-serif; font-size: 10.5px; color: var(--gold-bright); font-weight: 400; white-space: nowrap; }
+.mychar-card-realm{ font-size: 11.5px; color: var(--text-muted); text-transform: capitalize; }
+.mychar-card-loading{ font-size: 12.5px; color: var(--text-faint); font-style: italic; }
+.mychar-card-error{ font-size: 12.5px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mychar-stat-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+.mychar-stat{ display: flex; flex-direction: column; gap: 2px; }
+.mychar-stat-label{ font-size: 10.5px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-faint); }
+.mychar-stat-value{ font-size: 14px; font-weight: 600; color: var(--text); }
+.mychar-refresh-btn{ align-self: flex-start; }
+.mychar-armory-link{ font-size: 12px; color: var(--teal-bright); text-decoration: none; padding-top: 8px; border-top: 1px dashed var(--border-soft); }
+.mychar-armory-link:hover{ text-decoration: underline; }
+
+/* ---------- Equipment icon grid — a Wowhead-gear-check-style list of
+   every equipped item (not a full character render; see
+   discord-auth-worker.js's job-3 comment for why Classic can't offer
+   one). Left/right columns mirror the in-game paper-doll's two halves,
+   with weapons along the bottom. ---------- */
+.mychar-equip-wrap{ border-top: 1px dashed var(--border-soft); padding-top: 12px; }
+.mychar-equip-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; }
+.mychar-equip-col{ display: flex; flex-direction: column; gap: 4px; }
+.mychar-equip-item{ display: flex; align-items: flex-start; gap: 8px; min-height: 34px; }
+.mychar-equip-icon{
+  width: 30px; height: 30px; flex: none; border-radius: 4px; border: 2px solid var(--border-soft);
+  object-fit: cover; background: var(--bg-deep);
+}
+.mychar-equip-icon-empty{ background: var(--bg-deep); border-style: dashed; opacity: 0.5; }
+.mychar-equip-text{ min-width: 0; padding-top: 1px; }
+.mychar-equip-name{ font-size: 12px; font-weight: 600; line-height: 1.25; overflow-wrap: break-word; }
+.mychar-equip-enchant{ font-size: 10.5px; color: var(--uncommon-green, #1eff00); line-height: 1.25; overflow-wrap: break-word; }
+.mychar-equip-bottom{ display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--border-soft); }
+.mychar-equip-bottom .mychar-equip-item{ flex: 1 1 160px; }
+
+/* ---------- WarcraftLogs — current-phase raid rankings ---------- */
+.mychar-wcl-wrap{ border-top: 1px dashed var(--border-soft); padding-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.mychar-wcl-head{ display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.mychar-wcl-title{ font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-faint); font-weight: 600; }
+.mychar-wcl-link{ font-size: 11.5px; color: var(--teal-bright); text-decoration: none; }
+.mychar-wcl-link:hover{ text-decoration: underline; }
+.mychar-wcl-zones{ display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.mychar-wcl-zone{
+  background: var(--bg-deep); border: 1px solid var(--border-soft); border-radius: 6px;
+  padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; text-align: center;
+}
+.mychar-wcl-zone-label{ font-size: 10px; color: var(--text-muted); font-weight: 600; }
+.mychar-wcl-zone-kills{ font-size: 15px; font-weight: 700; color: var(--gold-bright); }
+.mychar-wcl-zone-none{ font-size: 11px; color: var(--text-faint); font-style: italic; }
+.mychar-wcl-zone-stats{ display: flex; flex-direction: column; gap: 1px; }
+.mychar-wcl-zone-stat-label{ font-size: 9.5px; color: var(--text-faint); text-transform: uppercase; margin-right: 5px; }
+.mychar-wcl-zone-stat-value{ font-size: 11.5px; color: var(--text); font-weight: 600; }
+.mychar-wcl-rank{ color: var(--teal-bright); }
+.mychar-wcl-bestperf{
+  align-self: center; text-align: center; padding: 8px 18px; border: 1px solid var(--border-soft);
+  border-radius: 6px; background: var(--bg-deep);
+}
+.mychar-wcl-bestperf-label{ font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.4px; }
+.mychar-wcl-bestperf-zone{ text-transform: none; letter-spacing: 0; }
+.mychar-wcl-bestperf-value{ font-size: 26px; font-weight: 700; color: #a335ee; line-height: 1.2; }
+.mychar-wcl-bestperf-median{ font-size: 11px; color: var(--teal-bright); }
+
+/* ---------- "Hilfreich forEVER" — curated list of external community
+   sites/tools. Reuses the .voting-card look (same border/radius/bg as
+   Abstimmungen & Ankündigungen) but isn't collapsible: the whole header
+   is a plain link straight to the site (title — domain), and the body
+   always shows a thumbnail beside a short blurb. Cards are grouped by
+   an optional `category` field on each entry in FOREVER_RESOURCES —
+   today everything is one category so no group heading is shown, but
+   the moment a second category is added (e.g. "Berufe", "Dungeons"),
+   renderForeverToolsPage() starts printing a heading above each group
+   automatically. See FOREVER_RESOURCES near the top of the script for
+   how to add a new site. ---------- */
+.resource-card{ border: 1px solid var(--border-soft); border-radius: 8px; margin-bottom: 20px; overflow: hidden; background: rgba(255,255,255,0.015); }
+.resource-card-header{
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 16px 20px;
+  background: var(--bg-panel-raised); text-decoration: none; color: inherit;
+}
+.resource-card-header:hover{ background: rgba(255,255,255,0.05); }
+.resource-card-header:hover .resource-card-title{ color: var(--gold-bright); }
+.resource-card-title{ font-family: 'Cinzel', serif; font-size: 15.5px; font-weight: 600; letter-spacing: .3px; color: var(--text); transition: color .1s; }
+.resource-card-sep{ color: var(--text-faint); }
+.resource-card-domain{ flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text-muted); }
+.resource-card-external{ flex: none; color: var(--text-faint); display: flex; }
+.resource-card-external svg{ width: 14px; height: 14px; }
+.resource-card-body{ padding: 20px; display: flex; gap: 20px; align-items: flex-start; }
+.resource-thumb{
+  flex: none; width: 168px; height: 105px; border-radius: 6px; overflow: hidden;
+  background: var(--bg-panel-raised); border: 1px solid var(--border-soft);
+  display: flex; align-items: center; justify-content: center;
+}
+.resource-thumb img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+.resource-thumb-ph{ color: var(--text-faint); font-family: 'Cinzel', serif; font-size: 11px; text-align: center; padding: 8px; }
+.resource-info{ flex: 1; min-width: 0; font-size: 14px; line-height: 1.6; color: var(--text); }
+.resource-category-heading{
+  font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--gold-bright); margin: 28px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border-soft);
+}
+.resource-category-heading:first-child{ margin-top: 0; }
+@media (max-width: 640px){
+  .resource-card-body{ flex-direction: column; }
+  .resource-thumb{ width: 100%; height: 140px; }
+}
+
+/* ---------- Hero: painterly floating-castle vista, provided by the guild
+   (cropped to remove the foreground balcony) — used as the hero backdrop
+   with a dark overlay gradient layered on top for text legibility. ---------- */
+.hero{
+  position: relative;
+  min-height: 51vh;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+  padding: 56px 6vw 84px;
+  overflow: hidden;
+  background-color: var(--hero-bg-fallback);
+  background-image: url('../assets/bg-texture.jpg');
+  background-size: cover;
+  background-position: center 42%;
+  background-repeat: no-repeat;
+}
+/* Horde reveal's own hero artwork (the burning-city/banner piece) —
+   swapped in only for .theme-horde, same treatment (cover, no-repeat,
+   .hero::after scrim below still applies on top of it) as the classic
+   hero image otherwise. Needs assets/bg-texture-horde.jpg uploaded
+   alongside the existing assets/bg-texture.jpg — see README.md. */
+html.theme-horde .hero{
+  background-image: url('../assets/bg-texture-horde.jpg');
+  background-position: center 30%;
+}
+.hero::after{
+  /* dark overlay so the hero text stays legible over the artwork, plus a
+     soft bottom fade blending the photo into the page background. */
+  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(var(--hero-scrim-rgb),0.74) 0%, rgba(var(--hero-scrim-rgb),0.4) 32%, rgba(var(--hero-scrim-rgb),0.08) 55%, transparent 70%),
+    linear-gradient(180deg, rgba(var(--hero-scrim-rgb),0.12) 0%, transparent 22%, transparent 68%, rgba(var(--hero-scrim-rgb),0.6) 100%);
+}
+.hero-content{ position: relative; z-index: 3; max-width: 620px; }
+.hero-eyebrow{ font-size: 12.5px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold-bright); margin: 0 0 10px; }
+.hero-title{
+  font-family: 'Cinzel', serif; font-weight: 700;
+  font-size: clamp(38px, 6.5vw, 78px);
+  line-height: 1.05; letter-spacing: 1.5px; margin: 0 0 12px;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: 0 2px 26px rgba(0,0,0,0.35);
+}
+.hero-tagline{ font-size: 14px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-muted); margin: 0 0 18px; }
+.hero-desc{ color: var(--text); font-size: 15px; line-height: 1.7; margin: 0 0 28px; max-width: 520px; }
+.hero-actions{ display: flex; gap: 14px; flex-wrap: wrap; }
+
+/* Secondary, shorter hero used at the top of sub-pages (e.g. WoW Forever) —
+   same background/typography language as the main hero, smaller. */
+.hero-sub{ min-height: 32vh; padding: 54px 6vw 64px; }
+.hero-title-sm{ font-size: clamp(28px, 4.5vw, 46px); margin-bottom: 8px; }
+.hero-sub .hero-desc{ margin-bottom: 0; }
+
+.page-section{ display: block; }
+.page-section.hidden{ display: none; }
+
+/* ---------- Sections ---------- */
+.section{ padding: 64px 6vw; max-width: 1600px; margin: 0 auto; }
+/* Tighter gap between the intro card and the News section right below
+   it on the Home page — other pages' section spacing is untouched. */
+#introSection{ padding-bottom: 20px; }
+#newsSection{ padding-top: 20px; }
+.section-head{ margin-bottom: 28px; }
+.section-head h2{ font-size: 27px; color: var(--gold-bright); margin: 0 0 6px; }
+.section-sub{ color: var(--text-muted); font-size: 14px; margin: 0; }
+
+.parchment{
+  position: relative; overflow: hidden;
+  background: linear-gradient(135deg, var(--parchment-grad-1) 0%, var(--parchment-grad-2) 55%, var(--parchment-grad-3) 100%);
+  border: 1px solid var(--gold); border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(var(--gold-bright-rgb),0.14) inset, 0 14px 36px rgba(0,0,0,0.4);
+  padding: 40px; display: flex; gap: 40px; align-items: center; flex-wrap: wrap;
+}
+.parchment::before{
+  content: ''; position: absolute; top: -60%; right: -8%; width: 320px; height: 320px;
+  background: radial-gradient(circle, rgba(var(--gold-bright-rgb),0.16), transparent 70%);
+  pointer-events: none;
+}
+.parchment-eyebrow{ position: relative; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--teal-bright); margin: 0 0 10px; }
+.parchment h2{ position: relative; font-size: 30px; margin: 0 0 14px; color: var(--gold-bright); }
+.parchment p{ position: relative; color: var(--parchment-text); line-height: 1.75; max-width: 640px; margin: 0; flex: 1; min-width: 260px; }
+
+/* News: a horizontally-scrolling carousel rather than a grid, so it can
+   show a different number of cards at once depending on screen size —
+   5 side by side on a wide screen, 3 on a smaller one, 1 on a phone —
+   with arrow buttons to page through whatever doesn't fit. */
+.news-carousel{ display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.news-carousel-track{
+  flex: 1; display: flex; gap: 18px; overflow-x: auto; min-width: 0;
+  scroll-snap-type: x mandatory; scroll-behavior: smooth; padding-bottom: 2px;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.news-carousel-track::-webkit-scrollbar{ display: none; }
+.news-carousel-arrow{
+  flex: none; width: 36px; height: 36px; border-radius: 50%;
+  background: var(--bg-panel-raised); border: 1px solid var(--border);
+  color: var(--gold-bright); font-size: 18px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; padding: 0;
+  transition: border-color .15s ease, opacity .15s ease;
+}
+.news-carousel-arrow:hover{ border-color: var(--gold); }
+.news-carousel-arrow:disabled{ opacity: 0.25; cursor: default; pointer-events: none; }
+.news-card{
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 8px; overflow: hidden;
+  transition: transform .15s ease, border-color .15s ease;
+  scroll-snap-align: start;
+  flex: 0 0 calc((100% - 4 * 18px) / 5); /* 5 cards side by side by default */
+  min-width: 0;
+}
+.news-card:hover{ transform: translateY(-3px); border-color: var(--gold); }
+.news-card-link{ cursor: pointer; border-color: var(--gold); }
+.news-card-placeholder{ border-style: dashed; opacity: 0.65; }
+.news-card-placeholder:hover{ transform: none; border-color: var(--border-soft); }
+.news-card-placeholder .news-thumb{ background: var(--bg-panel-raised); font-size: 26px; }
+.news-card-placeholder .news-body p{ color: var(--text-faint); }
+@media (max-width: 1150px){
+  .news-card{ flex-basis: calc((100% - 2 * 18px) / 3); } /* 3 cards */
+}
+@media (max-width: 640px){
+  .news-card{ flex-basis: 100%; } /* 1 card, arrows to page through the rest */
+}
+.news-thumb{
+  position: relative;
+  aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center;
+  color: var(--text-faint); font-size: 11.5px; letter-spacing: 1px; text-transform: uppercase;
+  background: linear-gradient(135deg, var(--news-thumb-grad-1), var(--news-thumb-grad-2));
+  background-size: cover; background-position: center;
+}
+.news-badge{
+  position: absolute; top: 8px; left: 8px;
+  background: rgba(var(--topbar-bg-rgb),0.82); border: 1px solid var(--border-soft);
+  color: var(--gold-bright); font-size: 10px; letter-spacing: .4px; text-transform: none;
+  padding: 3px 8px; border-radius: 999px;
+}
+.news-body{ padding: 14px 16px; }
+.news-body h3{ font-size: 15px; margin: 0 0 6px; color: var(--text); }
+.news-body p{ font-size: 13px; color: var(--text-muted); line-height: 1.55; margin: 0; }
+
+/* ---------- Voting card: a collapsible shell around one voting/survey.
+   Every voting on the site (currently just WoW Forever) lives in one of
+   these — a clickable header with a title + open/closed badge, and a
+   body that collapses. Add a new voting later by duplicating this markup
+   with a new id and reusing the same JS helpers (renderVotingChrome,
+   toggleVotingCard, toggleVotingClosed). ---------- */
+.voting-card{ border: 1px solid var(--border-soft); border-radius: 8px; margin-bottom: 20px; overflow: hidden; background: rgba(255,255,255,0.015); }
+.voting-card-header{
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 16px 20px;
+  background: var(--bg-panel-raised); border: none; cursor: pointer; text-align: left;
+}
+.voting-card-header:hover{ background: rgba(255,255,255,0.05); }
+.voting-card-chevron{ flex: none; display: flex; color: var(--text-muted); transition: transform .15s ease; }
+.voting-card.open .voting-card-chevron{ transform: rotate(90deg); }
+.voting-card-chevron svg{ width: 14px; height: 14px; }
+.voting-card-title{ flex: 1; font-family: 'Cinzel', serif; font-size: 15.5px; font-weight: 600; letter-spacing: .5px; color: var(--text); }
+.voting-status-badge{
+  flex: none; font-family: 'Karla', sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: .6px;
+  text-transform: uppercase; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--teal-bright); color: var(--teal-bright);
+}
+.voting-status-badge.closed{ border-color: var(--danger-bright); color: var(--danger-bright); }
+.voting-card-body{ padding: 20px; }
+.voting-card-body.hidden{ display: none; }
+.voting-admin-controls{
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 10px 14px; margin-bottom: 18px; border: 1px dashed var(--border); border-radius: 6px;
+}
+.voting-admin-controls .lootlib-note{ padding: 0; }
+.voting-admin-controls-actions{ display: flex; align-items: center; gap: 10px; }
+.voting-closed-note{
+  font-size: 13px; color: var(--danger-bright); background: rgba(181,73,63,0.12);
+  border: 1px solid var(--danger); border-radius: 6px; padding: 10px 14px; margin-bottom: 18px;
+}
+.voting-disabled{ opacity: .5; pointer-events: none; }
+
+/* ---------- Announcements — reuse the same .voting-card collapsible
+   shell (see above); only the header content and body differ. ---------- */
+.announce-card-title{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.announce-card-meta{ flex: none; font-size: 11.5px; color: var(--text-faint); white-space: nowrap; }
+.announce-card-meta .announce-edited-tag{ font-style: italic; opacity: .8; }
+.announce-card-text{ font-size: 14px; line-height: 1.6; color: var(--text); margin: 0 0 14px; }
+.announce-card-text h1{ font-family: 'Cinzel', serif; font-size: 22px; color: var(--gold-bright); margin: 4px 0 10px; line-height: 1.3; }
+.announce-card-text h2{ font-family: 'Cinzel', serif; font-size: 17px; color: var(--gold-bright); margin: 4px 0 8px; line-height: 1.3; }
+.announce-card-text p{ margin: 0 0 10px; }
+.announce-card-text ul{ margin: 0 0 10px; padding-left: 22px; }
+.announce-card-text li{ margin-bottom: 4px; }
+
+.announce-title-input{
+  font-family: 'Cinzel', serif; font-size: 15.5px; font-weight: 600; letter-spacing: .3px;
+  padding: 9px 12px; margin-bottom: 10px; background: var(--bg-panel-raised);
+  color: var(--text); border: 1px solid var(--border); border-radius: 6px; width: 100%;
+}
+.announce-title-input:focus{ outline: none; border-color: var(--gold); }
+.announce-title-input::placeholder{ color: var(--text-faint); font-weight: 400; }
+
+/* Rich-text editor: a contenteditable div standing in for a textarea, plus
+   a small formatting toolbar above it. Reused for both the "new
+   announcement" composer and inline per-card editing. */
+.announce-toolbar{
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+  padding: 6px; margin-bottom: 8px; background: var(--bg-panel-raised);
+  border: 1px solid var(--border); border-radius: 6px;
+}
+.announce-toolbar button{
+  min-width: 30px; height: 28px; padding: 0 8px; font-size: 13px; font-family: 'Karla', sans-serif;
+  background: transparent; border: 1px solid transparent; border-radius: 4px;
+  color: var(--text-muted); cursor: pointer;
+}
+.announce-toolbar button:hover{ color: var(--text); background: rgba(255,255,255,0.06); border-color: var(--border); }
+.announce-toolbar-sep{ width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+.announce-toolbar select{
+  width: auto; padding: 5px 8px; font-size: 12.5px; height: 28px;
+  background: var(--field-bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted);
+}
+.announce-editor{
+  width: 100%; min-height: 96px; max-height: 340px; overflow-y: auto; resize: vertical;
+  padding: 10px 12px; font-size: 13.5px; line-height: 1.6;
+  font-family: 'Karla', sans-serif; background: var(--bg-panel-raised); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px; margin-bottom: 12px;
+}
+.announce-editor:focus{ outline: none; border-color: var(--gold); }
+.announce-editor:empty::before{ content: attr(data-placeholder); color: var(--text-faint); }
+.announce-editor h1{ font-family: 'Cinzel', serif; font-size: 22px; color: var(--gold-bright); margin: 4px 0 10px; }
+.announce-editor h2{ font-family: 'Cinzel', serif; font-size: 17px; color: var(--gold-bright); margin: 4px 0 8px; }
+.announce-editor h3{ font-family: 'Cinzel', serif; font-size: 14px; color: var(--gold-bright); margin: 4px 0 8px; }
+.announce-editor p{ margin: 0 0 10px; }
+/* A pasted table keeps its grid instead of rendering borderless — same
+   table styling used for the read-only view (Announcements, Class Deep
+   Dives), so what Officers see while editing matches what gets saved. */
+.announce-editor table{ border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 13px; }
+.announce-editor th, .announce-editor td{ border: 1px solid var(--border-soft); padding: 6px 9px; text-align: left; vertical-align: top; }
+.announce-editor th{ background: var(--bg-panel-raised); color: var(--gold-bright); font-weight: 700; }
+.announce-card-edit-actions{ display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+
+/* ---------- WoW Forever survey ---------- */
+.tac-card{ background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 8px; padding: 20px 22px; margin-bottom: 18px; }
+.tac-card-title{ font-family: 'Cinzel', serif; font-size: 15px; color: var(--gold-bright); font-weight: 600; margin-bottom: 6px; }
+.tac-card-note{ font-size: 12.5px; color: var(--text-faint); margin-bottom: 14px; line-height: 1.55; }
+.lootlib-note{ font-size: 12px; color: var(--text-faint); padding: 2px 0 10px; line-height: 1.5; }
+
+.armory-status{ font-size: 12px; color: var(--text-faint); }
+.armory-status-ok{ color: #3fd956; }
+.armory-status-error{ color: var(--danger-bright); }
+
+.forever-gate{ background: var(--bg-panel); border: 1px dashed var(--border); border-radius: 8px; padding: 36px; text-align: center; }
+.forever-gate p{ color: var(--text-muted); margin: 0 0 16px; font-size: 14px; }
+.discord-login-error{ min-height: 16px; font-size: 12.5px; color: var(--danger-bright); margin-bottom: 6px; }
+
+.forever-class-grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; margin-top: 12px; }
+.forever-class-card{
+  border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 8px; cursor: pointer;
+  transition: border-color .15s, background .15s;
+  background: rgba(255,255,255,0.02);
+}
+.forever-class-card:hover{ border-color: var(--gold); }
+.forever-class-card.picked{ border-color: var(--gold-bright); background: rgba(240, 207, 107, 0.1); }
+.forever-class-card.disabled{ opacity: .4; cursor: not-allowed; }
+.forever-class-name{ font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.forever-class-dot{ width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.forever-class-card select{ width: 100%; padding: 5px 6px; font-size: 13px; }
+.forever-role-rows{ display: flex; flex-direction: column; gap: 10px; }
+/* Each row stacks its "Charakter N" label above the select, rather than
+   squeezing both onto one line — with the label inline, the select had
+   so little width left in a narrow card that the chosen spec text (e.g.
+   "Beast Mastery", "Feral Combat") was clipped and unreadable. */
+.forever-role-row{ display: flex; flex-direction: column; gap: 4px; }
+.forever-role-controls{ display: flex; align-items: center; gap: 6px; }
+.forever-role-controls select{ flex: 1; min-width: 0; font-size: 14px; padding: 7px 8px; }
+.forever-role-charlabel{ flex: none; font-size: 11px; color: var(--text-faint); white-space: nowrap; }
+.forever-role-remove{
+  flex: none; background: none; border: none; color: var(--text-faint);
+  cursor: pointer; font-size: 14px; line-height: 1; padding: 4px;
+}
+.forever-role-remove:hover{ color: var(--danger-bright); }
+.forever-add-role-btn{
+  width: 100%; margin-top: 2px; padding: 6px 8px; font-size: 11.5px; font-weight: 600;
+  font-family: 'Karla', sans-serif; color: var(--gold-bright); background: rgba(var(--gold-bright-rgb),0.08);
+  border: 1px dashed var(--gold); border-radius: 5px; cursor: pointer;
+}
+.forever-add-role-btn:hover{ background: rgba(var(--gold-bright-rgb),0.16); }
+.forever-my-picks{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.forever-pick-chip{
+  display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--border); font-size: 13px;
+}
+.forever-pick-chip button{ background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
+.forever-pick-chip button:hover{ color: var(--danger-bright); }
+.forever-pick-chip-first{ box-shadow: 0 0 0 1px var(--gold) inset; }
+.forever-pick-charnum{ color: var(--text-faint); font-weight: 400; }
+.forever-firstpick-hint{ flex-basis: 100%; font-size: 12px; color: var(--text-muted); margin-bottom: 2px; }
+.forever-firstpick-label{ display: flex; align-items: center; gap: 3px; font-size: 11px; color: var(--text-muted); white-space: nowrap; cursor: pointer; }
+.forever-firstpick-label input{ margin: 0; }
+.forever-firstpick-badge{ font-size: 11px; color: var(--gold-bright); white-space: nowrap; }
+.forever-actions{ display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.forever-officer-table-wrap{ overflow-x: auto; }
+.forever-officer-table{ width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.forever-officer-table th{ text-align: left; padding: 6px 10px; color: var(--gold-bright); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.forever-officer-table td{ padding: 8px 10px; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
+.forever-officer-table tbody tr:last-child td{ border-bottom: none; }
+.forever-officer-table tbody tr:hover td{ background: rgba(var(--gold-bright-rgb),0.05); }
+.forever-officer-table th[data-k]{ cursor: pointer; user-select: none; }
+.forever-officer-table th[data-k]:hover{ color: var(--text); }
+.forever-officer-table th[aria-sort="ascending"]::after{ content: " ▲"; font-size: 9px; }
+.forever-officer-table th[aria-sort="descending"]::after{ content: " ▼"; font-size: 9px; }
+/* First/Second Char cells — the class icon + the spec/talent-tree icon
+   (same ones used on the chart above), with the class+spec text itself
+   set in the class's own color instead of a separate color dot next to
+   it. The earlier class-color dot and the Tank/Healer/Damage role dot
+   were both dropped — the icons plus the colored text now carry all of
+   that at a glance, so the dots were redundant. */
+.forever-pick-cell{ display: inline-flex; align-items: center; gap: 6px; }
+.forever-pick-icon{ width: 20px; height: 20px; flex-shrink: 0; }
+/* When the table is sorted by First/Second Char, identical-class rows
+   already sort next to each other alphabetically — this just makes that
+   grouping visible, so the eye can jump straight to "where does the
+   next class start" instead of reading every row. Only applied when
+   sorted by one of those two columns (renderForeverOfficerTable decides
+   that); sorting by Mitglied interleaves classes, so grouping wouldn't
+   mean anything there. */
+.forever-officer-table tr.forever-officer-group-start td{
+  border-top: 2px solid rgba(var(--gold-bright-rgb),0.4);
+  padding-top: 13px;
+}
+/* Class/spec survey overview — a grouped vertical-bar chart (one column
+   per class, one bar per spec within it), closer to a glance-able "race
+   chart" than the old per-spec text rows: every bar's height is scaled
+   against the single largest spec count anywhere in the data
+   (forever-ov-chart's --max-count custom property isn't used directly —
+   see renderForeverOverview()'s heightPct math — this comment just
+   documents the intent), so the tallest bar on the whole chart is always
+   full height and everything else reads relative to it at a glance. Bars
+   are colored by ROLE (tank/healer/damage), not by class or spec, via
+   FOREVER_ROLE_COLORS — same legend as before. Raw vote counts are
+   printed above each bar instead of percentages (easier to read at a
+   glance, and matches how the rest of the page reports poll results).
+   Each bar is still the click target for showVoteDetailsModal (who
+   picked it), same as the old row version. */
+.forever-ov-chart-wrap{ overflow-x: auto; padding-bottom: 4px; }
+/* justify-content:space-between spreads the class columns across the
+   card's full width instead of packing them to the left — at wide
+   viewports the tightened column widths (see below) leave slack space,
+   and without this the chart looked like it was missing content on the
+   right. flex-wrap stays on as a fallback for narrow windows where even
+   evenly-spread columns wouldn't fit on one line. */
+.forever-ov-chart{ display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; width: 100%; min-width: min-content; padding: 4px 2px 0; flex-wrap: wrap; }
+.forever-ov-class-col{ display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+.forever-ov-bars{ display: flex; align-items: flex-end; gap: 3px; height: 140px; }
+.forever-ov-bar-col{
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  height: 100%; width: 24px; cursor: pointer; border-radius: 4px 4px 0 0; padding-top: 2px;
+}
+.forever-ov-bar-col:hover{ background: rgba(255,255,255,0.05); }
+.forever-ov-bar-count{ font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; white-space: nowrap; }
+.forever-ov-bar{ width: 100%; min-height: 3px; border-radius: 3px 3px 0 0; transition: height 0.25s ease; }
+/* A real, chunky talent icon per bar, directly underneath it — this row
+   sits OUTSIDE .forever-ov-bars on purpose (a sibling, not nested
+   inside a bar-col) so it never gets caught up in the bars' own height
+   scaling; it just needs to line up column-for-column with the bars
+   above it, which matching width+gap values (34px / 6px, same as
+   .forever-ov-bar-col) takes care of. This is what makes classes with
+   several specs in the same role (e.g. two DPS specs) instantly tell-
+   apart-able — the bar color alone can't do that since same-role bars
+   share a color. Sized and framed to actually look like a WoW ability
+   icon (a bordered square with a warm bronze "ring" and a drop shadow,
+   not a plain flat thumbnail) rather than a generic small avatar — at
+   18px that framing was barely visible, so this and the class icon
+   below both went up to a size where the frame and the art read
+   clearly, using Wowhead's 'large' (56×56) source instead of 'medium'
+   to stay sharp at that size. */
+.forever-ov-spec-icons{ display: flex; gap: 3px; margin-top: 6px; }
+.forever-ov-spec-icon-wrap{ width: 24px; display: flex; justify-content: center; cursor: pointer; }
+.wow-icon-frame{
+  border-radius: 4px; display: block; border: 1px solid #000;
+  box-shadow: 0 0 0 1px rgba(201,162,97,0.85), 0 1px 3px rgba(0,0,0,0.55);
+}
+.forever-ov-spec-icon{ width: 22px; height: 22px; }
+.forever-ov-spec-icon-wrap:hover .forever-ov-spec-icon{ box-shadow: 0 0 0 1px var(--gold-bright), 0 0 6px rgba(var(--gold-bright-rgb),0.6); }
+.forever-ov-baseline{ width: 100%; height: 1px; background: var(--border); margin-top: 7px; }
+/* Class icon (also from TALENT_DATA/Wowhead, same as above) to the left
+   of the class name, with the name itself set in the class's own color
+   instead of the page's default text color — ties the footer visually
+   to both the bars above (role colors) and the rest of the page (class
+   colors are used the same way in the officer table, picker, etc). */
+.forever-ov-class-foot{ display: flex; align-items: center; gap: 5px; margin-top: 9px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.forever-ov-class-icon{ width: 20px; height: 20px; flex-shrink: 0; }
+.forever-ov-class-total{ font-size: 10.5px; color: var(--text-faint); margin-top: 2px; }
+.forever-ov-legend{ display: flex; gap: 14px; margin-bottom: 14px; font-size: 12px; color: var(--text-faint); flex-wrap: wrap; }
+.forever-ov-legend-item{ display: flex; align-items: center; gap: 5px; }
+.forever-ov-legend-dot{ width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+@media (max-width: 640px){
+  .forever-ov-chart{ gap: 8px; }
+  .forever-ov-bars{ height: 110px; }
+  .forever-ov-bar-col{ width: 20px; }
+  .forever-ov-spec-icon-wrap{ width: 20px; }
+  .forever-ov-spec-icon{ width: 18px; height: 18px; }
+  .forever-ov-class-icon{ width: 18px; height: 18px; }
+  .forever-ov-class-foot{ font-size: 10.5px; }
+}
+
+/* ---------- Custom polls — a generic Offi-built voting tool (separate
+   from the hard-coded WoW Forever class/spec survey above). Reuses the
+   .voting-card / .tac-card shells. ---------- */
+.poll-option-input-row{ display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.poll-option-input-row input[type="text"]{ flex: 1; }
+.poll-option-remove-btn{
+  flex: none; width: 30px; height: 30px; padding: 0; font-size: 14px; line-height: 1;
+  background: transparent; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text-faint); cursor: pointer;
+}
+.poll-option-remove-btn:hover{ color: var(--danger-bright); border-color: var(--danger); }
+.poll-add-option-btn{
+  margin: 2px 0 14px; padding: 6px 10px; font-size: 12px; font-weight: 600; font-family: 'Karla', sans-serif;
+  color: var(--gold-bright); background: rgba(var(--gold-bright-rgb),0.08); border: 1px dashed var(--gold);
+  border-radius: 5px; cursor: pointer;
+}
+.poll-add-option-btn:hover{ background: rgba(var(--gold-bright-rgb),0.16); }
+.poll-config-grid{ display: flex; flex-wrap: wrap; gap: 20px 28px; margin: 14px 0 16px; }
+.poll-config-field{ display: flex; flex-direction: column; gap: 6px; }
+.poll-config-field-label{ font-size: 11.5px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; }
+.poll-config-field input[type="number"]{ width: 90px; }
+.poll-radio-group{ display: flex; gap: 16px; }
+.poll-radio-option{ display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); cursor: pointer; }
+.poll-checkbox-field{ display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; }
+
+.poll-card-meta-line{ font-size: 12px; color: var(--text-faint); margin-bottom: 14px; }
+.poll-options-list{ display: flex; flex-direction: column; }
+.poll-option-row{ display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border-soft); }
+.poll-option-row:last-child{ border-bottom: none; }
+.poll-option-control{ flex: none; width: 17px; height: 17px; accent-color: var(--gold-bright); cursor: pointer; }
+.poll-option-control:disabled{ cursor: not-allowed; }
+.poll-option-label{ flex: 0 1 200px; font-size: 13.5px; color: var(--text); }
+.poll-option-bar-wrap{ flex: 1; min-width: 100px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.poll-option-bar-wrap:hover .poll-option-bar-track{ box-shadow: 0 0 0 1px var(--gold); }
+.poll-option-bar-track{ flex: 1; height: 14px; border-radius: 4px; background: rgba(255,255,255,0.05); overflow: hidden; }
+.poll-option-bar-fill{ height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--gold), var(--gold-bright)); }
+.poll-option-count{ flex: none; min-width: 78px; text-align: right; font-size: 11.5px; color: var(--text-faint); }
+.poll-hidden-results-note{ font-size: 12px; color: var(--text-faint); font-style: italic; margin-top: 10px; }
+.poll-voters-note{ font-size: 11.5px; color: var(--text-faint); margin-top: 10px; line-height: 1.5; }
+
+/* ---------- Setup screens (shown only until the admin configures Firebase/Discord/Worker) ---------- */
+.setup-wrap{ max-width: 720px; margin: 60px auto; padding: 0 6vw; }
+.setup-screen{ background: var(--bg-panel); border: 1px solid var(--gold); border-radius: 6px; padding: 24px 26px; margin-bottom: 22px; }
+.setup-screen h2{ color: var(--gold-bright); margin: 0 0 10px; font-size: 19px; }
+.setup-screen p{ font-size: 13.5px; color: var(--text-muted); line-height: 1.6; margin: 0 0 12px; }
+.setup-screen ol{ margin: 0 0 14px; padding-left: 20px; }
+.setup-screen li{ font-size: 13.5px; color: var(--text); line-height: 1.7; margin-bottom: 4px; }
+.setup-screen code{ background: var(--field-bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 12.5px; color: var(--gold-bright); }
+.setup-screen a{ color: var(--gold-bright); }
+.setup-note{ font-size: 12px !important; color: var(--text-faint) !important; border-top: 1px solid var(--border-soft); padding-top: 10px; }
+
+/* ---------- Footer ---------- */
+.footer{ padding: 30px 6vw 50px; text-align: center; color: var(--text-faint); font-size: 12px; border-top: 1px solid var(--border-soft); }
+.footer .save-status{ margin-top: 8px; min-height: 14px; }
+
+/* ---------- Talent Builder ---------- */
+.talent-class-selector{ display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+.talent-class-btn{
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 999px;
+  padding: 6px 14px 6px 6px; cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 600;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+.talent-class-btn img{ width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border); display: block; }
+.talent-class-btn:hover{ border-color: var(--class-color, var(--gold)); color: var(--text); }
+.talent-class-btn.active{
+  border-color: var(--class-color, var(--gold)); color: var(--text);
+  background: var(--bg-panel-raised);
+  box-shadow: 0 0 0 1px var(--class-color, var(--gold)) inset;
+}
+.talent-controls{
+  display: flex; flex-wrap: wrap; align-items: center; gap: 18px;
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 8px;
+  padding: 14px 18px; margin-bottom: 24px;
+}
+.talent-level-control{ display: flex; align-items: center; gap: 12px; flex: 1 1 220px; min-width: 200px; }
+.talent-level-control label{ font-size: 13px; color: var(--text-muted); white-space: nowrap; min-width: 62px; }
+.talent-level-control input[type="range"]{ flex: 1; accent-color: var(--gold); }
+.talent-points-remaining{ font-size: 13.5px; font-weight: 600; color: var(--teal-bright); white-space: nowrap; }
+.talent-points-remaining.talent-points-empty{ color: var(--gold-bright); }
+.talent-trees-container{
+  display: flex; flex-wrap: wrap; gap: 22px; justify-content: center;
+  overflow-x: auto; padding-bottom: 6px;
+}
+.talent-tree-card{
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 8px;
+  padding: 16px; flex: 0 0 auto;
+}
+.talent-tree-head{ display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.talent-tree-icon{ width: 36px; height: 36px; border-radius: 6px; border: 1px solid var(--border); }
+.talent-tree-head h3{ font-size: 15px; margin: 0; color: var(--gold-bright); }
+.talent-tree-points{ font-size: 11.5px; color: var(--text-faint); }
+.talent-reset-btn{ margin-left: auto; }
+.talent-tree-grid{ position: relative; }
+.talent-connectors{ position: absolute; top: 0; left: 0; pointer-events: none; }
+.talent-connector{ fill: none; stroke: var(--border); stroke-width: 2; }
+.talent-connector.active{ stroke: var(--gold); }
+.talent-node{
+  position: absolute; border-radius: 6px; border: 2px solid var(--border);
+  background: var(--bg-deep); padding: 0; cursor: pointer; overflow: hidden;
+  transition: border-color .15s ease, filter .15s ease, opacity .15s ease;
+}
+.talent-node img{ width: 100%; height: 100%; display: block; object-fit: cover; }
+.talent-node.locked{ opacity: 0.35; filter: grayscale(1); cursor: default; }
+.talent-node.has-points{ border-color: var(--gold); }
+.talent-node.maxed{ border-color: var(--gold-bright); box-shadow: 0 0 8px rgba(var(--gold-bright-rgb),0.5); }
+.talent-node.can-add:not(.has-points):hover{ border-color: var(--teal-bright); }
+.talent-rank-pip{
+  position: absolute; right: 2px; bottom: 1px; font-size: 10.5px; font-weight: 700;
+  color: var(--text); background: rgba(var(--topbar-bg-rgb),0.85); border-radius: 3px; padding: 0 3px; line-height: 1.4;
+}
+.talent-attribution{ font-size: 11.5px; color: var(--text-faint); margin-top: 22px; text-align: center; line-height: 1.6; }
+.talent-attribution a{ color: var(--gold-bright); }
+.talent-tooltip{
+  position: fixed; z-index: 200; max-width: 280px;
+  background: var(--bg-panel-raised); border: 1px solid var(--gold); border-radius: 6px;
+  padding: 10px 12px; font-size: 12.5px; line-height: 1.5; color: var(--text);
+  pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+}
+.talent-tip-title{ color: var(--gold-bright); font-weight: 700; margin-bottom: 3px; }
+.talent-tip-rank{ color: var(--text-muted); font-size: 11.5px; margin-bottom: 5px; }
+.talent-tip-desc{ color: var(--text); }
+.talent-tip-cost{ color: var(--teal-bright); font-size: 11px; margin-top: 6px; }
+.talent-tip-req{ font-size: 11px; margin-top: 6px; color: var(--danger-bright); }
+.talent-tip-req.ok{ color: var(--teal-bright); }
+@media (max-width: 1150px){
+  .talent-trees-container{ flex-wrap: nowrap; justify-content: flex-start; }
+}
+
+/* On a phone the sidebar is a slide-out drawer, not a permanent rail —
+   collapsed means fully hidden (no 64px icon strip sitting over the
+   page content), and expanded means a full-width-ish overlay panel with
+   a dimmed backdrop behind it. Opened via the burger button in the
+   topbar; picking a page (or tapping the backdrop) closes it again —
+   see maybeAutoCloseSidebarOnMobile() in the script. */
+.sidebar-backdrop{ display: none; }
+@media (max-width: 760px){
+  .sidebar{ position: fixed; top: 0; left: 0; bottom: 0; z-index: 70; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
+  .sidebar.collapsed{ width: 0; border-right: none; box-shadow: none; }
+  .sidebar.collapsed .sidebar-inner-mini{ display: none; }
+  .sidebar-backdrop{
+    display: block; position: fixed; inset: 0; z-index: 65;
+    background: rgba(0,0,0,0.5); opacity: 0; pointer-events: none;
+    transition: opacity .2s ease;
+  }
+  .sidebar:not(.collapsed) ~ .sidebar-backdrop{ opacity: 1; pointer-events: auto; }
+}
+@media (max-width: 640px){
+  .parchment{ padding: 26px; }
+}
+
+/* ---------- Talent Builder: sub-tabs (Talente/Zauberbuch/Rassen/…) ---------- */
+.talent-subnav{ display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.talent-subtab-btn{
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 999px;
+  padding: 7px 16px; cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 600;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+.talent-subtab-btn:hover{ border-color: var(--teal-bright); color: var(--text); }
+.talent-subtab-btn.active{
+  border-color: var(--gold); color: var(--text); background: var(--bg-panel-raised);
+  box-shadow: 0 0 0 1px var(--gold) inset;
+}
+.talent-subtab-hint{ font-size: 12.5px; color: var(--text-faint); margin: 0 0 16px; }
+
+/* ---------- Spellbook ---------- */
+.spellbook-section{ margin-bottom: 22px; }
+.spellbook-section h3{ font-size: 14px; color: var(--gold-bright); margin: 0 0 10px; }
+.spellbook-grid{ display: flex; flex-wrap: wrap; gap: 8px; }
+.spellbook-entry{
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 6px;
+  padding: 6px 10px 6px 6px; cursor: pointer; color: var(--text); font-size: 12.5px; text-align: left;
+  transition: border-color .15s ease;
+}
+.spellbook-entry:hover{ border-color: var(--teal-bright); }
+.spellbook-entry img{ width: 26px; height: 26px; border-radius: 4px; border: 1px solid var(--border); flex-shrink: 0; }
+.spellbook-noicon{ width: 26px; height: 26px; border-radius: 4px; background: var(--bg-deep); flex-shrink: 0; }
+.spellbook-rank-count{ font-size: 10.5px; color: var(--text-faint); }
+
+/* ---------- Racials ---------- */
+.racials-faction-toggle{ display: flex; gap: 8px; margin-bottom: 14px; }
+.racials-faction-btn{
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 999px;
+  padding: 7px 18px; cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 600;
+}
+.racials-faction-btn.active{ border-color: var(--gold); color: var(--text); background: var(--bg-panel-raised); }
+.racials-race-selector{ display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+.racials-race-btn{
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 999px;
+  padding: 6px 14px 6px 6px; cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 600;
+}
+.racials-race-btn img{ width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border); }
+.racials-race-btn.active{ border-color: var(--gold); color: var(--text); background: var(--bg-panel-raised); }
+.racials-panel-head{ display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.racials-panel-head img{ width: 44px; height: 44px; border-radius: 8px; border: 1px solid var(--border); }
+.racials-panel-head h3{ margin: 0; font-size: 16px; color: var(--gold-bright); }
+.racials-panel-head span{ display: block; font-size: 11.5px; color: var(--text-faint); margin-top: 2px; }
+.racials-note{ font-size: 12px; color: var(--text-faint); margin: 20px 0 8px; }
+
+/* ---------- Ability/racial cards (shared: Klassenänderungen + Rassen) ---------- */
+.ability-card-grid{ display: flex; flex-direction: column; gap: 10px; }
+.ability-card{
+  display: flex; gap: 12px; background: var(--bg-panel); border: 1px solid var(--border-soft);
+  border-radius: 8px; padding: 12px 14px;
+}
+.ability-card img{ width: 34px; height: 34px; border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0; }
+.ability-card-body h4{ margin: 0 0 4px; font-size: 13.5px; color: var(--gold-bright); }
+.ability-card-body p{ margin: 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+.ability-card-empty{ font-size: 12.5px; color: var(--text-faint); padding: 8px 0; }
+
+/* ---------- Legacy perk nodes: same grid as talents, distinct tint,
+   plus a dimmed non-interactive state for unimplemented placeholders. ---------- */
+.talent-node.legacy-placeholder{ opacity: 0.25; cursor: default; }
+.talent-node.legacy-placeholder:hover{ border-color: var(--border); }
+
+/* ---------- Recruiting / Bewerbung ---------- */
+.recruit-teaser{
+  display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 10px;
+  padding: 28px 32px;
+}
+.recruit-teaser-text h2{ font-size: 22px; margin: 0 0 6px; color: var(--gold-bright); }
+.recruit-teaser-text p{ margin: 0; color: var(--text-muted); font-size: 14px; max-width: 560px; }
+.recruit-teaser > .btn{ flex: none; }
+.recruit-need-label{ font-size: 12px; color: var(--text-faint); margin: 12px 0 6px; }
+.recruit-need-badges{ display: flex; flex-wrap: wrap; gap: 8px; }
+.recruit-need-badge{
+  display: inline-flex; align-items: baseline; gap: 5px;
+  background: var(--bg-panel-raised); border: 1px solid var(--border); border-radius: 999px;
+  padding: 4px 12px; font-size: 12.5px; font-weight: 600; color: var(--need-color, var(--text));
+}
+.recruit-need-badge em{ font-style: normal; color: var(--text-muted); font-weight: 500; }
+.recruit-need-badges-empty{ font-size: 13px; color: var(--text-faint); }
+
+.apply-field-label{ display: block; font-size: 12.5px; color: var(--text-muted); margin: 14px 0 6px; }
+.apply-field-label:first-of-type{ margin-top: 4px; }
+.apply-textarea{ width: 100%; resize: vertical; }
+.apply-text-input{
+  font-family: 'Karla', sans-serif; font-size: 13.5px; padding: 8px 10px;
+  background: var(--field-bg); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); width: 100%;
+}
+.apply-spec-checkboxes{ display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.apply-profession-grid{ margin: 4px 0 6px; }
+.apply-profession-secondary-label{ font-size: 11.5px; color: var(--text-faint); margin: 10px 0 6px; }
+
+.apply-class-picks{ display: flex; flex-direction: column; gap: 10px; margin: 4px 0 6px; }
+.apply-class-pick-row{
+  border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+  background: rgba(255,255,255,0.02);
+}
+.apply-class-pick-head{ display: flex; align-items: flex-end; gap: 8px; }
+.apply-class-pick-head .poll-config-field{ flex: 1; min-width: 0; }
+.apply-class-pick-remove{
+  flex: none; width: 30px; height: 30px; padding: 0; font-size: 14px; line-height: 1;
+  background: transparent; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text-faint); cursor: pointer; margin-bottom: 1px;
+}
+.apply-class-pick-remove:hover{ color: var(--danger-bright); border-color: var(--danger-bright); }
+.apply-class-pick-specs{ margin-top: 8px; }
+.apply-add-class-btn{
+  padding: 7px 12px; font-size: 12.5px; font-weight: 600;
+  font-family: 'Karla', sans-serif; color: var(--gold-bright); background: rgba(var(--gold-bright-rgb),0.08);
+  border: 1px dashed var(--gold); border-radius: 5px; cursor: pointer;
+}
+.apply-add-class-btn:hover{ background: rgba(var(--gold-bright-rgb),0.16); }
+.apply-add-class-btn:disabled{ opacity: .4; cursor: not-allowed; }
+
+/* ---- Bewerbung chat-bot flow ---- */
+.apply-chat-card{ display: flex; flex-direction: column; }
+.apply-chat-log{
+  display: flex; flex-direction: column; gap: 8px; max-height: 420px;
+  overflow-y: auto; margin-bottom: 4px; padding-right: 2px;
+}
+.apply-chat-bubble{
+  max-width: 86%; padding: 8px 13px; border-radius: 12px; font-size: 13px;
+  line-height: 1.5; word-break: break-word;
+}
+.apply-chat-bubble-bot{
+  align-self: flex-start; background: var(--bg-panel-raised);
+  border: 1px solid var(--border-soft); color: var(--text);
+  border-bottom-left-radius: 3px;
+}
+.apply-chat-bubble-user{
+  align-self: flex-end; background: rgba(var(--gold-bright-rgb),0.14);
+  border: 1px solid rgba(var(--gold-bright-rgb),0.35); color: var(--gold-bright);
+  font-weight: 600; border-bottom-right-radius: 3px; white-space: pre-wrap;
+}
+.apply-chat-composer{ display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.apply-chat-input-area{ display: flex; flex-direction: column; gap: 8px; }
+.apply-chat-error{ font-size: 12px; color: var(--danger-bright); }
+.apply-chat-actions{ display: flex; align-items: center; gap: 8px; }
+.apply-chat-done{ display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.apply-chat-char-row{ display: flex; align-items: center; gap: 10px; }
+.apply-chat-char-row-label{ min-width: 90px; font-weight: 700; font-size: 13px; flex: none; }
+.apply-chat-prof-block{
+  border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+  background: rgba(255,255,255,0.02);
+}
+.apply-chat-prof-block + .apply-chat-prof-block{ margin-top: 10px; }
+.apply-chat-prof-head{ font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+.apply-chat-level-rows{ display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.apply-chat-level-row{ display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.apply-chat-level-label{ min-width: 110px; color: var(--text-muted); }
+.apply-chat-level-input{ width: 56px; font-size: 12.5px; padding: 4px 6px; }
+.apply-chat-level-max{ display: flex; align-items: center; gap: 4px; color: var(--text-muted); cursor: pointer; }
+.application-class-picks-v2{ flex-direction: column; gap: 10px; }
+.application-class-block{
+  border: 1px solid var(--border-soft); border-radius: 8px; padding: 8px 10px;
+  background: rgba(255,255,255,0.015);
+}
+.application-class-block .application-class-pick{ margin-bottom: 4px; }
+.application-class-block p{ margin: 2px 0; }
+
+.recruit-needs-grid{ display: flex; flex-direction: column; gap: 12px; margin: 4px 0 6px; }
+.recruit-needs-row{ display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.recruit-needs-class{ min-width: 90px; font-weight: 700; font-size: 13px; flex: none; }
+.recruit-needs-specs{ display: flex; flex-wrap: wrap; gap: 6px 16px; }
+
+.application-card{
+  background: var(--bg-panel-raised); border: 1px solid var(--border-soft); border-radius: 8px;
+  padding: 14px 16px; margin-bottom: 12px;
+  transition: opacity .15s ease;
+}
+/* In-progress (Wird bearbeitet / Gespräch geplant / Potenzieller
+   Kandidat) — dimmed so it doesn't read as "needs attention" the same
+   way an untouched Offen application does; full brightness on hover so
+   it's still easy to read once you're actually looking at it. */
+.application-card-inprogress{ opacity: .68; }
+.application-card-inprogress:hover, .application-card-inprogress:focus-within{ opacity: 1; }
+/* Closed (Angenommen / Abgelehnt) — collapses to a single toggle row
+   (status badge + "Applicant — Characters") so a growing pile of
+   finished applications doesn't bury the ones still open; click to
+   expand the full card back open. */
+.application-card-closed{ padding: 0; opacity: .6; }
+.application-card-closed:hover, .application-card-closed.is-expanded{ opacity: .9; }
+.application-card-toggle{
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: none; border: none; cursor: pointer; text-align: left;
+  padding: 10px 16px; color: var(--text-muted); font-size: 13px; font-family: inherit;
+}
+.application-card-toggle:hover{ color: var(--text); }
+.application-card-toggle-title{ font-weight: 600; flex: 1; }
+.application-card-toggle-arrow{ font-size: 10px; color: var(--text-faint); }
+.application-card-closed .application-card-body{ display: none; padding: 0 16px 14px; }
+.application-card-closed.is-expanded .application-card-body{ display: block; }
+.application-card-head{ display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 8px; }
+/* Review-status row — every application (v1 and v2 alike) gets one of
+   these right under the head: a colored badge for the current status,
+   the dropdown to change it, and (depending on the status) who claimed
+   it or the scheduled interview date. Each status gets its own color so
+   the applications list reads at a glance without opening every card. */
+.application-status-row{ display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.application-status-badge{
+  display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em;
+  border-radius: 999px; padding: 2px 10px; border: 1px solid transparent;
+}
+.application-status-open{ color: var(--text-muted); background: var(--bg-panel-raised); border-color: var(--border); }
+.application-status-claimed{ color: #7cc4ff; background: rgba(76,158,255,.14); border-color: rgba(76,158,255,.35); }
+.application-status-interview{ color: #c9a0ff; background: rgba(154,92,255,.14); border-color: rgba(154,92,255,.35); }
+.application-status-candidate{ color: var(--gold-bright); background: rgba(217,180,96,.14); border-color: rgba(217,180,96,.35); }
+.application-status-accepted{ color: #7adf9c; background: rgba(74,200,120,.14); border-color: rgba(74,200,120,.35); }
+.application-status-rejected{ color: #ff9b9b; background: rgba(224,80,80,.14); border-color: rgba(224,80,80,.35); }
+.application-status-select{
+  font-size: 12px; background: var(--bg-panel-raised); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 3px 6px;
+}
+.application-status-meta{ font-size: 12px; color: var(--text-muted); }
+.application-status-date{
+  font-size: 12px; background: var(--bg-panel-raised); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 2px 6px;
+}
+/* Recruiting-team-only notes field — deliberately understated (small,
+   muted label) since it's a working scratchpad, not applicant content. */
+.application-notes-row{ margin: 2px 0 10px; }
+.application-notes-label{ display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-faint); margin-bottom: 3px; }
+.application-notes-input{
+  width: 100%; resize: vertical; font-family: inherit; font-size: 12.5px; line-height: 1.4;
+  background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 8px;
+}
+/* Brief highlight flash for a #recruit?app=<id> deep link (from a
+   Discord notification) landing on one specific application. */
+.application-card-highlight{ animation: applicationCardFlash 2.6s ease-out; }
+@keyframes applicationCardFlash{
+  0%   { box-shadow: 0 0 0 2px var(--gold-bright); }
+  70%  { box-shadow: 0 0 0 2px var(--gold-bright); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+/* Class Deep Dives — one collapsed-by-default card per class. */
+.classdive-card{ padding: 0; margin-bottom: 12px; overflow: hidden; }
+.classdive-card-general{ border-color: var(--gold-bright); margin-bottom: 20px; }
+.classdive-general-icon{ display: inline-flex; width: 22px; height: 22px; flex-shrink: 0; color: var(--gold-bright); }
+.classdive-general-icon svg{ width: 100%; height: 100%; }
+.classdive-toggle{
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: none; border: none; cursor: pointer; text-align: left;
+  padding: 14px 16px; color: var(--text); font-family: inherit;
+}
+.classdive-toggle:hover{ background: var(--bg-panel); }
+.classdive-toggle-title{ font-weight: 700; font-size: 14px; }
+.classdive-toggle-meta{ font-size: 11.5px; color: var(--text-faint); flex: 1; text-align: right; margin-right: 4px; }
+.classdive-toggle-arrow{ font-size: 10px; color: var(--text-faint); flex-shrink: 0; }
+.classdive-body{ padding: 0 16px 16px; }
+.classdive-section{ margin-top: 10px; }
+.classdive-section-head{ display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.classdive-section-title{ font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--gold-bright); margin-bottom: 6px; }
+.classdive-section-head .classdive-section-title{ margin-bottom: 0; }
+.classdive-summary-text{ font-size: 13.5px; line-height: 1.6; color: var(--text); }
+.classdive-summary-edit{ min-height: 140px; }
+.classdive-empty{ font-size: 13px; color: var(--text-faint); font-style: italic; margin: 2px 0; }
+.classdive-updates{ display: flex; flex-direction: column; gap: 8px; }
+.classdive-update{ background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 6px; padding: 8px 10px; }
+.classdive-update-head{ display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.classdive-update-date{ font-size: 11px; font-weight: 700; color: var(--text-muted); }
+.classdive-update-delete{ padding: 0 4px; line-height: 1; min-height: auto; }
+.classdive-update-text{ font-size: 13px; line-height: 1.5; color: var(--text); margin-top: 3px; }
+.classdive-add-update{ margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-soft); }
+.classdive-add-update-date{
+  font-size: 12px; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 6px; margin-bottom: 8px;
+}
+.classdive-add-update-text{ min-height: 56px; font-size: 12.5px; }
+/* Rich-text content (summary + each update) can now include a pasted
+   table — give it theme-consistent borders instead of the browser
+   default so it actually reads as a table on our dark background. */
+.classdive-summary-text table, .classdive-update-text table, .announce-card-text table{
+  border-collapse: collapse; width: 100%; margin: 8px 0 14px; font-size: 13px;
+}
+.classdive-summary-text th, .classdive-summary-text td,
+.classdive-update-text th, .classdive-update-text td,
+.announce-card-text th, .announce-card-text td{
+  border: 1px solid var(--border-soft); padding: 6px 9px; text-align: left; vertical-align: top;
+}
+.classdive-summary-text th, .classdive-update-text th, .announce-card-text th{
+  background: var(--bg-panel-raised); color: var(--gold-bright); font-weight: 700;
+}
+.classdive-summary-text tr:nth-child(even) td, .announce-card-text tr:nth-child(even) td{ background: rgba(255,255,255,0.02); }
+.classdive-summary-text h1, .classdive-summary-text h2, .classdive-summary-text h3{
+  font-family: 'Cinzel', serif; color: var(--gold-bright); margin: 14px 0 8px;
+}
+.classdive-summary-text h1{ font-size: 20px; } .classdive-summary-text h2{ font-size: 16px; } .classdive-summary-text h3{ font-size: 14px; }
+.classdive-summary-text p{ margin: 0 0 10px; }
+.classdive-summary-text ul, .classdive-summary-text ol{ margin: 0 0 10px; padding-left: 22px; }
+.classdive-spell-link{ color: var(--teal-bright); border-bottom: 1px dotted var(--teal-bright); cursor: help; }
+/* Update-Historie + Quellen — always-expanded static cards pinned at
+   the bottom of the page, same card shell as the per-class ones but no
+   toggle/collapse behavior. */
+.classdive-toggle-static{ cursor: default; }
+.classdive-toggle-static:hover{ background: none; }
+.classdive-history-wrap{ overflow-x: auto; }
+.classdive-history-table{ border-collapse: collapse; width: 100%; font-size: 13px; }
+.classdive-history-table th, .classdive-history-table td{
+  border: 1px solid var(--border-soft); padding: 7px 10px; text-align: left; vertical-align: top;
+}
+.classdive-history-table th{ background: var(--bg-panel-raised); color: var(--gold-bright); font-weight: 700; white-space: nowrap; }
+.classdive-history-table td:nth-child(1){ white-space: nowrap; color: var(--text-muted); }
+.classdive-history-table td:nth-child(2){ white-space: nowrap; font-variant-numeric: tabular-nums; }
+.classdive-history-table tr:nth-child(even) td{ background: rgba(255,255,255,0.02); }
+.classdive-history-delete{ padding: 0 4px; line-height: 1; min-height: auto; }
+.classdive-history-add{ margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-soft); }
+.classdive-history-add-row{ display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.classdive-history-add-date, .classdive-history-add-build{
+  font-size: 12.5px; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 8px;
+}
+.classdive-history-add-date{ flex: 1; min-width: 140px; }
+.classdive-history-add-build{ width: 120px; flex: none; }
+.classdive-history-add-text{
+  width: 100%; resize: vertical; font-family: inherit; font-size: 12.5px; line-height: 1.4;
+  background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 8px; margin-bottom: 8px;
+}
+.classdive-sources-list{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.classdive-source-item{
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 6px; padding: 8px 10px;
+}
+.classdive-source-item a{ color: var(--teal-bright); font-size: 13px; word-break: break-word; }
+.classdive-source-delete{ padding: 0 4px; line-height: 1; min-height: auto; flex-shrink: 0; }
+.classdive-source-add{ margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border-soft); display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
+.classdive-source-add-label, .classdive-source-add-url{
+  font-size: 12.5px; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 8px; flex: 1; min-width: 180px;
+}
+.classdive-source-add .forever-actions{ width: 100%; }
+@media (max-width: 640px){
+  .classdive-toggle{ flex-wrap: wrap; }
+  .classdive-toggle-meta{ text-align: left; width: 100%; order: 3; }
+}
+/* Class Deep Dives — left-hand category pre-filter (General + every
+   class) plus a single-category main pane, replacing the old stacked
+   "one collapsible card per class" layout. The sidebar is sticky on
+   desktop so it stays in view while scrolling a long list of Patch-
+   Update posts; it collapses into a horizontally-scrollable pill row
+   above the main pane on narrow screens (see the media query below). */
+.classdive-layout{ display: flex; align-items: flex-start; gap: 22px; margin-bottom: 18px; }
+.classdive-sidebar{
+  flex: 0 0 196px; display: flex; flex-direction: column; gap: 3px;
+  position: sticky; top: 16px;
+}
+.classdive-filter-btn{
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: none; border: 1px solid transparent; border-radius: 7px;
+  padding: 8px 10px; cursor: pointer; text-align: left; color: var(--text-muted);
+  font-family: inherit; font-size: 13px; font-weight: 600;
+}
+.classdive-filter-btn:hover{ background: var(--bg-panel); color: var(--text); }
+.classdive-filter-btn.active{
+  background: var(--bg-panel-raised); border-color: var(--classdive-color, var(--gold-bright));
+  color: var(--classdive-color, var(--gold-bright));
+}
+.classdive-filter-icon{ width: 18px; height: 18px; flex-shrink: 0; }
+.classdive-filter-label{ flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.classdive-filter-count{
+  flex-shrink: 0; font-size: 10.5px; font-weight: 700; color: var(--text-faint);
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 999px;
+  padding: 1px 6px; min-width: 18px; text-align: center;
+}
+.classdive-filter-btn.active .classdive-filter-count{ color: var(--classdive-color, var(--gold-bright)); border-color: currentColor; }
+.classdive-main{ flex: 1 1 auto; min-width: 0; }
+.classdive-main-head{ display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.classdive-main-head .classdive-filter-icon{ width: 26px; height: 26px; }
+.classdive-main-title{ font-family: 'Cinzel', serif; font-size: 20px; margin: 0; }
+.classdive-main-meta{ font-size: 11.5px; color: var(--text-faint); flex: 1; }
+.classdive-summary-card .classdive-section-head{ display: flex; align-items: center; gap: 10px; margin-top: 0; }
+.classdive-summary-card .classdive-section-head .classdive-section-title{ margin-bottom: 0; }
+.classdive-summary-card .classdive-section-head .btn{ margin-left: auto; }
+.classdive-updates-section{ margin-top: 4px; }
+.classdive-updates{ display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+/* A single Patch-Update, forum-post style: a clickable header (title +
+   date + expand arrow) and, collapsed, a short plain-text preview of
+   the first few lines so you can tell what it's about before opening
+   it — same idea as a forum thread list. The Deep Dive / Allgemeine
+   Infos summary (classDiveSummaryCardHtml) reuses this exact same
+   header/body/preview styling so it reads as the same kind of
+   collapsible card, just pinned first. */
+.classdive-post{ background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 7px; overflow: hidden; }
+.classdive-post.expanded{ border-color: var(--border); }
+.classdive-post.classdive-summary-card{ margin-bottom: 16px; }
+/* Noticeably lighter than the card body (var(--bg-panel-raised) instead
+   of var(--bg-panel)) plus a gold title, so the clickable header reads
+   as its own distinct bar — not just slightly-bolder text sitting in
+   the same flat panel as everything below it. */
+.classdive-post-head{
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 10px 12px; cursor: pointer;
+  background: var(--bg-panel-raised);
+  border-bottom: 1px solid var(--border-soft);
+}
+.classdive-post-head:hover{ filter: brightness(1.15); }
+.classdive-post-title{ font-weight: 700; font-size: 13.5px; color: var(--gold-bright); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.classdive-post-date{ font-size: 11px; font-weight: 700; color: var(--text-muted); flex-shrink: 0; }
+.classdive-post-arrow{ font-size: 10px; color: var(--text-faint); flex-shrink: 0; }
+.classdive-post-editbtn{ flex-shrink: 0; }
+.classdive-post-preview{ padding: 10px 12px; cursor: pointer; }
+.classdive-post-preview p{ font-size: 12.5px; line-height: 1.5; color: var(--text-muted); margin: 0 0 3px; }
+.classdive-post-preview p:last-child{ margin-bottom: 0; }
+.classdive-post-more{ color: var(--teal-bright) !important; font-weight: 600; }
+.classdive-post-body{ padding: 12px; }
+.classdive-post-actions{ display: flex; justify-content: flex-end; padding: 0 8px 8px; }
+.classdive-add-update-row{ display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.classdive-add-update-row .classdive-add-update-date{ margin-bottom: 0; flex: 0 0 auto; }
+.classdive-add-update-title{
+  flex: 1; min-width: 180px; font-size: 12.5px; background: var(--bg-panel); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px;
+}
+@media (max-width: 760px){
+  .classdive-layout{ flex-direction: column; gap: 14px; }
+  .classdive-sidebar{
+    position: static; flex: none; flex-direction: row; flex-wrap: nowrap; overflow-x: auto;
+    width: 100%; gap: 6px; padding-bottom: 4px;
+  }
+  .classdive-filter-btn{ width: auto; flex-shrink: 0; }
+  .classdive-filter-label{ white-space: nowrap; }
+}
+.application-class{ font-weight: 700; font-size: 13.5px; }
+.application-specs{ font-size: 12.5px; color: var(--text-muted); }
+.application-applicant{ font-size: 12.5px; color: var(--gold-bright); font-weight: 600; }
+.application-date{ font-size: 11.5px; color: var(--text-faint); }
+.application-card-head .btn{ margin-left: auto; }
+.application-class-picks{ display: flex; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 8px; }
+.application-class-pick{
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--bg-panel-raised); border: 1px solid var(--border); border-radius: 999px;
+  padding: 3px 10px;
+}
+/* Quick-glance summary bar at the top of a v2 (chat-form) application
+   card — a handful of scannable stats plus the applied-for class icons,
+   so an officer can judge the gist of an application before reading the
+   full per-class detail blocks below it. */
+.application-summary-row{
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+  background: var(--bg-panel-raised); border: 1px solid var(--border); border-radius: 10px;
+  padding: 8px 12px; margin: 6px 0 10px;
+}
+.application-stat{ display: flex; flex-direction: column; gap: 1px; }
+.application-stat-label{ font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-faint); }
+.application-stat-value{ font-size: 13px; color: var(--text); font-weight: 600; }
+.application-summary-classchips{ display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.application-summary-classchip{
+  display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px 2px 4px;
+}
+.application-reason, .application-remarks, .application-experience,
+.application-logs, .application-professions, .application-namage{
+  font-size: 13px; color: var(--text); line-height: 1.55; margin: 4px 0;
+}
+.application-reason strong, .application-remarks strong, .application-experience strong,
+.application-logs strong, .application-professions strong, .application-namage strong{
+  color: var(--text-muted); font-weight: 600;
+}
+.application-logs a, .application-remarks a, .application-experience a{
+  color: var(--gold-bright); text-decoration: underline; word-break: break-all;
+}
+.application-logs a:hover, .application-remarks a:hover, .application-experience a:hover{ color: var(--gold); }
+@media (max-width: 640px){
+  .recruit-teaser{ flex-direction: column; align-items: flex-start; }
+  .recruit-teaser > .btn{ width: 100%; }
+}
+
+/* ---------------------------------------------------------------------
+   Design reveal — popup + burn transition
+   ---------------------------------------------------------------------
+   .design-reveal-modal is the one-time "unlock" prompt (see the "Design
+   reveal" comment up by :root for the full picture — theme, localStorage
+   key, the no-flash <head> script). .design-burn-overlay is the
+   full-screen "the old page burns away top to bottom" transition that
+   plays once its "Okay" button is clicked — see initDesignReveal() near
+   the end of the main script for the show/hide timing and the ember-
+   particle spawning (.design-burn-ember elements it creates and removes
+   on the fly). Both sit above literally everything else on the page.
+   Deliberately not using the --gold/--bg-* etc. tokens: the modal is
+   always ember-colored regardless of which theme is currently active
+   (it's foreshadowing the new one, not matching the old one), and the
+   burn overlay paints the OLD theme's actual colors as fixed hex (not
+   var()) on purpose — html.theme-horde gets added to the live page
+   underneath it right as the burn starts, so if this used var() it would
+   instantly show the new colors instead of "burning away" the old ones. */
+.design-reveal-modal{
+  position: fixed; inset: 0; z-index: 9000; background: rgba(4,2,1,0.78);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.design-reveal-card{
+  position: relative; background: #170b08; border: 1px solid #a8431f; border-radius: 10px;
+  padding: 32px 28px; max-width: 520px; width: 100%; max-height: 86vh; overflow-y: auto; text-align: center;
+  box-shadow: 0 0 0 1px rgba(226,84,47,0.18) inset, 0 0 46px rgba(226,84,47,0.28), 0 20px 50px rgba(0,0,0,0.55);
+}
+.design-reveal-icon{
+  width: 46px; height: 46px; margin: 0 auto 16px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffb27a, #e2542f 55%, #6b1f14 100%);
+  box-shadow: 0 0 18px rgba(226,84,47,0.6);
+}
+.design-reveal-card h2{
+  font-family: 'Cinzel', serif; font-size: 19px; margin: 0 0 12px; color: #f2a878; letter-spacing: .4px;
+}
+.design-reveal-card p{ font-size: 14px; color: #d9c4b4; line-height: 1.6; margin: 0 0 16px; text-align: left; }
+.design-reveal-card p:first-of-type{ text-align: center; }
+.design-reveal-card blockquote{
+  margin: 0 0 16px; padding: 10px 14px; text-align: left; border-left: 3px solid #e2542f;
+  background: rgba(226,84,47,0.08); border-radius: 0 6px 6px 0;
+}
+.design-reveal-card blockquote p{ margin: 0; font-style: italic; color: #f2cab0; }
+.design-reveal-card blockquote cite{ display: block; margin-top: 4px; font-style: normal; font-size: 12px; color: #c99a7f; }
+.design-reveal-card .btn{ margin-top: 6px; }
+.design-reveal-card .btn{
+  background: linear-gradient(180deg, #e2542f, #a8321a); color: #fff2e4; border: 1px solid #f2a878;
+  padding: 11px 32px; font-size: 14.5px;
+}
+.design-reveal-card .btn:hover{ filter: brightness(1.08); }
+
+.design-burn-overlay{
+  position: fixed; inset: 0; z-index: 9500; overflow: hidden; pointer-events: none;
+  display: none;
+}
+.design-burn-overlay.burning{ display: block; }
+.design-burn-paper{
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(44,103,136,0.35), transparent 60%),
+    linear-gradient(180deg, #08202f 0%, #0a2a3c 10%, #071b28 30%, #071b28 100%);
+  clip-path: inset(0 0 0 0);
+}
+.design-burn-overlay.burning .design-burn-paper{
+  animation: designBurnWipe 2.4s cubic-bezier(.45,0,.4,1) forwards;
+}
+@keyframes designBurnWipe{
+  from{ clip-path: inset(0 0 0 0); }
+  to{ clip-path: inset(100% 0 0 0); }
+}
+/* The glowing charred edge riding along the wipe — a soft band that
+   fades from "still paper" through char into a bright ember line, so the
+   cutoff reads as burning rather than a hard mechanical wipe. The
+   designBurnFireDistort SVG filter (see markup near #designBurnOverlay)
+   gives it a very slight organic wobble instead of a ruler-straight
+   glow — kept subtle on purpose, a strong displacement on a thin band
+   tears it into harsh blocky chunks instead of reading as fire. */
+.design-burn-edge{
+  position: absolute; left: 0; right: 0; top: 0; height: 34px; transform: translateY(-50%);
+  background: linear-gradient(180deg,
+    rgba(10,4,2,0) 0%,
+    rgba(20,7,3,0.9) 38%,
+    rgba(226,84,47,0.95) 66%,
+    rgba(255,205,140,1) 100%);
+  box-shadow: 0 0 26px 8px rgba(226,84,47,0.65), 0 0 60px 18px rgba(226,84,47,0.25);
+  opacity: 0;
+  /* filter: url(#designBurnFireDistort) is set in index.html's inline
+     <style> — see the note there. */
+}
+.design-burn-overlay.burning .design-burn-edge{
+  opacity: 1;
+  animation: designBurnEdgeMove 2.4s cubic-bezier(.45,0,.4,1) forwards, designBurnFlicker .15s ease-in-out infinite alternate;
+}
+@keyframes designBurnEdgeMove{
+  from{ top: 0%; }
+  to{ top: 100%; }
+}
+/* @keyframes designBurnFlicker lives in index.html's inline <style>. */
+/* A wide, soft haze riding along with the edge — the "glow of a horizon
+   on fire" rather than a thin line. Big blur radius, low opacity, pure
+   warm orange — this is what reads as ambient fire-light bouncing off
+   smoke/air at a distance, filling in the gaps between individual
+   flame tongues so the band feels continuous even where the tongues
+   themselves don't overlap. */
+.design-burn-haze{
+  position: absolute; left: -10%; right: -10%; top: 0; height: 140px; transform: translateY(-60%);
+  background: radial-gradient(ellipse 60% 100% at 50% 60%, rgba(255,140,55,0.55), transparent 72%);
+  filter: blur(14px);
+  opacity: 0;
+}
+.design-burn-overlay.burning .design-burn-haze{
+  opacity: 1;
+  animation: designBurnEdgeMove 2.4s cubic-bezier(.45,0,.4,1) forwards;
+}
+
+/* The "sea of flames" layer. Earlier versions built this out of
+   discrete CSS flame-tongue divs (clip-path silhouettes, border-radius
+   blobs, …) — however they were shaped, a finite number of
+   independently-animated DOM shapes always reads as "a row of little
+   flame icons", not real fire, because real fire has no individual
+   tongues at all — it's one continuous turbulent mass. So this layer
+   is a <canvas> (created and driven by startFireCanvas() in the main
+   script) running an actual per-pixel fire simulation: a small
+   low-resolution grid where the bottom row is a randomized-intensity
+   "fire source" every frame, each pixel above inherits the intensity of
+   a pixel below it (with a little horizontal jitter and random decay),
+   and the resulting intensity grid is mapped through a black → red →
+   orange → yellow → white → faint-blue palette (see buildFirePalette())
+   — the same family of technique used for the classic "campfire"/"DOOM
+   fire" effect. Rendered small (internal pixels, not CSS px) and then
+   scaled up with the browser's own smoothing, which is what gives it
+   the soft, licking, organic edges instead of a sprite look. The
+   canvas's own top position is updated every frame in lockstep with
+   the burn wipe, mix-blend-mode: screen so bright flame pixels light up
+   the page underneath and near-black/low-alpha ones (the "smoke" end of
+   the palette) stay unobtrusive instead of painting flat dark squares. */
+.design-burn-flames{ position: absolute; inset: 0; mix-blend-mode: screen; }
+.design-burn-fire-canvas{
+  position: absolute; left: 0; width: 100%; height: 340px;
+  transform: translateY(-78%);
+  image-rendering: auto;
+  /* The simulation only runs at ~160×72 internal pixels; blurring the
+     scaled-up result is what turns that blocky grid into soft, licking
+     tongues instead of a visible mosaic — belt-and-braces alongside the
+     browser's own (bilinear) canvas upscaling. */
+  filter: blur(3px) saturate(1.12);
+}
+
+/* Billowing smoke — slow, heavily-blurred dark puffs that drift upward
+   off the flame line and dissolve. This is what separates "wildfire"
+   from "clean fireplace": real fire this size throws up smoke, and the
+   drifting dark haze reads as scale/danger even though it's only a
+   handful of blurred circles. Sits above the flames (not screen-
+   blended — a lightening blend would make dark smoke invisible) but
+   below the embers, which should still read as bright sparks escaping
+   through it. */
+.design-burn-smoke{ position: absolute; inset: 0; }
+.design-burn-smoke-puff{
+  position: absolute; left: 0; top: 0; border-radius: 50%;
+  background: radial-gradient(circle at 42% 38%, rgba(94,58,42,0.55), rgba(40,22,16,0.4) 55%, rgba(20,12,10,0) 78%);
+  animation: designBurnSmokeRise 1.7s ease-out forwards;
+}
+@keyframes designBurnSmokeRise{
+  0%{ transform: translateY(0) scale(.5); opacity: 0; }
+  15%{ opacity: .65; }
+  100%{ transform: translateY(-120px) scale(1.5); opacity: 0; }
+}
+
+.design-burn-embers{ position: absolute; inset: 0; }
+.design-burn-ember{
+  position: absolute; width: 4px; height: 4px; border-radius: 50%;
+  background: #ffcf8c; box-shadow: 0 0 6px 2px rgba(255,150,60,0.9);
+  animation: designBurnEmberRise .9s ease-out forwards;
+}
+@keyframes designBurnEmberRise{
+  0%{ transform: translateY(0) scale(1); opacity: 1; }
+  100%{ transform: translateY(-44px) scale(.3); opacity: 0; }
+}
+/* A wipe with no glow/embers/flames is still a perfectly readable
+   transition, so reduced-motion gets an instant cut instead of a slow
+   animated one. */
+@media (prefers-reduced-motion: reduce){
+  .design-burn-overlay.burning .design-burn-paper{ animation: none; clip-path: inset(100% 0 0 0); }
+  .design-burn-overlay.burning .design-burn-edge{ display: none; }
+  .design-burn-overlay.burning .design-burn-haze{ display: none; }
+  .design-burn-flames{ display: none; }
+  .design-burn-smoke{ display: none; }
+}
+
+/* Design switcher — lives in User Settings (#characterModal), admin-only
+   for now (toggled in applyAccessControl()). A plain two-option segmented
+   control rather than a checkbox/toggle-switch, since "which of two
+   named designs" reads more clearly that way than on/off would. */
+.settings-design-row{ margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border-soft); }
+.settings-design-badge{
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  background: rgba(var(--gold-bright-rgb),0.14); border: 1px solid var(--gold);
+  color: var(--gold-bright); font-size: 10px; font-weight: 700; letter-spacing: .3px;
+  text-transform: uppercase; vertical-align: middle;
+}
+.design-switcher{ display: flex; gap: 8px; }
+.settings-design-retest-btn{ margin-top: 10px; }
+.design-switcher-option{
+  flex: 1; font-family: 'Karla', sans-serif; font-weight: 600; font-size: 13px;
+  padding: 9px 10px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--field-bg); color: var(--text-muted); cursor: pointer;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+.design-switcher-option:hover{ color: var(--text); border-color: var(--gold); }
+.design-switcher-option.active{
+  background: rgba(var(--gold-bright-rgb),0.14); border-color: var(--gold-bright); color: var(--gold-bright);
+}

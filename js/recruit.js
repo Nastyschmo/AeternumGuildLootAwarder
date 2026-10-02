@@ -51,7 +51,7 @@ function applyChatProfLevelRowsHtml(list){
   }).join('');
 }
 function wireApplyChatProfLevelRows(holder, draftArr, onMaxToggled){
-  holder.querySelectorAll('[data-level-prof]').forEach(inp => {
+  holder.querySelectorAll('[data-level-prof]').forEach((/** @type {HTMLInputElement} */ inp) => {
     inp.addEventListener('input', () => {
       let digits = inp.value.replace(/[^0-9]/g, '').slice(0, 3);
       // Clamp live while typing (not just on submit) so "488" can't even
@@ -63,7 +63,7 @@ function wireApplyChatProfLevelRows(holder, draftArr, onMaxToggled){
       if (item) item.level = inp.value;
     });
   });
-  holder.querySelectorAll('[data-max-prof]').forEach(cb => {
+  holder.querySelectorAll('[data-max-prof]').forEach((/** @type {HTMLInputElement} */ cb) => {
     cb.addEventListener('change', () => {
       const item = draftArr.find(x => x.professionId === cb.getAttribute('data-max-prof'));
       if (item) item.level = cb.checked ? 'max' : '';
@@ -114,7 +114,7 @@ function renderApplyChatPicksUI(container){
       renderApplyChatPicksUI(container);
     });
   });
-  container.querySelectorAll('[data-pick-spec]').forEach(cb => {
+  container.querySelectorAll('[data-pick-spec]').forEach((/** @type {HTMLInputElement} */ cb) => {
     const i = Number(cb.closest('[data-pick-index]').getAttribute('data-pick-index'));
     cb.addEventListener('change', () => {
       const specId = cb.getAttribute('data-pick-spec');
@@ -471,7 +471,7 @@ els.applyChatRestartBtn.addEventListener('click', resetApplyChat);
 // Enter submits the current step for simple single-line fields — but not
 // inside the remarks textarea, where Enter should just insert a newline.
 els.applyChatInputArea.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && e.target && e.target.tagName !== 'TEXTAREA'){
+  if (e.key === 'Enter' && e.target && /** @type {Element} */ (e.target).tagName !== 'TEXTAREA'){
     e.preventDefault();
     applyChatGoNext();
   }
@@ -557,7 +557,7 @@ async function sendApplicationReminder(id){
   const application = state.applications[id];
   if (application.applicantId !== discordIdentity.id) return;
   if (application.status === 'accepted' || application.status === 'rejected') return;
-  els.recruitApplyNoticeActions.querySelectorAll('[data-send-reminder]').forEach(b => { b.disabled = true; b.textContent = 'Wird gesendet…'; });
+  els.recruitApplyNoticeActions.querySelectorAll('[data-send-reminder]').forEach((/** @type {HTMLButtonElement} */ b) => { b.disabled = true; b.textContent = 'Wird gesendet…'; });
   const result = await sendDiscordNotification(id, 'reminder');
   if (result){
     const lastReminderAt = Date.now();
@@ -597,7 +597,7 @@ async function submitApplication(){
   if (!id) id = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 
   if (!state.applications) state.applications = {};
-  state.applications[id] = {
+  state.applications[id] = /** @type {Application} */ ({
     version: 2,
     firstName: a.firstName || '',
     nickname: a.nickname || '',
@@ -612,7 +612,7 @@ async function submitApplication(){
     applicantId: discordIdentity.id,
     createdAt: Date.now(),
     status: 'open'
-  };
+  });
   els.applySubmitStatus.textContent = 'Wird gesendet…';
   els.applySubmitStatus.className = 'armory-status';
   renderAll();
@@ -656,7 +656,7 @@ function renderRecruitNeedsEditor(){
       </div>
     </div>`;
   }).join('');
-  els.recruitNeedsEditorGrid.querySelectorAll('[data-need-class]').forEach(cb => {
+  els.recruitNeedsEditorGrid.querySelectorAll('[data-need-class]').forEach((/** @type {HTMLInputElement} */ cb) => {
     cb.addEventListener('change', () => {
       const cls = cb.getAttribute('data-need-class');
       const spec = cb.getAttribute('data-need-spec');
@@ -912,16 +912,16 @@ function renderApplicationsList(){
   els.applicationsList.querySelectorAll('[data-toggle-application]').forEach(btn => {
     btn.addEventListener('click', () => toggleApplicationExpanded(btn.getAttribute('data-toggle-application')));
   });
-  els.applicationsList.querySelectorAll('[data-status-app]').forEach(sel => {
+  els.applicationsList.querySelectorAll('[data-status-app]').forEach((/** @type {HTMLSelectElement} */ sel) => {
     sel.addEventListener('change', () => setApplicationStatus(sel.getAttribute('data-status-app'), sel.value));
   });
-  els.applicationsList.querySelectorAll('[data-interview-app]').forEach(inp => {
+  els.applicationsList.querySelectorAll('[data-interview-app]').forEach((/** @type {HTMLInputElement} */ inp) => {
     inp.addEventListener('change', () => setApplicationInterviewDate(inp.getAttribute('data-interview-app'), inp.value));
   });
-  els.applicationsList.querySelectorAll('[data-notes-app]').forEach(inp => {
+  els.applicationsList.querySelectorAll('[data-notes-app]').forEach((/** @type {HTMLInputElement | HTMLTextAreaElement} */ inp) => {
     inp.addEventListener('blur', () => setApplicationNotes(inp.getAttribute('data-notes-app'), inp.value));
   });
-  els.applicationsList.querySelectorAll('[data-refresh-armory]').forEach(btn => {
+  els.applicationsList.querySelectorAll('[data-refresh-armory]').forEach((/** @type {HTMLButtonElement} */ btn) => {
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       btn.textContent = 'Lädt…';

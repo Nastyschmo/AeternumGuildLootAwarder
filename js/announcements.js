@@ -224,7 +224,7 @@ function cancelEditAnnouncement(){
 async function saveAnnouncementEdit(id){
   if (!isOfficerOrAdmin() || !state.announcements || !state.announcements[id]) return;
   const editorEl = document.getElementById('announceEditEditor-' + id);
-  const titleEl = document.getElementById('announceEditTitle-' + id);
+  const titleEl = /** @type {HTMLInputElement} */ (document.getElementById('announceEditTitle-' + id));
   const statusEl = document.getElementById('announceEditStatus-' + id);
   if (!editorEl) return;
   const html = sanitizeRichText(editorEl.innerHTML);
@@ -257,13 +257,13 @@ async function saveAnnouncement(){
   try{ id = db ? db.ref(DB_PATH + '/announcements').push().key : null; }catch(e){}
   if (!id) id = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
   if (!state.announcements) state.announcements = {};
-  state.announcements[id] = {
+  state.announcements[id] = /** @type {Announcement} */ ({
     text: html,
     title,
     authorName: discordIdentity.username,
     authorId: discordIdentity.id,
     createdAt: Date.now()
-  };
+  });
   els.announceSaveStatus.textContent = 'Saving…';
   els.announceSaveStatus.className = 'armory-status';
   renderAll();

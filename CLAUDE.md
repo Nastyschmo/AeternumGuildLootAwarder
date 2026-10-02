@@ -68,8 +68,10 @@ Worker.
   aufrufen. Neue Feature-Dateien vor `app.js` einhängen.
 - **TypeScript ohne Build-Schritt:** Typen stehen als JSDoc-Kommentare im
   JS, der Compiler prüft nur (`npm run typecheck`, läuft auch als GitHub
-  Action auf jedem PR). Dateien machen mit `// @ts-check` in Zeile 1 mit
-  (aktuell `core.js`, `state.js`). Das Datenmodell (`State`, `Application`,
+  Action auf jedem PR). Alle Dateien in `js/` und `data/` werden geprüft
+  (`checkJs`). DOM-Elemente bei Bedarf casten, z. B.
+  `/** @type {HTMLInputElement} */ (el)`; `els.*` ist schon typisiert
+  (anhand der Tags in `index.html`). Das Datenmodell (`State`, `Application`,
   `Poll` …) steht in `types/model.d.ts` – bei neuen/entfernten Feldern in
   einem Normalizer dort mitpflegen. Vor jedem Push `npm run typecheck`.
 - Farben immer über die CSS-Custom-Properties in `:root` (nie hartkodierte

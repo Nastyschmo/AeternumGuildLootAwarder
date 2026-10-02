@@ -5,7 +5,7 @@
 // js/*.js files; load order is set in index.html. Code that runs at load
 // time may only use files loaded before this one.
 
-document.querySelectorAll('#settingsDesignRow .design-switcher-option').forEach(btn => {
+document.querySelectorAll('#settingsDesignRow .design-switcher-option').forEach((/** @type {HTMLElement} */ btn) => {
   btn.addEventListener('click', () => setDesignTheme(btn.dataset.designTheme));
 });
 const designRevealRetestBtn = document.getElementById('designRevealRetestBtn');
@@ -319,13 +319,14 @@ function startDesignBurn(){
     // Stashed on the overlay element itself (rather than a third
     // top-level `let`) purely so the cleanup block below has one place
     // to look regardless of which branch created it.
-    overlay.__designBurnSmokeInterval = smokeInterval;
+    /** @type {any} */ (overlay).__designBurnSmokeInterval = smokeInterval;
   }
 
   setTimeout(() => {
     if (emberInterval) clearInterval(emberInterval);
     if (fireCanvas) fireCanvas.stop();
-    if (overlay.__designBurnSmokeInterval) clearInterval(overlay.__designBurnSmokeInterval);
+    const smokeIntervalId = /** @type {any} */ (overlay).__designBurnSmokeInterval;
+    if (smokeIntervalId) clearInterval(smokeIntervalId);
     overlay.classList.remove('burning');
     overlay.querySelectorAll('.design-burn-ember').forEach(el => el.remove());
     overlay.querySelectorAll('.design-burn-smoke-puff').forEach(el => el.remove());
@@ -355,7 +356,7 @@ function updateDesignSwitcherUI(){
   const row = document.getElementById('settingsDesignRow');
   if (!row) return;
   const horde = document.documentElement.classList.contains('theme-horde');
-  row.querySelectorAll('.design-switcher-option').forEach(btn => {
+  row.querySelectorAll('.design-switcher-option').forEach((/** @type {HTMLElement} */ btn) => {
     btn.classList.toggle('active', btn.dataset.designTheme === (horde ? 'horde' : 'classic'));
   });
 }

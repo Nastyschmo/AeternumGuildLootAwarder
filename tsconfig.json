@@ -1,10 +1,11 @@
 {
   // Type-checking only — nothing is compiled or emitted. The page still
-  // runs the plain js/*.js files directly. Files opt in to checking with a
-  // `// @ts-check` comment on their first line (see CLAUDE.md).
+  // runs the plain js/*.js files directly. Every file under js/ and data/
+  // is checked (checkJs); a file can opt out with `// @ts-nocheck`, but
+  // shouldn't need to.
   "compilerOptions": {
     "allowJs": true,
-    "checkJs": false,
+    "checkJs": true,
     "noEmit": true,
     "target": "ES2022",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],

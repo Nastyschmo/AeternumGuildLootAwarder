@@ -164,7 +164,7 @@ function renderCharacterComposer(){
       </label>
       <button type="button" class="btn btn-ghost btn-sm" data-remove-character="${c.id}" ${characterComposerDraft.characters.length <= 1 ? 'disabled' : ''}>Entfernen</button>
     </div>`).join('');
-  els.characterComposerList.querySelectorAll('[data-character-field]').forEach(input => {
+  els.characterComposerList.querySelectorAll('[data-character-field]').forEach((/** @type {HTMLInputElement} */ input) => {
     input.addEventListener('input', () => {
       const row = characterComposerDraft.characters.find(c => c.id === input.getAttribute('data-character-id'));
       if (row) row[input.getAttribute('data-character-field')] = input.value;
@@ -426,7 +426,7 @@ function mycharCardHtml(c){
 }
 
 function wireMycharCardButtons(){
-  els.mycharList.querySelectorAll('[data-mychar-refresh]').forEach(btn => {
+  els.mycharList.querySelectorAll('[data-mychar-refresh]').forEach((/** @type {HTMLButtonElement} */ btn) => {
     btn.addEventListener('click', async () => {
       if (!discordIdentity) return;
       const profile = (state.characterProfiles || {})[discordIdentity.id];
@@ -438,7 +438,7 @@ function wireMycharCardButtons(){
       if (currentPage === 'mychar') renderMyCharactersPage();
     });
   });
-  els.mycharList.querySelectorAll('[data-mychar-wcl-refresh]').forEach(btn => {
+  els.mycharList.querySelectorAll('[data-mychar-wcl-refresh]').forEach((/** @type {HTMLButtonElement} */ btn) => {
     btn.addEventListener('click', async () => {
       if (!discordIdentity) return;
       const profile = (state.characterProfiles || {})[discordIdentity.id];

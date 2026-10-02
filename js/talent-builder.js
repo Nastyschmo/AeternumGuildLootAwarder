@@ -195,6 +195,7 @@ function setTalentLevel(cls, level){
   let guard = 0;
   while (talentPointsSpentTotal(cls) > talentPointsForLevel(level) && guard < 1000){
     guard++;
+    /** @type {{ treeIdx: number, name: string, row: number } | null} */
     let best = null;
     for (let treeIdx = 0; treeIdx < 3; treeIdx++){
       const tree = TALENT_DATA[cls].trees[treeIdx];

@@ -74,7 +74,8 @@ interface ProfessionLevel { professionId: string; level: number | 'max'; }
 
 /** Old flat-form application (before the chat-bot flow). */
 interface ApplicationV1 extends ApplicationStatusFields {
-  version?: undefined;
+  /** Missing on v1 records; typed as 1 so `a.version === 2` can tell the versions apart (strictNullChecks is off). */
+  version?: 1;
   picks: ApplicationPick[];
   experience: string;
   professions: string[] | string; // string = legacy free text
@@ -104,6 +105,8 @@ interface ApplicationV2 extends ApplicationStatusFields {
 }
 
 type Application = ApplicationV1 | ApplicationV2;
+/** An application plus its Firebase key, as returned by sortedApplications(). */
+type ApplicationWithId = (ApplicationV1 & { id: PushId }) | (ApplicationV2 & { id: PushId });
 
 type RecruitingNeeds = Record<ClassId, SpecId[]>;
 
@@ -131,6 +134,17 @@ interface Character {
 interface CharacterProfile {
   nickname: string;
   characters: Character[];
+}
+
+/** A tile in the Home news row (NEWS_ITEMS, placeholders, Wowhead/announcement cards). */
+interface NewsItem {
+  title: string;
+  blurb: string;
+  image?: string | null;
+  linkPage?: string;
+  linkUrl?: string;
+  badge?: string;
+  requiresLogin?: boolean;
 }
 
 interface SeenState { announcementsSeenAt: Millis; }

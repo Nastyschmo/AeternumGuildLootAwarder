@@ -1106,7 +1106,7 @@ to merging.
 The page has no build step — browsers run `js/*.js` as-is. TypeScript is
 only used as a checker: types are written as JSDoc comments in the JS,
 and the shared data model (`State`, `Application`, `Poll`, …) lives in
-`types/model.d.ts`. A file opts in with `// @ts-check` on its first line.
+`types/model.d.ts`. Every file in `js/` and `data/` is checked.
 
 ```sh
 npm install        # once — installs TypeScript locally

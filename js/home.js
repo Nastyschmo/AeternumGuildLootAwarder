@@ -119,6 +119,7 @@ function updateNewsCarouselArrows(){
 }
 
 function renderNewsGrid(){
+  /** @type {NewsItem[]} */
   const items = [];
   const latestRaw = sortedAnnouncements()[0];
   const latest = latestRaw ? normalizeAnnouncement(latestRaw) : null;

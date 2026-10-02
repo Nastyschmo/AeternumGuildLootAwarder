@@ -857,7 +857,66 @@ the free plan. Go to **Settings → General**, scroll to the **Danger Zone**,
 and change visibility to Public.
 
 Any static host works the same way (Netlify, Cloudflare Pages, Vercel, your
-own web server) — just upload the one HTML file.
+own web server) — just upload `index.html` together with `assets/`.
+
+## 8. Test previews on Cloudflare Pages
+
+GitHub Pages only ever serves `main`, so changes can't be tried out before
+they're merged. Cloudflare Pages fills that gap: it builds the same repo and
+serves one extra branch, `preview`, under its own fixed URL. The live site
+stays on GitHub Pages; nothing about it changes.
+
+**How it's used:** whenever something should be tried out before merging,
+Claude force-pushes that feature branch's state onto `preview`. Cloudflare
+deploys it within a minute or two at
+`https://preview.<project>.pages.dev/`. One fixed branch (instead of a
+preview per feature branch) means one fixed URL — which matters because
+Discord only accepts exact redirect URLs, no wildcards.
+
+> ⚠️ The preview talks to the **same live Firebase database** as the real
+> site. Looking around is harmless, but anything saved there (votes,
+> applications, announcements, role changes) is real data.
+
+### 8a. Create the Pages project (once)
+
+1. [dash.cloudflare.com](https://dash.cloudflare.com/) → **Workers & Pages**
+   → **Create** → **Pages** tab → **Connect to Git** (Cloudflare may
+   suggest a Worker instead — pick **Pages**).
+2. Authorize GitHub and pick this repository.
+3. Build settings:
+   - **Project name:** e.g. `rude-guild` (becomes `rude-guild.pages.dev`)
+   - **Production branch:** `main`
+   - **Framework preset:** None
+   - **Build command:** leave empty
+   - **Build output directory:** `/`
+4. **Save and Deploy.** The first build deploys `main` to
+   `https://<project>.pages.dev/` — that copy is unused for now (the real
+   site stays on GitHub Pages) but does no harm.
+5. Project → **Settings** → **Builds** (sometimes **Builds & deployments**)
+   → **Branch control**: keep automatic production deploys on, and set
+   **Preview branch** to **Custom branches** with include pattern
+   `preview`. That stops Cloudflare from building every `claude/...`
+   feature branch.
+
+### 8b. Let Discord login work on the preview (once)
+
+1. Discord Developer Portal → your app → **OAuth2** → **Redirects** →
+   **Add Redirect**: `https://preview.<project>.pages.dev/` (exactly, with
+   the trailing slash). Save. The existing GitHub Pages redirect stays.
+2. Firebase needs no change — the custom-token login the Worker issues
+   doesn't check Firebase's authorized domains.
+3. The Worker needs no change as long as `ALLOWED_ORIGIN` is unset (it then
+   allows any origin). If `ALLOWED_ORIGIN` is ever set, the Worker has to
+   learn to accept more than one origin first, or the preview loses login,
+   news and Armory data.
+
+### 8c. Optional: keep the preview private
+
+Preview deployments are already marked `noindex` for search engines, but
+anyone with the URL can open them. To lock them down: Pages project →
+**Settings** → **General** → **Access policy** → enable it for preview
+deployments (Cloudflare Access, free for up to 50 users) and allow your
+own e-mail address.
 
 ## Editing the homepage content (guild name, intro text, news)
 

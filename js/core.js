@@ -1,3 +1,4 @@
+// @ts-check
 // Shared foundation: editable guild content, Firebase/Discord/Worker config,
 // role helpers, HTML escaping + rich-text sanitizing, shared
 // class/profession/spec constants, and the cached DOM element map (els).
@@ -359,6 +360,7 @@ function foreverSpecIconUrl(classId, specId){
 function foreverPickKey(p){
   return p ? p.classId + '|' + p.spec : '';
 }
+/** @returns {ForeverEntry} */
 function normalizeForeverEntry(entry){
   const username = (entry && typeof entry.username === 'string') ? entry.username : '';
   const rawPicks = (entry && Array.isArray(entry.picks)) ? entry.picks : [];
@@ -413,28 +415,29 @@ const ANNOUNCE_ALLOWED_ATTRS = { TD: new Set(['colspan', 'rowspan']), TH: new Se
 function sanitizeRichText(html){
   const container = document.createElement('div');
   container.innerHTML = String(html ?? '');
-  (function clean(node){
+  (function clean(/** @type {Element} */ node){
     Array.from(node.childNodes).forEach(child => {
       if (child.nodeType === 3) return; // plain text — always fine
       if (child.nodeType !== 1){ node.removeChild(child); return; }
-      if (!ANNOUNCE_ALLOWED_TAGS.has(child.tagName)){
+      const el = /** @type {Element} */ (child); // nodeType 1 = element
+      if (!ANNOUNCE_ALLOWED_TAGS.has(el.tagName)){
         // Drop script/style entirely (content included); unwrap anything
         // else so the text survives even if the wrapping tag doesn't.
-        if (child.tagName === 'SCRIPT' || child.tagName === 'STYLE'){
-          node.removeChild(child);
+        if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE'){
+          node.removeChild(el);
           return;
         }
-        while (child.firstChild) node.insertBefore(child.firstChild, child);
-        node.removeChild(child);
+        while (el.firstChild) node.insertBefore(el.firstChild, el);
+        node.removeChild(el);
         return;
       }
-      const allowedAttrs = ANNOUNCE_ALLOWED_ATTRS[child.tagName];
-      Array.from(child.attributes).forEach(attr => {
-        if (child.tagName === 'FONT' && attr.name === 'size' && /^[1-7]$/.test(attr.value)) return;
+      const allowedAttrs = ANNOUNCE_ALLOWED_ATTRS[el.tagName];
+      Array.from(el.attributes).forEach(attr => {
+        if (el.tagName === 'FONT' && attr.name === 'size' && /^[1-7]$/.test(attr.value)) return;
         if (allowedAttrs && allowedAttrs.has(attr.name.toLowerCase()) && /^\d{1,2}$/.test(attr.value)) return;
-        child.removeAttribute(attr.name);
+        el.removeAttribute(attr.name);
       });
-      clean(child);
+      clean(el);
     });
   })(container);
   return container.innerHTML;

@@ -1101,6 +1101,22 @@ Cloudflare dashboard → **Edit code** → paste the new contents → **Deploy**
 The pull request says so when that's needed, and in which order relative
 to merging.
 
+## Type checking (development only)
+
+The page has no build step — browsers run `js/*.js` as-is. TypeScript is
+only used as a checker: types are written as JSDoc comments in the JS,
+and the shared data model (`State`, `Application`, `Poll`, …) lives in
+`types/model.d.ts`. A file opts in with `// @ts-check` on its first line.
+
+```sh
+npm install        # once — installs TypeScript locally
+npm run typecheck  # tsc -p . (noEmit)
+```
+
+The same check runs as a GitHub Action (`.github/workflows/typecheck.yml`)
+on every pull request. `package.json`, `tsconfig.json`, `types/` and
+`node_modules/` (git-ignored) aren't used by the page itself.
+
 ## Costs
 
 Firebase's free "Spark" plan includes 1GB of storage and 10GB/month of

@@ -891,7 +891,7 @@ async function syncDiscordRolesToFirebase(env){
 
   let stored;
   try{
-    const res = await fetch(`${FIREBASE_DATABASE_URL}/discordRoles.json`, {
+    const res = await fetch(`${FIREBASE_DATABASE_URL}/guild-loot-data/discordRoles.json`, {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -925,7 +925,7 @@ async function syncDiscordRolesToFirebase(env){
   }
 
   try{
-    const res = await fetch(`${FIREBASE_DATABASE_URL}/discordRoles.json`, {
+    const res = await fetch(`${FIREBASE_DATABASE_URL}/guild-loot-data/discordRoles.json`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)

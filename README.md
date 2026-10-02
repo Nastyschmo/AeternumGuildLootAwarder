@@ -880,9 +880,12 @@ Discord only accepts exact redirect URLs, no wildcards.
 ### 8a. Create the Pages project (once)
 
 1. [dash.cloudflare.com](https://dash.cloudflare.com/) → **Workers & Pages**
-   → **Create application** → **Pages** tab → **Connect to Git**. If the
-   page only offers Worker options, look for the small link at the bottom,
-   **"Looking to deploy Pages? Get started"** — don't create a Worker.
+   → **Create application**. The "Create an app" screen that opens is for
+   Workers — don't use "Continue with GitHub" there. Instead click the
+   small link at the bottom, **"Need to use the legacy Pages workflow?
+   Continue to Pages"**, then **Connect to Git**. ("Legacy" is
+   Cloudflare's wording; Pages is still fully supported and is the simpler
+   fit for a plain static site like this one.)
 2. Authorize GitHub and pick this repository.
 3. Build settings:
    - **Project name:** e.g. `rude-guild` (becomes `rude-guild.pages.dev`)

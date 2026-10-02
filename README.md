@@ -342,7 +342,14 @@ Go to **Build → Realtime Database → Rules** and replace them with:
           "applicantId"
         ],
         "$appId": {
-          ".write": "auth != null && (!data.exists() || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer'))"
+          ".write": "auth != null && (!data.exists() || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer'))",
+          ".validate": "(data.exists() && (!data.child('applicantId').exists() || newData.child('applicantId').val() == data.child('applicantId').val())) || (!data.exists() && newData.child('applicantId').val() == auth.uid && ((root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer') || ((!root.child('guild-loot-data/applicationLocks').child(auth.uid).exists() || now - root.child('guild-loot-data/applicationLocks').child(auth.uid).val() > 86400000) && newRoot.child('guild-loot-data/applicationLocks').child(auth.uid).val() == now)))"
+        }
+      },
+      "applicationLocks": {
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.val() == now"
         }
       },
       "classDeepDives": {
@@ -436,7 +443,15 @@ Click **Publish**. What this enforces at the database level (not just in the UI)
   Bewerbung page being open to the public. Once an application exists,
   only Admins/Officers can edit or delete it — an applicant can't go back
   and rewrite their own submission after sending it, and can't touch
-  anyone else's. The "Erinnerung senden" button doesn't write to the
+  anyone else's. A new application must carry the submitter's own id as
+  `applicantId` (nobody can file one in someone else's name), and
+  non-Officers can submit at most **one per 24 hours**: the page writes
+  the application together with `applicationLocks/<their-discord-id>` set
+  to the server time in one update, and the rules reject the new
+  application if the previous lock is younger than 24 hours.
+  `applicationLocks` isn't readable by anyone and isn't loaded by the page
+  (so it's deliberately not in `SYNCED_KEYS`). The "Erinnerung senden"
+  button doesn't write to the
   application at all — the Cloudflare Worker (`/notify-application`)
   checks the 14-day cooldown and stamps `lastReminderAt`/`reminderSentAt`
   itself with its admin credential.
@@ -916,10 +931,14 @@ Discord only accepts exact redirect URLs, no wildcards.
    the trailing slash). Save. The existing GitHub Pages redirect stays.
 2. Firebase needs no change — the custom-token login the Worker issues
    doesn't check Firebase's authorized domains.
-3. The Worker needs no change as long as `ALLOWED_ORIGIN` is unset (it then
-   allows any origin). If `ALLOWED_ORIGIN` is ever set, the Worker has to
-   learn to accept more than one origin first, or the preview loses login,
-   news and Armory data.
+3. The Worker already allows the preview: its built-in
+   `DEFAULT_ALLOWED_ORIGINS` list contains both the GitHub Pages origin and
+   `https://preview.aeternumguildlootawarder.pages.dev`. Calls from any
+   other site's page are refused. To change the list (e.g. for a custom
+   domain), set a Worker variable `ALLOWED_ORIGINS` to a comma-separated
+   list of origins (`https://host` without path or trailing slash) — it
+   replaces the built-in list. Remove an old `ALLOWED_ORIGIN` variable if
+   one is set, since it would take precedence over the built-in list.
 
 ### 8c. Optional: keep the preview private
 

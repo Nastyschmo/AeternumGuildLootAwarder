@@ -566,6 +566,28 @@ async function sendApplicationReminder(id){
   renderRecruitApplyGate();
 }
 
+// Saves a brand-new application together with the applicant's
+// applicationLocks/<uid> timestamp in ONE multi-path update. The Firebase
+// rules (README.md § 6f) only accept a new application from a non-Officer
+// if their previous lock is older than 24 hours AND the same update sets
+// the lock to the server's current time — that's the server-side rate
+// limit on submissions; the "already applied" gate in the UI is just the
+// friendly front of it.
+async function saveNewApplication(id){
+  setStatus('Saving…', false);
+  if (!db){ setStatus('Not connected to Firebase — see setup instructions', true); return false; }
+  try{
+    await db.ref(DB_PATH).update({
+      ['applications/' + id]: state.applications[id],
+      ['applicationLocks/' + discordIdentity.id]: firebase.database.ServerValue.TIMESTAMP
+    });
+    return true;
+  }catch(e){
+    setStatus('Could not save — check your Firebase rules and connection', true);
+    return false;
+  }
+}
+
 async function submitApplication(){
   if (!discordIdentity || applyChatStepIndex < APPLY_CHAT_STEPS.length) return;
   const a = applyChatAnswers;
@@ -594,7 +616,7 @@ async function submitApplication(){
   els.applySubmitStatus.textContent = 'Wird gesendet…';
   els.applySubmitStatus.className = 'armory-status';
   renderAll();
-  const ok = await saveData('applications/' + id);
+  const ok = await saveNewApplication(id);
   if (ok){
     const nicknameToSave = a.nickname;
     resetApplyChat();

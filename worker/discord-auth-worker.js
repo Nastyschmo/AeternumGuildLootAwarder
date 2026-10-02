@@ -941,11 +941,21 @@ async function syncDiscordRolesToFirebase(env){
 
 export default {
   async fetch(request, env, ctx) {
-    const cors = corsHeaders(env);
+    const cors = corsHeaders(request, env);
     const url = new URL(request.url);
+
+    if (isOriginAllowed(request, env) === false) {
+      return json({ error: 'Origin not allowed' }, 403, cors);
+    }
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: cors });
+    }
+
+    const route = ['wowhead-news', 'armory-character', 'warcraftlogs-character', 'notify-application']
+      .find(r => url.pathname.endsWith('/' + r)) || 'mint-token';
+    if (rateLimited(route, request)) {
+      return json({ error: 'Too many requests — please wait a minute and try again.' }, 429, Object.assign({ 'Retry-After': '60' }, cors));
     }
 
     if (url.pathname.endsWith('/wowhead-news')) {
@@ -1223,13 +1233,80 @@ async function handleNotifyApplication(request, env, cors) {
   return json({ results }, 200, cors);
 }
 
-function corsHeaders(env) {
-  return {
-    'Access-Control-Allow-Origin': env.ALLOWED_ORIGIN || '*',
+// Origins (scheme + host, no trailing slash) whose pages may call this
+// Worker from the browser: the live GitHub Pages site and the fixed
+// Cloudflare Pages preview. Override with the ALLOWED_ORIGINS env var — a
+// comma-separated list — e.g. once the site moves to its own domain
+// (ALLOWED_ORIGIN, singular, from older setups is still honored too).
+// Requests from any other site's page get no CORS headers (the browser
+// blocks them) and a 403. Requests without an Origin header (curl, other
+// servers) aren't affected by this — CORS is a browser mechanism; the
+// per-IP rate limits below are what bound those.
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://nastyschmo.github.io',
+  'https://preview.aeternumguildlootawarder.pages.dev'
+];
+
+function allowedOrigins(env) {
+  const raw = env.ALLOWED_ORIGINS || env.ALLOWED_ORIGIN || '';
+  const list = raw.split(',').map(o => o.trim().replace(/\/+$/, '')).filter(Boolean);
+  return list.length ? list : DEFAULT_ALLOWED_ORIGINS;
+}
+
+// null = no Origin header (not a browser page); true/false otherwise.
+function isOriginAllowed(request, env) {
+  const origin = request.headers.get('Origin');
+  if (!origin) return null;
+  const list = allowedOrigins(env);
+  return list.includes('*') || list.includes(origin);
+}
+
+// Best-effort per-IP rate limits, counted in this Worker isolate's memory
+// (fixed one-minute windows). Cloudflare runs several isolates in parallel
+// and recycles them, so this is not a hard global guarantee — it stops a
+// single client from hammering an endpoint (and with it our Discord,
+// Battle.net, WarcraftLogs and Google quotas) in a tight loop, which is
+// the realistic abuse case for a guild page. A hard limit would need
+// Cloudflare's Rate Limiting binding (wrangler config) or KV/Durable
+// Objects. Limits are requests per minute per client IP.
+const RATE_LIMITS = {
+  'mint-token': 10,
+  'notify-application': 5,
+  'armory-character': 30,
+  'warcraftlogs-character': 30,
+  'wowhead-news': 60
+};
+const RATE_WINDOW_MS = 60 * 1000;
+const rateBuckets = new Map(); // `${route}|${ip}` -> { windowStart, count }
+
+function rateLimited(route, request) {
+  const limit = RATE_LIMITS[route];
+  if (!limit) return false;
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const now = Date.now();
+  const key = route + '|' + ip;
+  let bucket = rateBuckets.get(key);
+  if (!bucket || now - bucket.windowStart >= RATE_WINDOW_MS) {
+    bucket = { windowStart: now, count: 0 };
+    rateBuckets.set(key, bucket);
+  }
+  bucket.count += 1;
+  // Keep the map from growing without bound in a long-lived isolate.
+  if (rateBuckets.size > 5000) {
+    for (const [k, b] of rateBuckets) if (now - b.windowStart >= RATE_WINDOW_MS) rateBuckets.delete(k);
+  }
+  return bucket.count > limit;
+}
+
+function corsHeaders(request, env) {
+  const headers = {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Vary': 'Origin'
   };
+  if (isOriginAllowed(request, env)) headers['Access-Control-Allow-Origin'] = request.headers.get('Origin');
+  return headers;
 }
 
 // ---------------------------------------------------------------------

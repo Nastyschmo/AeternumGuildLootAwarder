@@ -1511,22 +1511,33 @@
   /* A single Patch-Update, forum-post style: a clickable header (title +
      date + expand arrow) and, collapsed, a short plain-text preview of
      the first few lines so you can tell what it's about before opening
-     it — same idea as a forum thread list. */
+     it — same idea as a forum thread list. The Deep Dive / Allgemeine
+     Infos summary (classDiveSummaryCardHtml) reuses this exact same
+     header/body/preview styling so it reads as the same kind of
+     collapsible card, just pinned first. */
   .classdive-post{ background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 7px; overflow: hidden; }
   .classdive-post.expanded{ border-color: var(--border); }
+  .classdive-post.classdive-summary-card{ margin-bottom: 16px; }
+  /* Noticeably lighter than the card body (var(--bg-panel-raised) instead
+     of var(--bg-panel)) plus a gold title, so the clickable header reads
+     as its own distinct bar — not just slightly-bolder text sitting in
+     the same flat panel as everything below it. */
   .classdive-post-head{
     display: flex; align-items: center; gap: 10px; width: 100%;
     padding: 10px 12px; cursor: pointer;
+    background: var(--bg-panel-raised);
+    border-bottom: 1px solid var(--border-soft);
   }
-  .classdive-post-head:hover{ background: rgba(255,255,255,0.03); }
-  .classdive-post-title{ font-weight: 700; font-size: 13.5px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .classdive-post-head:hover{ filter: brightness(1.15); }
+  .classdive-post-title{ font-weight: 700; font-size: 13.5px; color: var(--gold-bright); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .classdive-post-date{ font-size: 11px; font-weight: 700; color: var(--text-muted); flex-shrink: 0; }
   .classdive-post-arrow{ font-size: 10px; color: var(--text-faint); flex-shrink: 0; }
-  .classdive-post-preview{ padding: 0 12px 10px; cursor: pointer; }
+  .classdive-post-editbtn{ flex-shrink: 0; }
+  .classdive-post-preview{ padding: 10px 12px; cursor: pointer; }
   .classdive-post-preview p{ font-size: 12.5px; line-height: 1.5; color: var(--text-muted); margin: 0 0 3px; }
   .classdive-post-preview p:last-child{ margin-bottom: 0; }
   .classdive-post-more{ color: var(--teal-bright) !important; font-weight: 600; }
-  .classdive-post-body{ padding: 0 12px 10px; }
+  .classdive-post-body{ padding: 12px; }
   .classdive-post-actions{ display: flex; justify-content: flex-end; padding: 0 8px 8px; }
   .classdive-add-update-row{ display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
   .classdive-add-update-row .classdive-add-update-date{ margin-bottom: 0; flex: 0 0 auto; }
@@ -8204,6 +8215,19 @@
     else expandedClassDiveUpdates.add(updateId);
     renderClassDeepDivesView();
   }
+  // Same idea, but for the pinned Deep Dive / Allgemeine Infos summary at
+  // the top of each class — it's always shown first, but (being usually
+  // the longest single piece of content on the page) starts collapsed too,
+  // same forum-post treatment as the Patch-Updates below it, so picking a
+  // class doesn't dump a huge wall of text before you've even seen the
+  // Patch-Updates list. Keyed by classId (one summary per class).
+  const expandedClassDiveSummaries = new Set();
+  function toggleClassDiveSummary(classId){
+    if (editingClassDiveSummary.has(classId)) return; // already forced open while editing — a header click shouldn't collapse the live editor
+    if (expandedClassDiveSummaries.has(classId)) expandedClassDiveSummaries.delete(classId);
+    else expandedClassDiveSummaries.add(classId);
+    renderClassDeepDivesView();
+  }
   async function saveClassDiveSummary(classId, html){
     if (!discordIdentity || !isOfficerOrAdmin() || !state.classDeepDives || !state.classDeepDives[classId]) return;
     const sanitized = sanitizeRichText(html || '');
@@ -8472,6 +8496,67 @@
     </div>`;
   }
 
+  // The Deep Dive / Allgemeine Infos summary, pinned first in the main
+  // pane — same collapsed-forum-post treatment as classDiveUpdatePostHtml
+  // (collapsed by default, short preview, click the header to expand),
+  // except while there's no summary yet at all: that's not something to
+  // collapse, so it stays a plain prompt card with no header/arrow until
+  // an Officer/Admin actually adds one. While editing, the header isn't a
+  // toggle (no point collapsing the live editor away) and shows no arrow.
+  function classDiveSummaryCardHtml(c, dive, canManage){
+    const editingSummary = editingClassDiveSummary.has(c.id);
+    const title = c.isGeneral ? 'Allgemeine Infos' : 'Deep Dive';
+    if (!dive.summary && !editingSummary){
+      const addBtnHtml = canManage
+        ? `<button type="button" class="btn btn-ghost btn-sm" data-edit-summary="${c.id}">${c.isGeneral ? 'Infos hinzufügen' : 'Deep Dive hinzufügen'}</button>`
+        : '';
+      return `<div class="tac-card classdive-summary-card" data-classdive-card="${c.id}">
+        <div class="classdive-section-head">
+          <span class="classdive-section-title">${title}</span>
+          ${addBtnHtml}
+        </div>
+        <p class="classdive-empty">${c.isGeneral ? 'Noch keine allgemeinen Infos hinterlegt.' : 'Noch kein Deep Dive hinterlegt.'}</p>
+      </div>`;
+    }
+    const expanded = editingSummary || expandedClassDiveSummaries.has(c.id);
+    const metaHtml = dive.summaryUpdatedAt
+      ? `<span class="classdive-post-date">Aktualisiert am ${escapeHtml(new Date(dive.summaryUpdatedAt).toLocaleDateString('de-DE'))}</span>`
+      : '';
+    const editBtnHtml = (canManage && !editingSummary)
+      ? `<button type="button" class="btn btn-ghost btn-sm classdive-post-editbtn" data-edit-summary="${c.id}">Bearbeiten</button>`
+      : '';
+    let bodyHtml;
+    if (editingSummary){
+      const summaryPlaceholder = escapeHtml(c.isGeneral
+        ? 'Allgemeine WoW Forever Infos (Regelwerk, serverweite Besonderheiten, etc.) hier einfügen oder reinkopieren…'
+        : `Blizzards Class Deep Dive für ${c.label} hier einfügen oder reinkopieren…`);
+      bodyHtml = `<div class="classdive-post-body">
+          <div class="announce-toolbar" id="classdive-summary-toolbar-${c.id}">${announceToolbarMarkup()}</div>
+          <div class="announce-editor classdive-summary-edit" id="classdive-summary-edit-${c.id}" contenteditable="true" data-placeholder="${summaryPlaceholder}">${dive.summary}</div>
+          <div class="forever-actions">
+            <button type="button" class="btn btn-teal btn-sm" data-save-summary="${c.id}">Speichern</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-cancel-summary="${c.id}">Abbrechen</button>
+          </div>
+        </div>`;
+    } else if (expanded){
+      bodyHtml = `<div class="classdive-post-body"><div class="classdive-summary-text">${dive.summary}</div></div>`;
+    } else {
+      const { lines, truncated } = classDiveHtmlPreviewLines(dive.summary, 5);
+      const previewHtml = lines.map(l => `<p>${escapeHtml(l)}</p>`).join('') + (truncated ? '<p class="classdive-post-more">…weiterlesen</p>' : '');
+      bodyHtml = `<div class="classdive-post-preview" data-toggle-classdive-summary="${c.id}">${previewHtml}</div>`;
+    }
+    const toggleAttr = editingSummary ? '' : ` data-toggle-classdive-summary="${c.id}"`;
+    return `<div class="classdive-post classdive-summary-card${expanded ? ' expanded' : ''}" data-classdive-card="${c.id}">
+      <div class="classdive-post-head"${toggleAttr}>
+        <span class="classdive-post-title">${title}</span>
+        ${metaHtml}
+        ${editBtnHtml}
+        ${editingSummary ? '' : `<span class="classdive-post-arrow" aria-hidden="true">${expanded ? '▲' : '▼'}</span>`}
+      </div>
+      ${bodyHtml}
+    </div>`;
+  }
+
   function renderClassDeepDivesView(){
     const loggedIn = !!discordIdentity;
     const hasAccess = loggedIn && isMemberOrHigher();
@@ -8509,32 +8594,14 @@
     }).join('');
 
     // Main pane — only the selected category's content. The Deep Dive /
-    // Allgemeine Infos summary is pinned at the very top and always shown
-    // (no collapse) so anyone new to the class sees Blizzard's own write-up
-    // first; the Patch-Updates below it are individually collapsed "forum
-    // posts" (see classDiveUpdatePostHtml), newest first.
+    // Allgemeine Infos summary is pinned at the very top, first thing in
+    // the main pane, so anyone new to the class always finds it there —
+    // but (being usually the longest content on the page) it's collapsed
+    // by default too, same forum-post treatment as the Patch-Updates below
+    // it (see classDiveSummaryCardHtml / classDiveUpdatePostHtml).
     const c = activeCat, dive = activeDive;
     const iconUrl = c.isGeneral ? '' : foreverClassIconUrl(c.id);
-    const editingSummary = editingClassDiveSummary.has(c.id);
-    const summaryPlaceholder = escapeHtml(c.isGeneral
-      ? 'Allgemeine WoW Forever Infos (Regelwerk, serverweite Besonderheiten, etc.) hier einfügen oder reinkopieren…'
-      : `Blizzards Class Deep Dive für ${c.label} hier einfügen oder reinkopieren…`);
-    const summaryBodyHtml = editingSummary
-      ? `<div class="announce-toolbar" id="classdive-summary-toolbar-${c.id}">${announceToolbarMarkup()}</div>
-         <div class="announce-editor classdive-summary-edit" id="classdive-summary-edit-${c.id}" contenteditable="true" data-placeholder="${summaryPlaceholder}">${dive.summary}</div>
-         <div class="forever-actions">
-           <button type="button" class="btn btn-teal btn-sm" data-save-summary="${c.id}">Speichern</button>
-           <button type="button" class="btn btn-ghost btn-sm" data-cancel-summary="${c.id}">Abbrechen</button>
-         </div>`
-      : (dive.summary
-          ? `<div class="classdive-summary-text">${dive.summary}</div>`
-          : `<p class="classdive-empty">${c.isGeneral ? 'Noch keine allgemeinen Infos hinterlegt.' : 'Noch kein Deep Dive hinterlegt.'}</p>`);
-    const summaryEditBtnHtml = (canManage && !editingSummary)
-      ? `<button type="button" class="btn btn-ghost btn-sm" data-edit-summary="${c.id}">${dive.summary ? 'Bearbeiten' : (c.isGeneral ? 'Infos hinzufügen' : 'Deep Dive hinzufügen')}</button>`
-      : '';
-    const summaryMetaHtml = dive.summaryUpdatedAt
-      ? `<span class="classdive-main-meta">Zuletzt aktualisiert am ${escapeHtml(new Date(dive.summaryUpdatedAt).toLocaleDateString('de-DE'))}</span>`
-      : '';
+    const summaryCardHtml = classDiveSummaryCardHtml(c, dive, canManage);
 
     const updatesListHtml = dive.updates.length
       ? dive.updates.map(u => classDiveUpdatePostHtml(c, u, canManage)).join('')
@@ -8558,14 +8625,7 @@
         ${c.isGeneral ? `<span class="classdive-general-icon" aria-hidden="true">${c.icon}</span>` : (iconUrl ? `<img class="classdive-filter-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : '')}
         <h2 class="classdive-main-title" style="color:${c.color}">${escapeHtml(c.label)}</h2>
       </div>
-      <div class="tac-card classdive-summary-card" data-classdive-card="${c.id}">
-        <div class="classdive-section-head">
-          <span class="classdive-section-title">${c.isGeneral ? 'Allgemeine Infos' : 'Deep Dive'}</span>
-          ${summaryMetaHtml}
-          ${summaryEditBtnHtml}
-        </div>
-        ${summaryBodyHtml}
-      </div>
+      ${summaryCardHtml}
       <div class="classdive-updates-section">
         <div class="classdive-section-title">Patch-Updates</div>
         <div class="classdive-updates" data-classdive-updates="${c.id}">${updatesListHtml}</div>
@@ -8586,8 +8646,17 @@
     els.classDivesList.querySelectorAll('[data-toggle-classdive-post]').forEach(el => {
       el.addEventListener('click', () => toggleClassDiveUpdatePost(el.getAttribute('data-toggle-classdive-post')));
     });
+    els.classDivesList.querySelectorAll('[data-toggle-classdive-summary]').forEach(el => {
+      el.addEventListener('click', () => toggleClassDiveSummary(el.getAttribute('data-toggle-classdive-summary')));
+    });
     els.classDivesList.querySelectorAll('[data-edit-summary]').forEach(btn => {
-      btn.addEventListener('click', () => { editingClassDiveSummary.add(btn.getAttribute('data-edit-summary')); renderClassDeepDivesView(); });
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-edit-summary');
+        editingClassDiveSummary.add(id);
+        expandedClassDiveSummaries.add(id);
+        renderClassDeepDivesView();
+      });
     });
     els.classDivesList.querySelectorAll('[data-cancel-summary]').forEach(btn => {
       btn.addEventListener('click', () => { editingClassDiveSummary.delete(btn.getAttribute('data-cancel-summary')); renderClassDeepDivesView(); });

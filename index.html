@@ -8843,24 +8843,6 @@
     }
   }
 
-  // Like saveData, but writes only the given child keys at `path` (a
-  // Firebase .update(), not a full .set() of the whole node). Used where a
-  // non-officer writes to a node they don't otherwise own/control in full —
-  // e.g. an applicant stamping lastReminderAt on their own already-existing
-  // application — so the Firebase rule only has to grant that one specific
-  // child path instead of the whole record.
-  async function saveDataPartial(path, patch){
-    setStatus('Saving…', false);
-    if (!db){ setStatus('Not connected to Firebase — see setup instructions', true); return false; }
-    try{
-      await db.ref(DB_PATH + '/' + path).update(patch);
-      return true;
-    }catch(e){
-      setStatus('Could not save — check your Firebase rules and connection', true);
-      return false;
-    }
-  }
-
   // Public, always-on: keeps state.recruitingNeeds up to date for
   // everyone, logged in or not — this is what lets a logged-out visitor
   // see "Aktuell gesucht" on Home/Bewerbung. It's a separate listener
@@ -8884,19 +8866,93 @@
     }, () => { /* not logged in yet / rules not deployed — badges just stay empty */ });
   }
 
+  // Every top-level key under DB_PATH that the page reads, except
+  // `applications` (handled separately below). Each one has its own
+  // `.read` rule (see README.md § 6f) instead of one blanket read at the
+  // DB_PATH root — Firebase rules can't take a read back on a child once
+  // a parent grants it, so a root-level read would make `applications`
+  // readable to every logged-in account. A new top-level key needs both
+  // an entry here AND its own `.read` rule, or it won't load.
+  const SYNCED_KEYS = [
+    'discordRoles', 'foreverSurvey', 'votingStatus', 'announcements', 'polls',
+    'recruitingNeeds', 'classDeepDives', 'classDiveUpdateHistory',
+    'classDiveSources', 'characterProfiles', 'seenState'
+  ];
+  // Raw snapshot values per key, merged and run through normalizeState()
+  // as one object — so everything downstream sees exactly the same shape
+  // the old single root listener produced.
+  let remoteRaw = {};
+  const remoteLoaded = new Set();
+  let remoteApplyQueued = false;
+  // 'all' (Officer/Admin: the whole applications list) or 'own' (everyone
+  // else: only their own application, via a query the rules allow for
+  // applicantId == auth.uid). Starts as 'own' since that's always allowed
+  // and the role isn't known until discordRoles has loaded.
+  let applicationsMode = null;
+  let applicationsRef = null;
+
+  function applyRemoteState(){
+    remoteApplyQueued = false;
+    // Wait until every listener has answered once — running
+    // ensureDiscordRole() before discordRoles has loaded would look like
+    // a brand-new database and try the first-login Admin bootstrap.
+    if (remoteLoaded.size < SYNCED_KEYS.length + 1) return;
+    state = Object.keys(remoteRaw).length ? normalizeState(remoteRaw) : defaultState();
+    const roleChanged = ensureDiscordRole();
+    renderAll();
+    setStatus('Synced', false);
+    if (roleChanged && discordIdentity) saveData('discordRoles/' + discordIdentity.id);
+    syncApplicationsListener();
+  }
+  // Batches the burst of initial snapshots (one per key) into one render.
+  function queueRemoteApply(){
+    if (remoteApplyQueued) return;
+    remoteApplyQueued = true;
+    Promise.resolve().then(applyRemoteState);
+  }
+
+  function syncApplicationsListener(){
+    const wanted = (discordIdentity && isOfficerOrAdmin()) ? 'all' : 'own';
+    if (wanted === applicationsMode) return;
+    if (applicationsRef) applicationsRef.off();
+    applicationsMode = wanted;
+    const base = db.ref(DB_PATH + '/applications');
+    applicationsRef = wanted === 'all'
+      ? base
+      : base.orderByChild('applicantId').equalTo(discordIdentity ? discordIdentity.id : '');
+    applicationsRef.on('value', (snapshot) => {
+      remoteRaw.applications = snapshot.val();
+      remoteLoaded.add('applications');
+      queueRemoteApply();
+    }, () => {
+      // Rules not updated yet / no access — show no applications rather
+      // than blocking the whole page from loading.
+      remoteRaw.applications = null;
+      remoteLoaded.add('applications');
+      queueRemoteApply();
+    });
+  }
+
   function startFirebaseSync(){
     if (syncStarted) return;
     syncStarted = true;
-    db.ref(DB_PATH).on('value', (snapshot) => {
-      const val = snapshot.val();
-      state = val ? normalizeState(val) : defaultState();
-      const roleChanged = ensureDiscordRole();
-      renderAll();
-      setStatus('Synced', false);
-      if (roleChanged && discordIdentity) saveData('discordRoles/' + discordIdentity.id);
-    }, (error) => {
-      setStatus('Could not sync — check your Firebase rules and connection', true);
-    });
+    for (const key of SYNCED_KEYS){
+      db.ref(DB_PATH + '/' + key).on('value', (snapshot) => {
+        remoteRaw[key] = snapshot.val();
+        remoteLoaded.add(key);
+        queueRemoteApply();
+      }, (error) => {
+        setStatus('Could not sync — check your Firebase rules and connection', true);
+        // A key missing its `.read` rule shouldn't keep the rest of the
+        // page from loading — except discordRoles, which has to be real
+        // before ensureDiscordRole() may run (see applyRemoteState).
+        if (key === 'discordRoles') return;
+        remoteRaw[key] = null;
+        remoteLoaded.add(key);
+        queueRemoteApply();
+      });
+    }
+    syncApplicationsListener();
   }
 
   function showSetupOnly(el){

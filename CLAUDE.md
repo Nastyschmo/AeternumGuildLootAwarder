@@ -28,6 +28,9 @@ Worker.
 - Jede neue Firebase-Datenpfad-Nutzung **muss** im PR explizit als
   "Rules-Update nötig" markiert werden (siehe Work Log 2026-10-01 – Tests
   laufen gegen ein gemocktes Firebase und fangen fehlende Rules nicht ab).
+  Ein neuer Top-Level-Key unter `guild-loot-data` braucht **beide**: einen
+  Eintrag in `SYNCED_KEYS` (index.html) und eine eigene `.read`-Regel in
+  `README.md` § 6f – eine Root-`.read`-Regel gibt es bewusst nicht mehr.
 - Nach jeder abgeschlossenen Aufgabe: `PROJECT.md` aktualisieren
   (Work Log oben ergänzen, offene Tasks/Known Issues pflegen) – im selben PR.
 

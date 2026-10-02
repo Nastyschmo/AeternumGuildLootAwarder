@@ -1,3 +1,4 @@
+// @ts-check
 // Data model: normalizers for everything stored in Firebase,
 // defaultState()/normalizeState(), derived getters (sorted
 // applications/polls, poll results, ...), the in-memory state variables, and
@@ -7,8 +8,13 @@
 // js/*.js files; load order is set in index.html. Code that runs at load
 // time may only use files loaded before this one.
 
+// The state of an empty database. Built through normalizeState() so it
+// always has every key a loaded state has (it used to be a hand-written
+// object that lacked classDeepDives, classDiveUpdateHistory and
+// classDiveSources).
+/** @returns {State} */
 function defaultState(){
-  return { discordRoles: {}, foreverSurvey: {}, votingStatus: {}, announcements: {}, polls: {}, applications: {}, recruitingNeeds: {}, characterProfiles: {}, seenState: {} };
+  return normalizeState({});
 }
 
 // A character needs at least a name to be worth keeping; realmSlug falls
@@ -20,6 +26,7 @@ function nextCharacterProfileId(){
   characterProfileIdCounter += 1;
   return 'char' + Date.now().toString(36) + characterProfileIdCounter;
 }
+/** @returns {CharacterProfile} */
 function normalizeCharacterProfile(entry){
   if (!entry || typeof entry !== 'object') return { nickname: '', characters: [] };
   const rawChars = Array.isArray(entry.characters) ? entry.characters : [];
@@ -63,6 +70,7 @@ function memberDisplayLabel(uid, username){
   return (profile && profile.nickname) ? `${profile.nickname} (${fallback})` : fallback;
 }
 
+/** @returns {Announcement | null} */
 function normalizeAnnouncement(a){
   if (!a || typeof a.text !== 'string' || !a.text.trim()) return null;
   const html = looksLikeHtml(a.text) ? sanitizeRichText(a.text) : legacyPlainTextToHtml(a.text);
@@ -96,6 +104,7 @@ const POLL_DAY_MS = 24 * 60 * 60 * 1000;
 
 // Defensive coercion for one poll — re-validates every field on every
 // load, same reasoning as normalizeAnnouncement/normalizeForeverEntry.
+/** @returns {Poll | null} */
 function normalizePoll(p){
   if (!p || typeof p.title !== 'string' || !p.title.trim()) return null;
   const title = p.title.trim().slice(0, 150);
@@ -123,6 +132,7 @@ function normalizePoll(p){
   const expiresAt = (typeof p.expiresAt === 'number' && p.expiresAt > 0) ? p.expiresAt : (createdAt ? createdAt + durationDays * POLL_DAY_MS : 0);
 
   const rawVotes = (p.votes && typeof p.votes === 'object') ? p.votes : {};
+  /** @type {Record<DiscordId, PollVote>} */
   const votes = {};
   for (const uid of Object.keys(rawVotes)){
     const v = rawVotes[uid];
@@ -190,6 +200,7 @@ const APPLICATION_STATUSES = {
   accepted:  { label: 'Angenommen' },
   rejected:  { label: 'Abgelehnt' }
 };
+/** @returns {ApplicationStatusFields} */
 function normalizeApplicationStatusFields(entry){
   const status = (entry && APPLICATION_STATUSES[entry.status]) ? entry.status : 'open';
   const claimedBy = (entry && typeof entry.claimedBy === 'string') ? entry.claimedBy : '';
@@ -211,12 +222,14 @@ function normalizeApplicationStatusFields(entry){
   const notes = (entry && typeof entry.notes === 'string') ? entry.notes.slice(0, 2000) : '';
   return { status, claimedBy, claimedByName, interviewAt, lastReminderAt: Math.max(lastReminderAt, reminderSentAt), notifiedAt, reminderSentAt, notes };
 }
+/** @returns {Application | null} */
 function normalizeApplication(entry){
   if (!entry || typeof entry !== 'object') return null;
   const base = entry.version === 2 ? normalizeApplicationV2(entry) : normalizeApplicationV1(entry);
   if (!base) return null;
   return Object.assign(base, normalizeApplicationStatusFields(entry));
 }
+/** @returns {Omit<ApplicationV1, keyof ApplicationStatusFields> | null} */
 function normalizeApplicationV1(entry){
   if (!entry || typeof entry !== 'object') return null;
   // Applications can list more than one class (an applicant's main plus
@@ -273,6 +286,7 @@ function normalizeApplicationV1(entry){
 // and characters (one name per picked class) are the required
 // questions; everything else is optional and defaults to "nothing
 // given" rather than failing the whole application.
+/** @returns {Omit<ApplicationV2, keyof ApplicationStatusFields> | null} */
 function normalizeApplicationV2(entry){
   if (!entry || typeof entry !== 'object') return null;
   const firstName = typeof entry.firstName === 'string' ? entry.firstName.trim().slice(0, 60) : '';
@@ -291,6 +305,7 @@ function normalizeApplicationV2(entry){
   }
 
   const rawCharacters = (entry.characters && typeof entry.characters === 'object') ? entry.characters : {};
+  /** @type {Record<ClassId, string>} */
   const characters = {};
   picks.forEach(p => {
     const name = typeof rawCharacters[p.classId] === 'string' ? rawCharacters[p.classId].trim().slice(0, 24) : '';
@@ -308,6 +323,7 @@ function normalizeApplicationV2(entry){
     ).values()
   );
   const rawCharProf = (entry.charProfessions && typeof entry.charProfessions === 'object') ? entry.charProfessions : {};
+  /** @type {Record<ClassId, ProfessionLevel[]>} */
   const charProfessions = {};
   picks.forEach(p => { charProfessions[p.classId] = normProfList(rawCharProf[p.classId]).slice(0, 2); });
   const extraProfessions = normProfList(entry.extraProfessions).filter(x => !PROFESSION_MAP[x.professionId].primary);
@@ -321,6 +337,7 @@ function normalizeApplicationV2(entry){
   // the one link is attributed to the first applied class so it still
   // shows up somewhere on the card.
   const rawCharLogs = (entry.charLogs && typeof entry.charLogs === 'object') ? entry.charLogs : null;
+  /** @type {Record<ClassId, string>} */
   const charLogs = {};
   if (rawCharLogs){
     picks.forEach(p => {
@@ -341,8 +358,10 @@ function normalizeApplicationV2(entry){
     createdAt: (typeof entry.createdAt === 'number' && entry.createdAt > 0) ? entry.createdAt : 0
   };
 }
+/** @returns {RecruitingNeeds} */
 function normalizeRecruitingNeeds(raw){
   const src = (raw && typeof raw === 'object') ? raw : {};
+  /** @type {RecruitingNeeds} */
   const out = {};
   CLASSES.forEach(c => {
     const validSpecIds = foreverSpecsForClass(c.id).map(s => s.id);
@@ -366,6 +385,7 @@ function normalizeRecruitingNeeds(raw){
 // pasting a formatted deep dive in keeps its structure instead of
 // collapsing into one unformatted wall of text. Entries saved before this
 // existed are plain text and get wrapped into a paragraph instead.
+/** @returns {ClassDeepDiveUpdate | null} */
 function normalizeClassDeepDiveUpdate(raw){
   if (!raw || typeof raw !== 'object' || typeof raw.text !== 'string' || !raw.text.trim()) return null;
   const html = looksLikeHtml(raw.text) ? sanitizeRichText(raw.text) : legacyPlainTextToHtml(raw.text);
@@ -383,6 +403,7 @@ function normalizeClassDeepDiveUpdate(raw){
     createdAt: (typeof raw.createdAt === 'number' && raw.createdAt > 0) ? raw.createdAt : 0
   };
 }
+/** @returns {ClassDeepDiveEntry} */
 function normalizeClassDeepDiveEntry(raw){
   const src = (raw && typeof raw === 'object') ? raw : {};
   let summary = '';
@@ -400,8 +421,10 @@ function normalizeClassDeepDiveEntry(raw){
     .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt - a.createdAt));
   return { summary, summaryUpdatedAt, updates };
 }
+/** @returns {State['classDeepDives']} */
 function normalizeClassDeepDives(raw){
   const src = (raw && typeof raw === 'object') ? raw : {};
+  /** @type {State['classDeepDives']} */
   const out = {};
   out.general = normalizeClassDeepDiveEntry(src.general);
   CLASSES.forEach(c => { out[c.id] = normalizeClassDeepDiveEntry(src[c.id]); });
@@ -416,6 +439,7 @@ function normalizeClassDeepDives(raw){
 // compact table rows and link lists, not prose. Officer/Admin-editable,
 // same read access as the rest of the page.
 // ---------------------------------------------------------------------
+/** @returns {ClassDiveHistoryEntry | null} */
 function normalizeClassDiveHistoryEntry(raw){
   if (!raw || typeof raw !== 'object') return null;
   const date = (typeof raw.date === 'string') ? raw.date.trim().slice(0, 40) : '';
@@ -424,8 +448,10 @@ function normalizeClassDiveHistoryEntry(raw){
   if (!date && !build && !text) return null;
   return { date, build, text };
 }
+/** @returns {State['classDiveUpdateHistory']} */
 function normalizeClassDiveHistory(raw){
   const src = (raw && typeof raw === 'object') ? raw : {};
+  /** @type {State['classDiveUpdateHistory']} */
   const out = {};
   Object.keys(src).forEach(id => {
     const e = normalizeClassDiveHistoryEntry(src[id]);
@@ -436,6 +462,7 @@ function normalizeClassDiveHistory(raw){
 // Only a real http(s) link is accepted — guards against a javascript:
 // or data: URL ever ending up clickable, same reasoning as everywhere
 // else user-supplied URLs get rendered as a link.
+/** @returns {ClassDiveSource | null} */
 function normalizeClassDiveSourceEntry(raw){
   if (!raw || typeof raw !== 'object') return null;
   const url = (typeof raw.url === 'string') ? raw.url.trim().slice(0, 500) : '';
@@ -443,8 +470,10 @@ function normalizeClassDiveSourceEntry(raw){
   const label = (typeof raw.label === 'string' && raw.label.trim()) ? raw.label.trim().slice(0, 120) : url;
   return { label, url };
 }
+/** @returns {State['classDiveSources']} */
 function normalizeClassDiveSources(raw){
   const src = (raw && typeof raw === 'object') ? raw : {};
+  /** @type {State['classDiveSources']} */
   const out = {};
   Object.keys(src).forEach(id => {
     const e = normalizeClassDiveSourceEntry(src[id]);
@@ -560,18 +589,21 @@ function sortedPolls(){
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
+/** @returns {State} */
 function normalizeState(parsed){
   return {
     discordRoles: (parsed.discordRoles && typeof parsed.discordRoles === 'object') ? parsed.discordRoles : {},
     foreverSurvey: (() => {
       const raw = (parsed.foreverSurvey && typeof parsed.foreverSurvey === 'object') ? parsed.foreverSurvey : {};
-      const out = {};
+      /** @type {State['foreverSurvey']} */
+    const out = {};
       for (const uid of Object.keys(raw)) out[uid] = normalizeForeverEntry(raw[uid]);
       return out;
     })(),
     votingStatus: (() => {
       const raw = (parsed.votingStatus && typeof parsed.votingStatus === 'object') ? parsed.votingStatus : {};
-      const out = {};
+      /** @type {State['votingStatus']} */
+    const out = {};
       for (const id of Object.keys(raw)){
         const v = raw[id];
         out[id] = { closed: !!(v && v.closed) };
@@ -580,7 +612,8 @@ function normalizeState(parsed){
     })(),
     announcements: (() => {
       const raw = (parsed.announcements && typeof parsed.announcements === 'object') ? parsed.announcements : {};
-      const out = {};
+      /** @type {State['announcements']} */
+    const out = {};
       for (const id of Object.keys(raw)){
         const norm = normalizeAnnouncement(raw[id]);
         if (norm) out[id] = norm;
@@ -589,7 +622,8 @@ function normalizeState(parsed){
     })(),
     polls: (() => {
       const raw = (parsed.polls && typeof parsed.polls === 'object') ? parsed.polls : {};
-      const out = {};
+      /** @type {State['polls']} */
+    const out = {};
       for (const id of Object.keys(raw)){
         const norm = normalizePoll(raw[id]);
         if (norm) out[id] = norm;
@@ -598,7 +632,8 @@ function normalizeState(parsed){
     })(),
     applications: (() => {
       const raw = (parsed.applications && typeof parsed.applications === 'object') ? parsed.applications : {};
-      const out = {};
+      /** @type {State['applications']} */
+    const out = {};
       for (const id of Object.keys(raw)){
         const norm = normalizeApplication(raw[id]);
         if (norm) out[id] = norm;
@@ -611,7 +646,8 @@ function normalizeState(parsed){
     classDiveSources: normalizeClassDiveSources(parsed.classDiveSources),
     characterProfiles: (() => {
       const raw = (parsed.characterProfiles && typeof parsed.characterProfiles === 'object') ? parsed.characterProfiles : {};
-      const out = {};
+      /** @type {State['characterProfiles']} */
+    const out = {};
       for (const uid of Object.keys(raw)) out[uid] = normalizeCharacterProfile(raw[uid]);
       return out;
     })(),
@@ -622,7 +658,8 @@ function normalizeState(parsed){
     // separate seen-flag needed there.
     seenState: (() => {
       const raw = (parsed.seenState && typeof parsed.seenState === 'object') ? parsed.seenState : {};
-      const out = {};
+      /** @type {State['seenState']} */
+    const out = {};
       for (const uid of Object.keys(raw)){
         const v = raw[uid];
         out[uid] = { announcementsSeenAt: (v && typeof v.announcementsSeenAt === 'number' && v.announcementsSeenAt > 0) ? v.announcementsSeenAt : 0 };
@@ -635,6 +672,7 @@ function normalizeState(parsed){
 function isVotingClosed(votingId){
   return !!(state.votingStatus && state.votingStatus[votingId] && state.votingStatus[votingId].closed);
 }
+/** @type {State} */
 let state = defaultState();
 let foreverDraft = null; // null = not yet initialized from saved data this session
 let foreverFirstPickIndex = 0; // index into foreverDraft — which pick is "wird zuerst gespielt" (First Char)

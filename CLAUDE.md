@@ -36,6 +36,10 @@ Worker.
   Ein neuer Top-Level-Key unter `guild-loot-data` braucht **beide**: einen
   Eintrag in `SYNCED_KEYS` (js/app.js) und eine eigene `.read`-Regel in
   `README.md` § 6f – eine Root-`.read`-Regel gibt es bewusst nicht mehr.
+  Ausnahme: Keys, die die Seite nie liest (z. B. `applicationLocks`), kommen
+  nicht in `SYNCED_KEYS` und bekommen keine `.read`-Regel.
+- Neue Seiten-Origins (eigene Domain usw.) müssen im Worker erlaubt
+  werden: `DEFAULT_ALLOWED_ORIGINS` bzw. Worker-Variable `ALLOWED_ORIGINS`.
 - Nach jeder abgeschlossenen Aufgabe: `PROJECT.md` aktualisieren
   (Work Log oben ergänzen, offene Tasks/Known Issues pflegen) – im selben PR.
 

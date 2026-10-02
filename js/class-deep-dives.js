@@ -626,8 +626,8 @@ function renderClassDeepDivesView(){
   els.classDivesList.querySelectorAll('[data-add-update]').forEach(btn => {
     btn.addEventListener('click', () => {
       const classId = btn.getAttribute('data-add-update');
-      const dateInput = document.getElementById('classdive-update-date-' + classId);
-      const titleInput = document.getElementById('classdive-update-title-' + classId);
+      const dateInput = /** @type {HTMLInputElement} */ (document.getElementById('classdive-update-date-' + classId));
+      const titleInput = /** @type {HTMLInputElement} */ (document.getElementById('classdive-update-title-' + classId));
       const editor = document.getElementById('classdive-update-text-' + classId);
       addClassDiveUpdate(classId, dateInput ? dateInput.value : '', titleInput ? titleInput.value : '', editor ? editor.innerHTML : '');
     });
@@ -665,9 +665,9 @@ function renderClassDeepDivesView(){
   const historyAddBtn = document.getElementById('classdiveHistoryAddBtn');
   if (historyAddBtn){
     historyAddBtn.addEventListener('click', () => {
-      const dateInput = document.getElementById('classdiveHistoryDate');
-      const buildInput = document.getElementById('classdiveHistoryBuild');
-      const textInput = document.getElementById('classdiveHistoryText');
+      const dateInput = /** @type {HTMLInputElement} */ (document.getElementById('classdiveHistoryDate'));
+      const buildInput = /** @type {HTMLInputElement} */ (document.getElementById('classdiveHistoryBuild'));
+      const textInput = /** @type {HTMLInputElement} */ (document.getElementById('classdiveHistoryText'));
       addClassDiveHistoryEntry(dateInput ? dateInput.value : '', buildInput ? buildInput.value : '', textInput ? textInput.value : '');
     });
   }
@@ -677,8 +677,8 @@ function renderClassDeepDivesView(){
   const sourceAddBtn = document.getElementById('classdiveSourceAddBtn');
   if (sourceAddBtn){
     sourceAddBtn.addEventListener('click', () => {
-      const labelInput = document.getElementById('classdiveSourceLabel');
-      const urlInput = document.getElementById('classdiveSourceUrl');
+      const labelInput = /** @type {HTMLInputElement} */ (document.getElementById('classdiveSourceLabel'));
+      const urlInput = /** @type {HTMLInputElement} */ (document.getElementById('classdiveSourceUrl'));
       addClassDiveSource(labelInput ? labelInput.value : '', urlInput ? urlInput.value : '');
     });
   }

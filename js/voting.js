@@ -121,7 +121,7 @@ function renderPollComposerOptions(){
       ${pollComposerOptionDrafts.length > POLL_MIN_OPTIONS ? `<button type="button" class="poll-option-remove-btn" data-poll-option-remove="${i}" title="Entfernen">✕</button>` : ''}
     </div>
   `).join('');
-  els.pollOptionInputs.querySelectorAll('input[data-poll-option-index]').forEach(input => {
+  els.pollOptionInputs.querySelectorAll('input[data-poll-option-index]').forEach((/** @type {HTMLInputElement} */ input) => {
     input.addEventListener('input', () => {
       const idx = Number(input.getAttribute('data-poll-option-index'));
       pollComposerOptionDrafts[idx] = input.value;
@@ -150,7 +150,7 @@ function resetPollComposer(){
   els.pollDurationInput.value = '7';
   els.pollResultsVisibleInput.checked = true;
   els.pollAnonymousInput.checked = false;
-  const singleRadio = document.querySelector('input[name="pollChoiceMode"][value="single"]');
+  const singleRadio = /** @type {HTMLInputElement} */ (document.querySelector('input[name="pollChoiceMode"][value="single"]'));
   if (singleRadio) singleRadio.checked = true;
   renderPollComposerOptions();
 }
@@ -163,7 +163,7 @@ async function publishPoll(){
   if (rawOptions.length < POLL_MIN_OPTIONS) return;
   const options = rawOptions.slice(0, POLL_MAX_OPTIONS).map((label, i) =>
     ({ id: 'o' + i + '_' + Math.random().toString(36).slice(2, 7), label: label.slice(0, 80) }));
-  const modeInput = document.querySelector('input[name="pollChoiceMode"]:checked');
+  const modeInput = /** @type {HTMLInputElement} */ (document.querySelector('input[name="pollChoiceMode"]:checked'));
   const multipleChoice = !!modeInput && modeInput.value === 'multiple';
   let durationDays = Number(els.pollDurationInput.value);
   if (!Number.isFinite(durationDays) || durationDays < POLL_MIN_DURATION_DAYS) durationDays = POLL_MIN_DURATION_DAYS;
@@ -554,7 +554,7 @@ function renderForeverOfficerTable(){
       <th data-k="second" aria-sort="${sortAttr('second')}">Second Char</th>
     </tr></thead><tbody>${rowsHtml}</tbody>`;
   els.foreverOfficerTable.querySelector('thead').addEventListener('click', e => {
-    const th = e.target.closest('th[data-k]'); if (!th) return;
+    const th = /** @type {HTMLElement} */ (/** @type {HTMLElement} */ (e.target).closest('th[data-k]')); if (!th) return;
     const k = th.dataset.k;
     if (k === foreverOfficerSortK) foreverOfficerSortDir *= -1;
     else { foreverOfficerSortK = k; foreverOfficerSortDir = 1; }
@@ -682,7 +682,8 @@ function renderForeverClassPicker(){
       renderForeverClassPicker();
     }
     card.addEventListener('click', (e) => {
-      if (e.target.closest('select') || e.target.closest('[data-remove-index]') || e.target.closest('[data-add-role]')) return;
+      const target = /** @type {Element} */ (e.target);
+      if (target.closest('select') || target.closest('[data-remove-index]') || target.closest('[data-add-role]')) return;
       // Whole-card click only adds the FIRST pick for this class — once
       // it already has a pick, use the explicit "+ weitere Spezialisierung" button
       // below (see comment above) so clicks land reliably.
@@ -695,7 +696,7 @@ function renderForeverClassPicker(){
         addPick();
       });
     });
-    card.querySelectorAll('select[data-spec-for]').forEach(select => {
+    card.querySelectorAll('select[data-spec-for]').forEach((/** @type {HTMLSelectElement} */ select) => {
       select.addEventListener('click', e => e.stopPropagation());
       select.addEventListener('change', () => {
         if (isVotingClosed('forever')) { renderForeverClassPicker(); return; }

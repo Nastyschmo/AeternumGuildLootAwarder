@@ -380,7 +380,7 @@ els.accessSwitchBtn.addEventListener('click', (e) => {
   els.accessPopover.classList.toggle('hidden');
 });
 document.addEventListener('click', (e) => {
-  if (!els.accessPopover.classList.contains('hidden') && !els.accessPopover.contains(e.target) && e.target !== els.accessSwitchBtn){
+  if (!els.accessPopover.classList.contains('hidden') && !els.accessPopover.contains(/** @type {Node} */ (e.target)) && e.target !== els.accessSwitchBtn){
     els.accessPopover.classList.add('hidden');
   }
 });
@@ -391,7 +391,7 @@ els.questBellBtn.addEventListener('click', (e) => {
   els.questPopover.classList.toggle('hidden');
 });
 document.addEventListener('click', (e) => {
-  if (!els.questPopover.classList.contains('hidden') && !els.questPopover.contains(e.target) && e.target !== els.questBellBtn){
+  if (!els.questPopover.classList.contains('hidden') && !els.questPopover.contains(/** @type {Node} */ (e.target)) && e.target !== els.questBellBtn){
     els.questPopover.classList.add('hidden');
   }
 });

@@ -309,13 +309,13 @@ function renderAccessModal(){
       ${idsInRole.map(memberRowHtml).join('')}
     </div>`;
   }).join('');
-  els.accessMemberList.querySelectorAll('.access-member-role-select:not([disabled])').forEach(sel => {
-    sel.addEventListener('change', (e) => setDiscordUserRole(sel.getAttribute('data-discord-id'), e.target.value));
+  els.accessMemberList.querySelectorAll('.access-member-role-select:not([disabled])').forEach((/** @type {HTMLSelectElement} */ sel) => {
+    sel.addEventListener('change', (e) => setDiscordUserRole(sel.getAttribute('data-discord-id'), sel.value));
   });
-  els.accessMemberList.querySelectorAll('[data-notify-discord-id]').forEach(cb => {
+  els.accessMemberList.querySelectorAll('[data-notify-discord-id]').forEach((/** @type {HTMLInputElement} */ cb) => {
     cb.addEventListener('change', () => setDiscordUserNotify(cb.getAttribute('data-notify-discord-id'), cb.checked));
   });
-  els.accessMemberList.querySelectorAll('[data-refresh-armory]').forEach(btn => {
+  els.accessMemberList.querySelectorAll('[data-refresh-armory]').forEach((/** @type {HTMLButtonElement} */ btn) => {
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       btn.textContent = 'Lädt…';

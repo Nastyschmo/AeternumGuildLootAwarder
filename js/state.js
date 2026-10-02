@@ -1,4 +1,3 @@
-// @ts-check
 // Data model: normalizers for everything stored in Firebase,
 // defaultState()/normalizeState(), derived getters (sorted
 // applications/polls, poll results, ...), the in-memory state variables, and
@@ -501,6 +500,7 @@ const CLASSDIVE_HISTORY_SEED = [
   { date: '30. Sept.', build: '70124', text: 'Absturzberichte, Spiel-Loader, ein neues Item-Symbol. Dazu die Ankündigung zur Krieger-Wut.' },
   { date: '1. Okt.', build: 'neu', text: 'Wartung, danach Levelcap 30. Die Patch Notes folgen.' }
 ];
+/** @returns {ApplicationWithId[]} */
 function sortedApplications(){
   return Object.keys(state.applications || {})
     .map(id => Object.assign({ id }, state.applications[id]))

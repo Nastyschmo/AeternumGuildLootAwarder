@@ -985,10 +985,11 @@ live from Wowhead's public icon CDN, not stored in the file.
 
 If talentsforever.com later changes their data (new patch, corrected
 numbers), that won't reach this page automatically — you'd need to get an
-updated export from them and ask Claude to refresh the embedded
+updated export from them and ask Claude to refresh the
 `TALENT_DATA`/`SPELLBOOK_DATA`/`SPELL_DESC_DATA`/`RACIAL_DATA`/
-`CLASS_RACIAL_DATA`/`CLASS_ABILITY_DATA`/`LEGACY_DATA` constants in the
-file with it.
+`CLASS_RACIAL_DATA`/`CLASS_ABILITY_DATA`/`LEGACY_DATA` constants in
+`data/talentsforever.js` with it (that file is loaded by `index.html`, so
+upload it together with the page).
 
 ## Bewerbung (Recruiting)
 

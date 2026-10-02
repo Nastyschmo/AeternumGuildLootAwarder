@@ -1,13 +1,21 @@
 # Rude Guild Page — Standalone Setup
 
-This is a public guild homepage with a WoW Forever class survey:
-`guild-loot-ledger.html` plus a small `assets/` folder (logo, background
-image, news thumbnails). It stores its data in a free **Firebase Realtime
+This is a public guild homepage with a WoW Forever class survey. Files:
+
+- `index.html` — the page's HTML skeleton
+- `css/main.css` — styles (classic + Horde theme)
+- `js/app.js` — the app logic, including the config blocks below
+- `data/talentsforever.js` — game data for the Talent Builder
+- `assets/` — images (logo, backgrounds, news thumbnails)
+- `worker/discord-auth-worker.js` — the Cloudflare Worker (deployed
+  separately, see step 6b)
+
+ The page stores its data in a free **Firebase Realtime
 Database**, so it works when hosted anywhere — GitHub Pages, Netlify, your
 own server, wherever.
 
-**Keep `assets/` in the same folder as the HTML file** — the page loads
-those images as regular relative files (`assets/logo.png` etc.), not
+**Keep `css/`, `js/`, `data/` and `assets/` next to `index.html`** — the
+page loads them as relative files. The images in particular as regular relative files (`assets/logo.png` etc.), not
 embedded inside the HTML. This is deliberate: earlier versions embedded
 images directly in the HTML as base64 data, which made the single file
 noticeably larger and occasionally triggered antivirus/browser
@@ -59,8 +67,8 @@ URL and everyone can vote.
 
 ## 4. Paste the config into the HTML file
 
-1. Open `guild-loot-ledger.html` in any text editor.
-2. Find this block near the top of the `<script>` section:
+1. Open `js/app.js` in any text editor.
+2. Find this block near the top:
 
    ```js
    const FIREBASE_CONFIG = {
@@ -113,8 +121,8 @@ they've actually joined the guild.
    before finishing this step, it'll show you the exact string it expects
    here — just copy that in.
 4. Copy the **Client ID** shown near the top of the OAuth2 page.
-5. Open `guild-loot-ledger.html`, find the `DISCORD_CONFIG` block near the
-   top of the `<script>` section, and paste your Client ID in, replacing
+5. Open `js/app.js`, find the `DISCORD_CONFIG` block near the
+   top, and paste your Client ID in, replacing
    the placeholder.
 
 This Client ID isn't sensitive the way a client secret would be — Discord's
@@ -167,8 +175,7 @@ included alongside this README.
 
 ### 6c. Point the app at your Worker
 
-Open `guild-loot-ledger.html`, find `WORKER_URL` near the top of the
-`<script>` section, and set it to your Worker's URL plus `/mint-token`, e.g.:
+Open `js/app.js`, find `WORKER_URL` near the top, and set it to your Worker's URL plus `/mint-token`, e.g.:
 
 ```js
 const WORKER_URL = 'https://rude-guild-auth.your-subdomain.workers.dev/mint-token';
@@ -367,7 +374,7 @@ Click **Publish**. What this enforces at the database level (not just in the UI)
   it, so a root-level read would make *everything* below it readable to
   every logged-in account. Instead every key the page loads has its own
   `.read: "auth != null"`, and the page keeps one listener per key
-  (`SYNCED_KEYS` in the page script). **A new top-level key needs both a
+  (`SYNCED_KEYS` in `js/app.js`). **A new top-level key needs both a
   `SYNCED_KEYS` entry and its own `.read` rule here**, or it won't load.
   `recruitingNeeds` has `.read: true` so the public "Aktuell gesucht"
   overview on Home/Bewerbung works for logged-out visitors.
@@ -763,7 +770,7 @@ id, which is what a normal login does).
 
 Open `discord-auth-worker.js`, find `FIREBASE_DATABASE_URL` near
 `GUILD_ID`, and confirm it matches `databaseURL` in
-`guild-loot-ledger.html`'s `FIREBASE_CONFIG` (it's pre-filled with your
+`js/app.js`'s `FIREBASE_CONFIG` (it's pre-filled with your
 current one, so if you haven't changed Firebase projects there's nothing to
 do here). Paste the updated file into your Worker (**Edit code** → replace
 contents → **Deploy**) if you did change it.
@@ -835,11 +842,9 @@ A few things worth knowing:
 
 1. Create a new **public** repository on GitHub. (Public matters — see the
    troubleshooting note below if Pages options look disabled.)
-2. Upload `guild-loot-ledger.html` and rename it to `index.html` — **and
-   upload the whole `assets/` folder alongside it**, keeping the folder
-   name and structure exactly as-is (`assets/logo.png`, `assets/bg-texture.jpg`,
-   `assets/bg-texture-horde.jpg`, etc.). The page won't show its images
-   without this folder.
+2. Push `index.html` together with the `css/`, `js/`, `data/` and
+   `assets/` folders, keeping the folder structure exactly as-is. The page
+   won't load its styles, logic or images without them.
 3. Go to the repo's **Settings** tab (top of the repo page, not your account
    settings).
 4. In the left sidebar, under **Code and automation** (sometimes labeled
@@ -857,7 +862,8 @@ the free plan. Go to **Settings → General**, scroll to the **Danger Zone**,
 and change visibility to Public.
 
 Any static host works the same way (Netlify, Cloudflare Pages, Vercel, your
-own web server) — just upload `index.html` together with `assets/`.
+own web server) — just upload `index.html` together with `css/`, `js/`,
+`data/` and `assets/`.
 
 ## 8. Test previews on Cloudflare Pages
 
@@ -924,8 +930,8 @@ own e-mail address.
 
 ## Editing the homepage content (guild name, intro text, news)
 
-Open `guild-loot-ledger.html`, find the block near the top of the
-`<script>` section headed "Easy-to-edit guild content" — it has plain
+Open `js/app.js`, find the block near the top headed
+"Easy-to-edit guild content" — it has plain
 constants for the guild name, hero tagline/description, intro text, and a
 `NEWS_ITEMS` list (title + blurb + optional `image` URL for a thumbnail).
 Edit those and save; no other part of the file needs to change. Once you
@@ -938,7 +944,7 @@ Blizzard's official logo (not something Claude fetched or recreated
 itself; official brand logos are Blizzard's own trademarked artwork, so
 that one had to come from you). To swap it for a different version later,
 replace that file and/or update `const NEWS_BETA_IMAGE = 'assets/blizzard-logo.jpg';`
-near the top of the `<script>` section.
+near the top of `js/app.js`.
 
 The Wowhead "WoW: Forever" card and the announcement card are separate
 from this list and don't need editing — they're generated automatically
@@ -1050,51 +1056,30 @@ No further setup is needed beyond the Firebase rules in step 6e — this
 feature reuses the same Discord login and `discordRoles` (Admin/Officer/
 Guild Member) system as the rest of the page.
 
-## Design Reveal (Horde theme) — currently admin-only for testing
+## Design Reveal (Horde theme)
 
 There's a second, dark "Horde" theme built into the page (same layout,
-retinted — see PROJECT.md for the full story). **Right now it's gated to
-the Admin role only**, so you can try it out live before deciding whether
-to open it up to the whole guild:
-
-- Log in as Admin and a one-time popup appears: *"Die Fraktion wurde
-  gewählt, der Name steht fest. Neues Design jetzt freischalten?"* —
-  clicking **Okay** plays a burn-through animation into the new theme.
-- Afterward, a **Design** switcher appears at the bottom of **User
-  Settings** (still Admin-only) with **Klassisch** / **Horde** buttons, so
-  you can flip back and forth instantly without redoing the burn animation
-  or losing your unlock.
-- Needs `assets/bg-texture-horde.jpg` uploaded alongside the existing
-  `assets/bg-texture.jpg` (see step 7 above) — that's the new theme's hero
-  background image.
-- Nothing about this is destructive: the old navy/gold theme's colors are
-  still fully in the stylesheet, untouched. A non-admin visitor sees no
-  popup and no switcher — the page behaves exactly like before.
-
-**To open it up to everyone** once you're happy with it: in
-`guild-loot-ledger.html`, find `if (currentRole !== 'admin') return;` inside
-`initDesignReveal()`, and the matching `currentRole !== 'admin'` check
-inside `applyAccessControl()` that shows/hides the `#settingsDesignRow`
-switcher — removing (or loosening, e.g. to `'community'` so even logged-out
-applicants get it) those two checks rolls it out to everyone. Ask Claude to
-do this for you if you'd rather not edit it by hand.
+retinted — see PROJECT.md for the full story). Every visitor gets a
+one-time popup (*"Die Fraktion wurde gewählt, der Name steht fest. Neues
+Design jetzt freischalten?"*) — clicking **Okay** plays a burn-through
+animation into the new theme. It's remembered per browser in
+`localStorage`. Admins additionally get a **Design** switcher at the
+bottom of **User Settings** (**Klassisch** / **Horde**) plus a button to
+replay the popup and burn animation. The theme's hero background is
+`assets/bg-texture-horde.jpg`.
 
 ## Updating later
 
-If Claude (or you) makes further changes to the app, you'll get an updated
-`guild-loot-ledger.html` (and, if images changed, an updated `assets/`
-folder — keep re-uploading that alongside it). Before re-uploading the
-HTML file, re-paste these blocks from your current file into the new one
-so it keeps working without redoing any setup:
-- `FIREBASE_CONFIG` (near the top of the `<script>` section)
-- `DISCORD_CONFIG` and `WORKER_URL` (just below it)
-- The "Easy-to-edit guild content" block, if you've customized it
+Changes are made on feature branches and land on `main` via pull
+requests; GitHub Pages redeploys `main` automatically. The config blocks
+(`FIREBASE_CONFIG`, `DISCORD_CONFIG`, `WORKER_URL`) live in `js/app.js` and
+stay as they are across updates — nothing to re-paste.
 
-The Cloudflare Worker (`discord-auth-worker.js`) itself rarely needs to
-change — it doesn't know anything about your guild specifically. If an
-update does touch this file (as with the Wowhead news card above), you'll
-need to redeploy it once: paste the new contents into your Worker in the
-Cloudflare dashboard and click **Deploy** — see step 6d.
+The Cloudflare Worker (`worker/discord-auth-worker.js`) is deployed
+separately: whenever a change touches it, open your Worker in the
+Cloudflare dashboard → **Edit code** → paste the new contents → **Deploy**.
+The pull request says so when that's needed, and in which order relative
+to merging.
 
 ## Costs
 

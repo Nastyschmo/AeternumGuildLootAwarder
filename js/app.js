@@ -1,0 +1,6955 @@
+// Main application script for the rude Guild Page (moved out of
+// index.html). Loaded as a classic (non-module) script after
+// data/talentsforever.js, so its top-level declarations live in the shared
+// global scope — that's what lets this file be split into several files
+// later (loaded in order) without a bundler. It used to be wrapped in an
+// IIFE; that wrapper is gone, so keep new top-level names from clashing
+// with window properties (e.g. don't name a global `status` or `name`).
+
+// ---------------------------------------------------------------------
+// Easy-to-edit guild content — change these without touching layout/CSS.
+// ---------------------------------------------------------------------
+const GUILD_NAME = 'rude';
+const GUILD_TAGLINE = 'Spineshatter-EU';
+const GUILD_CREST_LETTER = 'R';
+// Official WoW: Forever release date (confirmed Nov 4, 2026, 23:00 UTC —
+// per Blizzard's own announcement and independently mirrored by
+// Wowhead's and Icy Veins' own release-date pages/countdowns). Update
+// this single line if Blizzard ever moves the date.
+const WOW_FOREVER_RELEASE_MS = Date.parse('2026-11-04T23:00:00Z');
+const HERO_DESC = 'Wir bereiten uns auf World of Warcraft: Forever vor. Diese Seite wächst mit — als erstes: eine Umfrage, wer welche Klasse und Spezialisierung spielen möchte.';
+const INTRO_TITLE = 'Bereit für ein neues Kapitel';
+const INTRO_TEXT = 'Diese Seite ist der Startpunkt der WoW Forever Gilde TBA - Gilden und Community Ankündigungen, Abstimmungen für Gilden Member, Guides, Übersicht des Raid-Kader sowie Informationen über verfügbare Berufe. Schaut regelmäßig vorbei und bleibt up2date.';
+// Add a real image URL per item once you have screenshots/artwork —
+// until then a placeholder tile is shown automatically.
+const NEWS_VOTING_IMAGE = 'assets/news-voting.jpg';
+// Reuses the same WoW: Forever logo file as the topbar countdown pill —
+// see assets/logo.png (that's the guild's own uploaded logo asset, not
+// a Blizzard trademark).
+const NEWS_LAUNCH_IMAGE = 'assets/logo.png';
+// Blizzard's own company logo for the Beta-Infos card — the guild's own
+// uploaded copy of Blizzard's official logo, see assets/blizzard-logo.jpg.
+const NEWS_BETA_IMAGE = 'assets/blizzard-logo.jpg';
+const NEWS_ITEMS = [
+  { title: 'Klassen-Umfrage ist live', blurb: 'Trag ein, welche Klasse(n) du in WoW: Forever spielen möchtest — hilft uns bei der Recruiting-Planung.', image: NEWS_VOTING_IMAGE, linkPage: 'forever', requiresLogin: true },
+  { title: 'Beta-Infos folgen', blurb: 'Wir halten Euch mit wichtigen Infos zur Beta hier am laufenden!', image: NEWS_BETA_IMAGE },
+  { title: 'Launch: 4. November 2026', blurb: 'Bis dahin sammeln wir hier wichtige Gildeninterne Informationen, Entscheidungen und Informationen über den Start in die neue alte Welt!', image: NEWS_LAUNCH_IMAGE }
+];
+// Shown (cycled, as many as needed) whenever there aren't enough real
+// news items to fill a full row — keeps the grid looking intentional
+// instead of lopsided, e.g. when someone's logged out and the
+// Klassen-Umfrage tile (which needs a login to do anything with) is
+// hidden for them, or simply before there's much news yet.
+const NEWS_PLACEHOLDER_ITEMS = [
+  { title: 'Hier ist noch Platz für Neuigkeiten', blurb: 'Vielleicht schon bald mit deiner Heldentat drauf?' },
+  { title: 'Content-Baustelle', blurb: 'Unsere Kobolde arbeiten dran. Bitte etwas Geduld (und Kekse spenden).' },
+  { title: 'Nichts zu sehen hier', blurb: 'Genau wie unser Bankfach vor dem ersten Raid-Loot.' },
+  { title: 'Reserviert für Ruhm', blurb: 'Vielleicht die nächste große Ankündigung? Wer weiß.' },
+  { title: 'Platzhalter Nr. 5', blurb: 'Wenn du das liest, bist du offiziell ein News-Nerd. Respekt.' }
+];
+const NEWS_MIN_CARD_COUNT = 5;
+// Auto-generated "news" tile for the newest Ankündigung — always uses
+// this messenger-goblin artwork plus a short auto-summary of the
+// announcement text. Shown as long as that announcement still exists;
+// disappears on its own the moment it's edited away to nothing or
+// deleted. Built dynamically in renderNewsGrid() below, not part of the
+// static NEWS_ITEMS list above.
+const NEWS_ANNOUNCEMENT_IMAGE = 'assets/news-announcement.jpg';
+const NEWS_ANNOUNCEMENT_SUMMARY_LIMIT = 170; // ~3 lines in a news-card body
+function summarizeAnnouncementText(html){
+  // Insert a space after block-level closing tags / line breaks first,
+  // so e.g. a heading followed by a paragraph doesn't get glued into
+  // one word once the tags are stripped.
+  const spaced = String(html ?? '').replace(/<\/(p|div|li|h1|h2)>|<br\s*\/?>/gi, m => m + ' ');
+  const text = stripHtmlToText(spaced).replace(/\s+/g, ' ').trim();
+  if (text.length <= NEWS_ANNOUNCEMENT_SUMMARY_LIMIT) return text;
+  let cut = text.slice(0, NEWS_ANNOUNCEMENT_SUMMARY_LIMIT);
+  const lastSpace = cut.lastIndexOf(' ');
+  if (lastSpace > 80) cut = cut.slice(0, lastSpace);
+  return cut.trim() + '…';
+}
+
+// ---------------------------------------------------------------------
+// Wowhead "WoW: Forever" news card — always exactly ONE card showing the
+// latest Wowhead post (never one-per-update). It links straight out to
+// the real Wowhead article in a new tab, unlike the internal-navigation
+// cards above. Fetched once via the Worker (see WOWHEAD_NEWS_URL) since
+// the browser can't call Wowhead's feed directly (CORS); fails silently
+// if the Worker isn't deployed/reachable — the rest of the page must
+// keep working fine either way.
+//
+// Alongside it, a second, separate card for official Blizzard patch
+// notes / hotfixes: Blizzard's own news site has no feed a Worker can
+// read (it loads articles with JavaScript after the page loads), so
+// this is sourced from the SAME Wowhead feed — Wowhead reliably posts
+// its own article (with its own thumbnail) whenever Blizzard ships
+// official patch notes, and the Worker picks out the newest one of
+// those specifically (see getWowheadNewsAndPatchNotes in the Worker).
+// Same "exactly one card, content replaced in place" behavior.
+// ---------------------------------------------------------------------
+let wowheadNewsItem = null;
+let wowheadPatchNotesItem = null;
+async function fetchWowheadNews(){
+  if (!isWorkerConfigured()) return;
+  try{
+    const res = await fetch(WOWHEAD_NEWS_URL);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data) return;
+    if (data.latest && data.latest.title && data.latest.url) wowheadNewsItem = data.latest;
+    if (data.patchNotes && data.patchNotes.title && data.patchNotes.url) wowheadPatchNotesItem = data.patchNotes;
+    renderNewsGrid();
+  }catch(e){
+    // No Wowhead/patch-notes card — page carries on without it.
+  }
+}
+
+// ---------------------------------------------------------------------
+// Armory lookups for "Meine Charaktere" — fetches one character's live
+// class/level/item level from the Worker's /armory-character endpoint
+// (see ARMORY_CHARACTER_URL / discord-auth-worker.js). Session-only
+// cache (armoryCache) so switching pages or re-rendering a member list
+// doesn't re-hit the Worker/Blizzard for characters already fetched
+// recently. Never throws — callers always get back either a result or
+// a debug-carrying failure object, mirroring the Discord role-sync
+// pattern, and every failure is also logged to the console so a
+// misconfigured namespace/realm-slug is easy to spot.
+async function fetchArmoryCharacter(realmSlug, name, opts){
+  const force = !!(opts && opts.force);
+  const key = characterProfileCacheKey(realmSlug, name);
+  const cached = armoryCache[key];
+  if (!force && cached && (Date.now() - cached.fetchedAt) < ARMORY_CACHE_MS){
+    return cached.result;
+  }
+  if (!isWorkerConfigured()){
+    const result = { found: false, debug: { reason: 'worker_not_configured', detail: 'WORKER_URL is not set up yet — see the README.' } };
+    armoryCache[key] = { fetchedAt: Date.now(), result };
+    return result;
+  }
+  let result;
+  try{
+    const res = await fetch(ARMORY_CHARACTER_URL + '?realm=' + encodeURIComponent(realmSlug) + '&name=' + encodeURIComponent(name));
+    if (!res.ok){
+      result = { found: false, debug: { reason: 'http_error', status: res.status, detail: 'The Worker itself returned HTTP ' + res.status + ' for /armory-character.' } };
+    } else {
+      result = await res.json();
+    }
+  }catch(e){
+    result = { found: false, debug: { reason: 'fetch_failed', detail: 'Could not reach the Worker at all: ' + e.message } };
+  }
+  if (!result || !result.found){
+    console.warn('[Armory] "' + name + '" @ "' + realmSlug + '" — could not load live character data:', result && result.debug);
+  }
+  armoryCache[key] = { fetchedAt: Date.now(), result };
+  return result;
+}
+
+// Mirrors fetchArmoryCharacter above exactly, just against the Worker's
+// /warcraftlogs-character endpoint instead — same cache-then-fetch shape,
+// same never-throws/always-return-a-debug-carrying-result contract, kept
+// as a fully separate function (rather than folding into
+// fetchArmoryCharacter) since the two can succeed/fail independently:
+// Armory only needs Battle.net credentials, this needs its own
+// WarcraftLogs API client and configured zone ids (see README.md).
+async function fetchWarcraftLogsCharacter(realmSlug, name, opts){
+  const force = !!(opts && opts.force);
+  const key = characterProfileCacheKey(realmSlug, name);
+  const cached = wclCache[key];
+  if (!force && cached && (Date.now() - cached.fetchedAt) < WCL_CACHE_MS){
+    return cached.result;
+  }
+  if (!isWorkerConfigured()){
+    const result = { found: false, debug: { reason: 'worker_not_configured', detail: 'WORKER_URL is not set up yet — see the README.' } };
+    wclCache[key] = { fetchedAt: Date.now(), result };
+    return result;
+  }
+  let result;
+  try{
+    const res = await fetch(WARCRAFTLOGS_CHARACTER_URL + '?realm=' + encodeURIComponent(realmSlug) + '&name=' + encodeURIComponent(name));
+    if (!res.ok){
+      result = { found: false, debug: { reason: 'http_error', status: res.status, detail: 'The Worker itself returned HTTP ' + res.status + ' for /warcraftlogs-character.' } };
+    } else {
+      result = await res.json();
+    }
+  }catch(e){
+    result = { found: false, debug: { reason: 'fetch_failed', detail: 'Could not reach the Worker at all: ' + e.message } };
+  }
+  if (!result || !result.found){
+    console.warn('[WarcraftLogs] "' + name + '" @ "' + realmSlug + '" — could not load live rankings:', result && result.debug);
+  } else if (result.warcraftlogs && Array.isArray(result.warcraftlogs.zones)){
+    // Temporary diagnostic aid (see the matching comment on the Worker's
+    // `_raw` field) — logs each zone's untouched WarcraftLogs response
+    // whenever the lookup *succeeds* but the numbers might still be
+    // wrong (e.g. 0/0 for a character that clearly has logs), since that
+    // means the field-mapping guess, not the connection, is what's off.
+    // Safe to remove once the mapping is confirmed correct against real
+    // WarcraftLogs data.
+    console.info('[WarcraftLogs] "' + name + '" @ "' + realmSlug + '" — raw zoneRankings per zone (copy this if the numbers look wrong):', result.warcraftlogs.zones.map(z => ({ label: z.label, raw: z._raw })));
+  }
+  wclCache[key] = { fetchedAt: Date.now(), result };
+  return result;
+}
+
+// ---------------------------------------------------------------------
+// Talent Builder — an interactive WoW: Forever talent point calculator
+// for all 9 classes, in the site's own look instead of talentsforever
+// .com's own styling. The talent tree data itself (trees, ranks, tier
+// positions, prerequisites, tooltip text) is a straight, trimmed-down
+// copy of talentsforever.com's public data export (CC BY 4.0 — see
+// https://creativecommons.org/licenses/by/4.0/), so this stays working
+// even if that site changes; the attribution link required by that
+// license is in the page footer of this section, plus the "Talent
+// Builder" nav link points there for anyone who wants their full site.
+// Icons are loaded from Wowhead's public icon CDN (wow.zamimg.com) by
+// the same icon names the game itself uses — not rehosted here.
+// ---------------------------------------------------------------------
+// TALENT_DATA, SPELLBOOK_DATA, SPELL_DESC_DATA, RACIAL_DATA,
+// CLASS_RACIAL_DATA, CLASS_ABILITY_DATA and LEGACY_DATA live in
+// data/talentsforever.js (loaded before this script).
+
+// ---- Talent Builder logic ------------------------------------------
+// Classic-WoW-style rules: each tree has up to 7 tiers (rows) of 4
+// talents; a tier unlocks once (row-1)*5 points are already spent
+// somewhere in that same tree, and a talent with a "req" needs that
+// prerequisite talent maxed out first. Points available = level - 9
+// (0 below level 10), same formula the real game uses.
+const TALENT_CLASSES = Object.keys(TALENT_DATA);
+const CLASS_COLORS = {
+  Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569',
+  Priest: '#F0F0F0', Shaman: '#2359FF', Mage: '#69CCF0', Warlock: '#9482C9', Druid: '#FF7D0A'
+};
+const CLASS_LABELS_DE = {
+  Warrior: 'Krieger', Paladin: 'Paladin', Hunter: 'Jäger', Rogue: 'Schurke',
+  Priest: 'Priester', Shaman: 'Schamane', Mage: 'Magier', Warlock: 'Hexenmeister', Druid: 'Druide'
+};
+const TALENT_BUILDER_STORAGE_KEY = 'rude-guild-talent-builder';
+const TALENT_MAX_LEVEL = 60;
+const TALENT_MIN_LEVEL = 10;
+
+function talentPointsForLevel(level){
+  return Math.max(0, Math.floor(level) - 9);
+}
+
+function emptyTalentBuild(){
+  const build = {};
+  TALENT_CLASSES.forEach(cls => { build[cls] = { level: TALENT_MAX_LEVEL, points: [{}, {}, {}] }; });
+  return build;
+}
+
+function loadTalentBuild(){
+  try{
+    const raw = localStorage.getItem(TALENT_BUILDER_STORAGE_KEY);
+    if (!raw) return emptyTalentBuild();
+    const parsed = JSON.parse(raw);
+    const build = emptyTalentBuild();
+    TALENT_CLASSES.forEach(cls => {
+      const saved = parsed && parsed[cls];
+      if (!saved) return;
+      if (typeof saved.level === 'number' && saved.level >= TALENT_MIN_LEVEL && saved.level <= TALENT_MAX_LEVEL){
+        build[cls].level = saved.level;
+      }
+      if (Array.isArray(saved.points)){
+        for (let i = 0; i < 3; i++){
+          if (saved.points[i] && typeof saved.points[i] === 'object') build[cls].points[i] = Object.assign({}, saved.points[i]);
+        }
+      }
+    });
+    return build;
+  }catch(e){
+    return emptyTalentBuild();
+  }
+}
+
+function saveTalentBuild(build){
+  try{ localStorage.setItem(TALENT_BUILDER_STORAGE_KEY, JSON.stringify(build)); }catch(e){}
+}
+
+let talentBuild = null; // lazily loaded on first visit to the page
+let talentBuilderClass = 'Warrior';
+
+function ensureTalentBuildLoaded(){
+  if (!talentBuild) talentBuild = loadTalentBuild();
+}
+
+function talentPointsSpentInTree(cls, treeIdx){
+  const points = talentBuild[cls].points[treeIdx];
+  return Object.values(points).reduce((sum, r) => sum + r, 0);
+}
+
+function talentPointsSpentTotal(cls){
+  return [0, 1, 2].reduce((sum, i) => sum + talentPointsSpentInTree(cls, i), 0);
+}
+
+function talentTotalAvailable(cls){
+  return talentPointsForLevel(talentBuild[cls].level);
+}
+
+function talentPointsRemaining(cls){
+  return talentTotalAvailable(cls) - talentPointsSpentTotal(cls);
+}
+
+// Tier index is 0-based (row-1); needs (tier)*5 points already spent
+// elsewhere in the tree to unlock, i.e. row 1 needs 0, row 2 needs 5, …
+function isTierUnlocked(cls, treeIdx, row){
+  return talentPointsSpentInTree(cls, treeIdx) >= (row - 1) * 5;
+}
+
+function talentRank(cls, treeIdx, talentName){
+  return talentBuild[cls].points[treeIdx][talentName] || 0;
+}
+
+function findTalent(cls, treeIdx, talentName){
+  const tree = TALENT_DATA[cls].trees[treeIdx];
+  return tree.talents.find(t => t.name === talentName) || null;
+}
+
+// Can a point be added to this exact talent right now?
+function canAddTalentPoint(cls, treeIdx, talentName){
+  const talent = findTalent(cls, treeIdx, talentName);
+  if (!talent) return false;
+  if (talentPointsRemaining(cls) <= 0) return false;
+  if (talentRank(cls, treeIdx, talentName) >= talent.max) return false;
+  if (!isTierUnlocked(cls, treeIdx, talent.row)) return false;
+  if (talent.req && talentRank(cls, treeIdx, talent.req) < findTalent(cls, treeIdx, talent.req).max) return false;
+  return true;
+}
+
+// Can the last point on this talent be removed right now? Blocked if
+// another talent in the tree depends on it directly (req) with any
+// points spent, or if removing it would drop the tree's total below
+// what's needed to keep some OTHER already-invested tier unlocked.
+function canRemoveTalentPoint(cls, treeIdx, talentName){
+  const rank = talentRank(cls, treeIdx, talentName);
+  if (rank <= 0) return false;
+  const tree = TALENT_DATA[cls].trees[treeIdx];
+  const talent = findTalent(cls, treeIdx, talentName);
+
+  // Nothing that requires this talent (at any rank) may still be invested.
+  const isMaxed = rank >= talent.max;
+  if (isMaxed){
+    const dependent = tree.talents.find(t => t.req === talentName && talentRank(cls, treeIdx, t.name) > 0);
+    if (dependent) return false;
+  }
+
+  // Simulate the removal and check every currently-invested talent's
+  // tier is still unlocked afterwards.
+  const spentAfter = talentPointsSpentInTree(cls, treeIdx) - 1;
+  const stillOk = tree.talents.every(t => {
+    const r = talentRank(cls, treeIdx, t.name) - (t.name === talentName ? 1 : 0);
+    if (r <= 0) return true;
+    return spentAfter >= (t.row - 1) * 5;
+  });
+  return stillOk;
+}
+
+function addTalentPoint(cls, treeIdx, talentName){
+  if (!canAddTalentPoint(cls, treeIdx, talentName)) return false;
+  const points = talentBuild[cls].points[treeIdx];
+  points[talentName] = (points[talentName] || 0) + 1;
+  saveTalentBuild(talentBuild);
+  return true;
+}
+
+function removeTalentPoint(cls, treeIdx, talentName){
+  if (!canRemoveTalentPoint(cls, treeIdx, talentName)) return false;
+  const points = talentBuild[cls].points[treeIdx];
+  points[talentName] = (points[talentName] || 0) - 1;
+  if (points[talentName] <= 0) delete points[talentName];
+  saveTalentBuild(talentBuild);
+  return true;
+}
+
+function resetTalentTree(cls, treeIdx){
+  talentBuild[cls].points[treeIdx] = {};
+  saveTalentBuild(talentBuild);
+}
+
+function resetTalentClass(cls){
+  talentBuild[cls].points = [{}, {}, {}];
+  saveTalentBuild(talentBuild);
+}
+
+function setTalentLevel(cls, level){
+  level = Math.max(TALENT_MIN_LEVEL, Math.min(TALENT_MAX_LEVEL, Math.round(level)));
+  talentBuild[cls].level = level;
+  // Dropping the level below what's already spent needs to give up
+  // points somewhere — remove the highest-tier, most recently reachable
+  // ones first (simplest well-defined rule: repeatedly strip whichever
+  // spent talent has the highest row, breaking ties by tree order).
+  let guard = 0;
+  while (talentPointsSpentTotal(cls) > talentPointsForLevel(level) && guard < 1000){
+    guard++;
+    let best = null;
+    for (let treeIdx = 0; treeIdx < 3; treeIdx++){
+      const tree = TALENT_DATA[cls].trees[treeIdx];
+      tree.talents.forEach(t => {
+        if (talentRank(cls, treeIdx, t.name) > 0){
+          if (!best || t.row > best.row) best = { treeIdx, name: t.name, row: t.row };
+        }
+      });
+    }
+    if (!best) break;
+    const points = talentBuild[cls].points[best.treeIdx];
+    points[best.name] -= 1;
+    if (points[best.name] <= 0) delete points[best.name];
+  }
+  saveTalentBuild(talentBuild);
+}
+
+// Straight-line/elbow connector paths (SVG "M..V..H..V..") between a
+// talent and its prerequisite, computed purely from row/col grid math
+// (no DOM measurement needed) using the same fixed cell size the CSS
+// grid uses.
+const TALENT_CELL = 64;
+const TALENT_GAP = 22;
+function talentCellCenterX(col){ return (col - 1) * (TALENT_CELL + TALENT_GAP) + TALENT_CELL / 2; }
+function talentCellTopY(row){ return (row - 1) * (TALENT_CELL + TALENT_GAP); }
+function talentCellBottomY(row){ return talentCellTopY(row) + TALENT_CELL; }
+
+function talentConnectorPath(parentRow, parentCol, childRow, childCol){
+  const x1 = talentCellCenterX(parentCol), y1 = talentCellBottomY(parentRow);
+  const x2 = talentCellCenterX(childCol), y2 = talentCellTopY(childRow);
+  if (x1 === x2) return `M${x1} ${y1} V${y2}`;
+  const midY = y1 + (y2 - y1) / 2;
+  return `M${x1} ${y1} V${midY} H${x2} V${y2}`;
+}
+
+function talentIconUrl(icon, size){
+  return `https://wow.zamimg.com/images/wow/icons/${size || 'medium'}/${icon}.jpg`;
+}
+
+function renderTalentClassSelector(){
+  if (!els.talentClassSelector) return;
+  els.talentClassSelector.innerHTML = TALENT_CLASSES.map(cls => {
+    const active = cls === talentBuilderClass ? ' active' : '';
+    const color = CLASS_COLORS[cls] || 'var(--gold)';
+    return `<button type="button" class="talent-class-btn${active}" data-class="${cls}" style="--class-color:${color}">
+      <img src="${talentIconUrl(TALENT_DATA[cls].icon)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <span>${escapeHtml(CLASS_LABELS_DE[cls] || cls)}</span>
+    </button>`;
+  }).join('');
+  els.talentClassSelector.querySelectorAll('[data-class]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      talentBuilderClass = btn.getAttribute('data-class');
+      renderTalentBuilderPage();
+    });
+  });
+}
+
+function talentTooltipHtml(cls, treeIdx, talent){
+  const rank = talentRank(cls, treeIdx, talent.name);
+  const nextRankIdx = Math.min(rank, talent.max - 1);
+  const descLine = talent.desc && talent.desc[nextRankIdx] ? talent.desc[nextRankIdx] : '';
+  const rankLabel = rank >= talent.max
+    ? `Rang ${talent.max}/${talent.max} (maximal)`
+    : `Rang ${rank}/${talent.max}${rank > 0 ? ' — nächster Rang:' : ''}`;
+  let html = `<div class="talent-tip-title">${escapeHtml(talent.name)}</div>`;
+  html += `<div class="talent-tip-rank">${escapeHtml(rankLabel)}</div>`;
+  if (descLine) html += `<div class="talent-tip-desc">${escapeHtml(descLine)}</div>`;
+  if (talent.cost) html += `<div class="talent-tip-cost">${escapeHtml(talent.cost)}</div>`;
+  if (talent.req){
+    const reqTalent = findTalent(cls, treeIdx, talent.req);
+    const reqOk = reqTalent && talentRank(cls, treeIdx, talent.req) >= reqTalent.max;
+    html += `<div class="talent-tip-req ${reqOk ? 'ok' : ''}">Benötigt: ${escapeHtml(talent.req)} (max)</div>`;
+  }
+  return html;
+}
+
+function showTalentTooltip(evt, cls, treeIdx, talent){
+  if (!els.talentTooltip) return;
+  els.talentTooltip.innerHTML = talentTooltipHtml(cls, treeIdx, talent);
+  els.talentTooltip.classList.remove('hidden');
+  positionTalentTooltip(evt);
+}
+function positionTalentTooltip(evt){
+  if (!els.talentTooltip || els.talentTooltip.classList.contains('hidden')) return;
+  const pad = 16;
+  let x = evt.clientX + pad, y = evt.clientY + pad;
+  const rect = els.talentTooltip.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth) x = evt.clientX - rect.width - pad;
+  if (y + rect.height > window.innerHeight) y = evt.clientY - rect.height - pad;
+  els.talentTooltip.style.left = Math.max(8, x) + 'px';
+  els.talentTooltip.style.top = Math.max(8, y) + 'px';
+}
+function hideTalentTooltip(){
+  if (els.talentTooltip) els.talentTooltip.classList.add('hidden');
+}
+
+function renderTalentTree(cls, treeIdx){
+  const tree = TALENT_DATA[cls].trees[treeIdx];
+  const spent = talentPointsSpentInTree(cls, treeIdx);
+
+  const connectors = [];
+  const cells = tree.talents.map(t => {
+    const rank = talentRank(cls, treeIdx, t.name);
+    const unlocked = isTierUnlocked(cls, treeIdx, t.row);
+    const canAdd = canAddTalentPoint(cls, treeIdx, t.name);
+    const maxed = rank >= t.max;
+    const cls_ = 'talent-node' + (rank > 0 ? ' has-points' : '') + (maxed ? ' maxed' : '') + (!unlocked ? ' locked' : '') + (canAdd ? ' can-add' : '');
+    if (t.req){
+      const reqTalent = findTalent(cls, treeIdx, t.req);
+      if (reqTalent){
+        const active = rank > 0;
+        connectors.push(`<path d="${talentConnectorPath(reqTalent.row, reqTalent.col, t.row, t.col)}" class="talent-connector${active ? ' active' : ''}"/>`);
+      }
+    }
+    const left = talentCellCenterX(t.col) - TALENT_CELL / 2;
+    const top = talentCellTopY(t.row);
+    return `<button type="button" class="${cls_}" style="left:${left}px;top:${top}px;width:${TALENT_CELL}px;height:${TALENT_CELL}px"
+      data-tree="${treeIdx}" data-talent="${escapeHtml(t.name)}" aria-label="${escapeHtml(t.name)}">
+      <img src="${talentIconUrl(t.icon)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <span class="talent-rank-pip">${rank}/${t.max}</span>
+    </button>`;
+  }).join('');
+
+  const gridW = 4 * TALENT_CELL + 3 * TALENT_GAP;
+  const gridH = 7 * TALENT_CELL + 6 * TALENT_GAP;
+
+  return `<div class="talent-tree-card">
+    <div class="talent-tree-head">
+      <img src="${talentIconUrl(tree.icon)}" alt="" class="talent-tree-icon" loading="lazy" onerror="this.style.visibility='hidden'">
+      <div>
+        <h3>${escapeHtml(tree.name)}</h3>
+        <span class="talent-tree-points">${spent} Punkte</span>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm talent-reset-btn" data-reset-tree="${treeIdx}">Zurücksetzen</button>
+    </div>
+    <div class="talent-tree-grid" style="width:${gridW}px;height:${gridH}px">
+      <svg class="talent-connectors" viewBox="0 0 ${gridW} ${gridH}" width="${gridW}" height="${gridH}">${connectors.join('')}</svg>
+      ${cells}
+    </div>
+  </div>`;
+}
+
+function renderTalentBuilder(){
+  ensureTalentBuildLoaded();
+  if (!els.talentTreesContainer) return;
+  renderTalentClassSelector();
+
+  const cls = talentBuilderClass;
+  const level = talentBuild[cls].level;
+  if (els.talentLevelInput) els.talentLevelInput.value = level;
+  if (els.talentLevelLabel) els.talentLevelLabel.textContent = 'Stufe ' + level;
+  if (els.talentPointsRemaining){
+    const remaining = talentPointsRemaining(cls);
+    els.talentPointsRemaining.textContent = remaining + ' / ' + talentTotalAvailable(cls) + ' Punkte übrig';
+    els.talentPointsRemaining.classList.toggle('talent-points-empty', remaining === 0);
+  }
+
+  els.talentTreesContainer.innerHTML = [0, 1, 2].map(i => renderTalentTree(cls, i)).join('');
+
+  els.talentTreesContainer.querySelectorAll('.talent-node').forEach(btn => {
+    const treeIdx = Number(btn.getAttribute('data-tree'));
+    const name = btn.getAttribute('data-talent');
+    btn.addEventListener('click', (evt) => {
+      evt.preventDefault();
+      if (addTalentPoint(cls, treeIdx, name)) renderTalentBuilder();
+    });
+    btn.addEventListener('contextmenu', (evt) => {
+      evt.preventDefault();
+      if (removeTalentPoint(cls, treeIdx, name)) renderTalentBuilder();
+    });
+    btn.addEventListener('mouseenter', (evt) => showTalentTooltip(evt, cls, treeIdx, findTalent(cls, treeIdx, name)));
+    btn.addEventListener('mousemove', positionTalentTooltip);
+    btn.addEventListener('mouseleave', hideTalentTooltip);
+  });
+  els.talentTreesContainer.querySelectorAll('[data-reset-tree]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      resetTalentTree(cls, Number(btn.getAttribute('data-reset-tree')));
+      renderTalentBuilder();
+    });
+  });
+}
+
+function initTalentBuilder(){
+  if (els.talentLevelInput){
+    els.talentLevelInput.addEventListener('input', () => {
+      setTalentLevel(talentBuilderClass, Number(els.talentLevelInput.value));
+      renderTalentBuilder();
+    });
+  }
+  if (els.talentResetAllBtn){
+    els.talentResetAllBtn.addEventListener('click', () => {
+      resetTalentClass(talentBuilderClass);
+      renderTalentBuilder();
+    });
+  }
+  renderTalentSubnav();
+  const legacyResetAllBtn = document.getElementById('legacyResetAllBtn');
+  if (legacyResetAllBtn){
+    legacyResetAllBtn.addEventListener('click', () => {
+      ensureLegacyBuildLoaded();
+      resetLegacyAll();
+      renderLegacyPanel();
+    });
+  }
+}
+
+// ---- Talent Builder: additional data tabs (Spellbook / Racials /
+// Class ability changes / Legacy perks) -------------------------------
+const TALENT_SUBTABS = [
+  { id: 'talents', label: 'Talente' },
+  { id: 'spellbook', label: 'Zauberbuch' },
+  { id: 'racials', label: 'Rassen' },
+  { id: 'abilities', label: 'Klassenänderungen' },
+  { id: 'legacy', label: 'Legacy-Perks' }
+];
+let talentActiveSubtab = 'talents';
+let racialsFaction = 'Alliance';
+let racialsRaceIdx = 0;
+let spellbookEntries = []; // rebuilt on each renderSpellbookPanel(), referenced by data-entry-idx
+
+function renderTalentSubnav(){
+  if (!els.talentSubnav) return;
+  els.talentSubnav.innerHTML = TALENT_SUBTABS.map(t =>
+    `<button type="button" class="talent-subtab-btn${t.id === talentActiveSubtab ? ' active' : ''}" data-subtab="${t.id}">${escapeHtml(t.label)}</button>`
+  ).join('');
+  els.talentSubnav.querySelectorAll('[data-subtab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      talentActiveSubtab = btn.getAttribute('data-subtab');
+      renderTalentSubnav();
+      renderTalentBuilderPage();
+    });
+  });
+}
+
+function renderTalentBuilderPage(){
+  ['talents', 'spellbook', 'racials', 'abilities', 'legacy'].forEach(id => {
+    const panel = document.getElementById('talentPanel-' + id);
+    if (panel) panel.classList.toggle('hidden', id !== talentActiveSubtab);
+  });
+  if (els.talentClassSelector){
+    const showClassSelector = talentActiveSubtab === 'talents' || talentActiveSubtab === 'spellbook' || talentActiveSubtab === 'abilities';
+    els.talentClassSelector.classList.toggle('hidden', !showClassSelector);
+  }
+  const cls = talentBuilderClass;
+  if (talentActiveSubtab === 'talents') renderTalentBuilder();
+  else if (talentActiveSubtab === 'spellbook') renderSpellbookPanel(cls);
+  else if (talentActiveSubtab === 'racials') renderRacialsPanel();
+  else if (talentActiveSubtab === 'abilities') renderClassAbilitiesPanel(cls);
+  else if (talentActiveSubtab === 'legacy') renderLegacyPanel();
+}
+
+// ---- Spellbook ---------------------------------------------------
+function groupSpellRanks(list){
+  const order = [];
+  const byName = {};
+  (list || []).forEach(([name, rank]) => {
+    if (!byName[name]){ byName[name] = []; order.push(name); }
+    byName[name].push(rank || '');
+  });
+  return order.map(name => ({ name, ranks: byName[name] }));
+}
+
+function spellTooltipHtml(cls, name, ranks){
+  const topRank = ranks[ranks.length - 1];
+  const entry = SPELL_DESC_DATA[`${cls}|${name}|${topRank}`] || null;
+  let html = `<div class="talent-tip-title">${escapeHtml(name)}</div>`;
+  html += `<div class="talent-tip-rank">${ranks.length > 1 ? `${ranks.length} Ränge` : (topRank || 'Ein Rang')}</div>`;
+  if (entry && entry.d) html += `<div class="talent-tip-desc">${escapeHtml(entry.d)}</div>`;
+  if (entry && entry.l && entry.l.length){
+    html += `<div class="talent-tip-cost">${entry.l.map(pair => escapeHtml((pair[0] || '') + (pair[1] ? ' · ' + pair[1] : ''))).join('<br>')}</div>`;
+  }
+  if (entry && entry.lv) html += `<div class="talent-tip-req ok">${escapeHtml(entry.lv)}</div>`;
+  if (!entry || (!entry.d && !(entry.l && entry.l.length))) html += `<div class="talent-tip-desc">Keine Beschreibung verfügbar.</div>`;
+  return html;
+}
+
+function renderSpellbookPanel(cls){
+  const container = document.getElementById('spellbookContainer');
+  if (!container) return;
+  const book = SPELLBOOK_DATA[cls];
+  if (!book){ container.innerHTML = ''; return; }
+  const sections = [{ name: 'Allgemein', spells: book.general }].concat(book.tabs);
+  spellbookEntries = [];
+  container.innerHTML = sections.map(sec => {
+    const grouped = groupSpellRanks(sec.spells);
+    const items = grouped.map(g => {
+      const idx = spellbookEntries.length;
+      spellbookEntries.push(g);
+      const icon = book.icons[g.name];
+      return `<button type="button" class="spellbook-entry" data-entry-idx="${idx}">
+        ${icon ? `<img src="${talentIconUrl(icon)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : '<span class="spellbook-noicon"></span>'}
+        <span class="spellbook-name">${escapeHtml(g.name)}</span>
+        ${g.ranks.length > 1 ? `<span class="spellbook-rank-count">${g.ranks.length}×</span>` : ''}
+      </button>`;
+    }).join('');
+    return `<div class="spellbook-section"><h3>${escapeHtml(sec.name)}</h3><div class="spellbook-grid">${items}</div></div>`;
+  }).join('');
+  container.querySelectorAll('[data-entry-idx]').forEach(btn => {
+    const entry = spellbookEntries[Number(btn.getAttribute('data-entry-idx'))];
+    if (!entry) return;
+    btn.addEventListener('mouseenter', (evt) => {
+      if (!els.talentTooltip) return;
+      els.talentTooltip.innerHTML = spellTooltipHtml(cls, entry.name, entry.ranks);
+      els.talentTooltip.classList.remove('hidden');
+      positionTalentTooltip(evt);
+    });
+    btn.addEventListener('mousemove', positionTalentTooltip);
+    btn.addEventListener('mouseleave', hideTalentTooltip);
+  });
+}
+
+// ---- Auto-linked spell/ability names in free text (Class Deep Dives) --
+// Scans rendered rich text for the class's own spellbook ability names
+// (the "tabs" sections only — general abilities like "Attack"/"Block" are
+// deliberately excluded, they're too generic a word to safely autolink in
+// free-form prose) and wraps each mention in a span that reuses the exact
+// same hover tooltip + tooltip positioning as the Talent Builder's own
+// Zauberbuch panel, so an officer typing/pasting a deep dive gets live
+// tooltips on every ability it mentions for free, backed by the same data.
+function escapeRegExp(str){
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+// Builds a readable tooltip for a talent-tree talent, independent of
+// anyone's actual allocated points (unlike the live Talent Builder's own
+// tooltip) — a Deep Dive mention isn't about "my current build", so this
+// always shows the talent's full/final-rank description.
+function classDiveTalentTooltipHtml(talent){
+  let html = `<div class="talent-tip-title">${escapeHtml(talent.name)}</div>`;
+  html += `<div class="talent-tip-rank">${talent.max > 1 ? `Talent — bis zu ${talent.max} Ränge` : 'Talent'}</div>`;
+  const desc = Array.isArray(talent.desc) ? talent.desc[talent.desc.length - 1] : talent.desc;
+  if (desc) html += `<div class="talent-tip-desc">${escapeHtml(desc)}</div>`;
+  if (talent.cost) html += `<div class="talent-tip-cost">${escapeHtml(talent.cost)}</div>`;
+  if (talent.req) html += `<div class="talent-tip-req ok">Benötigt: ${escapeHtml(talent.req)} (max)</div>`;
+  return html;
+}
+function classDiveRacialTooltipHtml(name, desc, race){
+  let html = `<div class="talent-tip-title">${escapeHtml(name)}</div>`;
+  html += `<div class="talent-tip-rank">Volks-Fähigkeit${race ? ' — ' + escapeHtml(race) : ''}</div>`;
+  if (desc) html += `<div class="talent-tip-desc">${escapeHtml(desc)}</div>`;
+  return html;
+}
+const classDiveSpellIndexCache = {};
+// index: array of { name, kind, cls, ... } sorted longest-name-first so
+// the matcher greedily prefers "Shadow Word: Death" over a shorter
+// prefix. Pulls from three sources, since a Blizzard class deep dive
+// talks about all three: the base spellbook ("tabs" sections only —
+// general abilities like "Attack"/"Block" are deliberately excluded,
+// too generic a word to safely autolink in free-form prose), the talent
+// trees, and that class's available racial abilities.
+function classDiveSpellIndexFor(classId){
+  if (classDiveSpellIndexCache[classId]) return classDiveSpellIndexCache[classId];
+  let entries = [];
+  if (classId === 'general'){
+    // The general card has no single class — merge every class's index.
+    // On a name collision between classes, the first class (CLASSES
+    // order) wins; ambiguous, but still useful.
+    const seen = new Set();
+    CLASSES.forEach(c => {
+      classDiveSpellIndexFor(c.id).forEach(e => {
+        if (seen.has(e.name)) return;
+        seen.add(e.name);
+        entries.push(e);
+      });
+    });
+  } else {
+    const clsInfo = CLASS_MAP[classId];
+    const label = clsInfo && clsInfo.label;
+    if (label){
+      const seen = new Set();
+      const book = SPELLBOOK_DATA[label];
+      if (book){
+        const allSpells = [];
+        (book.tabs || []).forEach(sec => (sec.spells || []).forEach(s => allSpells.push(s)));
+        groupSpellRanks(allSpells).forEach(g => {
+          if (seen.has(g.name)) return;
+          seen.add(g.name);
+          entries.push({ name: g.name, kind: 'spell', cls: label, ranks: g.ranks });
+        });
+      }
+      const talentBook = TALENT_DATA[label];
+      if (talentBook){
+        (talentBook.trees || []).forEach(tree => (tree.talents || []).forEach(t => {
+          if (!t || !t.name || seen.has(t.name)) return;
+          seen.add(t.name);
+          entries.push({ name: t.name, kind: 'talent', cls: label, talent: t });
+        }));
+      }
+      ['Horde', 'Alliance'].forEach(faction => {
+        (RACIAL_DATA[faction] || []).forEach(race => {
+          if (!race.classes || !race.classes.includes(label)) return;
+          (race.abilities || []).forEach(([name, desc]) => {
+            if (!name || seen.has(name)) return;
+            seen.add(name);
+            entries.push({ name, kind: 'racial', cls: label, desc, race: race.race });
+          });
+        });
+      });
+    }
+  }
+  entries.sort((a, b) => b.name.length - a.name.length);
+  classDiveSpellIndexCache[classId] = entries;
+  return entries;
+}
+function classDiveMentionTooltipHtml(entry){
+  if (entry.kind === 'talent') return classDiveTalentTooltipHtml(entry.talent);
+  if (entry.kind === 'racial') return classDiveRacialTooltipHtml(entry.name, entry.desc, entry.race);
+  return spellTooltipHtml(entry.cls, entry.name, entry.ranks);
+}
+const CLASSDIVE_WORDISH_RE = /[A-Za-zÀ-ÖØ-öø-ÿ0-9']/;
+function annotateSpellMentions(rootEl, classId){
+  if (!rootEl) return;
+  const index = classDiveSpellIndexFor(classId);
+  if (!index.length) return;
+  const byName = new Map(index.map(e => [e.name, e]));
+  const pattern = index.map(e => escapeRegExp(e.name)).join('|');
+  if (!pattern) return;
+  const regex = new RegExp(pattern, 'g');
+  const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+  const textNodes = [];
+  let node;
+  while ((node = walker.nextNode())) textNodes.push(node);
+  textNodes.forEach(textNode => {
+    const text = textNode.nodeValue;
+    regex.lastIndex = 0;
+    let match;
+    let lastEnd = 0;
+    const frag = document.createDocumentFragment();
+    let any = false;
+    while ((match = regex.exec(text))){
+      const start = match.index, end = start + match[0].length;
+      const before = text[start - 1], after = text[end];
+      if ((before && CLASSDIVE_WORDISH_RE.test(before)) || (after && CLASSDIVE_WORDISH_RE.test(after))){
+        regex.lastIndex = start + 1;
+        continue;
+      }
+      any = true;
+      if (start > lastEnd) frag.appendChild(document.createTextNode(text.slice(lastEnd, start)));
+      const entry = byName.get(match[0]);
+      const span = document.createElement('span');
+      span.className = 'classdive-spell-link';
+      span.setAttribute('data-spell-name', entry.name);
+      span.textContent = match[0];
+      frag.appendChild(span);
+      lastEnd = end;
+    }
+    if (!any) return;
+    if (lastEnd < text.length) frag.appendChild(document.createTextNode(text.slice(lastEnd)));
+    textNode.parentNode.replaceChild(frag, textNode);
+  });
+  rootEl.querySelectorAll('.classdive-spell-link').forEach(span => {
+    span.addEventListener('mouseenter', (evt) => {
+      if (!els.talentTooltip) return;
+      const entry = byName.get(span.getAttribute('data-spell-name'));
+      if (!entry) return;
+      els.talentTooltip.innerHTML = classDiveMentionTooltipHtml(entry);
+      els.talentTooltip.classList.remove('hidden');
+      positionTalentTooltip(evt);
+    });
+    span.addEventListener('mousemove', positionTalentTooltip);
+    span.addEventListener('mouseleave', hideTalentTooltip);
+  });
+}
+
+// ---- Racials -------------------------------------------------------
+function raceLabelDe(name){
+  const map = { Human: 'Mensch', Dwarf: 'Zwerg', 'Night Elf': 'Nachtelf', Gnome: 'Gnom',
+    Orc: 'Orc', Undead: 'Untoter', Tauren: 'Taure', Troll: 'Troll' };
+  return map[name] || name;
+}
+
+function renderRacialsPanel(){
+  const factionEl = document.getElementById('racialsFactionToggle');
+  const raceEl = document.getElementById('racialsRaceSelector');
+  const container = document.getElementById('racialsContainer');
+  if (!factionEl || !raceEl || !container) return;
+
+  factionEl.innerHTML = ['Alliance', 'Horde'].map(f =>
+    `<button type="button" class="racials-faction-btn${f === racialsFaction ? ' active' : ''}" data-faction="${f}">${f === 'Alliance' ? 'Allianz' : 'Horde'}</button>`
+  ).join('');
+  factionEl.querySelectorAll('[data-faction]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      racialsFaction = btn.getAttribute('data-faction');
+      racialsRaceIdx = 0;
+      renderRacialsPanel();
+    });
+  });
+
+  const races = RACIAL_DATA[racialsFaction] || [];
+  raceEl.innerHTML = races.map((r, idx) =>
+    `<button type="button" class="racials-race-btn${idx === racialsRaceIdx ? ' active' : ''}" data-race-idx="${idx}">
+      <img src="${talentIconUrl(r.icon)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <span>${escapeHtml(raceLabelDe(r.race))}</span>
+    </button>`
+  ).join('');
+  raceEl.querySelectorAll('[data-race-idx]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      racialsRaceIdx = Number(btn.getAttribute('data-race-idx'));
+      renderRacialsPanel();
+    });
+  });
+
+  const race = races[racialsRaceIdx];
+  if (!race){ container.innerHTML = ''; return; }
+  let html = `<div class="racials-panel-head">
+    <img src="${talentIconUrl(race.icon)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+    <div><h3>${escapeHtml(raceLabelDe(race.race))}</h3><span>Spielbar als: ${race.classes.map(c => escapeHtml(CLASS_LABELS_DE[c] || c)).join(', ')}</span></div>
+  </div>`;
+  html += `<div class="ability-card-grid">${(race.abilities || []).map(([name, desc, icon]) => `
+    <div class="ability-card">
+      <img src="${talentIconUrl(icon)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <div class="ability-card-body"><h4>${escapeHtml(name)}</h4><p>${escapeHtml(desc)}</p></div>
+    </div>`).join('')}</div>`;
+
+  const cls = talentBuilderClass;
+  const classRacial = CLASS_RACIAL_DATA[cls];
+  const classRacialSpells = classRacial && classRacial.races ? classRacial.races[race.race] : null;
+  if (classRacialSpells && classRacialSpells.length){
+    html += `<p class="racials-note">Klassen-spezifische Rassenzauber (${escapeHtml(CLASS_LABELS_DE[cls] || cls)}):</p>`;
+    html += `<div class="ability-card-grid">${classRacialSpells.map(([name, desc, icon]) => `
+      <div class="ability-card">
+        <img src="${talentIconUrl(icon)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+        <div class="ability-card-body"><h4>${escapeHtml(name)}</h4><p>${escapeHtml(desc)}</p></div>
+      </div>`).join('')}</div>`;
+  }
+  container.innerHTML = html;
+}
+
+// ---- Class ability changes ------------------------------------------
+function renderClassAbilitiesPanel(cls){
+  const container = document.getElementById('classAbilitiesContainer');
+  if (!container) return;
+  const list = CLASS_ABILITY_DATA[cls] || [];
+  if (!list.length){ container.innerHTML = '<div class="ability-card-empty">Keine bekannten Änderungen für diese Klasse.</div>'; return; }
+  container.innerHTML = `<div class="ability-card-grid">${list.map(([name, desc, icon]) => `
+    <div class="ability-card">
+      <img src="${talentIconUrl(icon)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <div class="ability-card-body"><h4>${escapeHtml(name)}</h4><p>${escapeHtml(desc)}</p></div>
+    </div>`).join('')}</div>`;
+}
+
+// ---- Legacy perks ------------------------------------------------
+// Account-wide, not tied to class or level: 3 trees, a fixed point
+// pool (LEGACY_DATA.points), each perk gated by a flat "points already
+// spent in this tree" threshold (its `gate`) instead of the talent
+// tree's row-based formula, plus an optional `req` prerequisite exactly
+// like talents. A few slots are unimplemented ("placeholder": true) and
+// are shown dimmed and non-interactive.
+const LEGACY_STORAGE_KEY = 'rude-guild-legacy-builder';
+
+function emptyLegacyBuild(){
+  return { points: LEGACY_DATA.trees.map(() => ({})) };
+}
+function loadLegacyBuild(){
+  try{
+    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (!raw) return emptyLegacyBuild();
+    const parsed = JSON.parse(raw);
+    const build = emptyLegacyBuild();
+    if (Array.isArray(parsed && parsed.points)){
+      LEGACY_DATA.trees.forEach((t, i) => {
+        if (parsed.points[i] && typeof parsed.points[i] === 'object') build.points[i] = Object.assign({}, parsed.points[i]);
+      });
+    }
+    return build;
+  }catch(e){ return emptyLegacyBuild(); }
+}
+function saveLegacyBuild(){ try{ localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(legacyBuild)); }catch(e){} }
+
+let legacyBuild = null;
+function ensureLegacyBuildLoaded(){ if (!legacyBuild) legacyBuild = loadLegacyBuild(); }
+
+function findLegacyPerk(treeIdx, name){
+  return LEGACY_DATA.trees[treeIdx].perks.find(p => p.name === name) || null;
+}
+function legacyRank(treeIdx, name){ return legacyBuild.points[treeIdx][name] || 0; }
+function legacyPointsSpentInTree(treeIdx){
+  return Object.values(legacyBuild.points[treeIdx]).reduce((s, r) => s + r, 0);
+}
+function legacyPointsSpentTotal(){
+  return LEGACY_DATA.trees.reduce((s, _, i) => s + legacyPointsSpentInTree(i), 0);
+}
+function legacyPointsRemaining(){ return LEGACY_DATA.points - legacyPointsSpentTotal(); }
+
+function isLegacyPerkUnlocked(treeIdx, perk){ return legacyPointsSpentInTree(treeIdx) >= (perk.gate || 0); }
+
+function canAddLegacyPoint(treeIdx, name){
+  const perk = findLegacyPerk(treeIdx, name);
+  if (!perk || perk.placeholder) return false;
+  if (legacyPointsRemaining() <= 0) return false;
+  if (legacyRank(treeIdx, name) >= perk.max) return false;
+  if (!isLegacyPerkUnlocked(treeIdx, perk)) return false;
+  if (perk.req){
+    const reqPerk = findLegacyPerk(treeIdx, perk.req);
+    if (!reqPerk || legacyRank(treeIdx, perk.req) < reqPerk.max) return false;
+  }
+  return true;
+}
+
+function canRemoveLegacyPoint(treeIdx, name){
+  const rank = legacyRank(treeIdx, name);
+  if (rank <= 0) return false;
+  const tree = LEGACY_DATA.trees[treeIdx];
+  const perk = findLegacyPerk(treeIdx, name);
+  const isMaxed = rank >= perk.max;
+  if (isMaxed){
+    const dependent = tree.perks.find(p => p.req === name && legacyRank(treeIdx, p.name) > 0);
+    if (dependent) return false;
+  }
+  const spentAfter = legacyPointsSpentInTree(treeIdx) - 1;
+  return tree.perks.every(p => {
+    const r = legacyRank(treeIdx, p.name) - (p.name === name ? 1 : 0);
+    if (r <= 0) return true;
+    return spentAfter >= (p.gate || 0);
+  });
+}
+
+function addLegacyPoint(treeIdx, name){
+  if (!canAddLegacyPoint(treeIdx, name)) return false;
+  const points = legacyBuild.points[treeIdx];
+  points[name] = (points[name] || 0) + 1;
+  saveLegacyBuild();
+  return true;
+}
+function removeLegacyPoint(treeIdx, name){
+  if (!canRemoveLegacyPoint(treeIdx, name)) return false;
+  const points = legacyBuild.points[treeIdx];
+  points[name] = (points[name] || 0) - 1;
+  if (points[name] <= 0) delete points[name];
+  saveLegacyBuild();
+  return true;
+}
+function resetLegacyTree(treeIdx){ legacyBuild.points[treeIdx] = {}; saveLegacyBuild(); }
+function resetLegacyAll(){ legacyBuild.points = LEGACY_DATA.trees.map(() => ({})); saveLegacyBuild(); }
+
+function legacyTooltipHtml(treeIdx, perk){
+  const rank = legacyRank(treeIdx, perk.name);
+  const nextRankIdx = Math.min(rank, perk.max - 1);
+  const descLine = perk.ranks && perk.ranks[nextRankIdx] ? perk.ranks[nextRankIdx] : '';
+  const rankLabel = rank >= perk.max ? `Rang ${perk.max}/${perk.max} (maximal)` : `Rang ${rank}/${perk.max}${rank > 0 ? ' — nächster Rang:' : ''}`;
+  let html = `<div class="talent-tip-title">${escapeHtml(perk.name)}</div>`;
+  html += `<div class="talent-tip-rank">${escapeHtml(rankLabel)}</div>`;
+  if (descLine) html += `<div class="talent-tip-desc">${escapeHtml(descLine)}</div>`;
+  if (perk.gate) html += `<div class="talent-tip-cost">Benötigt ${perk.gate} Punkte in diesem Baum</div>`;
+  if (perk.req) html += `<div class="talent-tip-req ${legacyRank(treeIdx, perk.req) >= (findLegacyPerk(treeIdx, perk.req) || {}).max ? 'ok' : ''}">Benötigt: ${escapeHtml(perk.req)} (max)</div>`;
+  return html;
+}
+
+function renderLegacyTree(treeIdx){
+  const tree = LEGACY_DATA.trees[treeIdx];
+  const spent = legacyPointsSpentInTree(treeIdx);
+  const connectors = [];
+  const cells = tree.perks.map(p => {
+    const rank = legacyRank(treeIdx, p.name);
+    const unlocked = isLegacyPerkUnlocked(treeIdx, p);
+    const canAdd = canAddLegacyPoint(treeIdx, p.name);
+    const maxed = rank >= p.max;
+    const cls_ = 'talent-node' + (p.placeholder ? ' legacy-placeholder' : '') + (rank > 0 ? ' has-points' : '') + (maxed ? ' maxed' : '') + (!unlocked ? ' locked' : '') + (canAdd ? ' can-add' : '');
+    if (p.req){
+      const reqPerk = findLegacyPerk(treeIdx, p.req);
+      if (reqPerk) connectors.push(`<path d="${talentConnectorPath(reqPerk.row, reqPerk.col, p.row, p.col)}" class="talent-connector${rank > 0 ? ' active' : ''}"/>`);
+    }
+    const left = talentCellCenterX(p.col) - TALENT_CELL / 2;
+    const top = talentCellTopY(p.row);
+    return `<button type="button" class="${cls_}" style="left:${left}px;top:${top}px;width:${TALENT_CELL}px;height:${TALENT_CELL}px"
+      data-tree="${treeIdx}" data-perk="${escapeHtml(p.name)}" aria-label="${escapeHtml(p.name)}"${p.placeholder ? ' disabled' : ''}>
+      <img src="${talentIconUrl(p.icon)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+      <span class="talent-rank-pip">${rank}/${p.max}</span>
+    </button>`;
+  }).join('');
+  const gridW = 4 * TALENT_CELL + 3 * TALENT_GAP;
+  const gridH = 4 * TALENT_CELL + 3 * TALENT_GAP;
+  return `<div class="talent-tree-card">
+    <div class="talent-tree-head">
+      <img src="${talentIconUrl(tree.icon)}" alt="" class="talent-tree-icon" loading="lazy" onerror="this.style.visibility='hidden'">
+      <div><h3>${escapeHtml(tree.name)}</h3><span class="talent-tree-points">${spent} Punkte</span></div>
+      <button type="button" class="btn btn-ghost btn-sm talent-reset-btn" data-reset-legacy-tree="${treeIdx}">Zurücksetzen</button>
+    </div>
+    <div class="talent-tree-grid" style="width:${gridW}px;height:${gridH}px">
+      <svg class="talent-connectors" viewBox="0 0 ${gridW} ${gridH}" width="${gridW}" height="${gridH}">${connectors.join('')}</svg>
+      ${cells}
+    </div>
+  </div>`;
+}
+
+function renderLegacyPanel(){
+  ensureLegacyBuildLoaded();
+  const container = document.getElementById('legacyTreesContainer');
+  if (!container) return;
+  const remainingEl = document.getElementById('legacyPointsRemaining');
+  if (remainingEl){
+    const remaining = legacyPointsRemaining();
+    remainingEl.textContent = remaining + ' / ' + LEGACY_DATA.points + ' Punkte übrig';
+    remainingEl.classList.toggle('talent-points-empty', remaining === 0);
+  }
+  container.innerHTML = LEGACY_DATA.trees.map((_, i) => renderLegacyTree(i)).join('');
+  container.querySelectorAll('.talent-node:not(.legacy-placeholder)').forEach(btn => {
+    const treeIdx = Number(btn.getAttribute('data-tree'));
+    const name = btn.getAttribute('data-perk');
+    btn.addEventListener('click', (evt) => {
+      evt.preventDefault();
+      if (addLegacyPoint(treeIdx, name)) renderLegacyPanel();
+    });
+    btn.addEventListener('contextmenu', (evt) => {
+      evt.preventDefault();
+      if (removeLegacyPoint(treeIdx, name)) renderLegacyPanel();
+    });
+    btn.addEventListener('mouseenter', (evt) => {
+      if (!els.talentTooltip) return;
+      els.talentTooltip.innerHTML = legacyTooltipHtml(treeIdx, findLegacyPerk(treeIdx, name));
+      els.talentTooltip.classList.remove('hidden');
+      positionTalentTooltip(evt);
+    });
+    btn.addEventListener('mousemove', positionTalentTooltip);
+    btn.addEventListener('mouseleave', hideTalentTooltip);
+  });
+  container.querySelectorAll('[data-reset-legacy-tree]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      resetLegacyTree(Number(btn.getAttribute('data-reset-legacy-tree')));
+      renderLegacyPanel();
+    });
+  });
+}
+
+
+// ---------------------------------------------------------------------
+// FIREBASE SETUP — replace this with YOUR project's config.
+// Get it from: Firebase console → Project settings → Your apps → Web app.
+// This value is not secret; access control is handled by your Database
+// Rules (see the README), not by hiding this object.
+// ---------------------------------------------------------------------
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDlc3JJjZ2kFip-uFn8B-FW1mABjPSKgvM",
+  authDomain: "aeternum-guild-loot-awards.firebaseapp.com",
+  databaseURL: "https://aeternum-guild-loot-awards-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "aeternum-guild-loot-awards",
+  storageBucket: "aeternum-guild-loot-awards.firebasestorage.app",
+  messagingSenderId: "539427044594",
+  appId: "1:539427044594:web:3f4e2f58e4eb901fc3646b",
+  measurementId: "G-J9MQD020BG"
+};
+const DB_PATH = 'guild-loot-data';
+let db = null;
+let syncStarted = false;
+
+// ---------------------------------------------------------------------
+// ACCESS CONTROL — Discord login (Public Client OAuth + PKCE, no secret
+// needed client-side). Only two roles now that the page is just the
+// survey + homepage: Admin (can manage roles) and Guild Member. The
+// first person who ever logs in automatically becomes Admin.
+//
+// A logged-in Discord identity by itself does NOT protect your Firebase
+// data — a small Cloudflare Worker verifies each login and mints a real
+// Firebase Authentication token, which is what your Database Rules
+// actually check. See the README.
+// ---------------------------------------------------------------------
+const DISCORD_CONFIG = {
+  clientId: '1547344145960407081'
+};
+const WORKER_URL = 'https://guildlootdiscordworker.sebastian-spiehs.workers.dev/mint-token';
+// Same Worker, different endpoints — reused instead of a second Worker.
+const WOWHEAD_NEWS_URL = WORKER_URL.replace(/\/mint-token$/, '/wowhead-news');
+const ARMORY_CHARACTER_URL = WORKER_URL.replace(/\/mint-token$/, '/armory-character');
+const WARCRAFTLOGS_CHARACTER_URL = WORKER_URL.replace(/\/mint-token$/, '/warcraftlogs-character');
+const NOTIFY_APPLICATION_URL = WORKER_URL.replace(/\/mint-token$/, '/notify-application');
+const DISCORD_REDIRECT_URI = window.location.origin + window.location.pathname;
+// #recruit?app=<id> — a link straight into one application on the
+// Bewerbung page (see pendingDeepLinkApplicationId / showPage), used by
+// both the "new application" and the "reminder" Discord DMs so clicking
+// them lands an Officer/Admin directly on the relevant card instead of
+// just the Bewerbung page in general.
+function applicationDeepLinkUrl(applicationId){
+  return window.location.origin + window.location.pathname + '#recruit?app=' + encodeURIComponent(applicationId);
+}
+const DISCORD_IDENTITY_KEY = 'guild-loot-discord-identity';
+const DISCORD_PKCE_VERIFIER_KEY = 'guild-loot-discord-pkce-verifier';
+const DISCORD_OAUTH_STATE_KEY = 'guild-loot-discord-oauth-state';
+const RETURN_ANCHOR_KEY = 'rude-guild-return-anchor';
+
+function isWorkerConfigured(){
+  return WORKER_URL && !WORKER_URL.includes('YOUR-WORKER-SUBDOMAIN');
+}
+
+const ACCESS_ROLES = {
+  admin: { label: 'Admin' },
+  officer: { label: 'Officer' },
+  member: { label: 'Guild Member' },
+  community: { label: 'Community' }
+};
+// Admins AND Officers can open/close votings and post/delete
+// announcements; only Admins can manage other members' roles.
+function isOfficerOrAdmin(){
+  return currentRole === 'admin' || currentRole === 'officer';
+}
+function canManageVotings(){
+  return isOfficerOrAdmin();
+}
+// Guild-internal content (Ankündigungen, Abstimmungen) is for actual
+// guild members and up — the public "Community" role (the default for
+// anyone logging in just to apply, or anyone not yet promoted) does not
+// see it, even though they're logged in with Discord.
+function isMemberOrHigher(){
+  return currentRole === 'admin' || currentRole === 'officer' || currentRole === 'member';
+}
+
+// New Discord logins default to 'community' — a public-facing role with
+// no access to guild-internal pages. An Admin/Officer promotes someone
+// to 'member' once they've actually joined the guild (see the "Manage
+// access" panel). The very first person ever to log in becomes Admin
+// (bootstrap), same as before.
+let currentRole = 'community';
+let discordIdentity = null;
+
+function isDiscordConfigured(){
+  return DISCORD_CONFIG.clientId && DISCORD_CONFIG.clientId !== 'YOUR_DISCORD_CLIENT_ID';
+}
+
+function loadDiscordIdentity(){
+  try{
+    const raw = localStorage.getItem(DISCORD_IDENTITY_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){
+    return null;
+  }
+}
+
+function saveDiscordIdentity(identity){
+  try{ localStorage.setItem(DISCORD_IDENTITY_KEY, JSON.stringify(identity)); }catch(e){}
+}
+
+function logoutDiscord(){
+  try{ localStorage.removeItem(DISCORD_IDENTITY_KEY); }catch(e){}
+  try{ if (firebase.auth().currentUser) firebase.auth().signOut(); }catch(e){}
+  window.location.reload();
+}
+
+function randomPkceString(length){
+  const arr = new Uint8Array(length);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, b => ('0' + b.toString(16)).slice(-2)).join('').slice(0, length);
+}
+
+async function sha256Base64Url(input){
+  const data = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  let str = '';
+  new Uint8Array(digest).forEach(b => { str += String.fromCharCode(b); });
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function startDiscordLogin(){
+  const verifier = randomPkceString(64);
+  const challenge = await sha256Base64Url(verifier);
+  const state = randomPkceString(24);
+  sessionStorage.setItem(DISCORD_PKCE_VERIFIER_KEY, verifier);
+  sessionStorage.setItem(DISCORD_OAUTH_STATE_KEY, state);
+  // Carries a pending #recruit?app=<id> deep link through the Discord
+  // OAuth round-trip too — otherwise clicking a notification link while
+  // logged out would land back on a generic Bewerbung page after login
+  // instead of the specific application it pointed at.
+  try{ sessionStorage.setItem(RETURN_ANCHOR_KEY, currentPage + (pendingDeepLinkApplicationId ? ('::app::' + pendingDeepLinkApplicationId) : '')); }catch(e){}
+  const params = new URLSearchParams({
+    client_id: DISCORD_CONFIG.clientId,
+    redirect_uri: DISCORD_REDIRECT_URI,
+    response_type: 'code',
+    scope: 'identify',
+    state: state,
+    code_challenge: challenge,
+    code_challenge_method: 'S256'
+  });
+  window.location.href = 'https://discord.com/oauth2/authorize?' + params.toString();
+}
+
+// Handles the redirect back from Discord (?code=...&state=...), if present.
+// On success, returns the Firebase custom token minted by our Worker (after
+// it independently verified the Discord login server-side). Returns null
+// if there was no callback to handle, or if it failed.
+async function handleDiscordCallback(){
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (!code) return null;
+
+  const returnedState = params.get('state');
+  const expectedState = sessionStorage.getItem(DISCORD_OAUTH_STATE_KEY);
+  const verifier = sessionStorage.getItem(DISCORD_PKCE_VERIFIER_KEY);
+  window.history.replaceState({}, '', window.location.pathname);
+  sessionStorage.removeItem(DISCORD_OAUTH_STATE_KEY);
+  sessionStorage.removeItem(DISCORD_PKCE_VERIFIER_KEY);
+
+  if (!verifier || !returnedState || returnedState !== expectedState){
+    console.warn('[Discord role sync] login aborted before it reached our Worker — the PKCE state/verifier check failed (missing sessionStorage entry, or you opened two login attempts at once). This is unrelated to your Discord role; just try logging in again.');
+    showDiscordLoginError('Login could not be verified — please try again.');
+    return null;
+  }
+
+  try{
+    const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: DISCORD_CONFIG.clientId,
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: DISCORD_REDIRECT_URI,
+        code_verifier: verifier
+      })
+    });
+    if (!tokenRes.ok){
+      let bodyText = '';
+      try{ bodyText = await tokenRes.text(); }catch(e2){}
+      console.warn('[Discord role sync] Discord’s token exchange failed (HTTP ' + tokenRes.status + ') — this happens before our Worker is even contacted, so it can’t be a role-sync bug. Usually a wrong/expired code (double-submit, back-button reuse) or a redirect_uri mismatch in the Discord app settings.', bodyText);
+      throw new Error('token exchange failed');
+    }
+    const tokenData = await tokenRes.json();
+
+    // Hand the Discord access token to our Worker — it independently
+    // verifies it with Discord (never trusts a client-supplied identity)
+    // and mints a real Firebase Authentication token for that user.
+    const mintRes = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ discordAccessToken: tokenData.access_token })
+    });
+    if (!mintRes.ok){
+      let bodyText = '';
+      try{ bodyText = await mintRes.text(); }catch(e2){}
+      console.warn('[Discord role sync] our Worker (' + WORKER_URL + ') rejected the mint request (HTTP ' + mintRes.status + '). Nothing was resolved from your Discord roles — you’ll fall back to whatever role you already had, or Community. Check the Worker’s own logs (wrangler tail / Cloudflare dashboard) and confirm the deployed Worker matches discord-auth-worker.js.', bodyText);
+      throw new Error('token mint failed');
+    }
+    const mintData = await mintRes.json();
+
+    saveDiscordIdentity({ id: mintData.user.id, username: mintData.user.username, avatar: mintData.user.avatar || null });
+    // mintData.role is the Worker's freshly-checked answer to "what's
+    // their current Discord server role?" (see ensureDiscordRole below —
+    // this is the one moment the site has a trustworthy answer to that,
+    // so it's captured here rather than re-derived later).
+    //
+    // mintData.roleDebug explains *why* that role was chosen (nothing
+    // secret in it — just Discord role ids and an HTTP status). Logged
+    // to the console any time the result wasn't a clean role match, so
+    // that if someone ends up stuck on Community, opening devtools right
+    // after logging in shows exactly which setup step to check next
+    // (bot token, bot not in the server, wrong GUILD_ID, or a role id
+    // that doesn't match DISCORD_ROLE_TO_SITE_ROLE) instead of just
+    // "it didn't work". See "Syncing roles from your Discord server" in
+    // README.md.
+    if (mintData.roleDebug && mintData.roleDebug.reason !== 'matched'){
+      console.warn('[Discord role sync] resolved to "' + mintData.role + '" — reason:', mintData.roleDebug);
+    } else if (mintData.roleDebug){
+      console.info('[Discord role sync] resolved to "' + mintData.role + '" via matched Discord role:', mintData.roleDebug);
+    } else {
+      console.warn('[Discord role sync] resolved to "' + mintData.role + '", but the Worker’s response had no roleDebug field at all. That means the deployed Cloudflare Worker is still running an OLDER version of discord-auth-worker.js (from before role-sync diagnostics were added) — redeploy the current discord-auth-worker.js and log in again to get a real reason instead of this message.');
+    }
+    return { token: mintData.token, role: mintData.role };
+  }catch(e){
+    console.warn('[Discord role sync] Discord login threw before it could finish — see the warning above (or, if there is none, the error below) for what actually failed.', e);
+    showDiscordLoginError('Discord login failed. Please try again.');
+    return null;
+  }
+}
+
+function showDiscordLoginError(msg){
+  const el = document.getElementById('discordLoginError');
+  if (el) el.textContent = msg;
+}
+
+function discordAvatarUrl(identity){
+  if (!identity || !identity.avatar) return null;
+  return `https://cdn.discordapp.com/avatars/${identity.id}/${identity.avatar}.png?size=64`;
+}
+
+// Set only right after a FRESH Discord login this page load (the Worker
+// just checked this person's live Discord server roles and handed back
+// its answer — see handleDiscordCallback above) — left undefined for a
+// returning visit that simply resumes an already-logged-in Firebase
+// session without a new Discord round trip. That's what makes
+// ensureDiscordRole below only ever resync a role at actual login time,
+// never demote/promote someone based on a stale or missing answer.
+let freshDiscordRoleClaim;
+
+// Ensures this Discord user has a role entry in the synced state.
+// Returns true if state.discordRoles changed and needs saving.
+//
+// Role logic, in order:
+//  1. Admin is never touched here — once granted (by the one-time
+//     bootstrap below, or later by hand via "Manage access"), it's only
+//     ever changed by hand. The Discord-role sync below only ever
+//     resolves to Officer/Guild Member/Community.
+//  2. The very first login ever (on a brand new setup, before anyone has
+//     a role) becomes Admin, so there's always someone who can use
+//     "Manage access" afterward.
+//  3. Everyone else gets whatever role the Worker just resolved from
+//     their live Discord server roles (freshDiscordRoleClaim) — but only
+//     at the moment they actually logged in. A returning visit that just
+//     resumes an existing session keeps their last-synced role rather
+//     than guessing from nothing.
+function ensureDiscordRole(){
+  if (!discordIdentity) return false;
+  if (!state.discordRoles) state.discordRoles = {};
+  const existing = state.discordRoles[discordIdentity.id];
+
+  if (existing && existing.role === 'admin'){
+    let changed = false;
+    if (existing.username !== discordIdentity.username || existing.avatar !== discordIdentity.avatar){
+      existing.username = discordIdentity.username;
+      existing.avatar = discordIdentity.avatar;
+      changed = true;
+    }
+    currentRole = 'admin';
+    return changed;
+  }
+
+  if (!existing && Object.keys(state.discordRoles).length === 0){
+    state.discordRoles[discordIdentity.id] = { role: 'admin', username: discordIdentity.username, avatar: discordIdentity.avatar };
+    currentRole = 'admin';
+    return true;
+  }
+
+  const resolvedRole = (freshDiscordRoleClaim && ACCESS_ROLES[freshDiscordRoleClaim])
+    ? freshDiscordRoleClaim
+    : (existing ? existing.role : 'community');
+  const changed = !existing || existing.role !== resolvedRole
+    || existing.username !== discordIdentity.username || existing.avatar !== discordIdentity.avatar;
+  // Object.assign (not a fresh object literal) on top of `existing` —
+  // this entry can carry extra per-user settings beyond role/username/
+  // avatar now (notifyOnApplications, see "Manage access" below), and a
+  // plain overwrite here would silently wipe that setting back to unset
+  // on this person's very next login.
+  state.discordRoles[discordIdentity.id] = Object.assign({}, existing, { role: resolvedRole, username: discordIdentity.username, avatar: discordIdentity.avatar });
+  currentRole = resolvedRole;
+  return changed;
+}
+
+async function setDiscordUserRole(discordId, role){
+  if (!state.discordRoles || !state.discordRoles[discordId] || !ACCESS_ROLES[role]) return;
+  state.discordRoles[discordId].role = role;
+  if (discordIdentity && discordIdentity.id === discordId) currentRole = role;
+  renderAll();
+  // Manage access groups members by role — re-render it too (if open) so
+  // someone whose role just changed visibly moves to their new group
+  // instead of staying in the old one until the modal is reopened.
+  if (!els.accessModal.classList.contains('hidden')) renderAccessModal();
+  await saveData('discordRoles/' + discordId);
+}
+
+// "Notify this person about new applications" toggle, shown in Manage
+// access next to each member's role — independent of role (an Admin or
+// Officer can opt out, and in principle anyone could opt in, though the
+// checkbox is only rendered for Officer/Admin rows since only they can
+// see the applications list in the first place).
+async function setDiscordUserNotify(discordId, enabled){
+  if (!state.discordRoles || !state.discordRoles[discordId]) return;
+  state.discordRoles[discordId].notifyOnApplications = !!enabled;
+  await saveData('discordRoles/' + discordId);
+}
+
+function isFirebaseConfigured(){
+  return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY'
+    && FIREBASE_CONFIG.databaseURL && !FIREBASE_CONFIG.databaseURL.includes('YOUR_PROJECT');
+}
+
+function escapeHtml(str){
+  return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Escapes text for safe HTML display, then turns any http(s)/www. URLs
+// in it into real clickable links — used for applicant-submitted text
+// (logs, remarks, experience) where people paste a bare URL and expect
+// to click it rather than having to copy/paste it themselves. Trailing
+// punctuation (a period ending the sentence, a comma, a closing
+// bracket…) is kept outside the link so it doesn't get swallowed into
+// the href.
+function linkifyEscaped(str){
+  const escaped = escapeHtml(str);
+  return escaped.replace(/(https?:\/\/[^\s]+|www\.[^\s]+)/gi, (match) => {
+    let url = match;
+    let trail = '';
+    const trailChars = ['.', ',', '!', '?', ';', ':', ')', ']', '}'];
+    while (url.length && trailChars.includes(url[url.length - 1])){
+      trail = url[url.length - 1] + trail;
+      url = url.slice(0, -1);
+    }
+    if (!url) return match;
+    const href = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>${trail}`;
+  });
+}
+
+function setStatus(text, isError){
+  els.saveStatus.textContent = text;
+  els.saveStatus.style.color = isError ? 'var(--danger-bright)' : 'var(--text-faint)';
+  if (text && !isError){
+    setTimeout(() => { if (els.saveStatus.textContent === text) els.saveStatus.textContent = ''; }, 1800);
+  }
+}
+
+// ---------------------------------------------------------------------
+// WoW Forever class survey — classes/roles, state shape, and rendering.
+// WoW Forever (announced BlizzCon 2026, launches Nov 4 2026) has no
+// published class/role system yet since it hasn't shipped. This maps
+// classes to roles based on classic WoW conventions, adjusted per guild
+// feedback (e.g. Paladin can also tank here). Easy to adjust further
+// once Blizzard confirms the real system.
+// ---------------------------------------------------------------------
+const CLASSES = [
+  { id: 'warrior', label: 'Warrior', color: '#C79C6E' },
+  { id: 'paladin', label: 'Paladin', color: '#F58CBA' },
+  { id: 'hunter', label: 'Hunter', color: '#ABD473' },
+  { id: 'rogue', label: 'Rogue', color: '#FFF569' },
+  { id: 'priest', label: 'Priest', color: '#FFFFFF' },
+  { id: 'shaman', label: 'Shaman', color: '#2E9DF4' },
+  { id: 'mage', label: 'Mage', color: '#69CCF0' },
+  { id: 'warlock', label: 'Warlock', color: '#9482C9' },
+  { id: 'druid', label: 'Druid', color: '#FF7D0A' }
+];
+const CLASS_MAP = Object.fromEntries(CLASSES.map(c => [c.id, c]));
+
+// WoW Classic professions (primary + secondary), German labels, for the
+// Bewerbung form's profession checkboxes. `primary` is just used to group
+// them visually in two rows — every profession here is independently
+// checkable (Classic's "max 2 primary professions" rule isn't enforced
+// here; an applicant might list more than they'll actually keep, or be
+// undecided yet).
+const PROFESSIONS = [
+  { id: 'alchemy', label: 'Alchemie', primary: true },
+  { id: 'blacksmithing', label: 'Schmiedekunst', primary: true },
+  { id: 'enchanting', label: 'Verzauberkunst', primary: true },
+  { id: 'engineering', label: 'Ingenieurskunst', primary: true },
+  { id: 'herbalism', label: 'Kräuterkunde', primary: true },
+  { id: 'leatherworking', label: 'Lederverarbeitung', primary: true },
+  { id: 'mining', label: 'Bergbau', primary: true },
+  { id: 'skinning', label: 'Kürschnerei', primary: true },
+  { id: 'tailoring', label: 'Schneiderei', primary: true },
+  { id: 'first_aid', label: 'Erste Hilfe', primary: false },
+  { id: 'cooking', label: 'Kochkunst', primary: false },
+  { id: 'fishing', label: 'Angeln', primary: false }
+];
+const PROFESSION_MAP = Object.fromEntries(PROFESSIONS.map(p => [p.id, p]));
+
+// ---------------------------------------------------------------------
+// "Meine Charaktere" — nickname + character list per member, optionally
+// enriched with live data from Blizzard's Armory (class/level/item
+// level) via the Worker's /armory-character endpoint. Guild's active
+// characters are on TBC Anniversary realms, so the realm slug defaults
+// to the guild's own realm — members with an alt elsewhere can just
+// change it.
+// ---------------------------------------------------------------------
+const DEFAULT_REALM_SLUG = 'spineshatter';
+const CHARACTER_PROFILE_MAX_CHARACTERS = 6;
+// Mirrors the Worker's BATTLENET_CLASS_ID_TO_KEY — lets fetched Armory
+// data reuse the same CLASS_MAP colors/labels the rest of the page uses.
+const ARMORY_CACHE_MS = 5 * 60 * 1000; // avoid re-hitting the Worker on every render
+let armoryCache = {}; // 'realmSlug|name' -> { fetchedAt, result } — session-only, never persisted
+// Same cache-key/session-only pattern as armoryCache above, but kept as
+// its own object since WarcraftLogs is a separate Worker endpoint with
+// its own independent loading/error state (a member's Armory data can
+// load fine while WarcraftLogs is unconfigured, or vice versa).
+const WCL_CACHE_MS = ARMORY_CACHE_MS;
+let wclCache = {}; // 'realmSlug|name' -> { fetchedAt, result } — session-only, never persisted
+
+function characterProfileCacheKey(realmSlug, name){
+  return (realmSlug || '').toLowerCase() + '|' + (name || '').toLowerCase();
+}
+
+// Real WoW Classic talent specializations. Spec ids are only ever looked
+// up scoped to their own class (via foreverSpecsForClass /
+// foreverSpecLabel) — several classes reuse the same id (e.g. 'holy' for
+// both Paladin and Priest, 'protection' for Warrior and Paladin,
+// 'restoration' for Shaman and Druid), so there is deliberately no single
+// global spec map. Each spec also carries a `role` ('tank' | 'healer' |
+// 'damage') per classic WoW convention, used only for bar/legend
+// coloring in the guild overview below — Druid is the one class with 4
+// entries instead of 3: Feral splits into "Feral Combat" (Cat DPS,
+// damage) and "Feral Tank" (Bear, tank) as two separate, independently
+// votable specs.
+const FOREVER_SPECS = {
+  warrior: [{ id: 'arms', label: 'Arms', role: 'damage' }, { id: 'fury', label: 'Fury', role: 'damage' }, { id: 'protection', label: 'Protection', role: 'tank' }],
+  paladin: [{ id: 'holy', label: 'Holy', role: 'healer' }, { id: 'protection', label: 'Protection', role: 'tank' }, { id: 'retribution', label: 'Retribution', role: 'damage' }],
+  hunter: [{ id: 'beast_mastery', label: 'Beast Mastery', role: 'damage' }, { id: 'marksmanship', label: 'Marksmanship', role: 'damage' }, { id: 'survival', label: 'Survival', role: 'damage' }],
+  rogue: [{ id: 'assassination', label: 'Assassination', role: 'damage' }, { id: 'combat', label: 'Combat', role: 'damage' }, { id: 'subtlety', label: 'Subtlety', role: 'damage' }],
+  priest: [{ id: 'discipline', label: 'Discipline', role: 'healer' }, { id: 'holy', label: 'Holy', role: 'healer' }, { id: 'shadow', label: 'Shadow', role: 'damage' }],
+  shaman: [{ id: 'elemental', label: 'Elemental', role: 'damage' }, { id: 'enhancement', label: 'Enhancement', role: 'damage' }, { id: 'restoration', label: 'Restoration', role: 'healer' }],
+  mage: [{ id: 'arcane', label: 'Arcane', role: 'damage' }, { id: 'fire', label: 'Fire', role: 'damage' }, { id: 'frost', label: 'Frost', role: 'damage' }],
+  warlock: [{ id: 'affliction', label: 'Affliction', role: 'damage' }, { id: 'demonology', label: 'Demonology', role: 'damage' }, { id: 'destruction', label: 'Destruction', role: 'damage' }],
+  druid: [{ id: 'balance', label: 'Balance', role: 'damage' }, { id: 'feral', label: 'Feral Combat', role: 'damage' }, { id: 'feral_tank', label: 'Feral Tank', role: 'tank' }, { id: 'restoration', label: 'Restoration', role: 'healer' }]
+};
+const FOREVER_MAX_PICKS = 2;
+// Tank = Blau, Healer = Grün, Damage = Gelb — used for both the overview
+// bars and the legend above them.
+const FOREVER_ROLE_COLORS = { tank: '#4da6ff', healer: '#3fcf6e', damage: '#f0cf6b' };
+const FOREVER_ROLE_LABELS = { tank: 'Tank', healer: 'Healer', damage: 'Damage' };
+
+function foreverSpecsForClass(classId){
+  return FOREVER_SPECS[classId] || [];
+}
+function foreverSpecLabel(classId, specId){
+  const found = foreverSpecsForClass(classId).find(s => s.id === specId);
+  return found ? found.label : specId;
+}
+function foreverSpecRole(classId, specId){
+  const found = foreverSpecsForClass(classId).find(s => s.id === specId);
+  return found ? found.role : 'damage';
+}
+// Reuses the Talent Builder's own TALENT_DATA (class/tree icon names,
+// same Wowhead CDN via talentIconUrl — see that section's own comment)
+// instead of hand-listing icons a second time, so the class/spec survey
+// overview always matches whatever the Talent Builder already shows.
+// TALENT_DATA is keyed by the class's display name ("Warrior", …),
+// which is exactly CLASS_MAP[id].label, and each class's `trees` array
+// is keyed by the spec's display name — which matches FOREVER_SPECS'
+// own labels for every spec except Druid's "Feral Tank": that's a
+// survey-only split of Classic's single "Feral Combat" tree into its
+// two voteable roles (Cat DPS / Bear tank), so it has no talent tree of
+// its own and falls back to looking up the "Feral Combat" tree instead
+// (FOREVER_SPEC_ICON_LABEL_OVERRIDE below) — fine for the tank half,
+// since that tree's own TALENT_DATA icon (ability_racial_bearform) IS a
+// bear icon, but wrong for the DPS/Cat half, which gets its own direct
+// icon override instead (FOREVER_SPEC_ICON_NAME_OVERRIDE) rather than
+// inheriting the bear one. 'large' (not Talent Builder's 'medium') is
+// used here since these render much bigger than a talent grid square.
+const FOREVER_SPEC_ICON_LABEL_OVERRIDE = { druid: { feral_tank: 'Feral Combat' } };
+const FOREVER_SPEC_ICON_NAME_OVERRIDE = { druid: { feral: 'ability_druid_catform' } };
+function foreverClassIconUrl(classId){
+  const cls = CLASS_MAP[classId];
+  const data = cls && TALENT_DATA[cls.label];
+  return data ? talentIconUrl(data.icon, 'large') : null;
+}
+function foreverSpecIconUrl(classId, specId){
+  const nameOverride = (FOREVER_SPEC_ICON_NAME_OVERRIDE[classId] || {})[specId];
+  if (nameOverride) return talentIconUrl(nameOverride, 'large');
+  const cls = CLASS_MAP[classId];
+  const data = cls && TALENT_DATA[cls.label];
+  if (!data) return null;
+  const overrideLabel = (FOREVER_SPEC_ICON_LABEL_OVERRIDE[classId] || {})[specId];
+  const lookupLabel = overrideLabel || foreverSpecLabel(classId, specId);
+  const tree = data.trees.find(t => t.name === lookupLabel);
+  return tree ? talentIconUrl(tree.icon, 'large') : null;
+}
+
+// Defensive coercion for one user's survey entry — re-validates every
+// field on every load (Firebase drops empty arrays, and a class/spec
+// pairing that was valid once could become stale if this map changes).
+function foreverPickKey(p){
+  return p ? p.classId + '|' + p.spec : '';
+}
+function normalizeForeverEntry(entry){
+  const username = (entry && typeof entry.username === 'string') ? entry.username : '';
+  const rawPicks = (entry && Array.isArray(entry.picks)) ? entry.picks : [];
+  // Each pick is one CHARACTER, not one spec — the same class is allowed
+  // twice (up to FOREVER_MAX_PICKS total, across any mix of classes),
+  // and the two characters' specs are chosen completely independently.
+  // That includes the same class+spec twice (e.g. two Frost Mage
+  // characters) — that's a legitimate "I'm leveling two of the same
+  // build" answer, not a duplicate to collapse. No content-based dedup
+  // here; picks are only ever distinguished by their array position.
+  const picks = [];
+  for (const p of rawPicks){
+    if (picks.length >= FOREVER_MAX_PICKS) break;
+    if (!p || typeof p.classId !== 'string' || !CLASS_MAP[p.classId]) continue;
+    const validSpecIds = foreverSpecsForClass(p.classId).map(s => s.id);
+    if (!validSpecIds.length) continue;
+    const spec = (typeof p.spec === 'string' && validSpecIds.includes(p.spec)) ? p.spec : validSpecIds[0];
+    picks.push({ classId: p.classId, spec });
+  }
+  // "First Char" — which of this member's picks they intend to level to
+  // max first. Falls back to the only pick when there's just one (an
+  // unambiguous "first" already), otherwise to the first pick in list
+  // order if nothing valid was stored — a member with picks always has
+  // *some* answer here, even before this feature existed.
+  let firstPick = (entry && entry.firstPick && typeof entry.firstPick.classId === 'string' && typeof entry.firstPick.spec === 'string')
+    ? { classId: entry.firstPick.classId, spec: entry.firstPick.spec }
+    : null;
+  if (!picks.length){
+    firstPick = null;
+  } else if (!firstPick || !picks.some(p => foreverPickKey(p) === foreverPickKey(firstPick))){
+    firstPick = { classId: picks[0].classId, spec: picks[0].spec };
+  }
+  return { username, picks, firstPick };
+}
+
+function defaultState(){
+  return { discordRoles: {}, foreverSurvey: {}, votingStatus: {}, announcements: {}, polls: {}, applications: {}, recruitingNeeds: {}, characterProfiles: {}, seenState: {} };
+}
+
+// A character needs at least a name to be worth keeping; realmSlug falls
+// back to the guild's own realm (the overwhelmingly common case) rather
+// than being dropped, and ids are (re)generated if missing so existing
+// rows always have something stable to key a DOM/click-handler off of.
+let characterProfileIdCounter = 0;
+function nextCharacterProfileId(){
+  characterProfileIdCounter += 1;
+  return 'char' + Date.now().toString(36) + characterProfileIdCounter;
+}
+function normalizeCharacterProfile(entry){
+  if (!entry || typeof entry !== 'object') return { nickname: '', characters: [] };
+  const rawChars = Array.isArray(entry.characters) ? entry.characters : [];
+  const characters = [];
+  let mainAssigned = false;
+  for (const c of rawChars){
+    if (characters.length >= CHARACTER_PROFILE_MAX_CHARACTERS) break;
+    if (!c || typeof c.name !== 'string' || !c.name.trim()) continue;
+    const isMain = !!c.isMain && !mainAssigned;
+    if (isMain) mainAssigned = true;
+    characters.push({
+      id: (typeof c.id === 'string' && c.id) ? c.id : nextCharacterProfileId(),
+      name: c.name.trim().slice(0, 24),
+      realmSlug: (typeof c.realmSlug === 'string' && c.realmSlug.trim()) ? c.realmSlug.trim().toLowerCase().slice(0, 40) : DEFAULT_REALM_SLUG,
+      isMain
+    });
+  }
+  // If nothing was explicitly marked Main, the first character quietly
+  // becomes it — there's always an unambiguous "main" to show elsewhere
+  // (Manage access, Bewerbungen) once at least one character exists.
+  if (!mainAssigned && characters.length) characters[0].isMain = true;
+  return {
+    nickname: (typeof entry.nickname === 'string') ? entry.nickname.trim().slice(0, 30) : '',
+    characters
+  };
+}
+function mainCharacterOf(profile){
+  if (!profile || !Array.isArray(profile.characters)) return null;
+  return profile.characters.find(c => c.isMain) || profile.characters[0] || null;
+}
+
+// Shared "how do we display this member" helper — nickname (if they've
+// set one under "User Settings" (formerly "Meine Charaktere verwalten") with the Discord username
+// alongside in parentheses, otherwise just the Discord username. Used
+// everywhere a member shows up by name to Admins/Offiziere (Manage
+// access, the class/spec voting details, the per-member voting table)
+// so it's consistent across the whole page.
+function memberDisplayLabel(uid, username){
+  const fallback = username || 'Unbekannt';
+  const profile = uid ? (state.characterProfiles || {})[uid] : null;
+  return (profile && profile.nickname) ? `${profile.nickname} (${fallback})` : fallback;
+}
+
+// Shared rich-text sanitizer. Used by Announcements and by Class Deep
+// Dives (summary + per-update text), which both let Offis paste in
+// formatted content and store a small allow-listed subset of HTML
+// instead of plain text, never raw attacker-controlled markup. Tables are
+// included because Blizzard's own class deep dives are usually laid out
+// as tables, and losing that structure on paste was the whole complaint
+// that led to this. This sanitizer re-runs on every load (not just at
+// save time) as defense in depth against anything written directly to
+// Firebase, bypassing the app's own editor.
+const ANNOUNCE_ALLOWED_TAGS = new Set([
+  'H1', 'H2', 'H3', 'B', 'STRONG', 'I', 'EM', 'U', 'BR', 'HR', 'DIV', 'P', 'UL', 'OL', 'LI', 'FONT', 'SPAN',
+  'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH'
+]);
+// Attributes allowed on specific tags, beyond the FONT "size" exception
+// below — table cells need colspan/rowspan to survive a pasted table.
+const ANNOUNCE_ALLOWED_ATTRS = { TD: new Set(['colspan', 'rowspan']), TH: new Set(['colspan', 'rowspan']) };
+function sanitizeRichText(html){
+  const container = document.createElement('div');
+  container.innerHTML = String(html ?? '');
+  (function clean(node){
+    Array.from(node.childNodes).forEach(child => {
+      if (child.nodeType === 3) return; // plain text — always fine
+      if (child.nodeType !== 1){ node.removeChild(child); return; }
+      if (!ANNOUNCE_ALLOWED_TAGS.has(child.tagName)){
+        // Drop script/style entirely (content included); unwrap anything
+        // else so the text survives even if the wrapping tag doesn't.
+        if (child.tagName === 'SCRIPT' || child.tagName === 'STYLE'){
+          node.removeChild(child);
+          return;
+        }
+        while (child.firstChild) node.insertBefore(child.firstChild, child);
+        node.removeChild(child);
+        return;
+      }
+      const allowedAttrs = ANNOUNCE_ALLOWED_ATTRS[child.tagName];
+      Array.from(child.attributes).forEach(attr => {
+        if (child.tagName === 'FONT' && attr.name === 'size' && /^[1-7]$/.test(attr.value)) return;
+        if (allowedAttrs && allowedAttrs.has(attr.name.toLowerCase()) && /^\d{1,2}$/.test(attr.value)) return;
+        child.removeAttribute(attr.name);
+      });
+      clean(child);
+    });
+  })(container);
+  return container.innerHTML;
+}
+function stripHtmlToText(html){
+  const container = document.createElement('div');
+  container.innerHTML = String(html ?? '');
+  return container.textContent || '';
+}
+function looksLikeHtml(str){
+  return /<\/?[a-z][\s\S]*>/i.test(str);
+}
+// Announcements saved before this feature existed are plain text — keep
+// showing those correctly by wrapping them into a paragraph instead of
+// losing their line breaks.
+function legacyPlainTextToHtml(str){
+  return '<p>' + escapeHtml(str).replace(/\n/g, '<br>') + '</p>';
+}
+
+function normalizeAnnouncement(a){
+  if (!a || typeof a.text !== 'string' || !a.text.trim()) return null;
+  const html = looksLikeHtml(a.text) ? sanitizeRichText(a.text) : legacyPlainTextToHtml(a.text);
+  if (!stripHtmlToText(html).trim()) return null;
+  // Title is plain text (shown escaped, never as HTML) — optional, since
+  // announcements posted before this feature existed have none; those
+  // fall back to a snippet of the body when rendered.
+  const title = (typeof a.title === 'string') ? a.title.trim().slice(0, 120) : '';
+  return {
+    text: html,
+    title,
+    authorName: (typeof a.authorName === 'string' && a.authorName) ? a.authorName : 'Unbekannt',
+    authorId: typeof a.authorId === 'string' ? a.authorId : '',
+    createdAt: (typeof a.createdAt === 'number' && a.createdAt > 0) ? a.createdAt : 0,
+    editedAt: (typeof a.editedAt === 'number' && a.editedAt > 0) ? a.editedAt : 0
+  };
+}
+
+// ---------------------------------------------------------------------
+// Custom polls — a generic tool for Admins/Officers to build their own
+// votings (title + arbitrary options + single/multiple choice + a
+// duration + visibility/anonymity settings). Deliberately separate from
+// the hard-coded WoW Forever class/spec survey above, which stays a
+// one-off, code-defined thing.
+// ---------------------------------------------------------------------
+const POLL_MIN_OPTIONS = 2;
+const POLL_MAX_OPTIONS = 10;
+const POLL_MIN_DURATION_DAYS = 1;
+const POLL_MAX_DURATION_DAYS = 90;
+const POLL_DAY_MS = 24 * 60 * 60 * 1000;
+
+// Defensive coercion for one poll — re-validates every field on every
+// load, same reasoning as normalizeAnnouncement/normalizeForeverEntry.
+function normalizePoll(p){
+  if (!p || typeof p.title !== 'string' || !p.title.trim()) return null;
+  const title = p.title.trim().slice(0, 150);
+
+  const rawOptions = Array.isArray(p.options) ? p.options : [];
+  const seenIds = new Set();
+  const options = [];
+  for (const o of rawOptions){
+    if (!o || typeof o.id !== 'string' || !o.id || typeof o.label !== 'string' || !o.label.trim()) continue;
+    if (seenIds.has(o.id)) continue;
+    seenIds.add(o.id);
+    options.push({ id: o.id, label: o.label.trim().slice(0, 80) });
+    if (options.length >= POLL_MAX_OPTIONS) break;
+  }
+  if (options.length < POLL_MIN_OPTIONS) return null;
+  const validOptionIds = new Set(options.map(o => o.id));
+
+  const multipleChoice = !!p.multipleChoice;
+  const resultsVisible = p.resultsVisible !== false; // default true
+  const anonymous = !!p.anonymous;
+  let durationDays = Number(p.durationDays);
+  if (!Number.isFinite(durationDays) || durationDays < POLL_MIN_DURATION_DAYS) durationDays = POLL_MIN_DURATION_DAYS;
+  if (durationDays > POLL_MAX_DURATION_DAYS) durationDays = POLL_MAX_DURATION_DAYS;
+  const createdAt = (typeof p.createdAt === 'number' && p.createdAt > 0) ? p.createdAt : 0;
+  const expiresAt = (typeof p.expiresAt === 'number' && p.expiresAt > 0) ? p.expiresAt : (createdAt ? createdAt + durationDays * POLL_DAY_MS : 0);
+
+  const rawVotes = (p.votes && typeof p.votes === 'object') ? p.votes : {};
+  const votes = {};
+  for (const uid of Object.keys(rawVotes)){
+    const v = rawVotes[uid];
+    if (!v) continue;
+    const rawChoices = Array.isArray(v.choices) ? v.choices : [];
+    let choices = rawChoices.filter(c => typeof c === 'string' && validOptionIds.has(c));
+    choices = Array.from(new Set(choices));
+    if (!multipleChoice) choices = choices.slice(0, 1);
+    if (!choices.length) continue;
+    votes[uid] = {
+      username: (typeof v.username === 'string' && v.username) ? v.username : 'Unbekannt',
+      choices
+    };
+  }
+
+  return {
+    title, options, multipleChoice, resultsVisible, anonymous, durationDays, createdAt, expiresAt,
+    closed: !!p.closed,
+    createdByName: (typeof p.createdByName === 'string' && p.createdByName) ? p.createdByName : 'Unbekannt',
+    createdById: typeof p.createdById === 'string' ? p.createdById : '',
+    votes
+  };
+}
+
+// Classic/TBC/SoD professions cap out at 375 skill (not Retail's much
+// higher caps), so that's the ceiling for a profession "level" answer —
+// shared between the chat form's own input validation and the
+// normalizer that re-validates whatever actually got saved.
+const PROFESSION_MAX_LEVEL = 375;
+// Applicants can be logging their characters on any of Warcraft Logs'
+// separate sites (Classic Era "vanilla", Season of Discovery "sod",
+// Classic Progression/Anniversary "classic" or "fresh", or plain
+// retail), each under its own subdomain, with a locale prefix in front
+// of that for non-English UIs (e.g. de.fresh.warcraftlogs.com) — so
+// this only pins the domain itself (warcraftlogs.com) and otherwise
+// accepts any subdomain chain in front of it, rather than guessing at
+// which specific game-version subdomains exist today.
+const WARCRAFTLOGS_URL_RE = /^https:\/\/([a-z0-9-]+\.)*warcraftlogs\.com(\/|$)/i;
+
+// ---------------------------------------------------------------------
+// Recruiting — member-submitted applications, plus an Admin/Officer-
+// editable "which classes/specs are we currently looking for" list that
+// the Home page teaser and this page's overview both read from.
+//
+// The application form used to be one flat page (normalizeApplicationV1
+// below); it's since been rebuilt as a chat-bot-style Q&A flow with a
+// different, richer set of fields (normalizeApplicationV2). Both
+// normalizers stay around and normalizeApplication() dispatches between
+// them by the entry's `version` field, so any application submitted
+// through the old form before this change keeps loading and displaying
+// correctly — nothing already in Firebase needs migrating.
+// ---------------------------------------------------------------------
+// Review status is independent of the form version (v1 and v2
+// applications are flagged the exact same way), so it's applied here in
+// the dispatcher rather than duplicated inside each normalizer.
+// How long an applicant has to wait (since applying, or since their last
+// reminder) before they're allowed to nudge the recruiting team again —
+// see sendApplicationReminder() / recruitApplyGateState().
+const APPLICATION_REMINDER_COOLDOWN_DAYS = 14;
+const APPLICATION_STATUSES = {
+  open:      { label: 'Offen' },
+  claimed:   { label: 'Wird bearbeitet' },
+  interview: { label: 'Gespräch geplant' },
+  candidate: { label: 'Potenzieller Kandidat' },
+  accepted:  { label: 'Angenommen' },
+  rejected:  { label: 'Abgelehnt' }
+};
+function normalizeApplicationStatusFields(entry){
+  const status = (entry && APPLICATION_STATUSES[entry.status]) ? entry.status : 'open';
+  const claimedBy = (entry && typeof entry.claimedBy === 'string') ? entry.claimedBy : '';
+  const claimedByName = (entry && typeof entry.claimedByName === 'string') ? entry.claimedByName.slice(0, 80) : '';
+  const interviewAt = (entry && typeof entry.interviewAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(entry.interviewAt)) ? entry.interviewAt : '';
+  // lastReminderAt gates the applicant's own "Erinnerung senden" button
+  // (see APPLICATION_REMINDER_COOLDOWN_DAYS) — starts unset, so the
+  // cooldown is measured from createdAt until the first reminder is sent.
+  const lastReminderAt = (entry && typeof entry.lastReminderAt === 'number' && entry.lastReminderAt > 0) ? entry.lastReminderAt : 0;
+  // Stamped only by the Worker's /notify-application (see
+  // sendDiscordNotification) — notifiedAt when the "new application" DM
+  // went out, reminderSentAt for the last reminder DM. Kept here so an
+  // Officer saving the whole record (status change, notes, …) doesn't
+  // wipe them; reminderSentAt is what the Worker's cooldown trusts.
+  const notifiedAt = (entry && typeof entry.notifiedAt === 'number' && entry.notifiedAt > 0) ? entry.notifiedAt : 0;
+  const reminderSentAt = (entry && typeof entry.reminderSentAt === 'number' && entry.reminderSentAt > 0) ? entry.reminderSentAt : 0;
+  // Recruiting-team-only notes — never shown to the applicant, see the
+  // "Notizen" textarea in the officer card and applyAccessControl().
+  const notes = (entry && typeof entry.notes === 'string') ? entry.notes.slice(0, 2000) : '';
+  return { status, claimedBy, claimedByName, interviewAt, lastReminderAt: Math.max(lastReminderAt, reminderSentAt), notifiedAt, reminderSentAt, notes };
+}
+function normalizeApplication(entry){
+  if (!entry || typeof entry !== 'object') return null;
+  const base = entry.version === 2 ? normalizeApplicationV2(entry) : normalizeApplicationV1(entry);
+  if (!base) return null;
+  return Object.assign(base, normalizeApplicationStatusFields(entry));
+}
+function normalizeApplicationV1(entry){
+  if (!entry || typeof entry !== 'object') return null;
+  // Applications can list more than one class (an applicant's main plus
+  // an alt, say) — `picks` is an array of { classId, specs }. Older
+  // applications saved before this existed only ever had a single
+  // top-level classId/specs pair; treat that as a one-item picks list so
+  // applications submitted before this change keep displaying correctly.
+  const rawPicks = Array.isArray(entry.picks)
+    ? entry.picks
+    : (typeof entry.classId === 'string' ? [{ classId: entry.classId, specs: entry.specs }] : []);
+  const seenClassIds = new Set();
+  const picks = [];
+  for (const p of rawPicks){
+    if (!p || typeof p.classId !== 'string' || !CLASS_MAP[p.classId]) continue;
+    if (seenClassIds.has(p.classId)) continue; // no duplicate class rows
+    const validSpecIds = foreverSpecsForClass(p.classId).map(s => s.id);
+    const rawSpecs = Array.isArray(p.specs) ? p.specs : [];
+    const specs = Array.from(new Set(rawSpecs.filter(s => typeof s === 'string' && validSpecIds.includes(s))));
+    if (!specs.length) continue;
+    seenClassIds.add(p.classId);
+    picks.push({ classId: p.classId, specs });
+  }
+  const experience = typeof entry.experience === 'string' ? entry.experience.trim().slice(0, 1500) : '';
+  // Professions used to be a free-text field; now it's a checkbox list of
+  // known PROFESSIONS ids. Keep both shapes readable: a legacy string
+  // (already-submitted real applications) is kept as-is and shown
+  // verbatim, while an array is filtered/deduped against the known
+  // profession ids so a tampered/stale client can't smuggle junk in.
+  let professions;
+  if (Array.isArray(entry.professions)){
+    professions = Array.from(new Set(entry.professions.filter(p => typeof p === 'string' && PROFESSION_MAP[p])));
+  } else if (typeof entry.professions === 'string' && entry.professions.trim()){
+    professions = entry.professions.trim().slice(0, 200); // legacy free-text
+  } else {
+    professions = [];
+  }
+  const hasProfessions = Array.isArray(professions) ? professions.length > 0 : !!professions;
+  // At least one class+spec pick, experience and professions are the
+  // required questions (marked with * on the form) — anything missing
+  // one of these is treated as not a real application.
+  if (!picks.length || !experience || !hasProfessions) return null;
+  const nameAge = typeof entry.nameAge === 'string' ? entry.nameAge.trim().slice(0, 200) : '';
+  const logs = typeof entry.logs === 'string' ? entry.logs.trim().slice(0, 800) : '';
+  const remarks = typeof entry.remarks === 'string' ? entry.remarks.trim().slice(0, 1000) : '';
+  return {
+    picks, experience, professions, nameAge, logs, remarks,
+    applicantName: (typeof entry.applicantName === 'string' && entry.applicantName) ? entry.applicantName.slice(0, 80) : 'Unbekannt',
+    applicantId: typeof entry.applicantId === 'string' ? entry.applicantId : '',
+    createdAt: (typeof entry.createdAt === 'number' && entry.createdAt > 0) ? entry.createdAt : 0
+  };
+}
+// The current chat-bot form's shape — see APPLY_CHAT_STEPS further down
+// for where each field is collected. firstName, age, picks (1–2 classes)
+// and characters (one name per picked class) are the required
+// questions; everything else is optional and defaults to "nothing
+// given" rather than failing the whole application.
+function normalizeApplicationV2(entry){
+  if (!entry || typeof entry !== 'object') return null;
+  const firstName = typeof entry.firstName === 'string' ? entry.firstName.trim().slice(0, 60) : '';
+  const age = (typeof entry.age === 'number' && entry.age >= 12 && entry.age <= 99) ? entry.age : null;
+
+  const seenClassIds = new Set();
+  const picks = [];
+  for (const p of (Array.isArray(entry.picks) ? entry.picks : [])){
+    if (picks.length >= 2) break;
+    if (!p || typeof p.classId !== 'string' || !CLASS_MAP[p.classId] || seenClassIds.has(p.classId)) continue;
+    const validSpecIds = foreverSpecsForClass(p.classId).map(s => s.id);
+    const specs = Array.from(new Set((Array.isArray(p.specs) ? p.specs : []).filter(s => typeof s === 'string' && validSpecIds.includes(s))));
+    if (!specs.length) continue;
+    seenClassIds.add(p.classId);
+    picks.push({ classId: p.classId, specs });
+  }
+
+  const rawCharacters = (entry.characters && typeof entry.characters === 'object') ? entry.characters : {};
+  const characters = {};
+  picks.forEach(p => {
+    const name = typeof rawCharacters[p.classId] === 'string' ? rawCharacters[p.classId].trim().slice(0, 24) : '';
+    if (name) characters[p.classId] = name;
+  });
+
+  if (!firstName || !age || !picks.length || Object.keys(characters).length !== picks.length) return null;
+
+  const normProfList = (list) => Array.from(
+    new Map(
+      (Array.isArray(list) ? list : [])
+        .filter(x => x && typeof x.professionId === 'string' && PROFESSION_MAP[x.professionId]
+          && (x.level === 'max' || (typeof x.level === 'number' && x.level >= 1 && x.level <= PROFESSION_MAX_LEVEL)))
+        .map(x => [x.professionId, { professionId: x.professionId, level: x.level }])
+    ).values()
+  );
+  const rawCharProf = (entry.charProfessions && typeof entry.charProfessions === 'object') ? entry.charProfessions : {};
+  const charProfessions = {};
+  picks.forEach(p => { charProfessions[p.classId] = normProfList(rawCharProf[p.classId]).slice(0, 2); });
+  const extraProfessions = normProfList(entry.extraProfessions).filter(x => !PROFESSION_MAP[x.professionId].primary);
+
+  const nickname = typeof entry.nickname === 'string' ? entry.nickname.trim().slice(0, 30) : '';
+
+  // Logs are per-character (entry.charLogs: {classId: url}) since an
+  // applicant with 2 classes needs to give logs for each. Applications
+  // submitted before this (a single entry.logsUrl string, not attributed
+  // to any particular class) are migrated here rather than dropped —
+  // the one link is attributed to the first applied class so it still
+  // shows up somewhere on the card.
+  const rawCharLogs = (entry.charLogs && typeof entry.charLogs === 'object') ? entry.charLogs : null;
+  const charLogs = {};
+  if (rawCharLogs){
+    picks.forEach(p => {
+      const v = typeof rawCharLogs[p.classId] === 'string' ? rawCharLogs[p.classId].trim().slice(0, 300) : '';
+      if (v && WARCRAFTLOGS_URL_RE.test(v)) charLogs[p.classId] = v;
+    });
+  } else if (typeof entry.logsUrl === 'string' && entry.logsUrl && WARCRAFTLOGS_URL_RE.test(entry.logsUrl) && picks.length){
+    charLogs[picks[0].classId] = entry.logsUrl.trim().slice(0, 300);
+  }
+
+  const remarks = typeof entry.remarks === 'string' ? entry.remarks.trim().slice(0, 1000) : '';
+
+  return {
+    version: 2,
+    firstName, nickname, age, picks, characters, charProfessions, extraProfessions, charLogs, remarks,
+    applicantName: (typeof entry.applicantName === 'string' && entry.applicantName) ? entry.applicantName.slice(0, 80) : 'Unbekannt',
+    applicantId: typeof entry.applicantId === 'string' ? entry.applicantId : '',
+    createdAt: (typeof entry.createdAt === 'number' && entry.createdAt > 0) ? entry.createdAt : 0
+  };
+}
+function normalizeRecruitingNeeds(raw){
+  const src = (raw && typeof raw === 'object') ? raw : {};
+  const out = {};
+  CLASSES.forEach(c => {
+    const validSpecIds = foreverSpecsForClass(c.id).map(s => s.id);
+    const specs = Array.isArray(src[c.id]) ? Array.from(new Set(src[c.id].filter(s => validSpecIds.includes(s)))) : [];
+    if (specs.length) out[c.id] = specs;
+  });
+  return out;
+}
+// ---------------------------------------------------------------------
+// Class Deep Dives — one card per class: Blizzard's own class deep-dive
+// write-up (pasted in and kept current by Officers/Admins) plus a dated
+// "Patch-Updates" history of what's actually changed for that class over
+// WoW Forever's run, so members can see both the current state and how
+// it got there. Gated to Member+ (same as Ankündigungen) — see
+// renderClassDeepDivesView.
+// ---------------------------------------------------------------------
+// Like announcements, the Deep Dive summary and each Patch-Update entry
+// store a small allow-listed subset of formatted HTML (headings, bold,
+// lists, and — unlike announcements — tables, since Blizzard's own class
+// deep dives are usually laid out as tables) rather than plain text, so
+// pasting a formatted deep dive in keeps its structure instead of
+// collapsing into one unformatted wall of text. Entries saved before this
+// existed are plain text and get wrapped into a paragraph instead.
+function normalizeClassDeepDiveUpdate(raw){
+  if (!raw || typeof raw !== 'object' || typeof raw.text !== 'string' || !raw.text.trim()) return null;
+  const html = looksLikeHtml(raw.text) ? sanitizeRichText(raw.text) : legacyPlainTextToHtml(raw.text);
+  if (!stripHtmlToText(html).trim()) return null;
+  return {
+    id: (typeof raw.id === 'string' && raw.id) ? raw.id : (Date.now() + '_' + Math.random().toString(36).slice(2, 8)),
+    date: (typeof raw.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.date)) ? raw.date : '',
+    // Optional, forum-post-style title (e.g. "Patch-Notes 2. Oktober") —
+    // same optional/trimmed/length-capped pattern as an Announcement's
+    // title (normalizeAnnouncement). Entries saved before this existed
+    // have none; the render side falls back to a generated title from
+    // the date (see classDiveUpdateTitle()).
+    title: (typeof raw.title === 'string') ? raw.title.trim().slice(0, 120) : '',
+    text: html,
+    createdAt: (typeof raw.createdAt === 'number' && raw.createdAt > 0) ? raw.createdAt : 0
+  };
+}
+function normalizeClassDeepDiveEntry(raw){
+  const src = (raw && typeof raw === 'object') ? raw : {};
+  let summary = '';
+  if (typeof src.summary === 'string' && src.summary.trim()){
+    const html = looksLikeHtml(src.summary) ? sanitizeRichText(src.summary) : legacyPlainTextToHtml(src.summary);
+    if (stripHtmlToText(html).trim()) summary = html;
+  }
+  const summaryUpdatedAt = (typeof src.summaryUpdatedAt === 'number' && src.summaryUpdatedAt > 0) ? src.summaryUpdatedAt : 0;
+  const updates = (Array.isArray(src.updates) ? src.updates : [])
+    .map(normalizeClassDeepDiveUpdate)
+    .filter(Boolean)
+    // Newest first — by date string if both entries have one (so a
+    // backfilled older patch note still sorts correctly even if it was
+    // typed in later), falling back to createdAt otherwise.
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt - a.createdAt));
+  return { summary, summaryUpdatedAt, updates };
+}
+function normalizeClassDeepDives(raw){
+  const src = (raw && typeof raw === 'object') ? raw : {};
+  const out = {};
+  out.general = normalizeClassDeepDiveEntry(src.general);
+  CLASSES.forEach(c => { out[c.id] = normalizeClassDeepDiveEntry(src[c.id]); });
+  return out;
+}
+
+// ---------------------------------------------------------------------
+// Class Deep Dives — two always-expanded cards pinned at the bottom of
+// the page (below the per-class cards): a beta/build Update-Historie
+// table, and a Quellen (sources) link list. Both are plain text/links,
+// not the rich-text editor the summary/updates use above — these are
+// compact table rows and link lists, not prose. Officer/Admin-editable,
+// same read access as the rest of the page.
+// ---------------------------------------------------------------------
+function normalizeClassDiveHistoryEntry(raw){
+  if (!raw || typeof raw !== 'object') return null;
+  const date = (typeof raw.date === 'string') ? raw.date.trim().slice(0, 40) : '';
+  const build = (typeof raw.build === 'string') ? raw.build.trim().slice(0, 20) : '';
+  const text = (typeof raw.text === 'string') ? raw.text.trim().slice(0, 1000) : '';
+  if (!date && !build && !text) return null;
+  return { date, build, text };
+}
+function normalizeClassDiveHistory(raw){
+  const src = (raw && typeof raw === 'object') ? raw : {};
+  const out = {};
+  Object.keys(src).forEach(id => {
+    const e = normalizeClassDiveHistoryEntry(src[id]);
+    if (e) out[id] = e;
+  });
+  return out;
+}
+// Only a real http(s) link is accepted — guards against a javascript:
+// or data: URL ever ending up clickable, same reasoning as everywhere
+// else user-supplied URLs get rendered as a link.
+function normalizeClassDiveSourceEntry(raw){
+  if (!raw || typeof raw !== 'object') return null;
+  const url = (typeof raw.url === 'string') ? raw.url.trim().slice(0, 500) : '';
+  if (!/^https?:\/\//i.test(url)) return null;
+  const label = (typeof raw.label === 'string' && raw.label.trim()) ? raw.label.trim().slice(0, 120) : url;
+  return { label, url };
+}
+function normalizeClassDiveSources(raw){
+  const src = (raw && typeof raw === 'object') ? raw : {};
+  const out = {};
+  Object.keys(src).forEach(id => {
+    const e = normalizeClassDiveSourceEntry(src[id]);
+    if (e) out[id] = e;
+  });
+  return out;
+}
+// The beta build history up to 2026-10-01, backfilled once as fixed seed
+// content (same pattern as the hard-coded NEWS_ITEMS on Home) rather
+// than needing to be retyped through the editor row by row. Not
+// deletable from the UI — only entries added afterward through
+// "Eintrag hinzufügen" (stored in Firebase under classDiveUpdateHistory)
+// get a delete button.
+const CLASSDIVE_HISTORY_SEED = [
+  { date: '16. Sept.', build: '69893', text: 'Build einen Tag vor dem Start, mit vielen Änderungen gegenüber der BlizzCon-Demo. Neue Talente sind Wrack (Hexenmeister) und Flawless Execution (Schurke). Entfernt wurden Vitality, Drain Hope, Restless Blades und Balance of Nature.' },
+  { date: '17. Sept.', build: '–', text: 'Beta-Start mit Levelcap 20' },
+  { date: '18. Sept.', build: '69913', text: 'Kleiner Fix an Launcher, Absturzberichten und Grafikdateien. Die Liste bekannter Probleme wurde erweitert.' },
+  { date: '21. Sept.', build: '–', text: 'Bessere Server-Verbindung für Spieler in der EU' },
+  { date: '22.–23. Sept.', build: '69977', text: 'Mac-Fixes (Anzeige und Stabilität). Gamepad: Charakterauswahl und Quest-Gegenstände funktionieren.' },
+  { date: '24. Sept.', build: '70009', text: 'Erstes großes Update mit Klassen-Balancing, Cooldown Manager, Gamepad-Optionen und Item-Änderungen (Details unten)' },
+  { date: '25. Sept.', build: '–', text: 'Kurzer Server-Neustart mit Stabilitätsfixes' },
+  { date: '27. Sept.', build: '–', text: 'Fehler mit überfüllter Login-Warteschlange behoben' },
+  { date: '28. Sept.', build: '–', text: 'Blizzard geht gegen Goldkäufer und Echtgeldhandel in der Beta vor.' },
+  { date: '29. Sept.', build: '70058', text: 'Gamepad-Fixes: Weltkarte, Aktionsleisten, Tooltips, Bücher und Briefe' },
+  { date: '30. Sept.', build: '70124', text: 'Absturzberichte, Spiel-Loader, ein neues Item-Symbol. Dazu die Ankündigung zur Krieger-Wut.' },
+  { date: '1. Okt.', build: 'neu', text: 'Wartung, danach Levelcap 30. Die Patch Notes folgen.' }
+];
+function sortedApplications(){
+  return Object.keys(state.applications || {})
+    .map(id => Object.assign({ id }, state.applications[id]))
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+// The signed-in person's own most recent application, if they've ever
+// applied — drives the apply-gate (recruitApplyGateState): can't fill
+// out a new one on top of an existing one, win or lose.
+function myLatestApplication(){
+  if (!discordIdentity) return null;
+  const mine = sortedApplications().filter(a => a.applicantId === discordIdentity.id);
+  return mine.length ? mine[0] : null;
+}
+// Which closed (Angenommen/Abgelehnt) applications are currently expanded
+// in the list — purely local UI state (not persisted to Firebase, not
+// per-user), reset on page reload. Closed applications render collapsed
+// by default (see renderApplicationsList) so a long history of finished
+// applications doesn't bury the ones still needing attention.
+const expandedClosedApplications = new Set();
+function toggleApplicationExpanded(id){
+  if (expandedClosedApplications.has(id)) expandedClosedApplications.delete(id);
+  else expandedClosedApplications.add(id);
+  renderApplicationsList();
+}
+// "<Applicant> — <Char1, Char2>" — the collapsed title for a closed
+// application. v1 (legacy) applications never had per-class character
+// names (just a free-text nameAge field), so they collapse to just the
+// applicant's name.
+function applicationCollapsedTitle(a){
+  const chars = (a.version === 2 && Array.isArray(a.picks))
+    ? a.picks.map(p => (a.characters || {})[p.classId]).filter(Boolean).join(', ')
+    : '';
+  return `${a.applicantName || 'Unbekannt'}${chars ? ' — ' + chars : ''}`;
+}
+// Small shared formatter: "Warrior (Protection, Fury)" — used by the
+// Home teaser, the recruiting-page overview, and the officer's
+// applications list, so the wording stays identical everywhere.
+function recruitingNeedsBadges(needs){
+  return CLASSES.filter(c => (needs[c.id] || []).length).map(c => {
+    const specLabels = needs[c.id].map(s => foreverSpecLabel(c.id, s)).filter(Boolean).join(', ');
+    return `<span class="recruit-need-badge" style="--need-color:${c.color}">${escapeHtml(c.label)}${specLabels ? ` <em>${escapeHtml(specLabels)}</em>` : ''}</span>`;
+  }).join('');
+}
+
+function pollIsExpired(poll){
+  return !!(poll.expiresAt && Date.now() >= poll.expiresAt);
+}
+function pollIsClosed(poll){
+  return !!poll.closed || pollIsExpired(poll);
+}
+// Live results are visible to everyone once the poll allows it or has
+// ended; Officers/Admins can always see live results so they can judge
+// when to step in or close it early.
+function pollCanSeeResults(poll){
+  return !!poll.resultsVisible || pollIsClosed(poll) || isOfficerOrAdmin();
+}
+function pollDaysLeftLabel(poll){
+  if (pollIsClosed(poll)) return 'beendet';
+  const msLeft = poll.expiresAt - Date.now();
+  const daysLeft = Math.max(0, Math.ceil(msLeft / POLL_DAY_MS));
+  if (daysLeft <= 0) return 'endet heute';
+  return daysLeft === 1 ? 'noch 1 Tag' : `noch ${daysLeft} Tage`;
+}
+function pollResults(poll){
+  const counts = {};
+  const namesByOption = {};
+  poll.options.forEach(o => { counts[o.id] = 0; namesByOption[o.id] = []; });
+  let voterCount = 0;
+  Object.values(poll.votes).forEach(v => {
+    voterCount++;
+    v.choices.forEach(optId => {
+      if (counts[optId] === undefined) return;
+      counts[optId]++;
+      namesByOption[optId].push(v.username);
+    });
+  });
+  return { counts, namesByOption, voterCount };
+}
+function pollUserChoices(poll){
+  if (!discordIdentity || !poll.votes[discordIdentity.id]) return [];
+  return poll.votes[discordIdentity.id].choices;
+}
+function sortedPolls(){
+  return Object.keys(state.polls || {})
+    .map(id => Object.assign({ id }, state.polls[id]))
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+function normalizeState(parsed){
+  return {
+    discordRoles: (parsed.discordRoles && typeof parsed.discordRoles === 'object') ? parsed.discordRoles : {},
+    foreverSurvey: (() => {
+      const raw = (parsed.foreverSurvey && typeof parsed.foreverSurvey === 'object') ? parsed.foreverSurvey : {};
+      const out = {};
+      for (const uid of Object.keys(raw)) out[uid] = normalizeForeverEntry(raw[uid]);
+      return out;
+    })(),
+    votingStatus: (() => {
+      const raw = (parsed.votingStatus && typeof parsed.votingStatus === 'object') ? parsed.votingStatus : {};
+      const out = {};
+      for (const id of Object.keys(raw)){
+        const v = raw[id];
+        out[id] = { closed: !!(v && v.closed) };
+      }
+      return out;
+    })(),
+    announcements: (() => {
+      const raw = (parsed.announcements && typeof parsed.announcements === 'object') ? parsed.announcements : {};
+      const out = {};
+      for (const id of Object.keys(raw)){
+        const norm = normalizeAnnouncement(raw[id]);
+        if (norm) out[id] = norm;
+      }
+      return out;
+    })(),
+    polls: (() => {
+      const raw = (parsed.polls && typeof parsed.polls === 'object') ? parsed.polls : {};
+      const out = {};
+      for (const id of Object.keys(raw)){
+        const norm = normalizePoll(raw[id]);
+        if (norm) out[id] = norm;
+      }
+      return out;
+    })(),
+    applications: (() => {
+      const raw = (parsed.applications && typeof parsed.applications === 'object') ? parsed.applications : {};
+      const out = {};
+      for (const id of Object.keys(raw)){
+        const norm = normalizeApplication(raw[id]);
+        if (norm) out[id] = norm;
+      }
+      return out;
+    })(),
+    recruitingNeeds: normalizeRecruitingNeeds(parsed.recruitingNeeds),
+    classDeepDives: normalizeClassDeepDives(parsed.classDeepDives),
+    classDiveUpdateHistory: normalizeClassDiveHistory(parsed.classDiveUpdateHistory),
+    classDiveSources: normalizeClassDiveSources(parsed.classDiveSources),
+    characterProfiles: (() => {
+      const raw = (parsed.characterProfiles && typeof parsed.characterProfiles === 'object') ? parsed.characterProfiles : {};
+      const out = {};
+      for (const uid of Object.keys(raw)) out[uid] = normalizeCharacterProfile(raw[uid]);
+      return out;
+    })(),
+    // Per-member "what have you already seen" markers, behind the quest
+    // bell/badges (see pageQuestPending()/renderQuestBell()). Only
+    // Ankündigungen needs one of these — "have you voted yet" for
+    // Abstimmungen is derived straight from the vote data itself, no
+    // separate seen-flag needed there.
+    seenState: (() => {
+      const raw = (parsed.seenState && typeof parsed.seenState === 'object') ? parsed.seenState : {};
+      const out = {};
+      for (const uid of Object.keys(raw)){
+        const v = raw[uid];
+        out[uid] = { announcementsSeenAt: (v && typeof v.announcementsSeenAt === 'number' && v.announcementsSeenAt > 0) ? v.announcementsSeenAt : 0 };
+      }
+      return out;
+    })()
+  };
+}
+
+function isVotingClosed(votingId){
+  return !!(state.votingStatus && state.votingStatus[votingId] && state.votingStatus[votingId].closed);
+}
+
+// ---------------------------------------------------------------------
+// "Quest available" system — a WoW-style gold "!" on Ankündigungen /
+// Abstimmungen in the sidebar, plus a topbar bell that lists everything
+// open at once. Gated to Member+ (isMemberOrHigher()) since Community
+// accounts can't see either page anyway. Two independent kinds of
+// "pending":
+//  - Ankündigungen: has a NEWER announcement been posted than the
+//    timestamp this member last opened that page? Needs its own
+//    per-member marker (seenState/<uid>/announcementsSeenAt), written
+//    by markAnnouncementsSeen() whenever the page is opened.
+//  - Abstimmungen: is there an open poll/the class survey this member
+//    hasn't voted in yet? No separate marker needed — derived directly
+//    from the vote data (foreverSavedEntry()/pollUserChoices()) that's
+//    already there, so voting itself is what clears the "!".
+// ---------------------------------------------------------------------
+function newestAnnouncementAt(){
+  return Object.values(state.announcements || {}).reduce((max, a) => Math.max(max, a.createdAt || 0), 0);
+}
+function announcementsSeenAt(){
+  if (!discordIdentity) return 0;
+  const s = state.seenState && state.seenState[discordIdentity.id];
+  return (s && typeof s.announcementsSeenAt === 'number') ? s.announcementsSeenAt : 0;
+}
+function questPendingAnnouncement(){
+  if (!discordIdentity || !isMemberOrHigher()) return false;
+  return newestAnnouncementAt() > announcementsSeenAt();
+}
+// List (not just a boolean) so the quest bell can name each one —
+// the class/spec survey plus every open custom poll not yet voted in.
+function questPendingPollItems(){
+  if (!discordIdentity || !isMemberOrHigher()) return [];
+  const items = [];
+  if (!isVotingClosed('forever') && !foreverSavedEntry()) items.push({ page: 'forever', title: 'Klassen & Spezialisierung' });
+  sortedPolls().forEach(poll => {
+    if (!pollIsClosed(poll) && pollUserChoices(poll).length === 0) items.push({ page: 'forever', title: poll.title });
+  });
+  return items;
+}
+// New applications are an Officer/Admin-only "quest", gated to
+// isOfficerOrAdmin() instead of isMemberOrHigher(). Originally tracked
+// like Ankündigungen (newest createdAt vs. a per-user "seen up to"
+// marker), but that meant the mark cleared the instant *anyone* opened
+// the page once, even though the application itself still needed to be
+// worked — so it looked like the exclamation mark "never goes away"
+// (every visit just re-confirms there's still unresolved work) while
+// giving no actual way to resolve it. Now it's status-based instead:
+// only truly untouched applications ("Offen" — see APPLICATION_STATUSES
+// below) count as a quest. The moment anyone sets a status on it at all
+// — even just "Wird bearbeitet" — it's considered someone's business
+// and stops demanding attention from everyone else; it only becomes a
+// quest again if it's explicitly set back to Offen.
+function questPendingApplicationsCount(){
+  if (!discordIdentity || !isOfficerOrAdmin()) return 0;
+  return Object.values(state.applications || {}).filter(a => (a.status || 'open') === 'open').length;
+}
+function pageQuestPending(pageId){
+  if (pageId === 'announcements') return questPendingAnnouncement();
+  if (pageId === 'forever') return questPendingPollItems().length > 0;
+  if (pageId === 'recruit') return questPendingApplicationsCount() > 0;
+  return false;
+}
+// Marks Ankündigungen as "seen" up to the newest post that exists right
+// now. Cheap no-op if there's nothing newer than what's already stored,
+// so opening the page repeatedly doesn't spam Firebase with writes.
+function markAnnouncementsSeen(){
+  if (!discordIdentity || !isMemberOrHigher()) return;
+  const latest = newestAnnouncementAt();
+  if (latest <= announcementsSeenAt()) return;
+  if (!state.seenState) state.seenState = {};
+  state.seenState[discordIdentity.id] = Object.assign({}, state.seenState[discordIdentity.id], { announcementsSeenAt: latest });
+  refreshQuestUI();
+  saveData('seenState/' + discordIdentity.id);
+}
+// Called after anything that can change quest state (a vote saved, a
+// new announcement posted, Ankündigungen marked seen, or just a normal
+// Firebase sync) so the sidebar badges and the bell stay live.
+function refreshQuestUI(){
+  renderSidebarNav();
+  renderQuestBell();
+}
+function renderQuestBell(){
+  const show = !!discordIdentity && isMemberOrHigher();
+  els.questBellWrap.classList.toggle('hidden', !show);
+  if (!show) return;
+  const announcementPending = questPendingAnnouncement();
+  const pollItems = questPendingPollItems();
+  const applicationsCount = questPendingApplicationsCount();
+  const totalCount = (announcementPending ? 1 : 0) + pollItems.length + applicationsCount;
+  // The bell icon itself is the WoW "!" quest mark — filled gold when
+  // there's something pending, just its empty outline when you're
+  // caught up (see the .has-pending CSS). Each item inside the dropdown
+  // instead gets a "?" — the WoW quest-turn-in mark, since clicking it
+  // is literally "go there to finish this one".
+  els.questBellBtn.classList.toggle('has-pending', totalCount > 0);
+  els.questBellDot.classList.toggle('hidden', totalCount === 0);
+  els.questBellDot.textContent = totalCount > 0 ? String(totalCount) : '';
+  let html = '';
+  if (totalCount === 0){
+    html = `<div class="quest-popover-empty">Keine offenen Quests — du bist auf dem neuesten Stand!</div>`;
+  } else {
+    if (announcementPending){
+      html += `<div class="quest-popover-section-title">Ankündigungen</div>
+        <a class="quest-popover-item" data-quest-page="announcements">
+          <span class="quest-popover-item-icon" aria-hidden="true">?</span>
+          <span>Neue Ankündigung(en) warten auf dich</span>
+        </a>`;
+    }
+    if (pollItems.length){
+      html += `<div class="quest-popover-section-title">Abstimmungen</div>`;
+      html += pollItems.map(it => `<a class="quest-popover-item" data-quest-page="${it.page}">
+          <span class="quest-popover-item-icon" aria-hidden="true">?</span>
+          <span>${escapeHtml(it.title)}</span>
+        </a>`).join('');
+    }
+    if (applicationsCount){
+      html += `<div class="quest-popover-section-title">Bewerbungen</div>
+        <a class="quest-popover-item" data-quest-page="recruit">
+          <span class="quest-popover-item-icon" aria-hidden="true">?</span>
+          <span>${applicationsCount} offene Bewerbung${applicationsCount === 1 ? '' : 'en'} (noch nicht in Bearbeitung)</span>
+        </a>`;
+    }
+  }
+  els.questPopoverList.innerHTML = html;
+  els.questPopoverList.querySelectorAll('[data-quest-page]').forEach(a => {
+    a.addEventListener('click', () => {
+      showPage(a.getAttribute('data-quest-page'));
+      els.questPopover.classList.add('hidden');
+      maybeAutoCloseSidebarOnMobile();
+    });
+  });
+}
+let state = defaultState();
+let foreverDraft = null; // null = not yet initialized from saved data this session
+let foreverFirstPickIndex = 0; // index into foreverDraft — which pick is "wird zuerst gespielt" (First Char)
+let foreverOfficerSortK = 'member', foreverOfficerSortDir = 1; // officer detail table sort (Mitglied/First Char/Second Char)
+let pollComposerOptionDrafts = ['', '']; // composer's in-progress option text inputs, always >= POLL_MIN_OPTIONS
+let pollVoteDrafts = {}; // { [pollId]: [optionId, ...] } — per-poll in-progress selection before "Absenden"
+let pollCardManualOpen = {}; // { [pollId]: true|false } — same collapse-override convention as votings/announcements
+// Chat-bot-style application flow state — see "Bewerbung chat engine"
+// further down for the step definitions and rendering. applyChatAnswers
+// accumulates one validated value per step (keyed by step.key);
+// applyChatStepIndex is how many steps have been answered so far (also
+// the index of the step currently being asked). Per-step in-progress
+// drafts for the more complex steps (class picks, character names,
+// profession pickers) live in their own `applyChat*Draft` variables,
+// declared right next to the step that uses them.
+let applyChatStepIndex = 0;
+let applyChatAnswers = {};
+let recruitingNeedsDraft = null; // officer's in-progress edit of state.recruitingNeeds, only written back on "Speichern"
+
+const els = {
+  sidebar: document.getElementById('sidebar'),
+  sidebarNav: document.getElementById('sidebarNav'),
+  sidebarNavMini: document.getElementById('sidebarNavMini'),
+  burgerBtn: document.getElementById('burgerBtn'),
+  sidebarBackdrop: document.getElementById('sidebarBackdrop'),
+  navBrand: document.getElementById('navBrand'),
+  navCrest: document.getElementById('navCrest'),
+  navCrestMini: document.getElementById('navCrestMini'),
+  navGuildName: document.getElementById('navGuildName'),
+  navLoginBtn: document.getElementById('navLoginBtn'),
+  questBellWrap: document.getElementById('questBellWrap'),
+  questBellBtn: document.getElementById('questBellBtn'),
+  questBellDot: document.getElementById('questBellDot'),
+  questPopover: document.getElementById('questPopover'),
+  questPopoverList: document.getElementById('questPopoverList'),
+  accessControlWrap: document.getElementById('accessControlWrap'),
+  accessSwitchBtn: document.getElementById('accessSwitchBtn'),
+  accessBadge: document.getElementById('accessBadge'),
+  accessAvatarImg: document.getElementById('accessAvatarImg'),
+  accessPopover: document.getElementById('accessPopover'),
+  accessPopoverName: document.getElementById('accessPopoverName'),
+  accessPopoverRole: document.getElementById('accessPopoverRole'),
+  accessManageBtn: document.getElementById('accessManageBtn'),
+  accessLogoutBtn: document.getElementById('accessLogoutBtn'),
+  accessPopoverCharacters: document.getElementById('accessPopoverCharacters'),
+  accessCharactersBtn: document.getElementById('accessCharactersBtn'),
+  accessModal: document.getElementById('accessModal'),
+  accessModalCloseBtn: document.getElementById('accessModalCloseBtn'),
+  characterModal: document.getElementById('characterModal'),
+  characterModalCloseBtn: document.getElementById('characterModalCloseBtn'),
+  characterNicknameInput: document.getElementById('characterNicknameInput'),
+  characterComposerList: document.getElementById('characterComposerList'),
+  characterAddBtn: document.getElementById('characterAddBtn'),
+  characterSaveBtn: document.getElementById('characterSaveBtn'),
+  characterSaveStatus: document.getElementById('characterSaveStatus'),
+  voteDetailsModal: document.getElementById('voteDetailsModal'),
+  voteDetailsModalTitle: document.getElementById('voteDetailsModalTitle'),
+  voteDetailsModalSubtitle: document.getElementById('voteDetailsModalSubtitle'),
+  voteDetailsModalList: document.getElementById('voteDetailsModalList'),
+  voteDetailsModalCloseBtn: document.getElementById('voteDetailsModalCloseBtn'),
+  accessMemberList: document.getElementById('accessMemberList'),
+  heroTitle: document.getElementById('heroTitle'),
+  heroTagline: document.getElementById('heroTagline'),
+  heroDesc: document.getElementById('heroDesc'),
+  heroCtaBtn: document.getElementById('heroCtaBtn'),
+  introTitle: document.getElementById('introTitle'),
+  introText: document.getElementById('introText'),
+  newsGrid: document.getElementById('newsGrid'),
+  newsPrevBtn: document.getElementById('newsPrevBtn'),
+  newsNextBtn: document.getElementById('newsNextBtn'),
+  footerGuildName: document.getElementById('footerGuildName'),
+  foreverLoggedOut: document.getElementById('foreverLoggedOut'),
+  foreverNoAccess: document.getElementById('foreverNoAccess'),
+  foreverLoggedIn: document.getElementById('foreverLoggedIn'),
+  foreverLoginBtn: document.getElementById('foreverLoginBtn'),
+  foreverMyPicks: document.getElementById('foreverMyPicks'),
+  foreverClassPicker: document.getElementById('foreverClassPicker'),
+  foreverSaveBtn: document.getElementById('foreverSaveBtn'),
+  foreverSaveStatus: document.getElementById('foreverSaveStatus'),
+  foreverOverview: document.getElementById('foreverOverview'),
+  foreverOfficerTableCard: document.getElementById('foreverOfficerTableCard'),
+  foreverOfficerTable: document.getElementById('foreverOfficerTable'),
+  forevertoolsList: document.getElementById('forevertoolsList'),
+  announceLoggedOut: document.getElementById('announceLoggedOut'),
+  announceNoAccess: document.getElementById('announceNoAccess'),
+  announceLoggedIn: document.getElementById('announceLoggedIn'),
+  announceLoginBtn: document.getElementById('announceLoginBtn'),
+  classDivesLoggedOut: document.getElementById('classDivesLoggedOut'),
+  classDivesNoAccess: document.getElementById('classDivesNoAccess'),
+  classDivesList: document.getElementById('classDivesList'),
+  classDivesLoginBtn: document.getElementById('classDivesLoginBtn'),
+  announceComposer: document.getElementById('announceComposer'),
+  announceTitleInput: document.getElementById('announceTitleInput'),
+  announceToolbar: document.getElementById('announceToolbar'),
+  announceEditor: document.getElementById('announceEditor'),
+  announceSaveBtn: document.getElementById('announceSaveBtn'),
+  announceSaveStatus: document.getElementById('announceSaveStatus'),
+  announceList: document.getElementById('announceList'),
+  pollComposer: document.getElementById('pollComposer'),
+  pollTitleInput: document.getElementById('pollTitleInput'),
+  pollOptionInputs: document.getElementById('pollOptionInputs'),
+  pollAddOptionBtn: document.getElementById('pollAddOptionBtn'),
+  pollDurationInput: document.getElementById('pollDurationInput'),
+  pollResultsVisibleInput: document.getElementById('pollResultsVisibleInput'),
+  pollAnonymousInput: document.getElementById('pollAnonymousInput'),
+  pollPublishBtn: document.getElementById('pollPublishBtn'),
+  pollPublishStatus: document.getElementById('pollPublishStatus'),
+  pollList: document.getElementById('pollList'),
+  setupScreen: document.getElementById('setupScreen'),
+  discordSetupScreen: document.getElementById('discordSetupScreen'),
+  workerSetupScreen: document.getElementById('workerSetupScreen'),
+  setupArea: document.getElementById('setupArea'),
+  publicPage: document.getElementById('publicPage'),
+  saveStatus: document.getElementById('saveStatus'),
+  talentSubnav: document.getElementById('talentSubnav'),
+  talentClassSelector: document.getElementById('talentClassSelector'),
+  talentLevelInput: document.getElementById('talentLevelInput'),
+  talentLevelLabel: document.getElementById('talentLevelLabel'),
+  talentPointsRemaining: document.getElementById('talentPointsRemaining'),
+  talentResetAllBtn: document.getElementById('talentResetAllBtn'),
+  talentTreesContainer: document.getElementById('talentTreesContainer'),
+  talentTooltip: document.getElementById('talentTooltip'),
+  recruitTeaserNeeds: document.getElementById('recruitTeaserNeeds'),
+  recruitTeaserBtn: document.getElementById('recruitTeaserBtn'),
+  recruitNeedsOverviewBadges: document.getElementById('recruitNeedsOverviewBadges'),
+  recruitLoggedOut: document.getElementById('recruitLoggedOut'),
+  recruitLoggedIn: document.getElementById('recruitLoggedIn'),
+  recruitLoginBtn: document.getElementById('recruitLoginBtn'),
+  applyChatCard: document.getElementById('applyChatCard'),
+  recruitApplyNotice: document.getElementById('recruitApplyNotice'),
+  recruitApplyNoticeTitle: document.getElementById('recruitApplyNoticeTitle'),
+  recruitApplyNoticeBody: document.getElementById('recruitApplyNoticeBody'),
+  recruitApplyNoticeActions: document.getElementById('recruitApplyNoticeActions'),
+  applyChatLog: document.getElementById('applyChatLog'),
+  applyChatComposer: document.getElementById('applyChatComposer'),
+  applyChatQuestionBubble: document.getElementById('applyChatQuestionBubble'),
+  applyChatInputArea: document.getElementById('applyChatInputArea'),
+  applyChatError: document.getElementById('applyChatError'),
+  applyChatSkipBtn: document.getElementById('applyChatSkipBtn'),
+  applyChatNextBtn: document.getElementById('applyChatNextBtn'),
+  applyChatDoneArea: document.getElementById('applyChatDoneArea'),
+  applyChatRestartBtn: document.getElementById('applyChatRestartBtn'),
+  applySubmitBtn: document.getElementById('applySubmitBtn'),
+  applySubmitStatus: document.getElementById('applySubmitStatus'),
+  recruitNeedsEditor: document.getElementById('recruitNeedsEditor'),
+  recruitNeedsEditorGrid: document.getElementById('recruitNeedsEditorGrid'),
+  recruitNeedsSaveBtn: document.getElementById('recruitNeedsSaveBtn'),
+  recruitNeedsSaveStatus: document.getElementById('recruitNeedsSaveStatus'),
+  applicationsCard: document.getElementById('applicationsCard'),
+  applicationsList: document.getElementById('applicationsList'),
+  mycharLoggedOut: document.getElementById('mycharLoggedOut'),
+  mycharLoginBtn: document.getElementById('mycharLoginBtn'),
+  mycharLoggedIn: document.getElementById('mycharLoggedIn'),
+  mycharManageBtn: document.getElementById('mycharManageBtn'),
+  mycharRefreshAllBtn: document.getElementById('mycharRefreshAllBtn'),
+  mycharList: document.getElementById('mycharList')
+};
+
+// ---- Release countdown pill (topbar, top-mid, every page) ---------
+// Ticks once a second; lives in the topbar itself (not inside
+// #pageHost), so it survives page navigation untouched.
+let releaseCountdownIntervalStarted = false;
+function updateReleaseCountdown(){
+  const el = document.getElementById('topbarCountdownTimer');
+  if (!el) return;
+  const diff = WOW_FOREVER_RELEASE_MS - Date.now();
+  const pad = n => String(n).padStart(2, '0');
+  if (!(diff > 0)){
+    el.textContent = 'Live!';
+    return;
+  }
+  const totalSeconds = Math.floor(diff / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = pad(Math.floor((totalSeconds % 86400) / 3600));
+  const minutes = pad(Math.floor((totalSeconds % 3600) / 60));
+  const seconds = pad(totalSeconds % 60);
+  el.textContent = `${days}T ${hours}:${minutes}:${seconds}`;
+}
+function initReleaseCountdown(){
+  updateReleaseCountdown();
+  if (!releaseCountdownIntervalStarted){
+    releaseCountdownIntervalStarted = true;
+    setInterval(updateReleaseCountdown, 1000);
+  }
+}
+
+function renderPublicShell(){
+  els.navGuildName.textContent = GUILD_NAME;
+  els.navCrest.textContent = GUILD_CREST_LETTER;
+  els.navCrestMini.textContent = GUILD_CREST_LETTER;
+  els.heroTitle.textContent = GUILD_NAME.toUpperCase();
+  els.heroTagline.textContent = GUILD_TAGLINE;
+  els.heroDesc.textContent = HERO_DESC;
+  els.introTitle.textContent = INTRO_TITLE;
+  els.introText.textContent = INTRO_TEXT;
+  els.footerGuildName.textContent = GUILD_NAME;
+  renderNewsGrid();
+  refreshQuestUI();
+  initSidebarState();
+  initTalentBuilder();
+  initReleaseCountdown();
+  showPage(currentPage);
+}
+
+// ---------------------------------------------------------------------
+// Sidebar navigation — each entry is its own page (its own section in
+// #pageHost, id="page-<id>"), not just a scroll target. Add a new page
+// here + a matching <section class="page-section" id="page-xxx"> in the
+// HTML to extend the site later.
+// ---------------------------------------------------------------------
+const PAGES = [
+  {
+    id: 'home', label: 'Home',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>'
+  },
+  {
+    id: 'announcements', label: 'Ankündigungen',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a2 2 0 0 0 2 2h1l3 5V4L6 9H5a2 2 0 0 0-2 2Z"/><path d="M14 8a4 4 0 0 1 0 8"/><path d="M17 5a8 8 0 0 1 0 14"/></svg>'
+  },
+  {
+    id: 'forever', label: 'Abstimmungen',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="m8 12 3 3 5-6"/></svg>'
+  },
+  {
+    id: 'talentbuilder', label: 'Talent Builder',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="9" cy="19" r="2"/><circle cx="15" cy="19" r="2"/><path d="M12 7v3M8 11l-1 0M16 11l1 0M10.5 13 9 17M13.5 13 15 17"/></svg>'
+  },
+  {
+    id: 'classdeepdives', label: 'Class Deep Dives',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M9 7h7M9 11h7"/></svg>'
+  },
+  {
+    id: 'recruit', label: 'Bewerbung',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>'
+  },
+  {
+    id: 'mychar', label: 'Meine Charaktere',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>'
+  },
+  {
+    id: 'forevertools', label: 'Hilfreich forEVER',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
+  }
+];
+const SIDEBAR_COLLAPSED_KEY = 'rude-guild-sidebar-collapsed';
+// Honor a page hash already in the URL (e.g. a reload, or a bookmark
+// someone shared) instead of always resetting to Home.
+// A Discord notification can deep-link straight to one application
+// (#recruit?app=<id>) instead of just the Bewerbung page in general —
+// parsed out here so showPage()'s own page-id matching never sees the
+// query part, and consumed once applications actually render (see
+// applyPendingApplicationDeepLink in renderApplicationsList).
+let pendingDeepLinkApplicationId = null;
+let currentPage = (() => {
+  const raw = (window.location.hash || '').replace('#', '');
+  const qIdx = raw.indexOf('?');
+  if (qIdx < 0) return raw || 'home';
+  try{
+    const appId = new URLSearchParams(raw.slice(qIdx + 1)).get('app');
+    if (appId) pendingDeepLinkApplicationId = appId;
+  }catch(e){}
+  return raw.slice(0, qIdx) || 'home';
+})();
+
+// Phone breakpoint match — the sidebar switches from a permanent rail
+// to a slide-out drawer at the same width the CSS uses (see the
+// `@media (max-width: 760px)` sidebar rules above).
+const MOBILE_SIDEBAR_QUERY = '(max-width: 760px)';
+function isMobileSidebarLayout(){
+  return window.matchMedia ? window.matchMedia(MOBILE_SIDEBAR_QUERY).matches : window.innerWidth <= 760;
+}
+// On a phone, picking a page from the open drawer should both navigate
+// AND close the drawer again — nobody wants to manually collapse it
+// after every tap. Desktop's permanent rail is untouched by this.
+function maybeAutoCloseSidebarOnMobile(){
+  if (isMobileSidebarLayout()) setSidebarCollapsed(true);
+}
+
+function renderSidebarNav(){
+  els.sidebarNav.innerHTML = PAGES.map(p => {
+    const badge = pageQuestPending(p.id) ? '<span class="nav-quest-badge" title="Hier gibt\'s was zu tun!" aria-label="Neu">!</span>' : '';
+    return `<a class="sidebar-nav-item ${p.id === currentPage ? 'active' : ''}" data-page="${p.id}"><span>${escapeHtml(p.label)}</span>${badge}</a>`;
+  }).join('');
+  els.sidebarNav.querySelectorAll('[data-page]').forEach(a => {
+    a.addEventListener('click', () => { showPage(a.getAttribute('data-page')); maybeAutoCloseSidebarOnMobile(); });
+  });
+  els.sidebarNavMini.innerHTML = PAGES.map(p => {
+    const badge = pageQuestPending(p.id) ? '<span class="nav-quest-badge-mini" aria-hidden="true"></span>' : '';
+    return `<a class="sidebar-nav-item-mini ${p.id === currentPage ? 'active' : ''}" data-page="${p.id}" title="${escapeHtml(p.label)}" aria-label="${escapeHtml(p.label)}">${p.icon}${badge}</a>`;
+  }).join('');
+  els.sidebarNavMini.querySelectorAll('[data-page]').forEach(a => {
+    a.addEventListener('click', () => { showPage(a.getAttribute('data-page')); maybeAutoCloseSidebarOnMobile(); });
+  });
+}
+
+// Tracks whether we've ever written a history entry for this session,
+// so the very first page render replaces the load entry (no dangling
+// "blank" back-step) while every navigation after that pushes a real
+// one. Without this, clicking between pages never touches browser
+// history at all, so pressing "back" jumps straight out of the app to
+// whatever page the browser happened to have open before this one —
+// which is confusing and (depending on what that was) can look like a
+// bug in the guild page itself.
+let historyInitialized = false;
+function showPage(pageId, opts){
+  opts = opts || {};
+  if (!PAGES.some(p => p.id === pageId)) pageId = 'home';
+  currentPage = pageId;
+  document.querySelectorAll('.page-section').forEach(s => {
+    s.classList.toggle('hidden', s.id !== 'page-' + pageId);
+  });
+  els.sidebarNav.querySelectorAll('[data-page]').forEach(a => {
+    a.classList.toggle('active', a.getAttribute('data-page') === pageId);
+  });
+  els.sidebarNavMini.querySelectorAll('[data-page]').forEach(a => {
+    a.classList.toggle('active', a.getAttribute('data-page') === pageId);
+  });
+  window.scrollTo({ top: 0 });
+  if (!opts.fromPopState){
+    try{
+      const url = '#' + pageId;
+      if (!historyInitialized) history.replaceState({ page: pageId }, '', url);
+      else history.pushState({ page: pageId }, '', url);
+    }catch(e){}
+  }
+  historyInitialized = true;
+  // The talent tree grids are the heaviest thing on the page to build
+  // (468 talent nodes across 9 classes) — render them only once someone
+  // actually opens the page, not on every load.
+  if (pageId === 'talentbuilder'){ renderTalentSubnav(); renderTalentBuilderPage(); }
+  if (pageId === 'mychar') renderMyCharactersPage();
+  // "Hilfreich forEVER" is a small, fully static list (hand-curated
+  // above) — build its DOM once, the first time someone actually opens
+  // the page, not on every visit and never on renderAll() (nothing
+  // about it ever changes at runtime).
+  if (pageId === 'forevertools') renderForeverToolsPage();
+  // Opening Ankündigungen is what clears its quest "!" — mark up to the
+  // newest post that exists right now as seen (no-op if already caught up).
+  if (pageId === 'announcements') markAnnouncementsSeen();
+  // Bewerbungen's quest "!" is status-based now (questPendingApplicationsCount),
+  // not seen/unseen, so there's nothing to mark here on open — it clears
+  // when an application is actually set to Angenommen/Abgelehnt.
+}
+
+// Back/forward now steps through the guild page's own Home /
+// Ankündigungen / Abstimmungen history instead of leaving the app.
+window.addEventListener('popstate', (e) => {
+  const pageId = (e.state && e.state.page) || 'home';
+  showPage(pageId, { fromPopState: true });
+});
+
+function setSidebarCollapsed(collapsed){
+  els.sidebar.classList.toggle('collapsed', collapsed);
+  // Only the desktop rail's open/closed choice is remembered across
+  // visits. On a phone the drawer is always transient — it starts
+  // closed on every load and closes again after each navigation — so
+  // this must NOT persist here. If it did, opening the drawer once on
+  // a phone (or having the rail expanded from an earlier desktop visit
+  // in the same browser) would save "expanded" and every future phone
+  // page-load would start with the drawer already open — which,
+  // because it's a fixed full-screen-ish overlay, sits on top of and
+  // hides the burger button that's supposed to open/close it. That's
+  // exactly the bug this guards against.
+  if (!isMobileSidebarLayout()){
+    try{ localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0'); }catch(e){}
+  }
+}
+function initSidebarState(){
+  let collapsed = isMobileSidebarLayout();
+  if (!isMobileSidebarLayout()){
+    try{
+      const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      if (saved !== null) collapsed = saved === '1';
+    }catch(e){}
+  }
+  setSidebarCollapsed(collapsed);
+}
+// If the browser window crosses from desktop-sized into phone-sized
+// (resize, or rotating a tablet) while the drawer happens to be open,
+// force it shut immediately — same reasoning as above: an open
+// full-screen drawer must never be left sitting over the burger button
+// that's meant to control it.
+let wasMobileSidebarLayout = isMobileSidebarLayout();
+window.addEventListener('resize', () => {
+  const nowMobile = isMobileSidebarLayout();
+  if (nowMobile && !wasMobileSidebarLayout) setSidebarCollapsed(true);
+  wasMobileSidebarLayout = nowMobile;
+});
+
+els.burgerBtn.addEventListener('click', () => setSidebarCollapsed(!els.sidebar.classList.contains('collapsed')));
+els.sidebarBackdrop.addEventListener('click', () => setSidebarCollapsed(true));
+els.navBrand.addEventListener('click', () => { showPage('home'); maybeAutoCloseSidebarOnMobile(); });
+els.navCrestMini.addEventListener('click', () => showPage('home'));
+els.heroCtaBtn.addEventListener('click', () => showPage('forever'));
+els.navLoginBtn.addEventListener('click', () => startDiscordLogin());
+els.foreverLoginBtn.addEventListener('click', () => startDiscordLogin());
+els.recruitTeaserBtn.addEventListener('click', () => showPage('recruit'));
+els.recruitLoginBtn.addEventListener('click', () => startDiscordLogin());
+els.applySubmitBtn.addEventListener('click', () => submitApplication());
+els.recruitNeedsSaveBtn.addEventListener('click', () => saveRecruitingNeeds());
+
+function applyAccessControl(){
+  const loggedIn = !!discordIdentity;
+  els.navLoginBtn.classList.toggle('hidden', loggedIn);
+  els.accessControlWrap.classList.toggle('hidden', !loggedIn);
+  if (!loggedIn){
+    const designRow = document.getElementById('settingsDesignRow');
+    if (designRow) designRow.classList.add('hidden');
+    return;
+  }
+  const roleLabel = (ACCESS_ROLES[currentRole] || ACCESS_ROLES.community).label;
+  const myProfile = (state.characterProfiles || {})[discordIdentity.id];
+  const displayName = (myProfile && myProfile.nickname) ? myProfile.nickname : discordIdentity.username;
+  els.accessBadge.textContent = displayName;
+  els.accessPopoverName.textContent = displayName;
+  els.accessPopoverRole.textContent = roleLabel + ((myProfile && myProfile.nickname) ? ' · ' + discordIdentity.username : '');
+  const mainChar = mainCharacterOf(myProfile);
+  if (mainChar){
+    els.accessPopoverCharacters.textContent = 'Hauptcharakter: ' + mainChar.name;
+    els.accessPopoverCharacters.classList.remove('hidden');
+  } else {
+    els.accessPopoverCharacters.classList.add('hidden');
+  }
+  const avatarUrl = discordAvatarUrl(discordIdentity);
+  if (avatarUrl){
+    els.accessAvatarImg.src = avatarUrl;
+    els.accessAvatarImg.classList.remove('hidden');
+  } else {
+    els.accessAvatarImg.classList.add('hidden');
+  }
+  els.accessManageBtn.classList.toggle('hidden', currentRole !== 'admin');
+  // Design switcher in User Settings — admin-only while this is being
+  // tried out, see the big comment above initDesignReveal().
+  const designRow = document.getElementById('settingsDesignRow');
+  if (designRow){
+    designRow.classList.toggle('hidden', currentRole !== 'admin');
+    if (currentRole === 'admin') updateDesignSwitcherUI();
+  }
+}
+
+els.accessSwitchBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  els.accessPopover.classList.toggle('hidden');
+});
+document.addEventListener('click', (e) => {
+  if (!els.accessPopover.classList.contains('hidden') && !els.accessPopover.contains(e.target) && e.target !== els.accessSwitchBtn){
+    els.accessPopover.classList.add('hidden');
+  }
+});
+els.accessLogoutBtn.addEventListener('click', () => logoutDiscord());
+
+els.questBellBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  els.questPopover.classList.toggle('hidden');
+});
+document.addEventListener('click', (e) => {
+  if (!els.questPopover.classList.contains('hidden') && !els.questPopover.contains(e.target) && e.target !== els.questBellBtn){
+    els.questPopover.classList.add('hidden');
+  }
+});
+
+// ---------------------------------------------------------------------
+// Character chip rendering — shared between Manage access and the
+// Bewerbungen review view, so a member's characters look/behave the
+// same in both places. Shows cached live Armory data (class/level/item
+// level) when available; otherwise just the name/realm the member typed
+// in themselves.
+// ---------------------------------------------------------------------
+function characterChipHtml(char){
+  const cached = armoryCache[characterProfileCacheKey(char.realmSlug, char.name)];
+  let meta = '';
+  if (cached && cached.result){
+    if (cached.result.found){
+      const c = cached.result.character;
+      const cls = c.classKey ? CLASS_MAP[c.classKey] : null;
+      const bits = [c.className || (cls ? cls.label : null), (c.level != null ? 'Lvl ' + c.level : null), (c.itemLevel ? c.itemLevel + ' ilvl' : null)].filter(Boolean);
+      meta = ` <span class="character-chip-meta"${cls ? ` style="color:${cls.color}"` : ''}>· ${escapeHtml(bits.join(' · '))}</span>`;
+    } else {
+      meta = ` <span class="character-chip-meta character-chip-meta-error">· Armory: nicht geladen</span>`;
+    }
+  }
+  return `<span class="character-chip${char.isMain ? ' character-chip-main' : ''}">${char.isMain ? '★ ' : ''}${escapeHtml(char.name)} <span class="character-chip-realm">(${escapeHtml(char.realmSlug)})</span>${meta}</span>`;
+}
+
+function characterBlockHtml(uid){
+  const profile = (state.characterProfiles || {})[uid];
+  if (!profile || !profile.characters || !profile.characters.length){
+    return { chipsHtml: '<span class="access-member-characters-empty">Keine Charaktere hinterlegt</span>', hasCharacters: false };
+  }
+  return { chipsHtml: profile.characters.map(characterChipHtml).join(''), hasCharacters: true };
+}
+
+async function refreshMemberArmoryData(uid){
+  const profile = (state.characterProfiles || {})[uid];
+  if (!profile || !profile.characters || !profile.characters.length) return;
+  await Promise.all(profile.characters.map(c => fetchArmoryCharacter(c.realmSlug, c.name, { force: true })));
+}
+
+function renderAccessModal(){
+  const roles = state.discordRoles || {};
+  const ids = Object.keys(roles);
+  if (ids.length === 0){
+    els.accessMemberList.innerHTML = '<p class="access-modal-note">No one has logged in yet.</p>';
+    return;
+  }
+  const roleOrder = ['admin', 'officer', 'member', 'community'];
+  const roleOptHtml = (selected) => roleOrder.map(r =>
+    `<option value="${r}" ${r === selected ? 'selected' : ''}>${ACCESS_ROLES[r].label}</option>`).join('');
+  // A member's nickname (if set) is what they're sorted/displayed by
+  // first — matches how they show up everywhere else on the page — with
+  // the Discord username as a fallback and a case/locale-insensitive
+  // comparison so "ä"/"a" etc. sort where a German speaker expects.
+  const sortName = (id) => {
+    const profile = (state.characterProfiles || {})[id];
+    return (profile && profile.nickname) ? profile.nickname : ((roles[id] && roles[id].username) || '');
+  };
+  const memberRowHtml = (id) => {
+    const m = roles[id];
+    const isSelf = id === (discordIdentity && discordIdentity.id);
+    const avatarUrl = m.avatar ? `https://cdn.discordapp.com/avatars/${id}/${m.avatar}.png?size=64` : null;
+    const profile = (state.characterProfiles || {})[id];
+    const nickHtml = (profile && profile.nickname) ? ` <span class="access-member-nickname">"${escapeHtml(profile.nickname)}"</span>` : '';
+    const { chipsHtml, hasCharacters } = characterBlockHtml(id);
+    // Only Admins/Officers can even see the applications list, so the
+    // "notify me about new applications" toggle only makes sense — and
+    // is only shown — for rows currently in one of those two roles.
+    const canNotify = m.role === 'admin' || m.role === 'officer';
+    const notifyHtml = canNotify
+      ? `<label class="access-member-notify" title="Bei neuer Bewerbung per Discord-DM und In-Site-Hinweis benachrichtigen">
+          <input type="checkbox" class="access-member-notify-checkbox" data-notify-discord-id="${id}" ${m.notifyOnApplications ? 'checked' : ''}>
+          Bewerbungen melden
+        </label>`
+      : '';
+    return `
+      <div class="access-member-block">
+        <div class="access-member-row">
+          ${avatarUrl ? `<img class="access-member-avatar" src="${avatarUrl}" alt="" />` : `<span class="access-member-avatar"></span>`}
+          <span class="access-member-name">${escapeHtml(m.username || 'Unknown')}${nickHtml}${isSelf ? ' (you)' : ''}</span>
+          <select class="access-member-role-select" data-discord-id="${id}" ${isSelf ? 'disabled title="You can\'t change your own role — ask another Admin, or use a second Discord account."' : ''}>${roleOptHtml(m.role)}</select>
+        </div>
+        ${notifyHtml}
+        <div class="access-member-characters-row">
+          <div class="character-chips">${chipsHtml}</div>
+          ${hasCharacters ? `<button type="button" class="btn btn-ghost btn-sm access-member-armory-refresh" data-refresh-armory="${id}">Aktualisieren</button>` : ''}
+        </div>
+      </div>`;
+  };
+  // Grouped by role (Admin → Offi → Guild Member → Community) so the
+  // list reads as "who has which access" at a glance, alphabetical
+  // within each group instead of registration/login order.
+  els.accessMemberList.innerHTML = roleOrder.map(role => {
+    const idsInRole = ids.filter(id => (roles[id].role || 'community') === role);
+    if (!idsInRole.length) return '';
+    idsInRole.sort((a, b) => sortName(a).localeCompare(sortName(b), 'de', { sensitivity: 'base' }));
+    return `<div class="access-role-group">
+      <div class="access-role-group-head">${escapeHtml(ACCESS_ROLES[role].label)} <span class="access-role-group-count">(${idsInRole.length})</span></div>
+      ${idsInRole.map(memberRowHtml).join('')}
+    </div>`;
+  }).join('');
+  els.accessMemberList.querySelectorAll('.access-member-role-select:not([disabled])').forEach(sel => {
+    sel.addEventListener('change', (e) => setDiscordUserRole(sel.getAttribute('data-discord-id'), e.target.value));
+  });
+  els.accessMemberList.querySelectorAll('[data-notify-discord-id]').forEach(cb => {
+    cb.addEventListener('change', () => setDiscordUserNotify(cb.getAttribute('data-notify-discord-id'), cb.checked));
+  });
+  els.accessMemberList.querySelectorAll('[data-refresh-armory]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Lädt…';
+      await refreshMemberArmoryData(btn.getAttribute('data-refresh-armory'));
+      renderAccessModal();
+    });
+  });
+}
+
+els.accessManageBtn.addEventListener('click', () => {
+  els.accessPopover.classList.add('hidden');
+  renderAccessModal();
+  els.accessModal.classList.remove('hidden');
+});
+els.accessModalCloseBtn.addEventListener('click', () => els.accessModal.classList.add('hidden'));
+els.accessModal.addEventListener('click', (e) => {
+  if (e.target === els.accessModal) els.accessModal.classList.add('hidden');
+});
+
+// ---------------------------------------------------------------------
+// "User Settings" (formerly "Meine Charaktere verwalten") — the composer a member uses to set a
+// nickname and add/remove their own characters (one marked
+// Hauptcharakter). In-progress edits live only in characterComposerDraft
+// until "Speichern" writes them to characterProfiles/<uid>.
+// ---------------------------------------------------------------------
+let characterComposerDraft = null;
+
+function openCharacterModal(){
+  if (!discordIdentity) return;
+  const existing = (state.characterProfiles || {})[discordIdentity.id];
+  characterComposerDraft = existing
+    ? { nickname: existing.nickname, characters: existing.characters.map(c => Object.assign({}, c)) }
+    : { nickname: '', characters: [] };
+  if (!characterComposerDraft.characters.length){
+    characterComposerDraft.characters.push({ id: nextCharacterProfileId(), name: '', realmSlug: DEFAULT_REALM_SLUG, isMain: true });
+  }
+  els.characterNicknameInput.value = characterComposerDraft.nickname || '';
+  els.characterSaveStatus.textContent = '';
+  els.characterSaveStatus.className = 'armory-status';
+  renderCharacterComposer();
+  els.accessPopover.classList.add('hidden');
+  els.characterModal.classList.remove('hidden');
+}
+
+function renderCharacterComposer(){
+  if (!characterComposerDraft) return;
+  els.characterComposerList.innerHTML = characterComposerDraft.characters.map(c => `
+    <div class="character-composer-row" data-character-row="${c.id}">
+      <input type="text" class="apply-text-input character-composer-name" data-character-field="name" data-character-id="${c.id}" maxlength="24" placeholder="Charaktername" value="${escapeHtml(c.name)}">
+      <input type="text" class="apply-text-input character-composer-realm" data-character-field="realmSlug" data-character-id="${c.id}" maxlength="40" placeholder="Realm" value="${escapeHtml(c.realmSlug)}">
+      <label class="character-composer-main-label">
+        <input type="radio" name="characterComposerMain" data-character-id="${c.id}" ${c.isMain ? 'checked' : ''}> Hauptcharakter
+      </label>
+      <button type="button" class="btn btn-ghost btn-sm" data-remove-character="${c.id}" ${characterComposerDraft.characters.length <= 1 ? 'disabled' : ''}>Entfernen</button>
+    </div>`).join('');
+  els.characterComposerList.querySelectorAll('[data-character-field]').forEach(input => {
+    input.addEventListener('input', () => {
+      const row = characterComposerDraft.characters.find(c => c.id === input.getAttribute('data-character-id'));
+      if (row) row[input.getAttribute('data-character-field')] = input.value;
+    });
+  });
+  els.characterComposerList.querySelectorAll('input[name="characterComposerMain"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const targetId = radio.getAttribute('data-character-id');
+      characterComposerDraft.characters.forEach(c => { c.isMain = (c.id === targetId); });
+    });
+  });
+  els.characterComposerList.querySelectorAll('[data-remove-character]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (characterComposerDraft.characters.length <= 1) return;
+      const id = btn.getAttribute('data-remove-character');
+      const removed = characterComposerDraft.characters.find(c => c.id === id);
+      characterComposerDraft.characters = characterComposerDraft.characters.filter(c => c.id !== id);
+      if (removed && removed.isMain && characterComposerDraft.characters.length) characterComposerDraft.characters[0].isMain = true;
+      renderCharacterComposer();
+    });
+  });
+  els.characterAddBtn.disabled = characterComposerDraft.characters.length >= CHARACTER_PROFILE_MAX_CHARACTERS;
+}
+
+els.characterAddBtn.addEventListener('click', () => {
+  if (!characterComposerDraft || characterComposerDraft.characters.length >= CHARACTER_PROFILE_MAX_CHARACTERS) return;
+  characterComposerDraft.characters.push({ id: nextCharacterProfileId(), name: '', realmSlug: DEFAULT_REALM_SLUG, isMain: false });
+  renderCharacterComposer();
+});
+
+async function saveCharacterProfile(){
+  if (!discordIdentity || !characterComposerDraft) return;
+  const cleanedCharacters = characterComposerDraft.characters
+    .map(c => ({ id: c.id, name: (c.name || '').trim(), realmSlug: (c.realmSlug || DEFAULT_REALM_SLUG).trim().toLowerCase() || DEFAULT_REALM_SLUG, isMain: !!c.isMain }))
+    .filter(c => c.name);
+  const previous = state.characterProfiles[discordIdentity.id];
+  state.characterProfiles[discordIdentity.id] = normalizeCharacterProfile({
+    nickname: els.characterNicknameInput.value,
+    characters: cleanedCharacters
+  });
+  els.characterSaveStatus.textContent = 'Saving…';
+  els.characterSaveStatus.className = 'armory-status';
+  const ok = await saveData('characterProfiles/' + discordIdentity.id);
+  if (ok){
+    els.characterSaveStatus.textContent = 'Gespeichert!';
+    els.characterSaveStatus.className = 'armory-status armory-status-ok';
+    applyAccessControl();
+    if (currentPage === 'mychar') renderMyCharactersPage();
+    setTimeout(() => {
+      if (els.characterSaveStatus.textContent === 'Gespeichert!'){
+        els.characterSaveStatus.textContent = '';
+        els.characterModal.classList.add('hidden');
+      }
+    }, 900);
+  } else {
+    if (previous) state.characterProfiles[discordIdentity.id] = previous;
+    else delete state.characterProfiles[discordIdentity.id];
+    els.characterSaveStatus.textContent = 'Konnte nicht speichern — Firebase-Regeln prüfen (siehe README)';
+    els.characterSaveStatus.className = 'armory-status armory-status-error';
+  }
+}
+
+els.accessCharactersBtn.addEventListener('click', () => openCharacterModal());
+els.characterSaveBtn.addEventListener('click', () => saveCharacterProfile());
+els.characterModalCloseBtn.addEventListener('click', () => els.characterModal.classList.add('hidden'));
+document.querySelectorAll('#settingsDesignRow .design-switcher-option').forEach(btn => {
+  btn.addEventListener('click', () => setDesignTheme(btn.dataset.designTheme));
+});
+const designRevealRetestBtn = document.getElementById('designRevealRetestBtn');
+if (designRevealRetestBtn){
+  designRevealRetestBtn.addEventListener('click', () => {
+    els.characterModal.classList.add('hidden'); // out of the way so the reveal popup isn't hidden behind it
+    retestDesignReveal();
+  });
+}
+els.characterModal.addEventListener('click', (e) => {
+  if (e.target === els.characterModal) els.characterModal.classList.add('hidden');
+});
+
+// ---------------------------------------------------------------------
+// "Meine Charaktere" page — a member's own character-profile overview,
+// styled in the guild page's own fantasy/gold look (not a copy of
+// Blizzard's Armory page). Shows the same live class/level/item-level
+// data as Manage access and Bewerbungen, just as full cards instead of
+// compact chips, plus a real link out to each character's actual
+// Blizzard Armory page.
+// ---------------------------------------------------------------------
+const ARMORY_WEB_REGION = 'eu';
+const ARMORY_WEB_LOCALE = 'en-us';
+function armoryWebUrl(realmSlug, name){
+  return `https://worldofwarcraft.blizzard.com/${ARMORY_WEB_LOCALE}/classicann/${ARMORY_WEB_REGION}/armory/character/${encodeURIComponent((realmSlug || '').toLowerCase())}/${encodeURIComponent((name || '').toLowerCase())}`;
+}
+
+// Coarse, human-friendly relative time in German — good enough for "how
+// stale is this Armory snapshot", not meant to be precise to the minute.
+function relativeTimeFromMs(ms){
+  if (!ms) return null;
+  const diffDays = Math.floor((Date.now() - ms) / 86400000);
+  if (diffDays <= 0) return 'heute';
+  if (diffDays === 1) return 'gestern';
+  if (diffDays < 30) return `vor ${diffDays} Tagen`;
+  const months = Math.floor(diffDays / 30);
+  if (months < 12) return `vor ${months} Monat${months === 1 ? '' : 'en'}`;
+  const years = Math.floor(months / 12);
+  return `vor ${years} Jahr${years === 1 ? '' : 'en'}`;
+}
+
+const ARMORY_FACTION_LABELS = { HORDE: 'Horde', ALLIANCE: 'Allianz' };
+
+// Standard WoW item-quality colors — must stay in sync with
+// ITEM_QUALITY_COLORS in discord-auth-worker.js (the Worker only sends
+// the quality *keyword*, e.g. "EPIC"; the actual color is applied here).
+const ITEM_QUALITY_COLORS = {
+  POOR: '#9d9d9d', COMMON: '#ffffff', UNCOMMON: '#1eff00', RARE: '#0070dd',
+  EPIC: '#a335ee', LEGENDARY: '#ff8000', ARTIFACT: '#e6cc80', HEIRLOOM: '#00ccff'
+};
+// Paper-doll layout, matching in-game — must stay in sync with
+// EQUIPMENT_LEFT/RIGHT/BOTTOM_SLOTS in discord-auth-worker.js. Kept as
+// its own copy here (rather than sent over the wire) since it's just a
+// fixed display order, identical for every character.
+const MYCHAR_EQUIP_LEFT_SLOTS = ['HEAD', 'NECK', 'SHOULDER', 'BACK', 'CHEST', 'SHIRT', 'TABARD', 'WRIST'];
+const MYCHAR_EQUIP_RIGHT_SLOTS = ['HANDS', 'WAIST', 'LEGS', 'FEET', 'FINGER_1', 'FINGER_2', 'TRINKET_1', 'TRINKET_2'];
+const MYCHAR_EQUIP_BOTTOM_SLOTS = ['MAIN_HAND', 'OFF_HAND', 'RANGED'];
+
+// One equipped-item row: icon (colored border by quality) + name +
+// enchant text. `item` is null for an empty slot (nothing equipped
+// there) — rendered as a bare placeholder box, same as the game's own
+// paper-doll shows an empty socket.
+function mycharEquipSlotHtml(item){
+  if (!item){
+    return `<div class="mychar-equip-item mychar-equip-item-empty"><div class="mychar-equip-icon mychar-equip-icon-empty"></div></div>`;
+  }
+  const color = ITEM_QUALITY_COLORS[item.quality] || ITEM_QUALITY_COLORS.COMMON;
+  const iconHtml = item.icon
+    ? `<img class="mychar-equip-icon" src="${escapeHtml(item.icon)}" alt="" loading="lazy" style="border-color:${color}" onerror="this.classList.add('mychar-equip-icon-empty');this.removeAttribute('src');">`
+    : `<div class="mychar-equip-icon mychar-equip-icon-empty" style="border-color:${color}"></div>`;
+  return `<div class="mychar-equip-item" title="${escapeHtml(item.slotLabel)}${item.ilvl ? ' — ilvl ' + item.ilvl : ''}">
+    ${iconHtml}
+    <div class="mychar-equip-text">
+      <div class="mychar-equip-name" style="color:${color}">${escapeHtml(item.name)}</div>
+      ${item.enchantText ? `<div class="mychar-equip-enchant">Verzaubert: ${escapeHtml(item.enchantText)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+// Full Wowhead-gear-check-style equipment grid for one character — two
+// columns (left/right paper-doll halves) plus a weapons row along the
+// bottom. Returns '' when there's no equipment data at all (e.g. the
+// Worker's equipment lookup itself failed — see equipmentDebug), so the
+// rest of the card still renders fine without it.
+function mycharEquipmentGridHtml(equipment){
+  if (!Array.isArray(equipment) || !equipment.length) return '';
+  const bySlot = {};
+  equipment.forEach(item => { bySlot[item.slot] = item; });
+  const leftHtml = MYCHAR_EQUIP_LEFT_SLOTS.map(slot => mycharEquipSlotHtml(bySlot[slot])).join('');
+  const rightHtml = MYCHAR_EQUIP_RIGHT_SLOTS.map(slot => mycharEquipSlotHtml(bySlot[slot])).join('');
+  const bottomItems = MYCHAR_EQUIP_BOTTOM_SLOTS.map(slot => bySlot[slot]).filter(Boolean);
+  const bottomHtml = bottomItems.length
+    ? `<div class="mychar-equip-bottom">${bottomItems.map(mycharEquipSlotHtml).join('')}</div>`
+    : '';
+  return `<div class="mychar-equip-wrap">
+    <div class="mychar-equip-grid">
+      <div class="mychar-equip-col">${leftHtml}</div>
+      <div class="mychar-equip-col">${rightHtml}</div>
+    </div>
+    ${bottomHtml}
+  </div>`;
+}
+
+// WarcraftLogs block: one small card per configured zone (boss kills +
+// best all-star points/rank) plus an overall Best Perf. Avg tile — shown
+// below the equipment grid. Has its own independent loading/not-found
+// state from the Armory data above (see fetchWarcraftLogsCharacter).
+function mycharWarcraftLogsHtml(c){
+  const cached = wclCache[characterProfileCacheKey(c.realmSlug, c.name)];
+  if (!cached){
+    return `<div class="mychar-wcl-wrap"><div class="mychar-card-loading">Lädt WarcraftLogs-Daten…</div></div>`;
+  }
+  const found = cached.result && cached.result.found;
+  if (!found){
+    const reason = cached.result && cached.result.debug && cached.result.debug.reason;
+    // Quiet, no-retry-button states for "feature isn't set up at all" —
+    // showing an error/retry button for something the guild simply
+    // hasn't configured yet would be confusing, not helpful.
+    if (reason === 'worker_not_configured' || reason === 'no_zones_configured' || reason === 'no_warcraftlogs_credentials'){
+      return '';
+    }
+    const debugInfo = (cached.result && cached.result.debug) || {};
+    // "Not found" isn't really an error (retrying won't fix a character
+    // that genuinely has no logs, or a realm-slug mismatch between
+    // Blizzard's and WarcraftLogs' own naming) — so this gets its own
+    // calmer state with a direct link to check on WarcraftLogs itself,
+    // instead of the generic error+retry-button treatment below.
+    if (reason === 'character_not_found' && debugInfo.checkUrl){
+      return `<div class="mychar-wcl-wrap">
+        <div class="mychar-card-error" title="${escapeHtml(debugInfo.detail || '')}">
+          Keine Logs auf WarcraftLogs gefunden für diesen Namen/Realm.
+          <a class="mychar-wcl-link" href="${escapeHtml(debugInfo.checkUrl)}" target="_blank" rel="noopener noreferrer">Selbst prüfen ↗</a>
+        </div>
+      </div>`;
+    }
+    const detail = debugInfo.detail || '';
+    return `<div class="mychar-wcl-wrap">
+      <div class="mychar-card-error" ${detail ? `title="${escapeHtml(detail)}"` : ''}>
+        Konnte keine WarcraftLogs-Daten laden.
+        <button type="button" class="btn btn-ghost btn-sm" data-mychar-wcl-refresh="${c.id}">Erneut versuchen</button>
+      </div>
+    </div>`;
+  }
+  const wcl = cached.result.warcraftlogs;
+  const zoneCardsHtml = (wcl.zones || []).map(z => {
+    if (!z.hasData){
+      return `<div class="mychar-wcl-zone mychar-wcl-zone-empty"><div class="mychar-wcl-zone-label">${escapeHtml(z.label)}</div><div class="mychar-wcl-zone-none">Keine Logs</div></div>`;
+    }
+    return `<div class="mychar-wcl-zone">
+      <div class="mychar-wcl-zone-label">${escapeHtml(z.label)}</div>
+      <div class="mychar-wcl-zone-kills">${z.killed}/${z.total}</div>
+      <div class="mychar-wcl-zone-stats">
+        <div><span class="mychar-wcl-zone-stat-label">Bestplatzierte</span><span class="mychar-wcl-zone-stat-value">${z.points != null ? z.points.toLocaleString('de-DE') : '—'}</span></div>
+        <div><span class="mychar-wcl-zone-stat-label">Position</span><span class="mychar-wcl-zone-stat-value mychar-wcl-rank">${z.rank != null ? '#' + z.rank : '—'}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+  const bestPerfHtml = wcl.bestPerformance
+    ? `<div class="mychar-wcl-bestperf">
+        <div class="mychar-wcl-bestperf-label">Best Perf. Avg <span class="mychar-wcl-bestperf-zone">(${escapeHtml(wcl.bestPerformance.zoneLabel)})</span></div>
+        <div class="mychar-wcl-bestperf-value">${wcl.bestPerformance.best}</div>
+        ${wcl.bestPerformance.median != null ? `<div class="mychar-wcl-bestperf-median">Median: ${wcl.bestPerformance.median}</div>` : ''}
+      </div>`
+    : '';
+  return `<div class="mychar-wcl-wrap">
+    <div class="mychar-wcl-head">
+      <span class="mychar-wcl-title">WarcraftLogs — aktuelle Phase</span>
+      <a class="mychar-wcl-link" href="${escapeHtml(wcl.characterUrl)}" target="_blank" rel="noopener noreferrer">Auf WarcraftLogs ansehen ↗</a>
+    </div>
+    <div class="mychar-wcl-zones">${zoneCardsHtml}</div>
+    ${bestPerfHtml}
+  </div>`;
+}
+
+function mycharCardHtml(c){
+  const cached = armoryCache[characterProfileCacheKey(c.realmSlug, c.name)];
+  const armoryLink = armoryWebUrl(c.realmSlug, c.name);
+  const found = cached && cached.result && cached.result.found;
+  const ch = found ? cached.result.character : null;
+  const cls = (ch && ch.classKey) ? CLASS_MAP[ch.classKey] : null;
+  const accentColor = cls ? cls.color : 'var(--gold)';
+
+  let bodyHtml;
+  if (!cached){
+    bodyHtml = `<div class="mychar-card-loading">Lädt Armory-Daten…</div>`;
+  } else if (!found){
+    const detail = (cached.result && cached.result.debug && cached.result.debug.detail) || '';
+    bodyHtml = `<div class="mychar-card-error" ${detail ? `title="${escapeHtml(detail)}"` : ''}>
+      Konnte keine Live-Daten laden.
+      <button type="button" class="btn btn-ghost btn-sm" data-mychar-refresh="${c.id}">Erneut versuchen</button>
+    </div>`;
+  } else {
+    const factionLabel = ARMORY_FACTION_LABELS[ch.faction] || ch.faction || '—';
+    const lastSeen = relativeTimeFromMs(ch.lastLoginTimestamp);
+    bodyHtml = `<div class="mychar-stat-grid">
+      <div class="mychar-stat"><span class="mychar-stat-label">Level</span><span class="mychar-stat-value">${ch.level ?? '—'}</span></div>
+      <div class="mychar-stat"><span class="mychar-stat-label">Klasse</span><span class="mychar-stat-value" ${cls ? `style="color:${cls.color}"` : ''}>${escapeHtml(ch.className || (cls ? cls.label : '—'))}</span></div>
+      <div class="mychar-stat"><span class="mychar-stat-label">Rasse</span><span class="mychar-stat-value">${escapeHtml(ch.raceName || '—')}</span></div>
+      <div class="mychar-stat"><span class="mychar-stat-label">Fraktion</span><span class="mychar-stat-value">${escapeHtml(factionLabel)}</span></div>
+      <div class="mychar-stat"><span class="mychar-stat-label">Itemlevel</span><span class="mychar-stat-value">${ch.itemLevel ?? '—'}</span></div>
+      <div class="mychar-stat"><span class="mychar-stat-label">Gilde</span><span class="mychar-stat-value">${escapeHtml(ch.guildName || '—')}</span></div>
+      <div class="mychar-stat"><span class="mychar-stat-label">Zuletzt online</span><span class="mychar-stat-value">${escapeHtml(lastSeen || '—')}</span></div>
+    </div>
+    ${mycharEquipmentGridHtml(ch.equipment)}
+    <button type="button" class="btn btn-ghost btn-sm mychar-refresh-btn" data-mychar-refresh="${c.id}">Aktualisieren</button>`;
+  }
+
+  return `<div class="mychar-card" style="border-top-color:${accentColor}" data-mychar-card="${c.id}">
+    <div class="mychar-card-head">
+      <div class="mychar-card-name">${escapeHtml(c.name)}${c.isMain ? ' <span class="mychar-main-badge">★ Hauptcharakter</span>' : ''}</div>
+      <div class="mychar-card-realm">${escapeHtml(c.realmSlug)}</div>
+    </div>
+    ${bodyHtml}
+    <a class="mychar-armory-link" href="${armoryLink}" target="_blank" rel="noopener noreferrer">Im Armory ansehen ↗</a>
+    ${mycharWarcraftLogsHtml(c)}
+  </div>`;
+}
+
+function wireMycharCardButtons(){
+  els.mycharList.querySelectorAll('[data-mychar-refresh]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!discordIdentity) return;
+      const profile = (state.characterProfiles || {})[discordIdentity.id];
+      const c = profile && profile.characters.find(x => x.id === btn.getAttribute('data-mychar-refresh'));
+      if (!c) return;
+      btn.disabled = true;
+      btn.textContent = 'Lädt…';
+      await fetchArmoryCharacter(c.realmSlug, c.name, { force: true });
+      if (currentPage === 'mychar') renderMyCharactersPage();
+    });
+  });
+  els.mycharList.querySelectorAll('[data-mychar-wcl-refresh]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!discordIdentity) return;
+      const profile = (state.characterProfiles || {})[discordIdentity.id];
+      const c = profile && profile.characters.find(x => x.id === btn.getAttribute('data-mychar-wcl-refresh'));
+      if (!c) return;
+      btn.disabled = true;
+      btn.textContent = 'Lädt…';
+      await fetchWarcraftLogsCharacter(c.realmSlug, c.name, { force: true });
+      if (currentPage === 'mychar') renderMyCharactersPage();
+    });
+  });
+}
+
+async function renderMyCharactersPage(){
+  const loggedOut = !discordIdentity;
+  els.mycharLoggedOut.classList.toggle('hidden', !loggedOut);
+  els.mycharLoggedIn.classList.toggle('hidden', loggedOut);
+  if (loggedOut) return;
+  const profile = (state.characterProfiles || {})[discordIdentity.id];
+  const characters = (profile && profile.characters) || [];
+  if (!characters.length){
+    els.mycharList.innerHTML = `<div class="lootlib-note">Du hast noch keine Charaktere hinterlegt. Über "User Settings" oben kannst du welche hinzufügen.</div>`;
+    return;
+  }
+  els.mycharList.innerHTML = characters.map(mycharCardHtml).join('');
+  wireMycharCardButtons();
+  // Auto-fetch anything not already cached — a member's own character
+  // list is small, so fetching all of it on page-open is cheap, and
+  // means they see live data without an extra click. Armory and
+  // WarcraftLogs are fetched together but tracked independently, so one
+  // loading slowly (or failing) never blocks the other from showing up.
+  const toFetchArmory = characters.filter(c => !armoryCache[characterProfileCacheKey(c.realmSlug, c.name)]);
+  const toFetchWcl = characters.filter(c => !wclCache[characterProfileCacheKey(c.realmSlug, c.name)]);
+  if (toFetchArmory.length || toFetchWcl.length){
+    await Promise.all([
+      ...toFetchArmory.map(c => fetchArmoryCharacter(c.realmSlug, c.name)),
+      ...toFetchWcl.map(c => fetchWarcraftLogsCharacter(c.realmSlug, c.name))
+    ]);
+    if (currentPage === 'mychar'){
+      els.mycharList.innerHTML = characters.map(mycharCardHtml).join('');
+      wireMycharCardButtons();
+    }
+  }
+}
+
+els.mycharLoginBtn.addEventListener('click', () => startDiscordLogin());
+els.mycharManageBtn.addEventListener('click', () => openCharacterModal());
+els.mycharRefreshAllBtn.addEventListener('click', async () => {
+  if (!discordIdentity) return;
+  const profile = (state.characterProfiles || {})[discordIdentity.id];
+  const characters = (profile && profile.characters) || [];
+  if (!characters.length) return;
+  els.mycharRefreshAllBtn.disabled = true;
+  els.mycharRefreshAllBtn.textContent = 'Lädt…';
+  await Promise.all([
+    ...characters.map(c => fetchArmoryCharacter(c.realmSlug, c.name, { force: true })),
+    ...characters.map(c => fetchWarcraftLogsCharacter(c.realmSlug, c.name, { force: true }))
+  ]);
+  els.mycharRefreshAllBtn.disabled = false;
+  els.mycharRefreshAllBtn.textContent = 'Alle aktualisieren';
+  if (currentPage === 'mychar') renderMyCharactersPage();
+});
+
+// ---------------------------------------------------------------------
+// "Hilfreich forEVER" — curated list of external community sites/tools
+// for WoW: Forever, instead of us rebuilding things (like an item
+// database) that already exist elsewhere and are actively maintained.
+// Static, hand-picked list — nothing here touches Firebase.
+//
+// Every entry gets a `category`. Today they're all 'Allgemein', so
+// renderForeverToolsPage() below doesn't print any category heading —
+// but the moment a second distinct category shows up (e.g. 'Berufe',
+// 'Dungeons', once the community splits into more specific sites),
+// it starts grouping and heading them automatically. To add a new
+// site, just add another object to this array.
+//
+// `thumb` is hotlinked straight from the target site's own og:image /
+// twitter:image — no image is stored here — so it can break if that
+// site changes its markup; the <img onerror> in renderForeverToolsPage()
+// falls back to a plain placeholder box in that case, same pattern as
+// the item-db icon fallback used to.
+// ---------------------------------------------------------------------
+const FOREVER_RESOURCES = [
+  {
+    title: 'ForeverChanges',
+    url: 'https://foreverchanges.pro/',
+    domain: 'foreverchanges.pro',
+    thumb: 'https://foreverchanges.pro/og-five-features.png',
+    category: 'Allgemein',
+    blurb: 'Die umfangreichste Community-Datenbank für WoW Forever: interaktiver Talent-Rechner für alle 9 Klassen, komplettes Spellbook, Dungeon-Übersicht mit Loot-Tabellen (35 Dungeons), 2D/3D-Weltkarte und eine Item-Datenbank mit allen neuen und geänderten Items gegenüber Classic. Wird von einem Solo-Entwickler werbefrei betrieben.'
+  },
+  {
+    title: 'Talents Forever',
+    url: 'https://talentsforever.com/',
+    domain: 'talentsforever.com',
+    thumb: 'https://talentsforever.com/assets/og.png?v=606d5957',
+    category: 'Allgemein',
+    blurb: 'Kostenloser Talent-Rechner für alle 9 Klassen, direkt aus den Beta-Client-Daten gezogen. Baue Talentbäume, teile sie per Link und vergleiche Änderungen gegenüber Classic — inklusive Rasse-Boni und Legacy-Perks.'
+  },
+  {
+    title: 'Wowhead Forever',
+    url: 'https://www.wowhead.com/forever',
+    domain: 'wowhead.com/forever',
+    thumb: 'https://wow.zamimg.com/images/logos/share-icon.png',
+    category: 'Allgemein',
+    blurb: 'Die größte WoW-Forever-Seite überhaupt: Klassen-Guides, Berufe, Best-in-Slot-Listen, Quest-Datenbank und ein eigener Talent-Rechner — der Wowhead-Ableger speziell für Forever.'
+  },
+  {
+    title: 'Patchbot — WoW Forever Patch-Notes',
+    url: 'https://patchbot.io/games/world-of-warcraft-forever',
+    domain: 'patchbot.io',
+    thumb: 'https://cdn.patchbot.io/games/317/world-of-warcraft-forever_1789616963_md.webp',
+    category: 'Allgemein',
+    blurb: 'Sammelt die offiziellen Patch-Notes und Beta-Build-Updates direkt aus Blizzards eigenen Quellen — praktisch, um auf einen Blick zu sehen was sich zuletzt geändert hat, ohne die Foren selbst zu durchsuchen.'
+  }
+];
+
+const FOREVER_RESOURCE_EXTERNAL_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+
+function resourceThumbHtml(thumb, title){
+  if (!thumb) return `<span class="resource-thumb-ph" aria-hidden="true">${escapeHtml(title)}</span>`;
+  return `<img src="${thumb}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;resource-thumb-ph&quot; aria-hidden=&quot;true&quot;>${escapeHtml(title)}</span>'">`;
+}
+
+let forevertoolsInitialized = false;
+function renderForeverToolsPage(){
+  if (forevertoolsInitialized) return;
+  forevertoolsInitialized = true;
+  const cats = [...new Set(FOREVER_RESOURCES.map(r => r.category))];
+  const showCatHeadings = cats.length > 1;
+  let html = '';
+  let lastCat = null;
+  FOREVER_RESOURCES.forEach(r => {
+    if (showCatHeadings && r.category !== lastCat){
+      html += `<div class="resource-category-heading">${escapeHtml(r.category)}</div>`;
+      lastCat = r.category;
+    }
+    html += `<div class="resource-card">
+      <a class="resource-card-header" href="${r.url}" target="_blank" rel="noopener">
+        <span class="resource-card-title">${escapeHtml(r.title)}</span>
+        <span class="resource-card-sep">—</span>
+        <span class="resource-card-domain">${escapeHtml(r.domain)}</span>
+        <span class="resource-card-external" aria-hidden="true">${FOREVER_RESOURCE_EXTERNAL_ICON}</span>
+      </a>
+      <div class="resource-card-body">
+        <div class="resource-thumb">${resourceThumbHtml(r.thumb, r.title)}</div>
+        <div class="resource-info">${escapeHtml(r.blurb)}</div>
+      </div>
+    </div>`;
+  });
+  els.forevertoolsList.innerHTML = html;
+}
+
+// Shared "who voted for this bar" modal — used by both the general
+// Abstimmungen poll bars and the class/spec survey bars, since neither
+// kind of hover tooltip works on a touchscreen. `names` is the list of
+// voter usernames for this one option/spec; pass `anonymous: true` for
+// an anonymous poll to show only the count, never names.
+function showVoteDetailsModal(title, names, opts){
+  opts = opts || {};
+  const count = opts.anonymous ? (opts.count || 0) : (names ? names.length : 0);
+  els.voteDetailsModalTitle.textContent = title;
+  els.voteDetailsModalSubtitle.textContent = opts.anonymous
+    ? `${count} Stimme${count === 1 ? '' : 'n'} — anonyme Abstimmung, keine Namen sichtbar.`
+    : `${count} Stimme${count === 1 ? '' : 'n'}`;
+  els.voteDetailsModalList.innerHTML = (!opts.anonymous && names && names.length)
+    ? names.map(n => `<div class="access-member-row"><span class="access-member-name">${escapeHtml(n)}</span></div>`).join('')
+    : (opts.anonymous ? '' : `<div class="lootlib-note">Noch keine Stimmen.</div>`);
+  els.voteDetailsModal.classList.remove('hidden');
+}
+els.voteDetailsModalCloseBtn.addEventListener('click', () => els.voteDetailsModal.classList.add('hidden'));
+els.voteDetailsModal.addEventListener('click', (e) => {
+  if (e.target === els.voteDetailsModal) els.voteDetailsModal.classList.add('hidden');
+});
+
+// --- WoW Forever class survey rendering ---
+function foreverSavedEntry(){
+  if (!discordIdentity) return null;
+  return state.foreverSurvey[discordIdentity.id] || null;
+}
+
+// ---------------------------------------------------------------------
+// Voting card chrome — the collapsible wrapper shared by every voting
+// (currently just WoW Forever). Only tracks per-session manual
+// collapse/expand overrides, never persisted; the default (open unless
+// the voting is closed) is re-applied on every render UNLESS the person
+// already toggled the card themselves this session.
+// ---------------------------------------------------------------------
+let votingCardManualOpen = {}; // { [votingId]: true|false } — undefined = no manual override yet
+
+// Generic collapse/expand toggle for any ".voting-card"-styled shell,
+// reused by both votings and announcement cards.
+function applyCardCollapsedUi(cardElId, bodyElId, collapsed){
+  const card = document.getElementById(cardElId);
+  const body = document.getElementById(bodyElId);
+  if (!card || !body) return;
+  card.classList.toggle('open', !collapsed);
+  body.classList.toggle('hidden', collapsed);
+}
+
+function applyVotingCollapsedUi(votingId, collapsed){
+  applyCardCollapsedUi('votingCard-' + votingId, 'votingBody-' + votingId, collapsed);
+}
+
+function toggleVotingCard(votingId){
+  const body = document.getElementById('votingBody-' + votingId);
+  if (!body) return;
+  const currentlyOpen = !body.classList.contains('hidden');
+  votingCardManualOpen[votingId] = !currentlyOpen;
+  applyVotingCollapsedUi(votingId, currentlyOpen);
+}
+
+function renderVotingChrome(votingId){
+  const closed = isVotingClosed(votingId);
+  const badge = document.getElementById('votingBadge-' + votingId);
+  if (badge){
+    badge.textContent = closed ? 'Geschlossen' : 'Offen';
+    badge.classList.toggle('closed', closed);
+  }
+  const adminControls = document.getElementById('votingAdminControls-' + votingId);
+  if (adminControls) adminControls.classList.toggle('hidden', !canManageVotings());
+  const closeBtn = document.getElementById('votingCloseBtn-' + votingId);
+  if (closeBtn) closeBtn.textContent = closed ? 'Abstimmung wieder öffnen' : 'Abstimmung schließen';
+  const closedNote = document.getElementById('votingClosedNote-' + votingId);
+  if (closedNote) closedNote.classList.toggle('hidden', !closed);
+  // Only re-apply the "open unless closed" default while the viewer
+  // hasn't manually expanded/collapsed the card themselves this session.
+  if (votingCardManualOpen[votingId] === undefined){
+    applyVotingCollapsedUi(votingId, closed);
+  }
+}
+
+async function toggleVotingClosed(votingId){
+  if (!canManageVotings()) return;
+  if (!state.votingStatus) state.votingStatus = {};
+  const wasClosed = isVotingClosed(votingId);
+  const previous = state.votingStatus[votingId];
+  state.votingStatus[votingId] = { closed: !wasClosed };
+  const statusEl = document.getElementById('votingCloseStatus-' + votingId);
+  if (statusEl){ statusEl.textContent = 'Saving…'; statusEl.className = 'armory-status'; }
+  renderAll();
+  const ok = await saveData('votingStatus/' + votingId);
+  if (!ok){
+    // Write failed (most likely: the Firebase rules haven't been updated
+    // to allow votingStatus writes yet — see the README). Roll back so
+    // the UI never claims the voting was closed/reopened when it wasn't.
+    if (previous) state.votingStatus[votingId] = previous;
+    else delete state.votingStatus[votingId];
+    if (statusEl){
+      statusEl.textContent = 'Konnte nicht speichern — Firebase-Regeln prüfen (siehe README)';
+      statusEl.className = 'armory-status armory-status-error';
+    }
+    renderAll();
+  } else if (statusEl){
+    statusEl.textContent = '';
+    statusEl.className = 'armory-status';
+  }
+}
+
+// ---------------------------------------------------------------------
+// Announcements — Admins/Officers post free-text announcements, shown as
+// collapsible cards (reusing the same .voting-card shell). Newest first;
+// whenever a genuinely new announcement shows up, everyone's local
+// collapse state resets to the default (newest expanded, the rest
+// collapsed underneath it) — a fresh announcement should always surface.
+// ---------------------------------------------------------------------
+let announceCardManualOpen = {}; // { [announceId]: true|false }
+let announceLastNewestId; // undefined = not yet rendered once
+let announceEditingId = null; // id of the announcement currently being edited inline, or null
+
+// Small formatting toolbar shared by the "new announcement" composer and
+// by inline per-card editing. Plain buttons (not a <select>) on purpose —
+// a button can use mousedown.preventDefault() to keep the contenteditable
+// selection alive across the click, which a native <select> can't do
+// reliably, so sizing is 4 buttons rather than a dropdown.
+function announceToolbarMarkup(){
+  return `
+    <button type="button" data-cmd="h1" title="Überschrift 1">H1</button>
+    <button type="button" data-cmd="h2" title="Überschrift 2">H2</button>
+    <button type="button" data-cmd="p" title="Normaler Text">¶</button>
+    <span class="announce-toolbar-sep"></span>
+    <button type="button" data-cmd="bold" title="Fett"><b>F</b></button>
+    <button type="button" data-cmd="italic" title="Kursiv"><i>K</i></button>
+    <button type="button" data-cmd="underline" title="Unterstrichen"><u>U</u></button>
+    <span class="announce-toolbar-sep"></span>
+    <button type="button" data-cmd="ul" title="Aufzählung">• Liste</button>
+    <span class="announce-toolbar-sep"></span>
+    <button type="button" data-size="2" title="Kleine Schrift">A⁻</button>
+    <button type="button" data-size="3" title="Normale Schrift">A</button>
+    <button type="button" data-size="5" title="Große Schrift">A⁺</button>
+    <button type="button" data-size="7" title="Sehr große Schrift">A⁺⁺</button>
+  `;
+}
+function execAnnounceFormatCmd(editorEl, cmd){
+  editorEl.focus();
+  const blockTag = { h1: 'H1', h2: 'H2', p: 'P' }[cmd];
+  if (blockTag) document.execCommand('formatBlock', false, blockTag);
+  else if (cmd === 'bold') document.execCommand('bold');
+  else if (cmd === 'italic') document.execCommand('italic');
+  else if (cmd === 'underline') document.execCommand('underline');
+  else if (cmd === 'ul') document.execCommand('insertUnorderedList');
+}
+function wireAnnounceToolbar(toolbarEl, editorEl){
+  if (!toolbarEl || !editorEl) return;
+  toolbarEl.querySelectorAll('button').forEach(btn => {
+    // Without this, clicking the button would move focus off the editor
+    // first, collapsing/losing the text selection the command should
+    // apply to.
+    btn.addEventListener('mousedown', (e) => e.preventDefault());
+    btn.addEventListener('click', () => {
+      editorEl.focus();
+      const cmd = btn.getAttribute('data-cmd');
+      const size = btn.getAttribute('data-size');
+      if (cmd) execAnnounceFormatCmd(editorEl, cmd);
+      else if (size) document.execCommand('fontSize', false, size);
+    });
+  });
+}
+
+function sortedAnnouncements(){
+  return Object.keys(state.announcements || {})
+    .map(id => Object.assign({ id }, state.announcements[id]))
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+// Builds the News grid on the Home page: the newest current Ankündigung
+// always gets its own tile up front (goblin artwork + a short auto
+// summary of its text), followed by the hand-written NEWS_ITEMS above.
+// It stays there exactly as long as that announcement exists — the
+// instant it's edited to empty or deleted, this recomputes from
+// scratch and the tile is simply gone. Clicking it jumps to the
+// Ankündigungen page.
+// Scrolls the news carousel by exactly one card's width in the given
+// direction (-1 = left/prev, 1 = right/next), however many cards are
+// currently visible at once.
+function scrollNewsCarousel(direction){
+  const track = els.newsGrid;
+  if (!track) return;
+  const card = track.querySelector('.news-card');
+  const gap = 18;
+  const step = card ? card.getBoundingClientRect().width + gap : track.clientWidth;
+  track.scrollBy({ left: direction * step, behavior: 'smooth' });
+}
+
+// Hides the arrows entirely when every card already fits on screen at
+// once, and disables whichever arrow would scroll past the start/end.
+function updateNewsCarouselArrows(){
+  const track = els.newsGrid;
+  if (!track || !els.newsPrevBtn || !els.newsNextBtn) return;
+  const canScroll = track.scrollWidth > track.clientWidth + 2;
+  els.newsPrevBtn.classList.toggle('hidden', !canScroll);
+  els.newsNextBtn.classList.toggle('hidden', !canScroll);
+  if (!canScroll) return;
+  els.newsPrevBtn.disabled = track.scrollLeft <= 2;
+  els.newsNextBtn.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 2;
+}
+
+function renderNewsGrid(){
+  const items = [];
+  const latestRaw = sortedAnnouncements()[0];
+  const latest = latestRaw ? normalizeAnnouncement(latestRaw) : null;
+  if (latest){
+    items.push({
+      title: latest.title || 'Neue Ankündigung',
+      blurb: summarizeAnnouncementText(latest.text),
+      image: NEWS_ANNOUNCEMENT_IMAGE,
+      linkPage: 'announcements'
+    });
+  }
+  // Always exactly one patch-notes tile (never one per update), shown
+  // right after the announcement tile — official Blizzard patch notes /
+  // hotfixes are the most "official" of the auto-generated cards, so
+  // they take priority over the general Wowhead news tile below.
+  if (wowheadPatchNotesItem){
+    items.push({
+      title: wowheadPatchNotesItem.title,
+      blurb: wowheadPatchNotesItem.blurb || 'Neue Patch Notes — antippen zum Lesen.',
+      image: wowheadPatchNotesItem.image || null,
+      linkUrl: wowheadPatchNotesItem.url,
+      badge: 'Blizzard Patch Notes · via Wowhead'
+    });
+  }
+  // Always exactly one general Wowhead tile (never one per update) — its
+  // content just gets replaced in place whenever fetchWowheadNews() finds
+  // a newer post. Skipped if it's the very same article already shown as
+  // the patch-notes tile above, so the same post never appears twice.
+  if (wowheadNewsItem && (!wowheadPatchNotesItem || wowheadNewsItem.url !== wowheadPatchNotesItem.url)){
+    items.push({
+      title: wowheadNewsItem.title,
+      blurb: wowheadNewsItem.blurb || 'Neuer Artikel auf Wowhead — antippen zum Lesen.',
+      image: wowheadNewsItem.image || null,
+      linkUrl: wowheadNewsItem.url,
+      badge: 'Wowhead · WoW: Forever'
+    });
+  }
+  items.push(...NEWS_ITEMS);
+  // A logged-out visitor can't do anything with a login-gated tile (e.g.
+  // the Klassen-Umfrage, which just dead-ends at a login prompt) — drop
+  // those for them rather than showing a card they can't use.
+  const loggedIn = !!discordIdentity;
+  let visibleItems = loggedIn ? items : items.filter(item => !item.requiresLogin);
+  // Keep the row looking full (and consistent) even when there aren't
+  // enough real items — cycle through the placeholder tiles as filler.
+  let placeholderIdx = 0;
+  while (visibleItems.length < NEWS_MIN_CARD_COUNT){
+    visibleItems = visibleItems.concat([NEWS_PLACEHOLDER_ITEMS[placeholderIdx % NEWS_PLACEHOLDER_ITEMS.length]]);
+    placeholderIdx++;
+  }
+  els.newsGrid.innerHTML = visibleItems.map((item, idx) => {
+    const thumbStyle = item.image ? ` style="background-image:url('${escapeHtml(item.image)}')"` : '';
+    const isLink = !!(item.linkPage || item.linkUrl);
+    const isPlaceholder = !item.image && !isLink && !item.badge;
+    const cardClass = 'news-card' + (isLink ? ' news-card-link' : '') + (isPlaceholder ? ' news-card-placeholder' : '');
+    const dataAttr = isLink ? ` data-news-link-idx="${idx}"` : '';
+    const badgeHtml = item.badge ? `<span class="news-badge">${escapeHtml(item.badge)}</span>` : '';
+    return `<div class="${cardClass}"${dataAttr}>
+      <div class="news-thumb"${thumbStyle}>${item.image ? '' : (isPlaceholder ? '📜' : 'Bild folgt')}${badgeHtml}</div>
+      <div class="news-body">
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(item.blurb)}</p>
+      </div>
+    </div>`;
+  }).join('');
+  els.newsGrid.querySelectorAll('[data-news-link-idx]').forEach(card => {
+    const item = visibleItems[Number(card.getAttribute('data-news-link-idx'))];
+    if (!item) return;
+    if (item.linkUrl) card.addEventListener('click', () => window.open(item.linkUrl, '_blank', 'noopener'));
+    else if (item.linkPage) card.addEventListener('click', () => showPage(item.linkPage));
+  });
+  els.newsGrid.scrollLeft = 0;
+  updateNewsCarouselArrows();
+}
+
+function toggleAnnounceCard(id){
+  const body = document.getElementById('announceBody-' + id);
+  if (!body) return;
+  const currentlyOpen = !body.classList.contains('hidden');
+  announceCardManualOpen[id] = !currentlyOpen;
+  applyCardCollapsedUi('announceCard-' + id, 'announceBody-' + id, currentlyOpen);
+}
+
+function formatAnnounceDate(ts){
+  if (!ts) return '';
+  try{
+    return new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }catch(e){ return ''; }
+}
+
+function renderAnnouncementsView(){
+  const loggedIn = !!discordIdentity;
+  const hasAccess = loggedIn && isMemberOrHigher();
+  els.announceLoggedOut.classList.toggle('hidden', loggedIn);
+  els.announceNoAccess.classList.toggle('hidden', !loggedIn || hasAccess);
+  els.announceLoggedIn.classList.toggle('hidden', !hasAccess);
+  if (!hasAccess) return;
+
+  els.announceComposer.classList.toggle('hidden', !isOfficerOrAdmin());
+
+  const list = sortedAnnouncements();
+
+  // A genuinely new newest announcement (including going from none to
+  // one) resets everyone's local collapse choices back to the default —
+  // newest open, everything else collapses underneath it.
+  const newestId = list.length ? list[0].id : null;
+  if (announceLastNewestId !== undefined && newestId !== announceLastNewestId){
+    announceCardManualOpen = {};
+  }
+  announceLastNewestId = newestId;
+
+  if (!list.length){
+    els.announceList.innerHTML = `<div class="lootlib-note">Noch keine Ankündigungen.</div>`;
+    return;
+  }
+
+  const canManage = isOfficerOrAdmin();
+  els.announceList.innerHTML = list.map((a, idx) => {
+    const dateStr = formatAnnounceDate(a.createdAt);
+    // Announcements from before the title field existed have none — fall
+    // back to a snippet of the body so the header never shows blank.
+    let headerTitle = a.title;
+    if (!headerTitle){
+      const plainText = stripHtmlToText(a.text);
+      headerTitle = plainText.length > 70 ? plainText.slice(0, 70).trim() + '…' : plainText;
+    }
+    const editedTag = a.editedAt ? ' · <span class="announce-edited-tag">bearbeitet</span>' : '';
+    const isEditing = canManage && announceEditingId === a.id;
+
+    const adminControlsHtml = canManage
+      ? `<div class="voting-admin-controls">
+          <span class="lootlib-note">Nur für Admins/Offiziere sichtbar.</span>
+          <div class="voting-admin-controls-actions">
+            <button type="button" class="btn btn-sm btn-outline-gold" data-announce-edit="${a.id}">Bearbeiten</button>
+            <button type="button" class="btn btn-sm btn-outline-gold" data-announce-delete="${a.id}">Löschen</button>
+          </div>
+        </div>`
+      : '';
+
+    const bodyHtml = isEditing
+      ? `<input type="text" class="announce-title-input" id="announceEditTitle-${a.id}" placeholder="Titel der Ankündigung…" maxlength="120" value="${escapeHtml(a.title)}">
+         <div class="announce-toolbar" id="announceEditToolbar-${a.id}">${announceToolbarMarkup()}</div>
+         <div class="announce-editor" id="announceEditEditor-${a.id}" contenteditable="true" data-placeholder="Text der Ankündigung…">${a.text}</div>
+         <div class="announce-card-edit-actions">
+           <button type="button" class="btn btn-teal btn-sm" data-announce-save-edit="${a.id}">Speichern</button>
+           <button type="button" class="btn btn-sm btn-ghost" data-announce-cancel-edit="${a.id}">Abbrechen</button>
+           <span id="announceEditStatus-${a.id}" class="armory-status"></span>
+         </div>`
+      : `${adminControlsHtml}<div class="announce-card-text">${a.text}</div>`;
+
+    return `<div class="voting-card announce-card" id="announceCard-${a.id}" data-announce-id="${a.id}">
+      <button type="button" class="voting-card-header" data-announce-toggle="${a.id}">
+        <span class="voting-card-chevron">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>
+        </span>
+        <span class="voting-card-title announce-card-title">${escapeHtml(headerTitle)}</span>
+        <span class="announce-card-meta">${escapeHtml(a.authorName)}${dateStr ? ' · ' + escapeHtml(dateStr) : ''}${editedTag}</span>
+      </button>
+      <div class="voting-card-body" id="announceBody-${a.id}">
+        ${bodyHtml}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Default: only the newest announcement (idx 0) starts expanded, unless
+  // the viewer already manually toggled this specific card this session.
+  // A card currently being edited is always forced open (see
+  // startEditAnnouncement) so this loop naturally leaves it as-is.
+  list.forEach((a, idx) => {
+    if (announceCardManualOpen[a.id] === undefined){
+      applyCardCollapsedUi('announceCard-' + a.id, 'announceBody-' + a.id, idx !== 0);
+    }
+  });
+
+  if (canManage && announceEditingId){
+    const toolbarEl = document.getElementById('announceEditToolbar-' + announceEditingId);
+    const editorEl = document.getElementById('announceEditEditor-' + announceEditingId);
+    if (toolbarEl && editorEl){
+      wireAnnounceToolbar(toolbarEl, editorEl);
+      editorEl.focus();
+    }
+  }
+
+  els.announceList.querySelectorAll('[data-announce-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => toggleAnnounceCard(btn.getAttribute('data-announce-toggle')));
+  });
+  els.announceList.querySelectorAll('[data-announce-delete]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteAnnouncement(btn.getAttribute('data-announce-delete'));
+    });
+  });
+  els.announceList.querySelectorAll('[data-announce-edit]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startEditAnnouncement(btn.getAttribute('data-announce-edit'));
+    });
+  });
+  els.announceList.querySelectorAll('[data-announce-save-edit]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      saveAnnouncementEdit(btn.getAttribute('data-announce-save-edit'));
+    });
+  });
+  els.announceList.querySelectorAll('[data-announce-cancel-edit]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cancelEditAnnouncement();
+    });
+  });
+}
+
+function startEditAnnouncement(id){
+  if (!isOfficerOrAdmin() || !state.announcements || !state.announcements[id]) return;
+  announceEditingId = id;
+  // Editing must stay visible regardless of the card's collapsed state.
+  announceCardManualOpen[id] = true;
+  renderAnnouncementsView();
+}
+
+function cancelEditAnnouncement(){
+  announceEditingId = null;
+  renderAnnouncementsView();
+}
+
+async function saveAnnouncementEdit(id){
+  if (!isOfficerOrAdmin() || !state.announcements || !state.announcements[id]) return;
+  const editorEl = document.getElementById('announceEditEditor-' + id);
+  const titleEl = document.getElementById('announceEditTitle-' + id);
+  const statusEl = document.getElementById('announceEditStatus-' + id);
+  if (!editorEl) return;
+  const html = sanitizeRichText(editorEl.innerHTML);
+  if (!stripHtmlToText(html).trim()) return;
+  const title = titleEl ? titleEl.value.trim().slice(0, 120) : '';
+  const previous = state.announcements[id];
+  state.announcements[id] = Object.assign({}, previous, { text: html, title, editedAt: Date.now() });
+  if (statusEl){ statusEl.textContent = 'Saving…'; statusEl.className = 'armory-status'; }
+  const ok = await saveData('announcements/' + id);
+  if (ok){
+    announceEditingId = null;
+    renderAnnouncementsView();
+  } else {
+    // Roll the optimistic update back, but leave the editor and the
+    // viewer's in-progress edit alone so nothing gets lost.
+    state.announcements[id] = previous;
+    if (statusEl){
+      statusEl.textContent = 'Konnte nicht speichern — Firebase-Regeln prüfen (siehe README)';
+      statusEl.className = 'armory-status armory-status-error';
+    }
+  }
+}
+
+async function saveAnnouncement(){
+  if (!discordIdentity || !isOfficerOrAdmin()) return;
+  const html = sanitizeRichText(els.announceEditor.innerHTML);
+  if (!stripHtmlToText(html).trim()) return;
+  const title = els.announceTitleInput.value.trim().slice(0, 120);
+  let id = null;
+  try{ id = db ? db.ref(DB_PATH + '/announcements').push().key : null; }catch(e){}
+  if (!id) id = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  if (!state.announcements) state.announcements = {};
+  state.announcements[id] = {
+    text: html,
+    title,
+    authorName: discordIdentity.username,
+    authorId: discordIdentity.id,
+    createdAt: Date.now()
+  };
+  els.announceSaveStatus.textContent = 'Saving…';
+  els.announceSaveStatus.className = 'armory-status';
+  renderAll();
+  const ok = await saveData('announcements/' + id);
+  if (ok){
+    els.announceEditor.innerHTML = '';
+    els.announceTitleInput.value = '';
+    els.announceSaveStatus.textContent = 'Veröffentlicht!';
+    els.announceSaveStatus.className = 'armory-status armory-status-ok';
+    setTimeout(() => { if (els.announceSaveStatus.textContent === 'Veröffentlicht!') els.announceSaveStatus.textContent = ''; }, 2000);
+  } else {
+    // Write failed (most likely: the Firebase rules haven't been updated
+    // to allow announcement writes yet — see the README). Roll back so
+    // the UI never claims the announcement was posted when it wasn't.
+    delete state.announcements[id];
+    els.announceSaveStatus.textContent = 'Konnte nicht speichern — Firebase-Regeln prüfen (siehe README)';
+    els.announceSaveStatus.className = 'armory-status armory-status-error';
+    renderAll();
+  }
+}
+
+async function deleteAnnouncement(id){
+  if (!isOfficerOrAdmin() || !state.announcements || !state.announcements[id]) return;
+  const previous = state.announcements[id];
+  delete state.announcements[id];
+  if (announceEditingId === id) announceEditingId = null;
+  renderAll();
+  const ok = await saveData('announcements/' + id);
+  if (!ok){
+    state.announcements[id] = previous;
+    renderAll();
+  }
+}
+
+// ---------------------------------------------------------------------
+// Custom polls — rendering, composer, voting, and Officer moderation.
+// ---------------------------------------------------------------------
+function renderPollComposerOptions(){
+  els.pollOptionInputs.innerHTML = pollComposerOptionDrafts.map((val, i) => `
+    <div class="poll-option-input-row">
+      <input type="text" data-poll-option-index="${i}" placeholder="Option ${i + 1}…" maxlength="80" value="${escapeHtml(val)}">
+      ${pollComposerOptionDrafts.length > POLL_MIN_OPTIONS ? `<button type="button" class="poll-option-remove-btn" data-poll-option-remove="${i}" title="Entfernen">✕</button>` : ''}
+    </div>
+  `).join('');
+  els.pollOptionInputs.querySelectorAll('input[data-poll-option-index]').forEach(input => {
+    input.addEventListener('input', () => {
+      const idx = Number(input.getAttribute('data-poll-option-index'));
+      pollComposerOptionDrafts[idx] = input.value;
+    });
+  });
+  els.pollOptionInputs.querySelectorAll('[data-poll-option-remove]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.getAttribute('data-poll-option-remove'));
+      if (pollComposerOptionDrafts.length <= POLL_MIN_OPTIONS) return;
+      pollComposerOptionDrafts.splice(idx, 1);
+      renderPollComposerOptions();
+    });
+  });
+  els.pollAddOptionBtn.classList.toggle('hidden', pollComposerOptionDrafts.length >= POLL_MAX_OPTIONS);
+}
+
+function addPollComposerOption(){
+  if (pollComposerOptionDrafts.length >= POLL_MAX_OPTIONS) return;
+  pollComposerOptionDrafts.push('');
+  renderPollComposerOptions();
+}
+
+function resetPollComposer(){
+  pollComposerOptionDrafts = ['', ''];
+  els.pollTitleInput.value = '';
+  els.pollDurationInput.value = '7';
+  els.pollResultsVisibleInput.checked = true;
+  els.pollAnonymousInput.checked = false;
+  const singleRadio = document.querySelector('input[name="pollChoiceMode"][value="single"]');
+  if (singleRadio) singleRadio.checked = true;
+  renderPollComposerOptions();
+}
+
+async function publishPoll(){
+  if (!discordIdentity || !isOfficerOrAdmin()) return;
+  const title = els.pollTitleInput.value.trim().slice(0, 150);
+  if (!title) return;
+  const rawOptions = pollComposerOptionDrafts.map(v => v.trim()).filter(Boolean);
+  if (rawOptions.length < POLL_MIN_OPTIONS) return;
+  const options = rawOptions.slice(0, POLL_MAX_OPTIONS).map((label, i) =>
+    ({ id: 'o' + i + '_' + Math.random().toString(36).slice(2, 7), label: label.slice(0, 80) }));
+  const modeInput = document.querySelector('input[name="pollChoiceMode"]:checked');
+  const multipleChoice = !!modeInput && modeInput.value === 'multiple';
+  let durationDays = Number(els.pollDurationInput.value);
+  if (!Number.isFinite(durationDays) || durationDays < POLL_MIN_DURATION_DAYS) durationDays = POLL_MIN_DURATION_DAYS;
+  if (durationDays > POLL_MAX_DURATION_DAYS) durationDays = POLL_MAX_DURATION_DAYS;
+  const resultsVisible = !!els.pollResultsVisibleInput.checked;
+  const anonymous = !!els.pollAnonymousInput.checked;
+
+  let id = null;
+  try{ id = db ? db.ref(DB_PATH + '/polls').push().key : null; }catch(e){}
+  if (!id) id = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  const createdAt = Date.now();
+  if (!state.polls) state.polls = {};
+  state.polls[id] = {
+    title, options, multipleChoice, resultsVisible, anonymous, durationDays,
+    createdAt, expiresAt: createdAt + durationDays * POLL_DAY_MS,
+    closed: false,
+    createdByName: discordIdentity.username,
+    createdById: discordIdentity.id,
+    votes: {}
+  };
+  els.pollPublishStatus.textContent = 'Saving…';
+  els.pollPublishStatus.className = 'armory-status';
+  renderAll();
+  const ok = await saveData('polls/' + id);
+  if (ok){
+    resetPollComposer();
+    els.pollPublishStatus.textContent = 'Veröffentlicht!';
+    els.pollPublishStatus.className = 'armory-status armory-status-ok';
+    setTimeout(() => { if (els.pollPublishStatus.textContent === 'Veröffentlicht!') els.pollPublishStatus.textContent = ''; }, 2000);
+  } else {
+    // Write failed (most likely: the Firebase rules haven't been updated
+    // to allow poll writes yet — see the README). Roll back so the UI
+    // never claims the poll was posted when it wasn't.
+    delete state.polls[id];
+    els.pollPublishStatus.textContent = 'Konnte nicht speichern — Firebase-Regeln prüfen (siehe README)';
+    els.pollPublishStatus.className = 'armory-status armory-status-error';
+    renderAll();
+  }
+}
+
+function togglePollDraftOption(pollId, optionId, multipleChoice){
+  const current = pollVoteDrafts[pollId] || [];
+  let next;
+  if (multipleChoice){
+    next = current.includes(optionId) ? current.filter(id => id !== optionId) : current.concat(optionId);
+  } else {
+    next = current.includes(optionId) ? [] : [optionId];
+  }
+  pollVoteDrafts[pollId] = next;
+  renderPollList();
+}
+
+async function savePollVote(pollId){
+  if (!discordIdentity || !state.polls || !state.polls[pollId]) return;
+  const poll = state.polls[pollId];
+  if (pollIsClosed(poll)) return;
+  const choices = pollVoteDrafts[pollId] || pollUserChoices(poll);
+  if (!choices.length) return;
+  const previous = poll.votes[discordIdentity.id];
+  poll.votes[discordIdentity.id] = { username: discordIdentity.username, choices: choices.slice() };
+  let statusEl = document.getElementById('pollVoteStatus-' + pollId);
+  if (statusEl){ statusEl.textContent = 'Saving…'; statusEl.className = 'armory-status'; }
+  renderPollList();
+  refreshQuestUI();
+  const ok = await saveData('polls/' + pollId + '/votes/' + discordIdentity.id);
+  if (!ok){
+    if (previous) poll.votes[discordIdentity.id] = previous;
+    else delete poll.votes[discordIdentity.id];
+    renderPollList();
+    refreshQuestUI();
+    statusEl = document.getElementById('pollVoteStatus-' + pollId);
+    if (statusEl){
+      statusEl.textContent = 'Konnte nicht speichern — Firebase-Regeln prüfen (siehe README)';
+      statusEl.className = 'armory-status armory-status-error';
+    }
+  }
+}
+
+async function togglePollClosed(pollId){
+  if (!isOfficerOrAdmin() || !state.polls || !state.polls[pollId]) return;
+  const poll = state.polls[pollId];
+  const previous = poll.closed;
+  poll.closed = !previous;
+  renderPollList();
+  const ok = await saveData('polls/' + pollId + '/closed');
+  if (!ok){
+    poll.closed = previous;
+    renderPollList();
+  }
+}
+
+async function deletePoll(pollId){
+  if (!isOfficerOrAdmin() || !state.polls || !state.polls[pollId]) return;
+  const previous = state.polls[pollId];
+  delete state.polls[pollId];
+  delete pollVoteDrafts[pollId];
+  renderPollList();
+  const ok = await saveData('polls/' + pollId);
+  if (!ok){
+    state.polls[pollId] = previous;
+    renderPollList();
+  }
+}
+
+function togglePollCard(id){
+  const body = document.getElementById('pollBody-' + id);
+  if (!body) return;
+  const currentlyOpen = !body.classList.contains('hidden');
+  pollCardManualOpen[id] = !currentlyOpen;
+  applyCardCollapsedUi('pollCard-' + id, 'pollBody-' + id, currentlyOpen);
+}
+
+function renderPollList(){
+  if (!els.pollComposer) return;
+  els.pollComposer.classList.toggle('hidden', !isOfficerOrAdmin());
+
+  const polls = sortedPolls();
+  if (!polls.length){
+    els.pollList.innerHTML = `<div class="lootlib-note">Noch keine Abstimmungen.</div>`;
+    return;
+  }
+
+  const canManage = isOfficerOrAdmin();
+  els.pollList.innerHTML = polls.map(poll => {
+    const closed = pollIsClosed(poll);
+    const canSeeResults = pollCanSeeResults(poll);
+    const results = canSeeResults ? pollResults(poll) : null;
+    const maxCount = results ? Math.max(1, ...Object.values(results.counts)) : 1;
+    const userChoices = pollVoteDrafts[poll.id] !== undefined ? pollVoteDrafts[poll.id] : pollUserChoices(poll);
+    const hasVoted = pollUserChoices(poll).length > 0;
+
+    const adminControlsHtml = canManage
+      ? `<div class="voting-admin-controls">
+          <span class="lootlib-note">Nur für Admins/Offiziere sichtbar.</span>
+          <div class="voting-admin-controls-actions">
+            <span id="pollAdminStatus-${poll.id}" class="armory-status"></span>
+            <button type="button" class="btn btn-sm btn-outline-gold" data-poll-toggle-closed="${poll.id}">${poll.closed ? 'Wieder öffnen' : 'Abstimmung schließen'}</button>
+            <button type="button" class="btn btn-sm btn-outline-gold" data-poll-delete="${poll.id}">Löschen</button>
+          </div>
+        </div>`
+      : '';
+
+    const closedNoteHtml = closed
+      ? `<div class="voting-closed-note">Diese Abstimmung ist beendet — es kann nicht mehr abgestimmt werden.</div>`
+      : '';
+
+    const optionsHtml = poll.options.map(opt => {
+      const selected = userChoices.includes(opt.id);
+      const inputType = poll.multipleChoice ? 'checkbox' : 'radio';
+      const inputName = poll.multipleChoice ? '' : `name="pollChoice-${poll.id}"`;
+      const disabled = (closed || !discordIdentity) ? 'disabled' : '';
+      const controlHtml = `<input type="${inputType}" ${inputName} class="poll-option-control" data-poll-option="${poll.id}|${opt.id}" ${selected ? 'checked' : ''} ${disabled}>`;
+
+      let barHtml = '';
+      if (canSeeResults){
+        const count = results.counts[opt.id] || 0;
+        const pct = (count / maxCount) * 100;
+        const names = results.namesByOption[opt.id];
+        const title = poll.anonymous ? `${count} Stimme(n)` : `${count} Stimme(n)${names.length ? ':\n' + names.join('\n') : ''}`;
+        // The title= gives a hover tooltip on desktop; data-vote-details-*
+        // (wired below) makes the same bar tappable on mobile, where
+        // hover doesn't exist, opening a modal with the same info.
+        barHtml = `<div class="poll-option-bar-wrap" data-vote-details-poll="${poll.id}" data-vote-details-option="${opt.id}" role="button" tabindex="0">
+          <div class="poll-option-bar-track"><div class="poll-option-bar-fill" style="width:${pct}%" title="${escapeHtml(title)}"></div></div>
+          <span class="poll-option-count">${count} Stimme${count === 1 ? '' : 'n'}</span>
+        </div>`;
+      }
+
+      return `<div class="poll-option-row">
+        <label>${controlHtml}</label>
+        <span class="poll-option-label">${escapeHtml(opt.label)}</span>
+        ${barHtml}
+      </div>`;
+    }).join('');
+
+    const resultsNoteHtml = !canSeeResults
+      ? `<div class="poll-hidden-results-note">Die Ergebnisse werden erst sichtbar, sobald die Abstimmung beendet ist.</div>`
+      : '';
+    const voterCountLine = canSeeResults
+      ? `<div class="poll-voters-note">${results.voterCount} Mitglied${results.voterCount === 1 ? '' : 'er'} ${results.voterCount === 1 ? 'hat' : 'haben'} bisher abgestimmt.</div>`
+      : '';
+
+    const metaBits = [
+      'von ' + escapeHtml(poll.createdByName),
+      poll.multipleChoice ? 'Mehrfachauswahl' : 'Einfachauswahl',
+      pollDaysLeftLabel(poll)
+    ];
+
+    return `<div class="voting-card" id="pollCard-${poll.id}" data-poll-id="${poll.id}">
+      <button type="button" class="voting-card-header" data-poll-toggle="${poll.id}">
+        <span class="voting-card-chevron">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>
+        </span>
+        <span class="voting-card-title announce-card-title">${escapeHtml(poll.title)}</span>
+        <span class="voting-status-badge ${closed ? 'closed' : ''}">${closed ? 'Geschlossen' : 'Offen'}</span>
+      </button>
+      <div class="voting-card-body" id="pollBody-${poll.id}">
+        ${adminControlsHtml}
+        ${closedNoteHtml}
+        <div class="poll-card-meta-line">${metaBits.join(' · ')}</div>
+        <div class="poll-options-list">${optionsHtml}</div>
+        ${resultsNoteHtml}
+        ${voterCountLine}
+        <div class="forever-actions">
+          <button type="button" class="btn btn-teal btn-sm" data-poll-submit="${poll.id}" ${(closed || !discordIdentity) ? 'disabled' : ''}>${hasVoted ? 'Auswahl aktualisieren' : 'Abstimmen'}</button>
+          <span id="pollVoteStatus-${poll.id}" class="armory-status"></span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Default: only the newest poll starts expanded, same convention as
+  // announcements/votings — the viewer's own manual toggle always wins.
+  polls.forEach((poll, idx) => {
+    if (pollCardManualOpen[poll.id] === undefined){
+      applyCardCollapsedUi('pollCard-' + poll.id, 'pollBody-' + poll.id, idx !== 0);
+    }
+  });
+
+  els.pollList.querySelectorAll('[data-poll-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => togglePollCard(btn.getAttribute('data-poll-toggle')));
+  });
+  els.pollList.querySelectorAll('[data-poll-option]').forEach(input => {
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('change', () => {
+      const [pollId, optionId] = input.getAttribute('data-poll-option').split('|');
+      const poll = state.polls[pollId];
+      togglePollDraftOption(pollId, optionId, poll ? poll.multipleChoice : false);
+    });
+  });
+  els.pollList.querySelectorAll('[data-poll-submit]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      savePollVote(btn.getAttribute('data-poll-submit'));
+    });
+  });
+  els.pollList.querySelectorAll('[data-poll-toggle-closed]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePollClosed(btn.getAttribute('data-poll-toggle-closed'));
+    });
+  });
+  els.pollList.querySelectorAll('[data-poll-delete]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deletePoll(btn.getAttribute('data-poll-delete'));
+    });
+  });
+  els.pollList.querySelectorAll('[data-vote-details-poll]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const pollId = el.getAttribute('data-vote-details-poll');
+      const optionId = el.getAttribute('data-vote-details-option');
+      const poll = state.polls && state.polls[pollId];
+      if (!poll) return;
+      const opt = (poll.options || []).find(o => o.id === optionId);
+      if (!opt) return;
+      const results = pollResults(poll);
+      showVoteDetailsModal(opt.label, results.namesByOption[optionId], { anonymous: poll.anonymous, count: results.counts[optionId] || 0 });
+    });
+  });
+}
+
+function renderForeverView(){
+  const loggedIn = !!discordIdentity;
+  const hasAccess = loggedIn && isMemberOrHigher();
+  els.foreverLoggedOut.classList.toggle('hidden', loggedIn);
+  els.foreverNoAccess.classList.toggle('hidden', !loggedIn || hasAccess);
+  els.foreverLoggedIn.classList.toggle('hidden', !hasAccess);
+  if (!hasAccess) return;
+  renderVotingChrome('forever');
+  const closed = isVotingClosed('forever');
+  els.foreverClassPicker.classList.toggle('voting-disabled', closed);
+  els.foreverMyPicks.classList.toggle('voting-disabled', closed);
+  els.foreverSaveBtn.disabled = closed;
+  els.foreverSaveBtn.title = closed ? 'Diese Abstimmung ist geschlossen' : '';
+  if (foreverDraft === null){
+    const saved = foreverSavedEntry();
+    foreverDraft = saved ? saved.picks.map(p => ({ classId: p.classId, spec: p.spec })) : [];
+    foreverFirstPickIndex = 0;
+    if (saved && saved.firstPick){
+      const idx = foreverDraft.findIndex(p => p.classId === saved.firstPick.classId && p.spec === saved.firstPick.spec);
+      if (idx >= 0) foreverFirstPickIndex = idx;
+    }
+  }
+  renderForeverPicksChips();
+  renderForeverClassPicker();
+  renderForeverOverview();
+  renderForeverOfficerTable();
+}
+
+// Visible to any guild member (Member/Officer/Admin) — a flat per-member
+// table (not just the aggregate bars above) so everyone can see exactly
+// who picked what, and which of a member's picks they intend to level to
+// max first. Nothing sensitive here (it's the same info as the bars,
+// just broken out by name), so this doesn't need officer-only gating —
+// it just rides on the same member-or-higher gate as the rest of this
+// view (renderForeverView already hides the whole page from Community).
+function renderForeverOfficerTable(){
+  const canSee = isMemberOrHigher();
+  els.foreverOfficerTableCard.classList.toggle('hidden', !canSee);
+  if (!canSee) return;
+  // Object.entries (not .values) — the uid is needed to look up a
+  // saved nickname from characterProfiles for the "Nickname (Discord)"
+  // display.
+  const entries = Object.entries(state.foreverSurvey || {})
+    .filter(([, e]) => e && Array.isArray(e.picks) && e.picks.length)
+    .map(([uid, e]) => ({ uid, ...e }));
+  if (!entries.length){
+    els.foreverOfficerTable.innerHTML = '<tr><td class="lootlib-note">Noch keine Stimmen.</td></tr>';
+    return;
+  }
+  const memberLabel = (e) => memberDisplayLabel(e.uid, e.username);
+  // Carries classId/colors alongside the label now (not just a plain
+  // string) so the cell can render the class-color dot and spec/class
+  // icons, and so the grouping logic below can tell "same class as the
+  // row above" apart from "same label text" without re-parsing the
+  // string.
+  const pickInfo = (p) => {
+    if (!p) return null;
+    const cls = CLASS_MAP[p.classId];
+    return {
+      classId: p.classId,
+      label: `${cls ? cls.label : p.classId} (${foreverSpecLabel(p.classId, p.spec)})`,
+      classColor: cls ? cls.color : '#888',
+      iconUrl: foreverSpecIconUrl(p.classId, p.spec),
+      classIconUrl: foreverClassIconUrl(p.classId)
+    };
+  };
+  // Precompute each row's three sortable columns once, up front — the
+  // First/Second Char columns sort by the same text shown in the cell
+  // (class + spec), so "sort by First Char" groups identical picks
+  // together the same way "sort by Mitglied" groups identical members.
+  const rows = entries.map(e => {
+    // "First Char" / "Second Char" are picked out by ARRAY POSITION, not
+    // by content — two picks can now be content-identical (e.g. two
+    // Frost Mage characters), so comparing classId+spec can no longer
+    // tell them apart. Find which index the stored firstPick matches
+    // (first occurrence wins for a content tie, which is harmless since
+    // they're identical anyway) and treat the *other* index as second.
+    let firstIdx = 0;
+    if (e.firstPick){
+      const idx = e.picks.findIndex(p => p.classId === e.firstPick.classId && p.spec === e.firstPick.spec);
+      if (idx >= 0) firstIdx = idx;
+    }
+    const first = e.picks[firstIdx] || e.picks[0];
+    const secondIdx = firstIdx === 0 ? 1 : 0;
+    const second = e.picks.length > 1 ? (e.picks[secondIdx] || null) : null;
+    return { member: memberLabel(e), first: pickInfo(first), second: pickInfo(second) };
+  });
+  const sortKeyFn = {
+    member: r => r.member,
+    first: r => r.first ? r.first.label : '',
+    second: r => r.second ? r.second.label : ''
+  }[foreverOfficerSortK] || (r => r.member);
+  rows.sort((a, b) => {
+    const d = sortKeyFn(a).localeCompare(sortKeyFn(b), 'de', { sensitivity: 'base' });
+    return (d * foreverOfficerSortDir) || a.member.localeCompare(b.member, 'de', { sensitivity: 'base' });
+  });
+  const pickCellHtml = (info) => info
+    ? `<span class="forever-pick-cell">${info.classIconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${info.classIconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}${info.iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${info.iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}<span style="color:${info.classColor}">${escapeHtml(info.label)}</span></span>`
+    : '—';
+  // Grouping only makes sense when the table is actually sorted by one
+  // of the two class columns — sorting by Mitglied interleaves classes
+  // in alphabetical-by-name order, so a "class changed" border there
+  // would land in effectively random places rather than meaning
+  // anything.
+  const groupBy = (foreverOfficerSortK === 'first' || foreverOfficerSortK === 'second') ? foreverOfficerSortK : null;
+  let prevGroupKey = null;
+  const rowsHtml = rows.map(r => {
+    let groupStart = false;
+    if (groupBy){
+      const pick = r[groupBy];
+      const groupKey = pick ? pick.classId : '\u0000none';
+      groupStart = prevGroupKey !== null && groupKey !== prevGroupKey;
+      prevGroupKey = groupKey;
+    }
+    return `<tr${groupStart ? ' class="forever-officer-group-start"' : ''}>
+      <td>${escapeHtml(r.member)}</td>
+      <td>${pickCellHtml(r.first)}</td>
+      <td>${pickCellHtml(r.second)}</td>
+    </tr>`;
+  }).join('');
+  const sortAttr = (k) => k === foreverOfficerSortK ? (foreverOfficerSortDir > 0 ? 'ascending' : 'descending') : 'none';
+  els.foreverOfficerTable.innerHTML = `<thead><tr>
+      <th data-k="member" aria-sort="${sortAttr('member')}">Mitglied</th>
+      <th data-k="first" aria-sort="${sortAttr('first')}">First Char</th>
+      <th data-k="second" aria-sort="${sortAttr('second')}">Second Char</th>
+    </tr></thead><tbody>${rowsHtml}</tbody>`;
+  els.foreverOfficerTable.querySelector('thead').addEventListener('click', e => {
+    const th = e.target.closest('th[data-k]'); if (!th) return;
+    const k = th.dataset.k;
+    if (k === foreverOfficerSortK) foreverOfficerSortDir *= -1;
+    else { foreverOfficerSortK = k; foreverOfficerSortDir = 1; }
+    renderForeverOfficerTable();
+  });
+}
+
+// Keeps foreverFirstPickIndex pointing at a real entry in foreverDraft
+// after any add/remove — called after every mutation instead of trying
+// to track it precisely inline everywhere.
+function foreverClampFirstPickIndex(){
+  if (!foreverDraft.length){ foreverFirstPickIndex = 0; return; }
+  if (foreverFirstPickIndex < 0 || foreverFirstPickIndex >= foreverDraft.length) foreverFirstPickIndex = 0;
+}
+
+function renderForeverPicksChips(){
+  if (!foreverDraft.length){
+    els.foreverMyPicks.innerHTML = `<div class="lootlib-note">Noch keine Klasse gewählt — wähle unten bis zu ${FOREVER_MAX_PICKS}.</div>`;
+    return;
+  }
+  foreverClampFirstPickIndex();
+  // "First Char" only needs an explicit choice once there's more than one
+  // pick — with a single pick, it's unambiguously the first one, shown
+  // as a quiet ★ badge instead of a redundant radio control.
+  const showFirstPicker = foreverDraft.length > 1;
+  const hintHtml = showFirstPicker ? `<div class="forever-firstpick-hint">Welchen Charakter bringst du zuerst auf Max-Level?</div>` : '';
+  // When the same class appears twice (two characters of that class),
+  // label the chips "Charakter 1"/"Charakter 2" so two content-identical
+  // picks (e.g. two Frost Mages) still read as clearly distinct entries.
+  const classCounts = {};
+  foreverDraft.forEach(p => { classCounts[p.classId] = (classCounts[p.classId] || 0) + 1; });
+  const classSeen = {};
+  els.foreverMyPicks.innerHTML = hintHtml + foreverDraft.map((p, i) => {
+    const cls = CLASS_MAP[p.classId];
+    const specLabel = foreverSpecLabel(p.classId, p.spec);
+    const isFirst = i === foreverFirstPickIndex;
+    classSeen[p.classId] = (classSeen[p.classId] || 0) + 1;
+    const charSuffix = classCounts[p.classId] > 1 ? ` <span class="forever-pick-charnum">(Charakter ${classSeen[p.classId]})</span>` : '';
+    const firstMarkupHtml = showFirstPicker
+      ? `<label class="forever-firstpick-label" title="Als First Char markieren">
+           <input type="radio" name="foreverFirstPick" data-first-pick-index="${i}" ${isFirst ? 'checked' : ''}> First Char
+         </label>`
+      : `<span class="forever-firstpick-badge" title="First Char">★ First Char</span>`;
+    return `<span class="forever-pick-chip ${isFirst ? 'forever-pick-chip-first' : ''}" style="border-color:${cls.color}">
+      <span class="forever-class-dot" style="background:${cls.color}"></span>
+      ${escapeHtml(cls.label)} — ${escapeHtml(specLabel)}${charSuffix}
+      ${firstMarkupHtml}
+      <button type="button" data-remove-index="${i}" title="Remove">✕</button>
+    </span>`;
+  }).join('');
+  els.foreverMyPicks.querySelectorAll('[data-remove-index]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      foreverRemovePick(Number(btn.getAttribute('data-remove-index')));
+    });
+  });
+  els.foreverMyPicks.querySelectorAll('[data-first-pick-index]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (isVotingClosed('forever')) { renderForeverPicksChips(); return; }
+      foreverFirstPickIndex = Number(radio.getAttribute('data-first-pick-index'));
+      renderForeverPicksChips();
+    });
+  });
+}
+
+// Each class card holds up to one row per CHARACTER of that class the
+// member is voting for (at most FOREVER_MAX_PICKS total, across all
+// classes combined) — not one row per spec. The two characters' specs
+// are fully independent: both can even be the same spec (e.g. two Frost
+// Mage characters). Clicking the card body adds a first character for
+// that class; once a class already has a character, use the explicit
+// "+ weiterer …-Charakter" button to add a second one.
+function renderForeverClassPicker(){
+  const atCap = foreverDraft.length >= FOREVER_MAX_PICKS;
+  els.foreverClassPicker.innerHTML = CLASSES.map(cls => {
+    const validSpecs = foreverSpecsForClass(cls.id);
+    const classPicks = [];
+    foreverDraft.forEach((p, i) => { if (p.classId === cls.id) classPicks.push({ ...p, i }); });
+    const picked = classPicks.length > 0;
+    const canAddMore = !atCap && classPicks.length < FOREVER_MAX_PICKS;
+    const disabled = !picked && (atCap || !validSpecs.length);
+    const showCharLabel = classPicks.length > 1;
+
+    const rowsHtml = picked
+      ? classPicks.map((p, rowI) => {
+          const options = validSpecs.map(s =>
+            `<option value="${s.id}" ${p.spec === s.id ? 'selected' : ''}>${escapeHtml(s.label)}</option>`
+          ).join('');
+          const labelHtml = showCharLabel ? `<span class="forever-role-charlabel">Charakter ${rowI + 1}</span>` : '';
+          return `<div class="forever-role-row">
+            ${labelHtml}
+            <div class="forever-role-controls">
+              <select data-spec-for="${cls.id}" data-pick-index="${p.i}">${options}</select>
+              <button type="button" class="forever-role-remove" data-remove-index="${p.i}" title="Entfernen">✕</button>
+            </div>
+          </div>`;
+        }).join('')
+      : `<div class="lootlib-note" style="margin:0;">${validSpecs.map(s => s.label).join(' / ')}</div>`;
+
+    // Once a class already has a character, the row (select + ✕) fills
+    // almost the whole card, so "click the card again" is unreliable —
+    // most clicks land on the select instead of empty card space. Use an
+    // explicit, unambiguous button for adding a second character instead.
+    const addBtnHtml = (picked && canAddMore)
+      ? `<button type="button" class="forever-add-role-btn" data-add-role="${cls.id}">+ weiterer ${escapeHtml(cls.label)}-Charakter</button>`
+      : '';
+
+    return `<div class="forever-class-card ${picked ? 'picked' : ''} ${disabled ? 'disabled' : ''}" data-class-card="${cls.id}">
+      <div class="forever-class-name"><span class="forever-class-dot" style="background:${cls.color}"></span>${escapeHtml(cls.label)}</div>
+      <div class="forever-role-rows">${rowsHtml}</div>
+      ${addBtnHtml}
+    </div>`;
+  }).join('');
+  els.foreverClassPicker.querySelectorAll('[data-class-card]').forEach(card => {
+    const classId = card.getAttribute('data-class-card');
+    function addPick(){
+      if (isVotingClosed('forever')) return;
+      const allSpecs = foreverSpecsForClass(classId).map(s => s.id);
+      if (foreverDraft.length >= FOREVER_MAX_PICKS || !allSpecs.length) return;
+      // New character defaults to the class's first spec — the member
+      // can freely change it to anything, including the same spec as
+      // this class's other character, if there's already one.
+      foreverDraft.push({ classId, spec: allSpecs[0] });
+      foreverClampFirstPickIndex();
+      renderForeverPicksChips();
+      renderForeverClassPicker();
+    }
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('select') || e.target.closest('[data-remove-index]') || e.target.closest('[data-add-role]')) return;
+      // Whole-card click only adds the FIRST pick for this class — once
+      // it already has a pick, use the explicit "+ weitere Spezialisierung" button
+      // below (see comment above) so clicks land reliably.
+      if (foreverDraft.some(p => p.classId === classId)) return;
+      addPick();
+    });
+    card.querySelectorAll('[data-add-role]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        addPick();
+      });
+    });
+    card.querySelectorAll('select[data-spec-for]').forEach(select => {
+      select.addEventListener('click', e => e.stopPropagation());
+      select.addEventListener('change', () => {
+        if (isVotingClosed('forever')) { renderForeverClassPicker(); return; }
+        const idx = Number(select.getAttribute('data-pick-index'));
+        const entry = foreverDraft[idx];
+        if (entry) entry.spec = select.value;
+        renderForeverPicksChips();
+        renderForeverClassPicker();
+      });
+    });
+    card.querySelectorAll('[data-remove-index]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        foreverRemovePick(Number(btn.getAttribute('data-remove-index')));
+      });
+    });
+  });
+}
+
+function foreverRemovePick(index){
+  if (isVotingClosed('forever')) return;
+  foreverDraft = foreverDraft.filter((p, i) => i !== index);
+  if (index === foreverFirstPickIndex) foreverFirstPickIndex = 0;
+  else if (index < foreverFirstPickIndex) foreverFirstPickIndex -= 1;
+  foreverClampFirstPickIndex();
+  renderForeverPicksChips();
+  renderForeverClassPicker();
+}
+
+async function saveForeverPicks(){
+  if (!discordIdentity || isVotingClosed('forever')) return;
+  foreverClampFirstPickIndex();
+  const previous = state.foreverSurvey[discordIdentity.id];
+  const firstPickEntry = foreverDraft[foreverFirstPickIndex];
+  state.foreverSurvey[discordIdentity.id] = {
+    username: discordIdentity.username,
+    picks: foreverDraft.map(p => ({ classId: p.classId, spec: p.spec })),
+    firstPick: firstPickEntry ? { classId: firstPickEntry.classId, spec: firstPickEntry.spec } : null
+  };
+  els.foreverSaveStatus.textContent = 'Saving…';
+  els.foreverSaveStatus.className = 'armory-status';
+  const ok = await saveData('foreverSurvey/' + discordIdentity.id);
+  if (ok){
+    els.foreverSaveStatus.textContent = 'Gespeichert!';
+    els.foreverSaveStatus.className = 'armory-status armory-status-ok';
+    setTimeout(() => { if (els.foreverSaveStatus.textContent === 'Gespeichert!') els.foreverSaveStatus.textContent = ''; }, 2000);
+  } else {
+    // Write failed (most likely: the Firebase rules haven't been updated
+    // to allow writes to foreverSurvey yet — see the README). Roll the
+    // local optimistic update back so the UI never claims a vote was
+    // saved when it actually wasn't.
+    if (previous) state.foreverSurvey[discordIdentity.id] = previous;
+    else delete state.foreverSurvey[discordIdentity.id];
+    els.foreverSaveStatus.textContent = 'Konnte nicht speichern — Firebase-Regeln prüfen (siehe README)';
+    els.foreverSaveStatus.className = 'armory-status armory-status-error';
+  }
+  renderForeverOverview();
+  renderForeverOfficerTable();
+  refreshQuestUI();
+}
+
+function foreverAggregate(){
+  // classId -> { total, specs: { <specId>: count }, namesBySpec: { <specId>: [...] } }
+  const agg = {};
+  CLASSES.forEach(c => {
+    const specs = {}, namesBySpec = {};
+    foreverSpecsForClass(c.id).forEach(s => { specs[s.id] = 0; namesBySpec[s.id] = []; });
+    agg[c.id] = { total: 0, specs, namesBySpec };
+  });
+  let voterCount = 0;
+  Object.entries(state.foreverSurvey).forEach(([uid, entry]) => {
+    if (!entry || !Array.isArray(entry.picks) || !entry.picks.length) return;
+    voterCount++;
+    const name = memberDisplayLabel(uid, entry.username);
+    entry.picks.forEach(p => {
+      if (!agg[p.classId]) return;
+      agg[p.classId].total++;
+      if (agg[p.classId].specs[p.spec] !== undefined){
+        agg[p.classId].specs[p.spec]++;
+        agg[p.classId].namesBySpec[p.spec].push(name);
+      }
+    });
+  });
+  return { agg, voterCount };
+}
+
+function renderForeverOverview(){
+  const { agg, voterCount } = foreverAggregate();
+  // Bars/legend are colored by role (Tank/Healer/Damage), not by class or
+  // spec slot, so gaps in a role are visible across the whole roster at a
+  // glance.
+  const legendHtml = `<div class="forever-ov-legend">
+    ${['tank', 'healer', 'damage'].map(role => `<span class="forever-ov-legend-item"><span class="forever-ov-legend-dot" style="background:${FOREVER_ROLE_COLORS[role]}"></span>${FOREVER_ROLE_LABELS[role]}</span>`).join('')}
+  </div>`;
+  if (!voterCount){
+    els.foreverOverview.innerHTML = legendHtml + `<div class="lootlib-note">Noch keine Stimmen.</div>`;
+    return;
+  }
+  // One global max (the single largest spec count anywhere, across every
+  // class) rather than a per-class max — that's what makes bar heights
+  // comparable at a glance across the whole chart, not just within one
+  // class's own column.
+  const maxSpecCount = Math.max(1, ...CLASSES.flatMap(cls => foreverSpecsForClass(cls.id).map(s => agg[cls.id].specs[s.id] || 0)));
+  // A grouped vertical-bar chart — one column per class, one bar per
+  // spec within it, height scaled against maxSpecCount and colored by
+  // role. Raw counts print above each bar, and each bar's own talent-
+  // tree icon prints directly below it (see .forever-ov-spec-icons'
+  // comment for why that's a separate row rather than nested in the
+  // bar) — that's what tells same-role specs apart at a glance (e.g. a
+  // class with two Damage specs: same bar color, different icon). Both
+  // the bar and its icon are click targets for showVoteDetailsModal
+  // (who picked it), same as before.
+  const chartHtml = CLASSES.map(cls => {
+    const data = agg[cls.id];
+    const specs = foreverSpecsForClass(cls.id);
+    const barsHtml = specs.map((s) => {
+      const count = data.specs[s.id] || 0;
+      const heightPct = Math.max(count > 0 ? 4 : 1.5, (count / maxSpecCount) * 100);
+      return `<div class="forever-ov-bar-col" data-vote-details-class="${cls.id}" data-vote-details-spec="${s.id}" role="button" tabindex="0" title="${escapeHtml(s.label)}: ${count}">
+        <span class="forever-ov-bar-count">${count}</span>
+        <div class="forever-ov-bar" style="height:${heightPct}%;background:${FOREVER_ROLE_COLORS[s.role]}"></div>
+      </div>`;
+    }).join('');
+    const iconsHtml = specs.map((s) => {
+      const iconUrl = foreverSpecIconUrl(cls.id, s.id);
+      return `<div class="forever-ov-spec-icon-wrap" data-vote-details-class="${cls.id}" data-vote-details-spec="${s.id}" role="button" tabindex="0" title="${escapeHtml(s.label)}">
+        ${iconUrl ? `<img class="forever-ov-spec-icon wow-icon-frame" src="${iconUrl}" alt="${escapeHtml(s.label)}" loading="lazy" onerror="this.style.visibility='hidden'">` : ''}
+      </div>`;
+    }).join('');
+    const classIconUrl = foreverClassIconUrl(cls.id);
+    return `<div class="forever-ov-class-col">
+      <div class="forever-ov-bars">${barsHtml}</div>
+      <div class="forever-ov-spec-icons">${iconsHtml}</div>
+      <div class="forever-ov-baseline"></div>
+      <div class="forever-ov-class-foot">
+        ${classIconUrl ? `<img class="forever-ov-class-icon wow-icon-frame" src="${classIconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
+        <span style="color:${cls.color}">${escapeHtml(cls.label)}</span>
+      </div>
+      <div class="forever-ov-class-total">${data.total} gesamt</div>
+    </div>`;
+  }).join('');
+  els.foreverOverview.innerHTML = legendHtml +
+    `<div class="lootlib-note" style="margin-bottom:8px;">${voterCount} Mitglied${voterCount === 1 ? '' : 'er'} haben bisher abgestimmt.</div>` +
+    `<div class="forever-ov-chart-wrap"><div class="forever-ov-chart">${chartHtml}</div></div>`;
+  els.foreverOverview.querySelectorAll('[data-vote-details-class]').forEach(el => {
+    el.addEventListener('click', () => {
+      const clsId = el.getAttribute('data-vote-details-class');
+      const specId = el.getAttribute('data-vote-details-spec');
+      const cls = CLASS_MAP[clsId];
+      const spec = foreverSpecsForClass(clsId).find(s => s.id === specId);
+      if (!cls || !spec) return;
+      const names = (agg[clsId] && agg[clsId].namesBySpec[specId]) || [];
+      showVoteDetailsModal(`${cls.label} — ${spec.label}`, names);
+    });
+  });
+}
+
+els.foreverSaveBtn.addEventListener('click', saveForeverPicks);
+document.getElementById('votingToggle-forever').addEventListener('click', () => toggleVotingCard('forever'));
+document.getElementById('votingCloseBtn-forever').addEventListener('click', () => toggleVotingClosed('forever'));
+els.announceLoginBtn.addEventListener('click', () => startDiscordLogin());
+els.classDivesLoginBtn.addEventListener('click', () => startDiscordLogin());
+els.announceSaveBtn.addEventListener('click', saveAnnouncement);
+els.announceToolbar.innerHTML = announceToolbarMarkup();
+wireAnnounceToolbar(els.announceToolbar, els.announceEditor);
+els.pollAddOptionBtn.addEventListener('click', addPollComposerOption);
+els.pollPublishBtn.addEventListener('click', publishPoll);
+renderPollComposerOptions();
+els.newsPrevBtn.addEventListener('click', () => scrollNewsCarousel(-1));
+els.newsNextBtn.addEventListener('click', () => scrollNewsCarousel(1));
+els.newsGrid.addEventListener('scroll', updateNewsCarouselArrows);
+window.addEventListener('resize', updateNewsCarouselArrows);
+
+// ---- Recruiting / Bewerbung: chat-bot-style application flow --------
+// Walks the applicant through APPLY_CHAT_STEPS one question at a time —
+// a bot-message bubble plus an input area for that one question, same
+// feel as a chat bot. Each step owns its own render()/collect() pair:
+// render(container, previousValue) builds whatever input UI that
+// question needs into the given container; collect(container) reads it
+// back out, returning { ok:true, value, summary } on success (value is
+// what gets stored in applyChatAnswers, summary is the short text shown
+// in the transcript's "user" bubble) or { ok:false, error } to block
+// advancing. Optional steps also provide skipValue() for the
+// "Überspringen" button. The more complex steps (class picks, character
+// names, profession pickers) keep their own in-progress draft in a
+// dedicated applyChat*Draft variable declared just above them, mutated
+// directly by their own input handlers and read by collect().
+let applyChatPicksDraft = [];
+let applyChatCharNamesDraft = {};
+let applyChatCharProfDraft = {};
+let applyChatExtraProfDraft = [];
+let applyChatCharLogsDraft = {};
+
+function applyChatPrimaryProfessions(){ return PROFESSIONS.filter(p => p.primary); }
+function applyChatSecondaryProfessions(){ return PROFESSIONS.filter(p => !p.primary); }
+// A profession level is either a number 1–375 (Classic/TBC/SoD's skill
+// cap — see PROFESSION_MAX_LEVEL) or the literal string 'max' (the
+// "Max" checkbox) — anything else (left blank, garbage input, over the
+// cap) is treated as "not actually given" and dropped, same as leaving
+// the whole profession unchecked.
+function applyChatValidLevel(level){
+  if (level === 'max') return 'max';
+  const n = parseInt(level, 10);
+  return (Number.isFinite(n) && n >= 1 && n <= PROFESSION_MAX_LEVEL) ? n : null;
+}
+// Shared level-input markup for a profession draft entry — used by both
+// the per-character profession step and the "extra professions" step.
+function applyChatProfLevelRowsHtml(list){
+  return list.map(x => {
+    const prof = PROFESSION_MAP[x.professionId];
+    return `<div class="apply-chat-level-row">
+      <span class="apply-chat-level-label">${escapeHtml(prof ? prof.label : x.professionId)}</span>
+      <input type="text" inputmode="numeric" class="apply-chat-level-input" data-level-prof="${x.professionId}" maxlength="3" placeholder="Lvl" title="Max. ${PROFESSION_MAX_LEVEL}" value="${x.level === 'max' ? '' : (x.level || '')}" ${x.level === 'max' ? 'disabled' : ''}>
+      <label class="apply-chat-level-max"><input type="checkbox" data-max-prof="${x.professionId}" ${x.level === 'max' ? 'checked' : ''}> Max</label>
+    </div>`;
+  }).join('');
+}
+function wireApplyChatProfLevelRows(holder, draftArr, onMaxToggled){
+  holder.querySelectorAll('[data-level-prof]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      let digits = inp.value.replace(/[^0-9]/g, '').slice(0, 3);
+      // Clamp live while typing (not just on submit) so "488" can't even
+      // sit in the field looking accepted before silently being dropped
+      // to "keine Angabe" later — Classic/TBC/SoD's skill cap is 375.
+      if (digits !== '' && parseInt(digits, 10) > PROFESSION_MAX_LEVEL) digits = String(PROFESSION_MAX_LEVEL);
+      inp.value = digits;
+      const item = draftArr.find(x => x.professionId === inp.getAttribute('data-level-prof'));
+      if (item) item.level = inp.value;
+    });
+  });
+  holder.querySelectorAll('[data-max-prof]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const item = draftArr.find(x => x.professionId === cb.getAttribute('data-max-prof'));
+      if (item) item.level = cb.checked ? 'max' : '';
+      onMaxToggled();
+    });
+  });
+}
+// Same class-pick UI as before (dropdown + spec checkboxes, one row per
+// class, already-used classes disabled in the other rows), just capped
+// at 2 rows total and operating on applyChatPicksDraft/an arbitrary
+// container instead of the old fixed applyClassPicks element.
+function renderApplyChatPicksUI(container){
+  const usedClassIds = new Set(applyChatPicksDraft.map(p => p.classId));
+  const rowsHtml = applyChatPicksDraft.map((pick, i) => {
+    const classOptions = CLASSES.map(c => {
+      const disabled = usedClassIds.has(c.id) && c.id !== pick.classId;
+      return `<option value="${c.id}" ${pick.classId === c.id ? 'selected' : ''} ${disabled ? 'disabled' : ''}>${escapeHtml(c.label)}</option>`;
+    }).join('');
+    const specs = foreverSpecsForClass(pick.classId);
+    const specsHtml = specs.map(s => `
+      <label class="poll-checkbox-field">
+        <input type="checkbox" data-pick-spec="${s.id}" ${pick.specs.includes(s.id) ? 'checked' : ''}>
+        ${escapeHtml(s.label)}
+      </label>`).join('');
+    return `<div class="apply-class-pick-row" data-pick-index="${i}">
+      <div class="apply-class-pick-head">
+        <div class="poll-config-field">
+          <span class="poll-config-field-label">Klasse</span>
+          <select data-pick-class-index="${i}">${classOptions}</select>
+        </div>
+        ${applyChatPicksDraft.length > 1 ? `<button type="button" class="apply-class-pick-remove" data-remove-pick-index="${i}" title="Entfernen">✕</button>` : ''}
+      </div>
+      <div class="poll-config-field apply-class-pick-specs">
+        <span class="poll-config-field-label">Spezialisierung(en)</span>
+        <div class="apply-spec-checkboxes">${specsHtml}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const addDisabled = applyChatPicksDraft.length >= 2;
+  container.innerHTML = `<div class="apply-class-picks">${rowsHtml}</div>
+    <button type="button" class="apply-add-class-btn" id="applyChatAddClassBtn" ${addDisabled ? 'disabled' : ''}>+ Weitere Klasse hinzufügen (max. 2)</button>`;
+
+  container.querySelectorAll('[data-pick-class-index]').forEach(select => {
+    select.addEventListener('change', () => {
+      const i = Number(select.getAttribute('data-pick-class-index'));
+      applyChatPicksDraft[i].classId = select.value;
+      applyChatPicksDraft[i].specs = [];
+      renderApplyChatPicksUI(container);
+    });
+  });
+  container.querySelectorAll('[data-pick-spec]').forEach(cb => {
+    const i = Number(cb.closest('[data-pick-index]').getAttribute('data-pick-index'));
+    cb.addEventListener('change', () => {
+      const specId = cb.getAttribute('data-pick-spec');
+      const pick = applyChatPicksDraft[i];
+      if (cb.checked){
+        if (!pick.specs.includes(specId)) pick.specs.push(specId);
+      } else {
+        pick.specs = pick.specs.filter(s => s !== specId);
+      }
+    });
+  });
+  container.querySelectorAll('[data-remove-pick-index]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = Number(btn.getAttribute('data-remove-pick-index'));
+      applyChatPicksDraft.splice(i, 1);
+      renderApplyChatPicksUI(container);
+    });
+  });
+  const addBtn = container.querySelector('#applyChatAddClassBtn');
+  if (addBtn) addBtn.addEventListener('click', () => {
+    if (applyChatPicksDraft.length >= 2) return;
+    const usedIds = new Set(applyChatPicksDraft.map(p => p.classId));
+    const nextClass = CLASSES.find(c => !usedIds.has(c.id));
+    if (!nextClass) return;
+    applyChatPicksDraft.push({ classId: nextClass.id, specs: [] });
+    renderApplyChatPicksUI(container);
+  });
+}
+
+const APPLY_CHAT_STEPS = [
+  {
+    key: 'firstName', required: true,
+    bot: 'Wie ist dein richtiger Vorname?',
+    render(container, value){
+      container.innerHTML = `<input type="text" class="apply-text-input" id="applyChatFieldInput" maxlength="60" placeholder="z.B. Max" value="${escapeHtml(value || '')}">`;
+      container.querySelector('#applyChatFieldInput').focus();
+    },
+    collect(container){
+      const v = container.querySelector('#applyChatFieldInput').value.trim().slice(0, 60);
+      if (!v) return { ok: false, error: 'Bitte gib deinen Vornamen ein.' };
+      return { ok: true, value: v, summary: v };
+    }
+  },
+  {
+    key: 'nickname', required: false,
+    bot: 'Wie ist dein Nickname? Falls er noch nicht in deinen Einstellungen gespeichert ist, übernehmen wir ihn direkt von deiner Antwort hier.',
+    render(container, value){
+      const saved = (discordIdentity && state.characterProfiles[discordIdentity.id] && state.characterProfiles[discordIdentity.id].nickname) || '';
+      container.innerHTML = `<input type="text" class="apply-text-input" id="applyChatFieldInput" maxlength="30" placeholder="z.B. Nasty" value="${escapeHtml(value != null ? value : saved)}">`;
+      container.querySelector('#applyChatFieldInput').focus();
+    },
+    collect(container){
+      const v = container.querySelector('#applyChatFieldInput').value.trim().slice(0, 30);
+      return { ok: true, value: v, summary: v || '—' };
+    },
+    skipValue(){ return { value: '', summary: '—' }; }
+  },
+  {
+    key: 'age', required: true,
+    bot: 'Wie alt bist du?',
+    render(container, value){
+      container.innerHTML = `<input type="text" inputmode="numeric" class="apply-text-input" id="applyChatFieldInput" maxlength="3" placeholder="z.B. 24" value="${value != null ? escapeHtml(String(value)) : ''}">`;
+      const input = container.querySelector('#applyChatFieldInput');
+      input.addEventListener('input', () => { input.value = input.value.replace(/[^0-9]/g, ''); });
+      input.focus();
+    },
+    collect(container){
+      const raw = container.querySelector('#applyChatFieldInput').value.trim();
+      if (!/^[0-9]{1,3}$/.test(raw)) return { ok: false, error: 'Bitte gib dein Alter als Zahl ein.' };
+      const n = parseInt(raw, 10);
+      if (n < 12 || n > 99) return { ok: false, error: 'Bitte gib ein realistisches Alter ein.' };
+      return { ok: true, value: n, summary: String(n) };
+    }
+  },
+  {
+    key: 'picks', required: true,
+    bot: 'Für welche Klasse(n) und Spezialisierung(en) bewirbst du dich? (maximal 2 Klassen)',
+    render(container, value){
+      applyChatPicksDraft = (Array.isArray(value) && value.length ? value : [{ classId: CLASSES[0].id, specs: [] }])
+        .map(p => ({ classId: p.classId, specs: (p.specs || []).slice() }));
+      renderApplyChatPicksUI(container);
+    },
+    collect(){
+      const picks = applyChatPicksDraft
+        .filter(p => CLASS_MAP[p.classId] && p.specs.length)
+        .slice(0, 2)
+        .map(p => ({ classId: p.classId, specs: p.specs.slice() }));
+      if (!picks.length) return { ok: false, error: 'Bitte wähle mindestens eine Klasse mit Spezialisierung aus.' };
+      const summary = picks.map(p => `${CLASS_MAP[p.classId].label} (${p.specs.map(s => foreverSpecLabel(p.classId, s)).join(', ')})`).join(' · ');
+      return { ok: true, value: picks, summary };
+    }
+  },
+  {
+    key: 'characters', required: true,
+    bot: 'Mit welchen Charakteren (Charakternamen) bewirbst du dich auf diese Klassen?',
+    render(container, value){
+      const picks = applyChatAnswers.picks || [];
+      applyChatCharNamesDraft = {};
+      picks.forEach(p => { applyChatCharNamesDraft[p.classId] = (value && value[p.classId]) || ''; });
+      container.innerHTML = picks.map(p => {
+        const cls = CLASS_MAP[p.classId];
+        return `<div class="apply-chat-char-row">
+          <label class="apply-chat-char-row-label" style="color:${cls.color}">${escapeHtml(cls.label)}</label>
+          <input type="text" class="apply-text-input" maxlength="24" data-char-class="${p.classId}" placeholder="Charaktername" value="${escapeHtml(applyChatCharNamesDraft[p.classId])}">
+        </div>`;
+      }).join('');
+      container.querySelectorAll('[data-char-class]').forEach((inp, idx) => {
+        inp.addEventListener('input', () => { applyChatCharNamesDraft[inp.getAttribute('data-char-class')] = inp.value; });
+        if (idx === 0) inp.focus();
+      });
+    },
+    collect(){
+      const picks = applyChatAnswers.picks || [];
+      const out = {};
+      for (const p of picks){
+        const name = (applyChatCharNamesDraft[p.classId] || '').trim().slice(0, 24);
+        if (!name) return { ok: false, error: 'Bitte gib für jede Klasse einen Charakternamen an.' };
+        out[p.classId] = name;
+      }
+      const summary = picks.map(p => `${CLASS_MAP[p.classId].label}: ${out[p.classId]}`).join(' · ');
+      return { ok: true, value: out, summary };
+    }
+  },
+  {
+    key: 'charProfessions', required: false,
+    bot: 'Welche Hauptberufe hast du auf dieser/diesen Klasse(n)? (maximal 2 pro Charakter — das Profession-Level ist optional)',
+    render(container, value){
+      const picks = applyChatAnswers.picks || [];
+      applyChatCharProfDraft = {};
+      picks.forEach(p => {
+        applyChatCharProfDraft[p.classId] = (value && value[p.classId])
+          ? value[p.classId].map(x => ({ professionId: x.professionId, level: x.level === 'max' ? 'max' : String(x.level || '') }))
+          : [];
+      });
+      container.innerHTML = picks.map(p => {
+        const cls = CLASS_MAP[p.classId];
+        const charName = (applyChatAnswers.characters || {})[p.classId] || '';
+        const optsHtml = applyChatPrimaryProfessions().map(prof => `
+          <label class="poll-checkbox-field">
+            <input type="checkbox" data-prof-class="${p.classId}" data-prof-id="${prof.id}" ${applyChatCharProfDraft[p.classId].some(x => x.professionId === prof.id) ? 'checked' : ''}>
+            ${escapeHtml(prof.label)}
+          </label>`).join('');
+        return `<div class="apply-chat-prof-block">
+          <div class="apply-chat-prof-head" style="color:${cls.color}">${escapeHtml(cls.label)}${charName ? ' — ' + escapeHtml(charName) : ''}</div>
+          <div class="apply-spec-checkboxes">${optsHtml}</div>
+          <div class="apply-chat-level-rows" data-levels-for="${p.classId}"></div>
+        </div>`;
+      }).join('');
+      const refreshLevels = (classId) => {
+        const holder = container.querySelector(`[data-levels-for="${classId}"]`);
+        holder.innerHTML = applyChatProfLevelRowsHtml(applyChatCharProfDraft[classId]);
+        wireApplyChatProfLevelRows(holder, applyChatCharProfDraft[classId], () => refreshLevels(classId));
+      };
+      container.querySelectorAll('[data-prof-class]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const classId = cb.getAttribute('data-prof-class');
+          const profId = cb.getAttribute('data-prof-id');
+          const arr = applyChatCharProfDraft[classId];
+          if (cb.checked){
+            if (arr.length >= 2){ cb.checked = false; return; }
+            arr.push({ professionId: profId, level: '' });
+          } else {
+            const idx = arr.findIndex(x => x.professionId === profId);
+            if (idx >= 0) arr.splice(idx, 1);
+          }
+          refreshLevels(classId);
+        });
+      });
+      picks.forEach(p => refreshLevels(p.classId));
+    },
+    collect(){
+      const picks = applyChatAnswers.picks || [];
+      const out = {};
+      const summaryParts = [];
+      picks.forEach(p => {
+        const arr = (applyChatCharProfDraft[p.classId] || [])
+          .map(x => ({ professionId: x.professionId, level: applyChatValidLevel(x.level) }))
+          .filter(x => x.level !== null);
+        out[p.classId] = arr;
+        const label = arr.length ? arr.map(x => `${PROFESSION_MAP[x.professionId].label} (${x.level === 'max' ? 'Max' : x.level})`).join(', ') : 'keine Angabe';
+        summaryParts.push(`${CLASS_MAP[p.classId].label}: ${label}`);
+      });
+      return { ok: true, value: out, summary: summaryParts.join(' · ') };
+    },
+    skipValue(){
+      const picks = applyChatAnswers.picks || [];
+      const out = {}; picks.forEach(p => { out[p.classId] = []; });
+      return { value: out, summary: 'keine Angabe' };
+    }
+  },
+  {
+    key: 'extraProfessions', required: false,
+    bot: 'Hast Du zusätzliche Professions wie Erste Hilfe, Kochkunst und/oder Angeln?',
+    render(container, value){
+      applyChatExtraProfDraft = (Array.isArray(value) ? value : []).map(x => ({ professionId: x.professionId, level: x.level === 'max' ? 'max' : String(x.level || '') }));
+      const optsHtml = applyChatSecondaryProfessions().map(prof => `
+        <label class="poll-checkbox-field">
+          <input type="checkbox" data-extra-prof="${prof.id}" ${applyChatExtraProfDraft.some(x => x.professionId === prof.id) ? 'checked' : ''}>
+          ${escapeHtml(prof.label)}
+        </label>`).join('');
+      container.innerHTML = `<div class="apply-spec-checkboxes">${optsHtml}</div><div class="apply-chat-level-rows" id="applyChatExtraLevels"></div>`;
+      const holder = container.querySelector('#applyChatExtraLevels');
+      const refresh = () => {
+        holder.innerHTML = applyChatProfLevelRowsHtml(applyChatExtraProfDraft);
+        wireApplyChatProfLevelRows(holder, applyChatExtraProfDraft, refresh);
+      };
+      container.querySelectorAll('[data-extra-prof]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const profId = cb.getAttribute('data-extra-prof');
+          if (cb.checked){ applyChatExtraProfDraft.push({ professionId: profId, level: '' }); }
+          else { applyChatExtraProfDraft = applyChatExtraProfDraft.filter(x => x.professionId !== profId); }
+          refresh();
+        });
+      });
+      refresh();
+    },
+    collect(){
+      const arr = applyChatExtraProfDraft
+        .map(x => ({ professionId: x.professionId, level: applyChatValidLevel(x.level) }))
+        .filter(x => x.level !== null);
+      const summary = arr.length ? arr.map(x => `${PROFESSION_MAP[x.professionId].label} (${x.level === 'max' ? 'Max' : x.level})`).join(', ') : '—';
+      return { ok: true, value: arr, summary };
+    },
+    skipValue(){ return { value: [], summary: '—' }; }
+  },
+  {
+    // One Warcraftlogs link per applied character — same per-character
+    // pattern as the "characters" and "charProfessions" steps, since an
+    // applicant with 2 classes/characters needs to give logs for each,
+    // not just a single link for whichever one they typed first.
+    key: 'charLogs', required: false,
+    bot: 'Bitte teile uns den Link zu deinen aktuellen Warcraftlogs für diese(n) Charakter(e). (Pro Charakter optional — einfach leer lassen, falls für einen Charakter keine Logs vorhanden sind.)',
+    render(container, value){
+      const picks = applyChatAnswers.picks || [];
+      applyChatCharLogsDraft = {};
+      picks.forEach(p => { applyChatCharLogsDraft[p.classId] = (value && value[p.classId]) || ''; });
+      container.innerHTML = picks.map(p => {
+        const cls = CLASS_MAP[p.classId];
+        const charName = (applyChatAnswers.characters || {})[p.classId] || '';
+        return `<div class="apply-chat-char-row">
+          <label class="apply-chat-char-row-label" style="color:${cls.color}">${escapeHtml(cls.label)}${charName ? ' — ' + escapeHtml(charName) : ''}</label>
+          <input type="text" class="apply-text-input" maxlength="300" data-logs-class="${p.classId}" placeholder="https://www.warcraftlogs.com/character/…" value="${escapeHtml(applyChatCharLogsDraft[p.classId])}">
+        </div>`;
+      }).join('');
+      container.querySelectorAll('[data-logs-class]').forEach((inp, idx) => {
+        inp.addEventListener('input', () => { applyChatCharLogsDraft[inp.getAttribute('data-logs-class')] = inp.value; });
+        if (idx === 0) inp.focus();
+      });
+    },
+    collect(){
+      const picks = applyChatAnswers.picks || [];
+      const out = {};
+      const summaryParts = [];
+      for (const p of picks){
+        const v = (applyChatCharLogsDraft[p.classId] || '').trim().slice(0, 300);
+        if (!v) { summaryParts.push(`${CLASS_MAP[p.classId].label}: —`); continue; }
+        if (!WARCRAFTLOGS_URL_RE.test(v)){
+          return { ok: false, error: `Der Logs-Link für ${CLASS_MAP[p.classId].label} sieht nicht wie ein gültiger warcraftlogs.com-Link aus (z.B. Classic, SoD, Fresh oder Retail — oder lass das Feld leer).` };
+        }
+        out[p.classId] = v;
+        summaryParts.push(`${CLASS_MAP[p.classId].label}: ${v}`);
+      }
+      return { ok: true, value: out, summary: summaryParts.join(' · ') };
+    },
+    skipValue(){
+      const picks = applyChatAnswers.picks || [];
+      const out = {}; picks.forEach(p => { out[p.classId] = ''; });
+      return { value: out, summary: '—' };
+    }
+  },
+  {
+    key: 'remarks', required: false,
+    bot: 'Möchtest Du uns sonst noch etwas über dich erzählen oder uns mitteilen?',
+    render(container, value){
+      container.innerHTML = `<textarea class="apply-textarea" id="applyChatFieldInput" rows="3" maxlength="1000" placeholder="Alles, was du uns sonst noch mitgeben möchtest…">${escapeHtml(value || '')}</textarea>`;
+      container.querySelector('#applyChatFieldInput').focus();
+    },
+    collect(container){
+      const v = container.querySelector('#applyChatFieldInput').value.trim().slice(0, 1000);
+      return { ok: true, value: v, summary: v || '—' };
+    },
+    skipValue(){ return { value: '', summary: '—' }; }
+  }
+];
+
+let applyChatSummaries = {};
+
+function resetApplyChat(){
+  applyChatStepIndex = 0;
+  applyChatAnswers = {};
+  applyChatSummaries = {};
+  els.applyChatDoneArea.classList.add('hidden');
+  els.applyChatComposer.classList.remove('hidden');
+  els.applySubmitStatus.textContent = '';
+  els.applySubmitStatus.className = 'armory-status';
+  renderApplyChatTranscript();
+  renderApplyChatCurrentStep();
+}
+
+function renderApplyChatTranscript(){
+  els.applyChatLog.innerHTML = APPLY_CHAT_STEPS.slice(0, applyChatStepIndex).map(step => `
+    <div class="apply-chat-bubble apply-chat-bubble-bot">${escapeHtml(step.bot)}</div>
+    <div class="apply-chat-bubble apply-chat-bubble-user">${escapeHtml(applyChatSummaries[step.key] != null ? applyChatSummaries[step.key] : '—')}</div>
+  `).join('');
+  els.applyChatLog.scrollTop = els.applyChatLog.scrollHeight;
+}
+
+function renderApplyChatCurrentStep(){
+  els.applyChatError.classList.add('hidden');
+  els.applyChatError.textContent = '';
+  if (applyChatStepIndex >= APPLY_CHAT_STEPS.length){
+    els.applyChatComposer.classList.add('hidden');
+    els.applyChatDoneArea.classList.remove('hidden');
+    return;
+  }
+  els.applyChatComposer.classList.remove('hidden');
+  els.applyChatDoneArea.classList.add('hidden');
+  const step = APPLY_CHAT_STEPS[applyChatStepIndex];
+  els.applyChatQuestionBubble.textContent = step.bot;
+  step.render(els.applyChatInputArea, applyChatAnswers[step.key]);
+  els.applyChatSkipBtn.classList.toggle('hidden', !!step.required);
+}
+
+function applyChatGoNext(){
+  const step = APPLY_CHAT_STEPS[applyChatStepIndex];
+  if (!step) return;
+  const result = step.collect(els.applyChatInputArea);
+  if (!result.ok){
+    els.applyChatError.textContent = result.error || 'Bitte prüfe deine Eingabe.';
+    els.applyChatError.classList.remove('hidden');
+    return;
+  }
+  applyChatAnswers[step.key] = result.value;
+  applyChatSummaries[step.key] = result.summary;
+  applyChatStepIndex++;
+  renderApplyChatTranscript();
+  renderApplyChatCurrentStep();
+}
+
+function applyChatSkipStep(){
+  const step = APPLY_CHAT_STEPS[applyChatStepIndex];
+  if (!step || step.required) return;
+  const skip = step.skipValue ? step.skipValue() : { value: '', summary: '—' };
+  applyChatAnswers[step.key] = skip.value;
+  applyChatSummaries[step.key] = skip.summary;
+  applyChatStepIndex++;
+  renderApplyChatTranscript();
+  renderApplyChatCurrentStep();
+}
+
+els.applyChatNextBtn.addEventListener('click', applyChatGoNext);
+els.applyChatSkipBtn.addEventListener('click', applyChatSkipStep);
+els.applyChatRestartBtn.addEventListener('click', resetApplyChat);
+// Enter submits the current step for simple single-line fields — but not
+// inside the remarks textarea, where Enter should just insert a newline.
+els.applyChatInputArea.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target && e.target.tagName !== 'TEXTAREA'){
+    e.preventDefault();
+    applyChatGoNext();
+  }
+});
+
+// If this applicant hasn't saved a nickname yet (Q2), their chat answer
+// becomes their saved nickname too — same Firebase field User Settings
+// itself writes to, never overwriting one that's already set.
+async function applyChatSaveNicknameIfNeeded(nickname){
+  if (!discordIdentity || !nickname) return;
+  if (!state.characterProfiles) state.characterProfiles = {};
+  const existing = state.characterProfiles[discordIdentity.id];
+  if (existing && existing.nickname) return;
+  state.characterProfiles[discordIdentity.id] = normalizeCharacterProfile(Object.assign({}, existing, { nickname }));
+  renderAll();
+  await saveData('characterProfiles/' + discordIdentity.id);
+}
+
+// Shared send: POSTs to the Worker's /notify-application endpoint and
+// logs the outcome (not silent — see the Discord-DM debugging session
+// this was added for). Only the application id and the kind of nudge
+// are sent: the Worker builds the DM text and picks the recipients
+// (every Officer/Admin opted into "Bewerbungen melden" in Manage access,
+// minus the applicant) itself from Firebase, and enforces the 10-minute
+// window / one-DM-per-application / reminder cooldown server-side — see
+// discord-auth-worker.js's handleNotifyApplication. Returns the parsed
+// Worker response on success, or null.
+async function sendDiscordNotification(applicationId, kind){
+  if (!isWorkerConfigured()){
+    console.warn('[notify-application] skipped: Worker URL is not configured (still has the YOUR-WORKER-SUBDOMAIN placeholder).');
+    return null;
+  }
+  try{
+    const res = await fetch(NOTIFY_APPLICATION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ applicationId, kind })
+    });
+    let body = null;
+    try{ body = await res.json(); }catch(e){}
+    if (!res.ok){
+      console.warn('[notify-application] Worker responded with an error:', res.status, body);
+      return null;
+    }
+    if (body && body.reason === 'no_recipients'){
+      console.warn('[notify-application] no recipients. Either nobody has "Bewerbungen melden" checked in Manage Access, or the only person who does is the applicant themself (self-notifications are intentionally excluded).');
+    } else if (body && Array.isArray(body.results)){
+      // Per-recipient outcome from Discord itself (e.g. "not a guild
+      // member", "could not open DM channel" — the latter usually means
+      // that person's Discord privacy settings block DMs from server
+      // members/bots they haven't interacted with).
+      const failed = body.results.filter(r => !r.ok);
+      if (failed.length) console.warn('[notify-application] Some DMs failed:', failed);
+      else console.log('[notify-application] DMs sent to', body.results.length, 'recipient(s).');
+    }
+    return body || {};
+  }catch(e){
+    // Network/CORS-level failure — most likely the Worker isn't deployed
+    // with the /notify-application route yet, or NOTIFY_APPLICATION_URL
+    // is unreachable. Logged (not silent) so this is diagnosable from
+    // the browser console instead of looking identical to "nothing
+    // happened".
+    console.warn('[notify-application] fetch failed:', e);
+    return null;
+  }
+}
+// Pings every opted-in Officer/Admin via Discord DM when a new
+// application comes in. Best-effort only — the in-site quest bell
+// (questPendingApplicationsCount, above) is the notification that
+// always works regardless of Discord/Worker availability; this is just
+// the extra "even if you're not on the page" nudge on top of it.
+async function notifyOfficersOfNewApplication(applicationId){
+  await sendDiscordNotification(applicationId, 'new');
+}
+// The applicant's own "Erinnerung senden" button (see
+// recruitApplyGateState) — same DM mechanism as a new application, just
+// worded as a nudge and gated by APPLICATION_REMINDER_COOLDOWN_DAYS so
+// it can't be used to spam the recruiting team. The Worker enforces the
+// cooldown and stamps lastReminderAt itself; the local copy is only
+// updated here so the button switches to its cooldown state right away.
+async function sendApplicationReminder(id){
+  if (!discordIdentity || !state.applications || !state.applications[id]) return;
+  const application = state.applications[id];
+  if (application.applicantId !== discordIdentity.id) return;
+  if (application.status === 'accepted' || application.status === 'rejected') return;
+  els.recruitApplyNoticeActions.querySelectorAll('[data-send-reminder]').forEach(b => { b.disabled = true; b.textContent = 'Wird gesendet…'; });
+  const result = await sendDiscordNotification(id, 'reminder');
+  if (result){
+    const lastReminderAt = Date.now();
+    state.applications[id] = Object.assign({}, application, { lastReminderAt, reminderSentAt: lastReminderAt });
+  }
+  renderRecruitApplyGate();
+}
+
+async function submitApplication(){
+  if (!discordIdentity || applyChatStepIndex < APPLY_CHAT_STEPS.length) return;
+  const a = applyChatAnswers;
+
+  let id = null;
+  try{ id = db ? db.ref(DB_PATH + '/applications').push().key : null; }catch(e){}
+  if (!id) id = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+
+  if (!state.applications) state.applications = {};
+  state.applications[id] = {
+    version: 2,
+    firstName: a.firstName || '',
+    nickname: a.nickname || '',
+    age: a.age || null,
+    picks: a.picks || [],
+    characters: a.characters || {},
+    charProfessions: a.charProfessions || {},
+    extraProfessions: a.extraProfessions || [],
+    charLogs: a.charLogs || {},
+    remarks: a.remarks || '',
+    applicantName: discordIdentity.username,
+    applicantId: discordIdentity.id,
+    createdAt: Date.now(),
+    status: 'open'
+  };
+  els.applySubmitStatus.textContent = 'Wird gesendet…';
+  els.applySubmitStatus.className = 'armory-status';
+  renderAll();
+  const ok = await saveData('applications/' + id);
+  if (ok){
+    const nicknameToSave = a.nickname;
+    resetApplyChat();
+    els.applySubmitStatus.textContent = 'Bewerbung gesendet — wir melden uns bei dir!';
+    els.applySubmitStatus.className = 'armory-status armory-status-ok';
+    applyChatSaveNicknameIfNeeded(nicknameToSave);
+    notifyOfficersOfNewApplication(id).catch(() => {});
+  } else {
+    delete state.applications[id];
+    els.applySubmitStatus.textContent = 'Konnte nicht gesendet werden — bitte später erneut versuchen.';
+    els.applySubmitStatus.className = 'armory-status armory-status-error';
+    renderAll();
+  }
+}
+// Builds the first question's UI once at load — the chat composer sits
+// inside the (initially hidden) #recruitLoggedIn block, so this doesn't
+// show anything until someone actually logs in and opens Bewerbung, but
+// it needs to run once regardless so the first question is ready the
+// moment that block unhides. Not called again on every renderAll() (that
+// would wipe an applicant's in-progress answers on every Firebase sync)
+// — only an explicit restart (or a fresh page load) resets the chat.
+resetApplyChat();
+
+function ensureRecruitingNeedsDraftLoaded(){
+  if (!recruitingNeedsDraft) recruitingNeedsDraft = JSON.parse(JSON.stringify(state.recruitingNeeds || {}));
+}
+
+function renderRecruitNeedsEditor(){
+  ensureRecruitingNeedsDraftLoaded();
+  els.recruitNeedsEditorGrid.innerHTML = CLASSES.map(c => {
+    const specs = foreverSpecsForClass(c.id);
+    const checked = recruitingNeedsDraft[c.id] || [];
+    return `<div class="recruit-needs-row">
+      <span class="recruit-needs-class" style="color:${c.color}">${escapeHtml(c.label)}</span>
+      <div class="recruit-needs-specs">
+        ${specs.map(s => `<label class="poll-checkbox-field"><input type="checkbox" data-need-class="${c.id}" data-need-spec="${s.id}" ${checked.includes(s.id) ? 'checked' : ''}> ${escapeHtml(s.label)}</label>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  els.recruitNeedsEditorGrid.querySelectorAll('[data-need-class]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const cls = cb.getAttribute('data-need-class');
+      const spec = cb.getAttribute('data-need-spec');
+      if (!recruitingNeedsDraft[cls]) recruitingNeedsDraft[cls] = [];
+      if (cb.checked){
+        if (!recruitingNeedsDraft[cls].includes(spec)) recruitingNeedsDraft[cls].push(spec);
+      } else {
+        recruitingNeedsDraft[cls] = recruitingNeedsDraft[cls].filter(s => s !== spec);
+        if (!recruitingNeedsDraft[cls].length) delete recruitingNeedsDraft[cls];
+      }
+    });
+  });
+}
+
+async function saveRecruitingNeeds(){
+  if (!discordIdentity || !isOfficerOrAdmin()) return;
+  ensureRecruitingNeedsDraftLoaded();
+  state.recruitingNeeds = normalizeRecruitingNeeds(recruitingNeedsDraft);
+  els.recruitNeedsSaveStatus.textContent = 'Speichern…';
+  els.recruitNeedsSaveStatus.className = 'armory-status';
+  renderAll();
+  const ok = await saveData('recruitingNeeds');
+  els.recruitNeedsSaveStatus.textContent = ok ? 'Gespeichert!' : 'Konnte nicht gespeichert werden.';
+  els.recruitNeedsSaveStatus.className = 'armory-status ' + (ok ? 'armory-status-ok' : 'armory-status-error');
+}
+
+async function deleteApplication(id){
+  if (!discordIdentity || !isOfficerOrAdmin() || !state.applications || !state.applications[id]) return;
+  const backup = state.applications[id];
+  delete state.applications[id];
+  renderAll();
+  const ok = await saveData('applications/' + id);
+  if (!ok){ state.applications[id] = backup; renderAll(); }
+}
+
+// Sets an application's review status. "claimed" additionally stamps
+// who flagged it as being worked — the signed-in Officer/Admin doing
+// the flagging, not something you pick for someone else — so the card
+// can show "wird bearbeitet von <Name>" without a separate assignment
+// UI. Switching away from "interview" doesn't clear the stored date, so
+// switching back to it (e.g. after re-scheduling) remembers the last
+// one instead of starting blank.
+async function setApplicationStatus(id, status){
+  if (!discordIdentity || !isOfficerOrAdmin() || !state.applications || !state.applications[id] || !APPLICATION_STATUSES[status]) return;
+  const backup = state.applications[id];
+  state.applications[id] = Object.assign({}, backup, {
+    status,
+    claimedBy: status === 'claimed' ? discordIdentity.id : backup.claimedBy,
+    claimedByName: status === 'claimed' ? discordIdentity.username : backup.claimedByName
+  });
+  renderApplicationsList();
+  refreshQuestUI();
+  const ok = await saveData('applications/' + id);
+  if (!ok){ state.applications[id] = backup; renderApplicationsList(); refreshQuestUI(); }
+}
+async function setApplicationInterviewDate(id, dateStr){
+  if (!discordIdentity || !isOfficerOrAdmin() || !state.applications || !state.applications[id]) return;
+  const backup = state.applications[id];
+  state.applications[id] = Object.assign({}, backup, { interviewAt: /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : '' });
+  const ok = await saveData('applications/' + id);
+  if (!ok){ state.applications[id] = backup; renderApplicationsList(); }
+}
+// Recruiting-team-only notes — saved on blur (not per keystroke), and
+// deliberately doesn't re-render the list on success (would steal focus
+// / reset cursor position while someone might still be typing in
+// another field); only rolls back + re-renders on an actual save failure.
+async function setApplicationNotes(id, notes){
+  if (!discordIdentity || !isOfficerOrAdmin() || !state.applications || !state.applications[id]) return;
+  const backup = state.applications[id];
+  const trimmed = (notes || '').slice(0, 2000);
+  if (trimmed === (backup.notes || '')) return;
+  state.applications[id] = Object.assign({}, backup, { notes: trimmed });
+  const ok = await saveData('applications/' + id);
+  if (!ok){ state.applications[id] = backup; renderApplicationsList(); }
+}
+
+function renderApplicationsList(){
+  const apps = sortedApplications();
+  if (!apps.length){
+    els.applicationsList.innerHTML = `<div class="lootlib-note">Noch keine Bewerbungen.</div>`;
+    return;
+  }
+  // applicationCardCommonHtml holds the bits identical between the old
+  // flat-form applications (v1) and the new chat-form ones (v2) — the
+  // head row (name/date/contact/delete) and the "already has a saved
+  // User Settings profile" block — while each version formats its own
+  // body below that.
+  const applicationCardCommonParts = (a) => {
+    const dateStr = a.createdAt ? new Date(a.createdAt).toLocaleDateString('de-DE') : '';
+    const applicantProfile = a.applicantId ? (state.characterProfiles || {})[a.applicantId] : null;
+    const hasApplicantCharacters = !!(applicantProfile && applicantProfile.characters && applicantProfile.characters.length);
+    const applicantCharactersHtml = hasApplicantCharacters
+      ? `<div class="application-characters">
+          <strong>Charaktere (User Settings):</strong>
+          <div class="character-chips">${applicantProfile.characters.map(characterChipHtml).join('')}</div>
+          <button type="button" class="btn btn-ghost btn-sm access-member-armory-refresh" data-refresh-armory="${a.applicantId}">Aktualisieren</button>
+        </div>`
+      : '';
+    const contactBtnHtml = a.applicantId
+      ? `<a class="btn btn-discord btn-sm" href="https://discord.com/users/${encodeURIComponent(a.applicantId)}" target="_blank" rel="noopener" title="Öffnet das Discord-Profil von ${escapeHtml(a.applicantName)} — von dort direkt 'Nachricht senden'">Auf Discord kontaktieren</a>`
+      : '';
+    const status = a.status || 'open';
+    const statusOptionsHtml = Object.keys(APPLICATION_STATUSES)
+      .map(key => `<option value="${key}" ${status === key ? 'selected' : ''}>${APPLICATION_STATUSES[key].label}</option>`).join('');
+    // "Wird bearbeitet von <Name>" only once someone's actually claimed
+    // it; the interview-date field only shows once that status is
+    // picked, so the row doesn't clutter every card with an empty date
+    // input nobody asked for.
+    const claimedMetaHtml = (status === 'claimed' && a.claimedByName)
+      ? `<span class="application-status-meta">von ${escapeHtml(a.claimedByName)}</span>` : '';
+    const interviewDateHtml = status === 'interview'
+      ? `<input type="date" class="application-status-date" data-interview-app="${a.id}" value="${escapeHtml(a.interviewAt || '')}" title="Termin für das Bewerbungsgespräch">`
+      : '';
+    const statusRowHtml = `<div class="application-status-row">
+        <span class="application-status-badge application-status-${status}">${APPLICATION_STATUSES[status].label}</span>
+        <select class="application-status-select" data-status-app="${a.id}" aria-label="Bewerbungsstatus">${statusOptionsHtml}</select>
+        ${claimedMetaHtml}
+        ${interviewDateHtml}
+      </div>`;
+    // Recruiting-team-only — never shown to the applicant (see
+    // normalizeApplicationStatusFields / applyChatCard visibility).
+    // Saves on blur rather than per keystroke, same as other free-text
+    // fields on this page.
+    const notesHtml = `<div class="application-notes-row">
+        <label class="application-notes-label" for="notes-${a.id}">Notizen (nur fürs Recruitment-Team)</label>
+        <textarea class="application-notes-input" id="notes-${a.id}" data-notes-app="${a.id}" rows="2" maxlength="2000" placeholder="z.B. Eindrücke vom Gespräch, offene Fragen, Kontaktversuche …">${escapeHtml(a.notes || '')}</textarea>
+      </div>`;
+    const headHtml = `<div class="application-card-head">
+        <span class="application-applicant">${escapeHtml(a.applicantName)}${applicantProfile && applicantProfile.nickname ? ` <span class="access-member-nickname">"${escapeHtml(applicantProfile.nickname)}"</span>` : ''}</span>
+        <span class="application-date">${escapeHtml(dateStr)}</span>
+        ${contactBtnHtml}
+        <button type="button" class="btn btn-ghost btn-sm" data-delete-application="${a.id}">Löschen</button>
+      </div>
+      ${statusRowHtml}
+      ${notesHtml}`;
+    return { headHtml, applicantCharactersHtml };
+  };
+  const profListText = (list) => (Array.isArray(list) && list.length)
+    ? list.map(x => `${PROFESSION_MAP[x.professionId] ? PROFESSION_MAP[x.professionId].label : x.professionId} (${x.level === 'max' ? 'Max' : x.level})`).join(', ')
+    : '—';
+  // Wraps a card's inner content with the right outer shell for its
+  // status: Offen stays exactly as before (full-strength card, nothing
+  // extra to do); an in-progress one (claimed/interview/candidate) gets
+  // dimmed so it reads as "someone's on this" rather than "needs you
+  // too"; a closed one (Angenommen/Abgelehnt) collapses to a one-line
+  // toggle — applicant + character names only — so a growing pile of
+  // finished applications doesn't bury the ones still open.
+  const wrapApplicationCard = (a, innerHtml) => {
+    const status = a.status || 'open';
+    const isClosed = status === 'accepted' || status === 'rejected';
+    if (!isClosed){
+      const inProgressClass = (status === 'claimed' || status === 'interview' || status === 'candidate') ? ' application-card-inprogress' : '';
+      return `<div class="application-card${inProgressClass}" data-application-id="${a.id}">${innerHtml}</div>`;
+    }
+    const expanded = expandedClosedApplications.has(a.id);
+    return `<div class="application-card application-card-closed${expanded ? ' is-expanded' : ''}" data-application-id="${a.id}">
+      <button type="button" class="application-card-toggle" data-toggle-application="${a.id}">
+        <span class="application-status-badge application-status-${status}">${APPLICATION_STATUSES[status].label}</span>
+        <span class="application-card-toggle-title">${escapeHtml(applicationCollapsedTitle(a))}</span>
+        <span class="application-card-toggle-arrow" aria-hidden="true">${expanded ? '▲' : '▼'}</span>
+      </button>
+      <div class="application-card-body">${innerHtml}</div>
+    </div>`;
+  };
+
+  els.applicationsList.innerHTML = apps.map(a => {
+    const { headHtml, applicantCharactersHtml } = applicationCardCommonParts(a);
+    if (a.version === 2){
+      // Current chat-form shape. Two layers: a quick-glance summary bar
+      // (the handful of facts an officer scans for first — age, classes,
+      // characters, whether logs/professions were even given) so the
+      // card can be judged in a second or two, then the full per-class
+      // detail blocks below it for anyone who wants to read everything.
+      const charLogs = a.charLogs || {};
+      const picks = a.picks || [];
+      const classChipsHtml = picks.map(p => {
+        const cls = CLASS_MAP[p.classId];
+        const iconUrl = foreverClassIconUrl(p.classId);
+        return `<span class="application-summary-classchip">
+          ${iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
+          <span style="color:${cls ? cls.color : 'inherit'}">${escapeHtml(cls ? cls.label : p.classId)}</span>
+        </span>`;
+      }).join('');
+      const profsGivenCount = picks.filter(p => ((a.charProfessions || {})[p.classId] || []).length).length;
+      const logsGivenCount = picks.filter(p => charLogs[p.classId]).length;
+      const summaryStatsHtml = [
+        { label: 'Alter', value: String(a.age) },
+        { label: 'Charakter(e)', value: picks.map(p => (a.characters || {})[p.classId]).filter(Boolean).join(', ') || '—' },
+        { label: 'Hauptberufe', value: profsGivenCount ? `${profsGivenCount}/${picks.length} angegeben` : 'keine Angabe' },
+        { label: 'Logs', value: logsGivenCount ? `${logsGivenCount}/${picks.length} verlinkt` : 'keine Angabe' }
+      ].map(s => `<div class="application-stat"><span class="application-stat-label">${escapeHtml(s.label)}</span><span class="application-stat-value">${escapeHtml(s.value)}</span></div>`).join('');
+      const classBlocksHtml = picks.map(p => {
+        const cls = CLASS_MAP[p.classId];
+        const iconUrl = foreverClassIconUrl(p.classId);
+        const specLabels = (p.specs || []).map(s => foreverSpecLabel(p.classId, s)).filter(Boolean).join(', ') || '—';
+        const charName = (a.characters || {})[p.classId] || '—';
+        const profText = profListText((a.charProfessions || {})[p.classId]);
+        const logUrl = charLogs[p.classId];
+        return `<div class="application-class-block">
+          <span class="application-class-pick">
+            ${iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
+            <span class="application-class" style="color:${cls ? cls.color : 'inherit'}">${escapeHtml(cls ? cls.label : p.classId)}</span>
+            <span class="application-specs">${escapeHtml(specLabels)}</span>
+          </span>
+          <p class="application-namage"><strong>Charakter:</strong> ${escapeHtml(charName)}</p>
+          <p class="application-professions"><strong>Hauptberufe:</strong> ${escapeHtml(profText)}</p>
+          <p class="application-logs"><strong>Warcraftlogs:</strong> ${logUrl ? linkifyEscaped(logUrl) : '—'}</p>
+        </div>`;
+      }).join('');
+      return wrapApplicationCard(a, `
+        ${headHtml}
+        <p class="application-namage"><strong>Vorname:</strong> ${escapeHtml(a.firstName)}${a.nickname ? ` <span class="access-member-nickname">Nickname: "${escapeHtml(a.nickname)}"</span>` : ''}</p>
+        <div class="application-summary-row">
+          ${summaryStatsHtml}
+          <div class="application-summary-classchips">${classChipsHtml}</div>
+        </div>
+        <div class="application-class-picks application-class-picks-v2">${classBlocksHtml}</div>
+        <p class="application-professions"><strong>Zusätzliche Professions:</strong> ${escapeHtml(profListText(a.extraProfessions))}</p>
+        ${a.remarks ? `<p class="application-remarks"><strong>Sonstiges:</strong> ${linkifyEscaped(a.remarks)}</p>` : ''}
+        ${applicantCharactersHtml}
+      `);
+    }
+    // Legacy (v1) flat-form application — unchanged formatting, for
+    // anything submitted before the chat-form rebuild.
+    const picksHtml = (a.picks || []).map(p => {
+      const cls = CLASS_MAP[p.classId];
+      const specLabels = (p.specs || []).map(s => foreverSpecLabel(p.classId, s)).filter(Boolean).join(', ') || '—';
+      return `<span class="application-class-pick">
+        <span class="application-class" style="color:${cls ? cls.color : 'inherit'}">${escapeHtml(cls ? cls.label : p.classId)}</span>
+        <span class="application-specs">${escapeHtml(specLabels)}</span>
+      </span>`;
+    }).join('');
+    // Professions is either an array of known PROFESSIONS ids (current
+    // form) or a legacy free-text string (applications submitted before
+    // the checkbox list existed) — display either correctly.
+    const professionsText = Array.isArray(a.professions)
+      ? a.professions.map(id => (PROFESSION_MAP[id] ? PROFESSION_MAP[id].label : id)).join(', ')
+      : a.professions;
+    return wrapApplicationCard(a, `
+      ${headHtml}
+      <div class="application-class-picks">${picksHtml}</div>
+      ${a.nameAge ? `<p class="application-namage"><strong>Name &amp; Alter:</strong> ${escapeHtml(a.nameAge)}</p>` : ''}
+      <p class="application-experience"><strong>Erfahrung:</strong> ${linkifyEscaped(a.experience)}</p>
+      ${a.logs ? `<p class="application-logs"><strong>Logs:</strong> ${linkifyEscaped(a.logs)}</p>` : ''}
+      <p class="application-professions"><strong>Berufe (Forever):</strong> ${escapeHtml(professionsText)}</p>
+      ${a.remarks ? `<p class="application-remarks"><strong>Sonstiges:</strong> ${linkifyEscaped(a.remarks)}</p>` : ''}
+      ${applicantCharactersHtml}
+    `);
+  }).join('');
+  els.applicationsList.querySelectorAll('[data-delete-application]').forEach(btn => {
+    btn.addEventListener('click', () => deleteApplication(btn.getAttribute('data-delete-application')));
+  });
+  els.applicationsList.querySelectorAll('[data-toggle-application]').forEach(btn => {
+    btn.addEventListener('click', () => toggleApplicationExpanded(btn.getAttribute('data-toggle-application')));
+  });
+  els.applicationsList.querySelectorAll('[data-status-app]').forEach(sel => {
+    sel.addEventListener('change', () => setApplicationStatus(sel.getAttribute('data-status-app'), sel.value));
+  });
+  els.applicationsList.querySelectorAll('[data-interview-app]').forEach(inp => {
+    inp.addEventListener('change', () => setApplicationInterviewDate(inp.getAttribute('data-interview-app'), inp.value));
+  });
+  els.applicationsList.querySelectorAll('[data-notes-app]').forEach(inp => {
+    inp.addEventListener('blur', () => setApplicationNotes(inp.getAttribute('data-notes-app'), inp.value));
+  });
+  els.applicationsList.querySelectorAll('[data-refresh-armory]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Lädt…';
+      await refreshMemberArmoryData(btn.getAttribute('data-refresh-armory'));
+      renderApplicationsList();
+    });
+  });
+  applyPendingApplicationDeepLink();
+}
+
+// Resolves a #recruit?app=<id> deep link (from a Discord notification —
+// see notifyOfficersOfNewApplication) into actually scrolling to and
+// highlighting that one application, once the applications list has
+// something to scroll to. If it's a closed (collapsed) application, that
+// takes a re-render to open first — this calls itself once more via
+// renderApplicationsList() in that case, then settles on the second pass.
+function applyPendingApplicationDeepLink(){
+  if (!pendingDeepLinkApplicationId) return;
+  const id = pendingDeepLinkApplicationId;
+  if (!state.applications || !state.applications[id]){ pendingDeepLinkApplicationId = null; return; }
+  const status = state.applications[id].status || 'open';
+  if ((status === 'accepted' || status === 'rejected') && !expandedClosedApplications.has(id)){
+    expandedClosedApplications.add(id);
+    renderApplicationsList();
+    return;
+  }
+  pendingDeepLinkApplicationId = null;
+  const el = els.applicationsList.querySelector(`[data-application-id="${CSS.escape(id)}"]`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.add('application-card-highlight');
+  setTimeout(() => el.classList.remove('application-card-highlight'), 2600);
+}
+
+// ---------------------------------------------------------------------
+// Class Deep Dives page — see normalizeClassDeepDives above for the data
+// shape. Purely local (not persisted) UI state: which class cards are
+// expanded, and which ones currently have their summary open for
+// editing — both reset on reload, same pattern as the applications
+// list's expandedClosedApplications.
+// ---------------------------------------------------------------------
+const editingClassDiveSummary = new Set();
+// Which class (General or a CLASSES id) is currently showing in the main
+// pane, selected via the left-hand filter sidebar — one class's content
+// visible at a time, forum-board style, rather than every class's cards
+// stacked and individually collapsed as before. Starts on General.
+let selectedClassDiveId = 'general';
+function selectClassDive(classId){
+  if (selectedClassDiveId === classId) return;
+  selectedClassDiveId = classId;
+  renderClassDeepDivesView();
+}
+// Which individual Patch-Update "forum posts" are expanded — collapsed
+// by default (see classDiveUpdatePostHtml), independent per update id,
+// reset on reload same as the other UI-only state here.
+const expandedClassDiveUpdates = new Set();
+function toggleClassDiveUpdatePost(updateId){
+  if (expandedClassDiveUpdates.has(updateId)) expandedClassDiveUpdates.delete(updateId);
+  else expandedClassDiveUpdates.add(updateId);
+  renderClassDeepDivesView();
+}
+// Same idea, but for the pinned Deep Dive / Allgemeine Infos summary at
+// the top of each class — it's always shown first, but (being usually
+// the longest single piece of content on the page) starts collapsed too,
+// same forum-post treatment as the Patch-Updates below it, so picking a
+// class doesn't dump a huge wall of text before you've even seen the
+// Patch-Updates list. Keyed by classId (one summary per class).
+const expandedClassDiveSummaries = new Set();
+function toggleClassDiveSummary(classId){
+  if (editingClassDiveSummary.has(classId)) return; // already forced open while editing — a header click shouldn't collapse the live editor
+  if (expandedClassDiveSummaries.has(classId)) expandedClassDiveSummaries.delete(classId);
+  else expandedClassDiveSummaries.add(classId);
+  renderClassDeepDivesView();
+}
+async function saveClassDiveSummary(classId, html){
+  if (!discordIdentity || !isOfficerOrAdmin() || !state.classDeepDives || !state.classDeepDives[classId]) return;
+  const sanitized = sanitizeRichText(html || '');
+  const backup = state.classDeepDives[classId];
+  state.classDeepDives[classId] = Object.assign({}, backup, { summary: sanitized, summaryUpdatedAt: Date.now() });
+  editingClassDiveSummary.delete(classId);
+  renderClassDeepDivesView();
+  const ok = await saveData('classDeepDives/' + classId);
+  if (!ok){ state.classDeepDives[classId] = backup; renderClassDeepDivesView(); }
+}
+async function addClassDiveUpdate(classId, dateStr, titleStr, html){
+  if (!discordIdentity || !isOfficerOrAdmin() || !state.classDeepDives || !state.classDeepDives[classId]) return;
+  const sanitized = sanitizeRichText(html || '');
+  if (!stripHtmlToText(sanitized).trim()) return;
+  const backup = state.classDeepDives[classId];
+  const entry = {
+    id: Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+    date: /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : '',
+    title: (typeof titleStr === 'string') ? titleStr.trim().slice(0, 120) : '',
+    text: sanitized,
+    createdAt: Date.now()
+  };
+  state.classDeepDives[classId] = normalizeClassDeepDiveEntry(Object.assign({}, backup, { updates: [entry, ...backup.updates] }));
+  renderClassDeepDivesView();
+  const ok = await saveData('classDeepDives/' + classId);
+  if (!ok){ state.classDeepDives[classId] = backup; renderClassDeepDivesView(); }
+}
+async function deleteClassDiveUpdate(classId, updateId){
+  if (!discordIdentity || !isOfficerOrAdmin() || !state.classDeepDives || !state.classDeepDives[classId]) return;
+  const backup = state.classDeepDives[classId];
+  state.classDeepDives[classId] = Object.assign({}, backup, { updates: backup.updates.filter(u => u.id !== updateId) });
+  renderClassDeepDivesView();
+  const ok = await saveData('classDeepDives/' + classId);
+  if (!ok){ state.classDeepDives[classId] = backup; renderClassDeepDivesView(); }
+}
+
+function newPushId(path){
+  try{ return db ? db.ref(DB_PATH + '/' + path).push().key : null; }catch(e){ return null; }
+}
+async function addClassDiveHistoryEntry(date, build, text){
+  if (!discordIdentity || !isOfficerOrAdmin()) return;
+  const entry = normalizeClassDiveHistoryEntry({ date, build, text });
+  if (!entry) return;
+  const id = newPushId('classDiveUpdateHistory') || (Date.now() + '_' + Math.random().toString(36).slice(2, 8));
+  const backup = state.classDiveUpdateHistory;
+  state.classDiveUpdateHistory = Object.assign({}, backup, { [id]: entry });
+  renderClassDeepDivesView();
+  const ok = await saveData('classDiveUpdateHistory/' + id);
+  if (!ok){ state.classDiveUpdateHistory = backup; renderClassDeepDivesView(); }
+}
+async function deleteClassDiveHistoryEntry(id){
+  if (!discordIdentity || !isOfficerOrAdmin() || !state.classDiveUpdateHistory || !state.classDiveUpdateHistory[id]) return;
+  const backup = state.classDiveUpdateHistory;
+  const copy = Object.assign({}, backup);
+  delete copy[id];
+  state.classDiveUpdateHistory = copy;
+  renderClassDeepDivesView();
+  const ok = await saveData('classDiveUpdateHistory/' + id);
+  if (!ok){ state.classDiveUpdateHistory = backup; renderClassDeepDivesView(); }
+}
+async function addClassDiveSource(label, url){
+  if (!discordIdentity || !isOfficerOrAdmin()) return;
+  const entry = normalizeClassDiveSourceEntry({ label, url });
+  if (!entry) return;
+  const id = newPushId('classDiveSources') || (Date.now() + '_' + Math.random().toString(36).slice(2, 8));
+  const backup = state.classDiveSources;
+  state.classDiveSources = Object.assign({}, backup, { [id]: entry });
+  renderClassDeepDivesView();
+  const ok = await saveData('classDiveSources/' + id);
+  if (!ok){ state.classDiveSources = backup; renderClassDeepDivesView(); }
+}
+async function deleteClassDiveSource(id){
+  if (!discordIdentity || !isOfficerOrAdmin() || !state.classDiveSources || !state.classDiveSources[id]) return;
+  const backup = state.classDiveSources;
+  const copy = Object.assign({}, backup);
+  delete copy[id];
+  state.classDiveSources = copy;
+  renderClassDeepDivesView();
+  const ok = await saveData('classDiveSources/' + id);
+  if (!ok){ state.classDiveSources = backup; renderClassDeepDivesView(); }
+}
+function formatClassDiveDate(dateStr){
+  if (!dateStr) return '';
+  try{
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('de-DE');
+  }catch(e){ return dateStr; }
+}
+// Forum-post title for a Patch-Update: the officer's own title if they
+// gave one, otherwise a generated "Patch-Update – <Datum>" so every post
+// still has something to show as its card header.
+function classDiveUpdateTitle(u){
+  if (u.title) return u.title;
+  const dateLabel = formatClassDiveDate(u.date);
+  return dateLabel ? `Patch-Update – ${dateLabel}` : 'Patch-Update';
+}
+// Pulls up to maxLines "lines" of plain text out of a Patch-Update's rich
+// HTML, for the collapsed forum-post preview. Plain `.textContent` alone
+// won't do — it runs block elements together with no separator at all
+// (`<p>A</p><p>B</p>` → "AB") — so this walks the block-level children
+// (paragraphs, list items, headings, table rows treated as one line
+// each) and takes their text one "line" at a time instead. Falls back to
+// the whole stripped text as a single line for content with no block
+// structure at all (shouldn't normally happen, sanitizeRichText always
+// wraps bare text in a paragraph, but better safe for old/odd data).
+function classDiveHtmlPreviewLines(html, maxLines){
+  const container = document.createElement('div');
+  container.innerHTML = String(html ?? '');
+  const lines = [];
+  // Collect one line past maxLines on purpose — that's how "is there
+  // more?" gets decided below. Stopping exactly at maxLines would mean
+  // never discovering whether a 6th line exists, so a 6-line entry and a
+  // 5-line entry would look identical (both "not truncated").
+  const limit = maxLines + 1;
+  const pushLine = (text) => {
+    const t = String(text ?? '').replace(/\s+/g, ' ').trim();
+    if (t) lines.push(t);
+  };
+  const walk = (node) => {
+    for (const child of Array.from(node.children)){
+      if (lines.length >= limit) return;
+      const tag = child.tagName;
+      if (tag === 'TABLE'){
+        for (const tr of Array.from(child.querySelectorAll('tr'))){
+          if (lines.length >= limit) return;
+          const cells = Array.from(tr.children).map(td => td.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean);
+          if (cells.length) pushLine(cells.join(' – '));
+        }
+        continue;
+      }
+      if (tag === 'P' || tag === 'LI' || /^H[1-6]$/.test(tag)){
+        pushLine(child.textContent);
+        continue;
+      }
+      if (tag === 'UL' || tag === 'OL' || tag === 'DIV'){
+        walk(child);
+        continue;
+      }
+      pushLine(child.textContent);
+    }
+  };
+  walk(container);
+  if (!lines.length){
+    const whole = container.textContent.replace(/\s+/g, ' ').trim();
+    if (whole) lines.push(whole);
+  }
+  const truncated = lines.length > maxLines;
+  return { lines: lines.slice(0, maxLines), truncated };
+}
+const CLASSDIVE_CLOCK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>';
+const CLASSDIVE_LINK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l2.5-2.5a5 5 0 0 0-7.07-7.07L11 4.88"/><path d="M14 11a5 5 0 0 0-7.07 0l-2.5 2.5a5 5 0 0 0 7.07 7.07L13 19.12"/></svg>';
+
+// Update-Historie — always expanded (no toggle), pinned below the
+// per-class cards. Rows are the hard-coded CLASSDIVE_HISTORY_SEED
+// (oldest first, not deletable) followed by whatever Officers/Admins
+// have added since (Firebase-backed, in push-key/insertion order, so
+// newly added rows land at the bottom — a forward-reading changelog).
+function classDiveHistoryCardHtml(canManage){
+  const addedIds = Object.keys(state.classDiveUpdateHistory || {});
+  const seedRows = CLASSDIVE_HISTORY_SEED.map((e, i) => ({ id: 'seed-' + i, entry: e, deletable: false }));
+  const addedRows = addedIds.map(id => ({ id, entry: state.classDiveUpdateHistory[id], deletable: true }));
+  const rows = seedRows.concat(addedRows);
+  const rowsHtml = rows.map(r => `<tr>
+      <td>${escapeHtml(r.entry.date)}</td>
+      <td>${escapeHtml(r.entry.build)}</td>
+      <td>${escapeHtml(r.entry.text)}</td>
+      ${canManage ? `<td>${r.deletable ? `<button type="button" class="btn btn-ghost btn-sm classdive-history-delete" data-delete-history="${r.id}" title="Eintrag löschen">✕</button>` : ''}</td>` : ''}
+    </tr>`).join('');
+  const addFormHtml = canManage
+    ? `<div class="classdive-history-add">
+        <div class="classdive-history-add-row">
+          <input type="text" class="classdive-history-add-date" id="classdiveHistoryDate" placeholder="Datum, z.B. 2. Okt.">
+          <input type="text" class="classdive-history-add-build" id="classdiveHistoryBuild" placeholder="Build (optional)">
+        </div>
+        <textarea class="classdive-history-add-text" id="classdiveHistoryText" rows="2" placeholder="Was ist passiert?"></textarea>
+        <div class="forever-actions">
+          <button type="button" class="btn btn-teal btn-sm" id="classdiveHistoryAddBtn">Eintrag hinzufügen</button>
+        </div>
+      </div>`
+    : '';
+  return `<div class="tac-card classdive-card classdive-card-static">
+    <div class="classdive-toggle classdive-toggle-static">
+      <span class="classdive-general-icon" aria-hidden="true">${CLASSDIVE_CLOCK_ICON}</span>
+      <span class="classdive-toggle-title" style="color:var(--gold-bright)">Update-Historie</span>
+      <span class="classdive-toggle-meta">${rows.length} Eintr${rows.length === 1 ? 'ag' : 'äge'}</span>
+    </div>
+    <div class="classdive-body">
+      <div class="classdive-section">
+        <div class="classdive-history-wrap">
+          <table class="classdive-history-table">
+            <thead><tr><th>Datum</th><th>Build</th><th>Was ist passiert?</th>${canManage ? '<th></th>' : ''}</tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+        ${addFormHtml}
+      </div>
+    </div>
+  </div>`;
+}
+
+// Quellen — always expanded, pinned at the very bottom. Purely a link
+// list (officer-curated references for the content above), not tied to
+// any one class.
+function classDiveSourcesCardHtml(canManage){
+  const ids = Object.keys(state.classDiveSources || {});
+  const sourcesHtml = ids.map(id => {
+    const s = state.classDiveSources[id];
+    return `<li class="classdive-source-item">
+      <a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(s.label)}</a>
+      ${canManage ? `<button type="button" class="btn btn-ghost btn-sm classdive-source-delete" data-delete-source="${id}" title="Quelle löschen">✕</button>` : ''}
+    </li>`;
+  }).join('');
+  const addFormHtml = canManage
+    ? `<div class="classdive-source-add">
+        <input type="text" class="classdive-source-add-label" id="classdiveSourceLabel" placeholder="Beschreibung, z.B. „Blizzard Forum-Post“">
+        <input type="url" class="classdive-source-add-url" id="classdiveSourceUrl" placeholder="https://…">
+        <div class="forever-actions">
+          <button type="button" class="btn btn-teal btn-sm" id="classdiveSourceAddBtn">Quelle hinzufügen</button>
+        </div>
+      </div>`
+    : '';
+  return `<div class="tac-card classdive-card classdive-card-static">
+    <div class="classdive-toggle classdive-toggle-static">
+      <span class="classdive-general-icon" aria-hidden="true">${CLASSDIVE_LINK_ICON}</span>
+      <span class="classdive-toggle-title" style="color:var(--gold-bright)">Quellen</span>
+      <span class="classdive-toggle-meta">${ids.length} Link${ids.length === 1 ? '' : 's'}</span>
+    </div>
+    <div class="classdive-body">
+      <div class="classdive-section">
+        ${ids.length ? `<ul class="classdive-sources-list">${sourcesHtml}</ul>` : `<p class="classdive-empty">Noch keine Quellen hinterlegt.</p>`}
+        ${addFormHtml}
+      </div>
+    </div>
+  </div>`;
+}
+
+// One Patch-Update rendered as a collapsed-by-default "forum post": a
+// header (title + date + officer delete button) and either a short
+// plain-text preview (collapsed) or the full rich content (expanded).
+// Both the header and the preview are click targets for expanding —
+// `data-toggle-classdive-post` appears on each so either one opens it.
+function classDiveUpdatePostHtml(c, u, canManage){
+  const expanded = expandedClassDiveUpdates.has(u.id);
+  const title = classDiveUpdateTitle(u);
+  const dateLabel = formatClassDiveDate(u.date);
+  const deleteBtnHtml = canManage
+    ? `<button type="button" class="btn btn-ghost btn-sm classdive-update-delete" data-delete-update="${c.id}" data-delete-update-id="${u.id}" title="Eintrag löschen">✕</button>`
+    : '';
+  const bodyHtml = expanded
+    ? `<div class="classdive-post-body">
+         <div class="classdive-update-text" data-classdive-update-id="${u.id}">${u.text}</div>
+       </div>`
+    : (() => {
+        const { lines, truncated } = classDiveHtmlPreviewLines(u.text, 5);
+        const previewHtml = lines.map(l => `<p>${escapeHtml(l)}</p>`).join('') + (truncated ? '<p class="classdive-post-more">…weiterlesen</p>' : '');
+        return `<div class="classdive-post-preview" data-toggle-classdive-post="${u.id}">${previewHtml}</div>`;
+      })();
+  return `<div class="classdive-post${expanded ? ' expanded' : ''}" data-classdive-post="${u.id}">
+    <div class="classdive-post-head" data-toggle-classdive-post="${u.id}">
+      <span class="classdive-post-title">${escapeHtml(title)}</span>
+      ${dateLabel ? `<span class="classdive-post-date">${escapeHtml(dateLabel)}</span>` : ''}
+      <span class="classdive-post-arrow" aria-hidden="true">${expanded ? '▲' : '▼'}</span>
+    </div>
+    ${bodyHtml}
+    ${canManage ? `<div class="classdive-post-actions">${deleteBtnHtml}</div>` : ''}
+  </div>`;
+}
+
+// The Deep Dive / Allgemeine Infos summary, pinned first in the main
+// pane — same collapsed-forum-post treatment as classDiveUpdatePostHtml
+// (collapsed by default, short preview, click the header to expand),
+// except while there's no summary yet at all: that's not something to
+// collapse, so it stays a plain prompt card with no header/arrow until
+// an Officer/Admin actually adds one. While editing, the header isn't a
+// toggle (no point collapsing the live editor away) and shows no arrow.
+function classDiveSummaryCardHtml(c, dive, canManage){
+  const editingSummary = editingClassDiveSummary.has(c.id);
+  const title = c.isGeneral ? 'Allgemeine Infos' : 'Deep Dive';
+  if (!dive.summary && !editingSummary){
+    const addBtnHtml = canManage
+      ? `<button type="button" class="btn btn-ghost btn-sm" data-edit-summary="${c.id}">${c.isGeneral ? 'Infos hinzufügen' : 'Deep Dive hinzufügen'}</button>`
+      : '';
+    return `<div class="tac-card classdive-summary-card" data-classdive-card="${c.id}">
+      <div class="classdive-section-head">
+        <span class="classdive-section-title">${title}</span>
+        ${addBtnHtml}
+      </div>
+      <p class="classdive-empty">${c.isGeneral ? 'Noch keine allgemeinen Infos hinterlegt.' : 'Noch kein Deep Dive hinterlegt.'}</p>
+    </div>`;
+  }
+  const expanded = editingSummary || expandedClassDiveSummaries.has(c.id);
+  const metaHtml = dive.summaryUpdatedAt
+    ? `<span class="classdive-post-date">Aktualisiert am ${escapeHtml(new Date(dive.summaryUpdatedAt).toLocaleDateString('de-DE'))}</span>`
+    : '';
+  const editBtnHtml = (canManage && !editingSummary)
+    ? `<button type="button" class="btn btn-ghost btn-sm classdive-post-editbtn" data-edit-summary="${c.id}">Bearbeiten</button>`
+    : '';
+  let bodyHtml;
+  if (editingSummary){
+    const summaryPlaceholder = escapeHtml(c.isGeneral
+      ? 'Allgemeine WoW Forever Infos (Regelwerk, serverweite Besonderheiten, etc.) hier einfügen oder reinkopieren…'
+      : `Blizzards Class Deep Dive für ${c.label} hier einfügen oder reinkopieren…`);
+    bodyHtml = `<div class="classdive-post-body">
+        <div class="announce-toolbar" id="classdive-summary-toolbar-${c.id}">${announceToolbarMarkup()}</div>
+        <div class="announce-editor classdive-summary-edit" id="classdive-summary-edit-${c.id}" contenteditable="true" data-placeholder="${summaryPlaceholder}">${dive.summary}</div>
+        <div class="forever-actions">
+          <button type="button" class="btn btn-teal btn-sm" data-save-summary="${c.id}">Speichern</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-cancel-summary="${c.id}">Abbrechen</button>
+        </div>
+      </div>`;
+  } else if (expanded){
+    bodyHtml = `<div class="classdive-post-body"><div class="classdive-summary-text">${dive.summary}</div></div>`;
+  } else {
+    const { lines, truncated } = classDiveHtmlPreviewLines(dive.summary, 5);
+    const previewHtml = lines.map(l => `<p>${escapeHtml(l)}</p>`).join('') + (truncated ? '<p class="classdive-post-more">…weiterlesen</p>' : '');
+    bodyHtml = `<div class="classdive-post-preview" data-toggle-classdive-summary="${c.id}">${previewHtml}</div>`;
+  }
+  const toggleAttr = editingSummary ? '' : ` data-toggle-classdive-summary="${c.id}"`;
+  return `<div class="classdive-post classdive-summary-card${expanded ? ' expanded' : ''}" data-classdive-card="${c.id}">
+    <div class="classdive-post-head"${toggleAttr}>
+      <span class="classdive-post-title">${title}</span>
+      ${metaHtml}
+      ${editBtnHtml}
+      ${editingSummary ? '' : `<span class="classdive-post-arrow" aria-hidden="true">${expanded ? '▲' : '▼'}</span>`}
+    </div>
+    ${bodyHtml}
+  </div>`;
+}
+
+function renderClassDeepDivesView(){
+  const loggedIn = !!discordIdentity;
+  const hasAccess = loggedIn && isMemberOrHigher();
+  els.classDivesLoggedOut.classList.toggle('hidden', loggedIn);
+  els.classDivesNoAccess.classList.toggle('hidden', !loggedIn || hasAccess);
+  els.classDivesList.classList.toggle('hidden', !hasAccess);
+  if (!hasAccess) return;
+  const canManage = isOfficerOrAdmin();
+  const dives = state.classDeepDives || {};
+  const generalPseudo = {
+    id: 'general', label: 'Allgemein', color: 'var(--gold-bright)',
+    isGeneral: true,
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M9 7h7M9 11h7"/></svg>'
+  };
+  const categories = [generalPseudo, ...CLASSES];
+  // selectedClassDiveId can point at a class that's no longer in the list
+  // in some odd edge case — fall back to General rather than rendering
+  // an empty main pane with nothing selected in the sidebar.
+  if (!categories.some(c => c.id === selectedClassDiveId)) selectedClassDiveId = 'general';
+  const activeCat = categories.find(c => c.id === selectedClassDiveId);
+  const activeDive = dives[activeCat.id] || { summary: '', summaryUpdatedAt: 0, updates: [] };
+
+  // Left-hand pre-filter — one button per category (General + every
+  // class), highlighting whichever is currently shown in the main pane.
+  const sidebarHtml = categories.map(c => {
+    const dive = dives[c.id] || { summary: '', summaryUpdatedAt: 0, updates: [] };
+    const iconUrl = c.isGeneral ? '' : foreverClassIconUrl(c.id);
+    const active = c.id === selectedClassDiveId;
+    const count = dive.updates.length;
+    return `<button type="button" class="classdive-filter-btn${active ? ' active' : ''}" data-select-classdive="${c.id}" style="--classdive-color:${c.color}">
+      ${c.isGeneral ? `<span class="classdive-general-icon" aria-hidden="true">${c.icon}</span>` : (iconUrl ? `<img class="classdive-filter-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : '')}
+      <span class="classdive-filter-label">${escapeHtml(c.label)}</span>
+      ${count ? `<span class="classdive-filter-count">${count}</span>` : ''}
+    </button>`;
+  }).join('');
+
+  // Main pane — only the selected category's content. The Deep Dive /
+  // Allgemeine Infos summary is pinned at the very top, first thing in
+  // the main pane, so anyone new to the class always finds it there —
+  // but (being usually the longest content on the page) it's collapsed
+  // by default too, same forum-post treatment as the Patch-Updates below
+  // it (see classDiveSummaryCardHtml / classDiveUpdatePostHtml).
+  const c = activeCat, dive = activeDive;
+  const iconUrl = c.isGeneral ? '' : foreverClassIconUrl(c.id);
+  const summaryCardHtml = classDiveSummaryCardHtml(c, dive, canManage);
+
+  const updatesListHtml = dive.updates.length
+    ? dive.updates.map(u => classDiveUpdatePostHtml(c, u, canManage)).join('')
+    : `<p class="classdive-empty">Noch keine Patch-Updates erfasst.</p>`;
+  const addUpdateFormHtml = canManage
+    ? `<div class="classdive-add-update">
+        <div class="classdive-add-update-row">
+          <input type="date" class="classdive-add-update-date" id="classdive-update-date-${c.id}" value="${new Date().toISOString().slice(0, 10)}">
+          <input type="text" class="classdive-add-update-title" id="classdive-update-title-${c.id}" maxlength="120" placeholder="Titel, z.B. „Patch-Notes 2. Oktober“ (optional)">
+        </div>
+        <div class="announce-toolbar classdive-add-update-toolbar" id="classdive-update-toolbar-${c.id}">${announceToolbarMarkup()}</div>
+        <div class="announce-editor classdive-add-update-text" id="classdive-update-text-${c.id}" contenteditable="true" data-placeholder="Was hat sich geändert? z.B. 'Buff auf X-Talent, Nerf auf Y-Prozentsatz'… (auch Einfügen mit Formatierung geht)"></div>
+        <div class="forever-actions">
+          <button type="button" class="btn btn-teal btn-sm" data-add-update="${c.id}">Update hinzufügen</button>
+        </div>
+      </div>`
+    : '';
+
+  const mainHtml = `
+    <div class="classdive-main-head">
+      ${c.isGeneral ? `<span class="classdive-general-icon" aria-hidden="true">${c.icon}</span>` : (iconUrl ? `<img class="classdive-filter-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : '')}
+      <h2 class="classdive-main-title" style="color:${c.color}">${escapeHtml(c.label)}</h2>
+    </div>
+    ${summaryCardHtml}
+    <div class="classdive-updates-section">
+      <div class="classdive-section-title">Patch-Updates</div>
+      <div class="classdive-updates" data-classdive-updates="${c.id}">${updatesListHtml}</div>
+      ${addUpdateFormHtml}
+    </div>`;
+
+  els.classDivesList.innerHTML = `
+    <div class="classdive-layout">
+      <nav class="classdive-sidebar" aria-label="Klassen-Filter">${sidebarHtml}</nav>
+      <div class="classdive-main">${mainHtml}</div>
+    </div>
+    ${classDiveHistoryCardHtml(canManage)}
+    ${classDiveSourcesCardHtml(canManage)}`;
+
+  els.classDivesList.querySelectorAll('[data-select-classdive]').forEach(btn => {
+    btn.addEventListener('click', () => selectClassDive(btn.getAttribute('data-select-classdive')));
+  });
+  els.classDivesList.querySelectorAll('[data-toggle-classdive-post]').forEach(el => {
+    el.addEventListener('click', () => toggleClassDiveUpdatePost(el.getAttribute('data-toggle-classdive-post')));
+  });
+  els.classDivesList.querySelectorAll('[data-toggle-classdive-summary]').forEach(el => {
+    el.addEventListener('click', () => toggleClassDiveSummary(el.getAttribute('data-toggle-classdive-summary')));
+  });
+  els.classDivesList.querySelectorAll('[data-edit-summary]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.getAttribute('data-edit-summary');
+      editingClassDiveSummary.add(id);
+      expandedClassDiveSummaries.add(id);
+      renderClassDeepDivesView();
+    });
+  });
+  els.classDivesList.querySelectorAll('[data-cancel-summary]').forEach(btn => {
+    btn.addEventListener('click', () => { editingClassDiveSummary.delete(btn.getAttribute('data-cancel-summary')); renderClassDeepDivesView(); });
+  });
+  els.classDivesList.querySelectorAll('[data-save-summary]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const classId = btn.getAttribute('data-save-summary');
+      const editor = document.getElementById('classdive-summary-edit-' + classId);
+      saveClassDiveSummary(classId, editor ? editor.innerHTML : '');
+    });
+  });
+  els.classDivesList.querySelectorAll('[data-add-update]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const classId = btn.getAttribute('data-add-update');
+      const dateInput = document.getElementById('classdive-update-date-' + classId);
+      const titleInput = document.getElementById('classdive-update-title-' + classId);
+      const editor = document.getElementById('classdive-update-text-' + classId);
+      addClassDiveUpdate(classId, dateInput ? dateInput.value : '', titleInput ? titleInput.value : '', editor ? editor.innerHTML : '');
+    });
+  });
+  // Rich-text toolbars: the summary editor only exists while editing, the
+  // add-update editor only exists for the currently-selected class when
+  // canManage — wire up whichever of each are currently in the DOM.
+  const summaryToolbar = document.getElementById('classdive-summary-toolbar-' + c.id);
+  const summaryEditor = document.getElementById('classdive-summary-edit-' + c.id);
+  if (summaryToolbar && summaryEditor) wireAnnounceToolbar(summaryToolbar, summaryEditor);
+  const updateToolbar = document.getElementById('classdive-update-toolbar-' + c.id);
+  const updateEditor = document.getElementById('classdive-update-text-' + c.id);
+  if (updateToolbar && updateEditor) wireAnnounceToolbar(updateToolbar, updateEditor);
+  els.classDivesList.querySelectorAll('[data-delete-update]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteClassDiveUpdate(btn.getAttribute('data-delete-update'), btn.getAttribute('data-delete-update-id'));
+    });
+  });
+  // Auto-link ability/spell names mentioned in the read-only text against
+  // that card's own Talent Builder spellbook, with the exact same hover
+  // tooltip. Only the displayed (non-editing) summary and expanded
+  // update entries — never the live editor, so nothing fights the
+  // officer's cursor while they're typing, and never the collapsed
+  // plain-text previews, which have no markup to annotate anyway.
+  const summaryTextEl = els.classDivesList.querySelector('.classdive-summary-card .classdive-summary-text');
+  if (summaryTextEl) annotateSpellMentions(summaryTextEl, c.id);
+  els.classDivesList.querySelectorAll('.classdive-update-text').forEach(el => annotateSpellMentions(el, c.id));
+
+  // Update-Historie + Quellen — always-expanded static cards, wired
+  // separately since they have no toggle/expand state of their own.
+  els.classDivesList.querySelectorAll('[data-delete-history]').forEach(btn => {
+    btn.addEventListener('click', () => deleteClassDiveHistoryEntry(btn.getAttribute('data-delete-history')));
+  });
+  const historyAddBtn = document.getElementById('classdiveHistoryAddBtn');
+  if (historyAddBtn){
+    historyAddBtn.addEventListener('click', () => {
+      const dateInput = document.getElementById('classdiveHistoryDate');
+      const buildInput = document.getElementById('classdiveHistoryBuild');
+      const textInput = document.getElementById('classdiveHistoryText');
+      addClassDiveHistoryEntry(dateInput ? dateInput.value : '', buildInput ? buildInput.value : '', textInput ? textInput.value : '');
+    });
+  }
+  els.classDivesList.querySelectorAll('[data-delete-source]').forEach(btn => {
+    btn.addEventListener('click', () => deleteClassDiveSource(btn.getAttribute('data-delete-source')));
+  });
+  const sourceAddBtn = document.getElementById('classdiveSourceAddBtn');
+  if (sourceAddBtn){
+    sourceAddBtn.addEventListener('click', () => {
+      const labelInput = document.getElementById('classdiveSourceLabel');
+      const urlInput = document.getElementById('classdiveSourceUrl');
+      addClassDiveSource(labelInput ? labelInput.value : '', urlInput ? urlInput.value : '');
+    });
+  }
+}
+
+function renderRecruitView(){
+  const loggedIn = !!discordIdentity;
+  els.recruitLoggedOut.classList.toggle('hidden', loggedIn);
+  els.recruitLoggedIn.classList.toggle('hidden', !loggedIn);
+  const badges = recruitingNeedsBadges(state.recruitingNeeds || {});
+  els.recruitNeedsOverviewBadges.innerHTML = badges || '<span class="recruit-need-badges-empty">Aktuell nichts Bestimmtes — jede Bewerbung ist willkommen!</span>';
+  if (!loggedIn) return;
+  renderRecruitApplyGate();
+  const canManage = isOfficerOrAdmin();
+  els.recruitNeedsEditor.classList.toggle('hidden', !canManage);
+  els.applicationsCard.classList.toggle('hidden', !canManage);
+  if (canManage){
+    renderRecruitNeedsEditor();
+    renderApplicationsList();
+  }
+}
+
+// Decides whether the signed-in person can fill out a new application
+// right now, and renders the right thing in its place when they can't:
+// already a guild member (no need to apply), an existing application
+// that's already been decided (no re-applying), or an existing
+// application still in flight (shows its status + a reminder button
+// once APPLICATION_REMINDER_COOLDOWN_DAYS has passed).
+//
+// Deliberate exception: an Admin always sees the apply chat, regardless
+// of being a guild member or already having an application on file — so
+// an Admin can run through the Bewerbung flow end-to-end for testing
+// without needing a second Discord account. Officers and regular Guild
+// Members still go through the normal gate below.
+function renderRecruitApplyGate(){
+  if (currentRole === 'admin'){
+    els.applyChatCard.classList.remove('hidden');
+    els.recruitApplyNotice.classList.add('hidden');
+    return;
+  }
+  const existing = myLatestApplication();
+  const alreadyMember = isMemberOrHigher();
+  const blocked = alreadyMember || !!existing;
+  els.applyChatCard.classList.toggle('hidden', blocked);
+  els.recruitApplyNotice.classList.toggle('hidden', !blocked);
+  if (!blocked) return;
+
+  let title = '';
+  let body = '';
+  let actionsHtml = '';
+  if (alreadyMember){
+    title = 'Du bist schon dabei!';
+    body = 'Du bist bereits Mitglied der Gilde — eine Bewerbung brauchst du nicht mehr ;)';
+  } else if (existing.status === 'accepted'){
+    title = 'Deine Bewerbung wurde angenommen!';
+    body = 'Willkommen bei uns — wir haben uns schon bei dir auf Discord gemeldet. Eine erneute Bewerbung ist nicht nötig.';
+  } else if (existing.status === 'rejected'){
+    title = 'Deine Bewerbung wurde bereits entschieden';
+    body = 'Deine letzte Bewerbung wurde leider abgelehnt. Eine erneute Bewerbung ist über diese Seite aktuell nicht möglich — bei Fragen meldet euch gerne direkt auf Discord.';
+  } else {
+    // Still open/claimed/interview/candidate.
+    const dateStr = existing.createdAt ? new Date(existing.createdAt).toLocaleDateString('de-DE') : '';
+    title = 'Du hast dich schon beworben';
+    body = `Eingegangen am ${escapeHtml(dateStr)} — aktueller Status: <strong>${APPLICATION_STATUSES[existing.status].label}</strong>. Wir melden uns, sobald es etwas Neues gibt.`;
+    const cooldownStart = Math.max(existing.createdAt || 0, existing.lastReminderAt || 0);
+    const daysSince = (Date.now() - cooldownStart) / 86400000;
+    if (daysSince >= APPLICATION_REMINDER_COOLDOWN_DAYS){
+      actionsHtml = `<button type="button" class="btn btn-ghost btn-sm" data-send-reminder="${existing.id}">Erinnerung senden</button>`;
+    } else {
+      const daysLeft = Math.ceil(APPLICATION_REMINDER_COOLDOWN_DAYS - daysSince);
+      actionsHtml = `<span class="armory-status">Erinnerung ist in ${daysLeft} Tag${daysLeft === 1 ? '' : 'en'} möglich.</span>`;
+    }
+  }
+  els.recruitApplyNoticeTitle.textContent = title;
+  els.recruitApplyNoticeBody.innerHTML = body;
+  els.recruitApplyNoticeActions.innerHTML = actionsHtml;
+  els.recruitApplyNoticeActions.querySelectorAll('[data-send-reminder]').forEach(btn => {
+    btn.addEventListener('click', () => sendApplicationReminder(btn.getAttribute('data-send-reminder')));
+  });
+}
+
+// Home-page teaser — driven by the same state.recruitingNeeds as the
+// recruiting page's own overview, so the two never say different things.
+function renderRecruitTeaser(){
+  const badges = recruitingNeedsBadges(state.recruitingNeeds || {});
+  els.recruitTeaserNeeds.innerHTML = badges
+    ? `<p class="recruit-need-label">Aktuell besonders gesucht:</p><div class="recruit-need-badges">${badges}</div>`
+    : '';
+}
+
+function renderAll(){
+  applyAccessControl();
+  // Re-checked on every render (cheap no-op once resolved — see
+  // designRevealChecked) because currentRole only actually becomes
+  // 'admin' asynchronously, sometime after the first renderAll() a login
+  // triggers — the eager call in bootstrap() alone would always see the
+  // default 'community' role and never show anything.
+  initDesignReveal();
+  renderNewsGrid();
+  renderPollList();
+  renderForeverView();
+  renderAnnouncementsView();
+  renderClassDeepDivesView();
+  renderRecruitTeaser();
+  renderRecruitView();
+  refreshQuestUI();
+  // Lazy like the Talent Builder page — only (re)rendered while actually
+  // open, but on every state change while open, since it shows live data
+  // (own characterProfiles can change from "User Settings" (formerly "Meine Charaktere verwalten")).
+  if (currentPage === 'mychar') renderMyCharactersPage();
+}
+
+function getByPath(obj, path){
+  return path.split('/').reduce((acc, key) => (acc == null ? acc : acc[key]), obj);
+}
+
+// Returns true/false so callers that need to know whether a save actually
+// reached Firebase (e.g. to roll back an optimistic local update) can
+// check it.
+async function saveData(path){
+  setStatus('Saving…', false);
+  if (!db){ setStatus('Not connected to Firebase — see setup instructions', true); return false; }
+  try{
+    const ref = path ? db.ref(DB_PATH + '/' + path) : db.ref(DB_PATH);
+    const value = path ? getByPath(state, path) : state;
+    await ref.set(value === undefined ? null : value);
+    return true;
+  }catch(e){
+    setStatus('Could not save — check your Firebase rules and connection', true);
+    return false;
+  }
+}
+
+// Public, always-on: keeps state.recruitingNeeds up to date for
+// everyone, logged in or not — this is what lets a logged-out visitor
+// see "Aktuell gesucht" on Home/Bewerbung. It's a separate listener
+// (scoped to just this one path) from startFirebaseSync() below on
+// purpose: Firebase Realtime Database only grants read access to a
+// `.on('value')` listener when the EXACT path it's listening at (or an
+// ancestor of it) has a matching `.read` rule — a `.read: true` on a
+// *child* path can't retroactively "unlock" a listener at the parent,
+// so the main state listener (which listens at the root and needs
+// `auth != null`) can never see this data before login. Listening here
+// at `recruitingNeeds` directly is what makes its own public `.read`
+// rule apply.
+let publicSyncStarted = false;
+function startPublicRecruitingSync(){
+  if (publicSyncStarted) return;
+  publicSyncStarted = true;
+  db.ref(DB_PATH + '/recruitingNeeds').on('value', (snapshot) => {
+    state.recruitingNeeds = normalizeRecruitingNeeds(snapshot.val());
+    renderRecruitTeaser();
+    renderRecruitView();
+  }, () => { /* not logged in yet / rules not deployed — badges just stay empty */ });
+}
+
+// Every top-level key under DB_PATH that the page reads, except
+// `applications` (handled separately below). Each one has its own
+// `.read` rule (see README.md § 6f) instead of one blanket read at the
+// DB_PATH root — Firebase rules can't take a read back on a child once
+// a parent grants it, so a root-level read would make `applications`
+// readable to every logged-in account. A new top-level key needs both
+// an entry here AND its own `.read` rule, or it won't load.
+const SYNCED_KEYS = [
+  'discordRoles', 'foreverSurvey', 'votingStatus', 'announcements', 'polls',
+  'recruitingNeeds', 'classDeepDives', 'classDiveUpdateHistory',
+  'classDiveSources', 'characterProfiles', 'seenState'
+];
+// Raw snapshot values per key, merged and run through normalizeState()
+// as one object — so everything downstream sees exactly the same shape
+// the old single root listener produced.
+let remoteRaw = {};
+const remoteLoaded = new Set();
+let remoteApplyQueued = false;
+// 'all' (Officer/Admin: the whole applications list) or 'own' (everyone
+// else: only their own application, via a query the rules allow for
+// applicantId == auth.uid). Starts as 'own' since that's always allowed
+// and the role isn't known until discordRoles has loaded.
+let applicationsMode = null;
+let applicationsRef = null;
+
+function applyRemoteState(){
+  remoteApplyQueued = false;
+  // Wait until every listener has answered once — running
+  // ensureDiscordRole() before discordRoles has loaded would look like
+  // a brand-new database and try the first-login Admin bootstrap.
+  if (remoteLoaded.size < SYNCED_KEYS.length + 1) return;
+  state = Object.keys(remoteRaw).length ? normalizeState(remoteRaw) : defaultState();
+  const roleChanged = ensureDiscordRole();
+  renderAll();
+  setStatus('Synced', false);
+  if (roleChanged && discordIdentity) saveData('discordRoles/' + discordIdentity.id);
+  syncApplicationsListener();
+}
+// Batches the burst of initial snapshots (one per key) into one render.
+function queueRemoteApply(){
+  if (remoteApplyQueued) return;
+  remoteApplyQueued = true;
+  Promise.resolve().then(applyRemoteState);
+}
+
+function syncApplicationsListener(){
+  const wanted = (discordIdentity && isOfficerOrAdmin()) ? 'all' : 'own';
+  if (wanted === applicationsMode) return;
+  if (applicationsRef) applicationsRef.off();
+  applicationsMode = wanted;
+  const base = db.ref(DB_PATH + '/applications');
+  applicationsRef = wanted === 'all'
+    ? base
+    : base.orderByChild('applicantId').equalTo(discordIdentity ? discordIdentity.id : '');
+  applicationsRef.on('value', (snapshot) => {
+    remoteRaw.applications = snapshot.val();
+    remoteLoaded.add('applications');
+    queueRemoteApply();
+  }, () => {
+    // Rules not updated yet / no access — show no applications rather
+    // than blocking the whole page from loading.
+    remoteRaw.applications = null;
+    remoteLoaded.add('applications');
+    queueRemoteApply();
+  });
+}
+
+function startFirebaseSync(){
+  if (syncStarted) return;
+  syncStarted = true;
+  for (const key of SYNCED_KEYS){
+    db.ref(DB_PATH + '/' + key).on('value', (snapshot) => {
+      remoteRaw[key] = snapshot.val();
+      remoteLoaded.add(key);
+      queueRemoteApply();
+    }, (error) => {
+      setStatus('Could not sync — check your Firebase rules and connection', true);
+      // A key missing its `.read` rule shouldn't keep the rest of the
+      // page from loading — except discordRoles, which has to be real
+      // before ensureDiscordRole() may run (see applyRemoteState).
+      if (key === 'discordRoles') return;
+      remoteRaw[key] = null;
+      remoteLoaded.add(key);
+      queueRemoteApply();
+    });
+  }
+  syncApplicationsListener();
+}
+
+function showSetupOnly(el){
+  [els.setupScreen, els.discordSetupScreen, els.workerSetupScreen].forEach(s => s.classList.toggle('hidden', s !== el));
+  els.setupArea.classList.remove('hidden');
+  els.publicPage.classList.add('hidden');
+}
+function showPublicPage(){
+  els.setupArea.classList.add('hidden');
+  [els.setupScreen, els.discordSetupScreen, els.workerSetupScreen].forEach(s => s.classList.add('hidden'));
+  els.publicPage.classList.remove('hidden');
+}
+
+// ---------------------------------------------------------------------
+// Design reveal — one-time "unlock the new (dark Horde) design" popup +
+// burn transition, plus a manual switcher in User Settings to flip back
+// and forth afterward. The CSS side (html.theme-horde's palette, the
+// modal/overlay's own look, the wipe/ember keyframes, the switcher's
+// segmented-control look) lives near :root and near .design-reveal-modal
+// /.design-burn-overlay/.design-switcher in css/main.css; this is
+// the show/hide timing, the two localStorage keys, spawning the ember
+// particles along the burn line as it moves, and the switcher's click
+// handling.
+//
+// Two separate localStorage flags, deliberately not one:
+//  - DESIGN_REVEAL_KEY: "has this browser ever unlocked/seen the new
+//    design" — purely gates whether the one-time popup nags again. Once
+//    set, it's never cleared by switching themes back to classic.
+//  - DESIGN_THEME_KEY: "which theme is active right now" ('horde' or
+//    'classic') — what the no-flash <script> at the very top of <head>
+//    reads to decide whether to add .theme-horde before first paint, and
+//    what setDesignTheme() below flips when the User Settings switcher
+//    is used. Switching back to classic there does NOT re-arm the popup.
+//
+// Rolled out to everyone as of 2026-10-01 — initDesignReveal() no longer
+// checks currentRole, so every visitor gets the one-time popup the first
+// time they open the page (still per-browser, via DESIGN_REVEAL_KEY).
+// The manual theme SWITCHER in User Settings stays Admin-only on
+// purpose though (see applyAccessControl()'s designRow toggle) — Members
+// and Officers get the new design via the popup and that's it, no
+// ongoing back-and-forth switcher for them; only an Admin can still
+// flip back to Classic to compare, or re-trigger the popup to demo it.
+//
+// initDesignReveal() is called from renderAll() (so it re-checks once
+// currentRole actually resolves after login) as well as once eagerly
+// from bootstrap() — designRevealChecked makes repeat calls a cheap
+// no-op once it has either shown the popup or confirmed there's nothing
+// to show. Independent of Firebase/Discord being configured at all —
+// safe to run even on the setup-only screens, though of course
+// currentRole can only ever resolve to 'admin' once login works.
+// ---------------------------------------------------------------------
+const DESIGN_REVEAL_KEY = 'guild-loot-design-revealed';
+const DESIGN_THEME_KEY = 'guild-loot-design-theme';
+const DESIGN_BURN_DURATION_MS = 2400;
+let designRevealChecked = false;
+let designRevealModalWired = false;
+
+// Attaches the popup's own click handling exactly once, ever — separate
+// from initDesignReveal()'s "should this auto-show right now" decision
+// below, so the admin "Popup + Burn erneut testen" button in User
+// Settings (see retestDesignReveal()) can pop the same modal open on
+// demand, as many times as wanted, without stacking up duplicate click
+// listeners on okBtn (which would fire the burn N times at once).
+function wireDesignRevealModal(){
+  if (designRevealModalWired) return;
+  const modal = document.getElementById('designRevealModal');
+  const okBtn = document.getElementById('designRevealOkBtn');
+  if (!modal || !okBtn) return; // markup missing for some reason — fail quiet
+  designRevealModalWired = true;
+
+  okBtn.addEventListener('click', () => {
+    modal.classList.add('hidden');
+    startDesignBurn();
+  });
+  // Clicking the dark backdrop (not the card itself) just closes the
+  // prompt without unlocking anything — on a first-time auto-show it'll
+  // ask again next visit, same as never having clicked "Okay" at all; on
+  // an admin test-trigger it just closes it, nothing to undo.
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.classList.add('hidden');
+  });
+}
+
+function initDesignReveal(){
+  wireDesignRevealModal();
+  if (designRevealChecked) return;
+  const modal = document.getElementById('designRevealModal');
+  if (!modal) return;
+
+  let alreadyRevealed = false;
+  try{ alreadyRevealed = localStorage.getItem(DESIGN_REVEAL_KEY) === '1'; }catch(e){}
+  if (alreadyRevealed){ designRevealChecked = true; return; } // nothing to prompt — already unlocked
+
+  designRevealChecked = true;
+  modal.classList.remove('hidden');
+}
+
+// Admin-only "run it again" button in User Settings (#designRevealRetestBtn,
+// wired below alongside the theme switcher) — pops the exact same modal
+// open on demand, regardless of whether it's already been unlocked, so
+// an admin can watch the popup → burn → Horde-reveal sequence as many
+// times as they want while deciding if they like it. Doesn't touch
+// either localStorage key — it's just a replay, not a re-unlock (though
+// clicking "Okay" on it does re-set them, same as any other Okay click,
+// which is harmless since they'd already be set to the same values).
+function retestDesignReveal(){
+  wireDesignRevealModal();
+  const modal = document.getElementById('designRevealModal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+// Builds the 37-step black → red → orange → yellow → white (→ faint
+// blue at the very tip, echoing the hottest part of a real flame)
+// intensity ramp used by the fire canvas below. Index 0 is fully
+// transparent so "cold" pixels vanish instead of painting flat black
+// squares; low-mid indices carry partial alpha too, which is what
+// gives the rising edge of the fire its smoky, dissipating look rather
+// than a hard silhouette.
+function buildFirePalette(){
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const palette = [];
+  for (let i = 0; i <= 36; i++){
+    const t = i / 36;
+    let r, g, b, a;
+    if (i === 0){ r = 12; g = 7; b = 8; a = 0; }
+    else if (t < 0.22){ const k = t / 0.22; r = lerp(24,110,k); g = lerp(10,22,k); b = lerp(10,15,k); a = lerp(30,150,k); }
+    else if (t < 0.46){ const k = (t - 0.22) / 0.24; r = lerp(110,221,k); g = lerp(22,80,k); b = lerp(15,28,k); a = lerp(150,225,k); }
+    else if (t < 0.68){ const k = (t - 0.46) / 0.22; r = lerp(221,255,k); g = lerp(80,168,k); b = lerp(28,64,k); a = lerp(225,250,k); }
+    else if (t < 0.88){ const k = (t - 0.68) / 0.20; r = 255; g = lerp(168,244,k); b = lerp(64,196,k); a = 255; }
+    else { const k = (t - 0.88) / 0.12; r = lerp(255,218,k); g = lerp(244,236,k); b = lerp(196,255,k); a = 255; }
+    palette.push([r | 0, g | 0, b | 0, a | 0]);
+  }
+  return palette;
+}
+let __firePalette = null;
+
+// Drives the actual "sea of flames" — a tiny (W×H internal pixels)
+// fire simulation, the classic technique behind old demoscene/DOOM-
+// style campfire effects: the bottom row is reseeded with randomized
+// high intensity every frame (the "fuel"), and every pixel above
+// inherits a nearby-below pixel's intensity minus a small random decay,
+// which makes heat appear to rise, flicker and drift sideways on its
+// own without any hand-authored shapes or keyframes at all — the
+// turbulence is emergent, which is why it looks like real fire instead
+// of a row of icons. Rendered at low internal resolution and then
+// scaled up to full width via the canvas's own (smoothed) CSS sizing,
+// which turns the blocky simulation into soft, organic-looking tongues.
+// Returns {stop} so the caller can tear down the rAF loop and remove
+// the canvas once the burn finishes.
+function startFireCanvas(container, edgeEl, burnStart, durationMs){
+  const W = 160, H = 92;
+  const canvas = document.createElement('canvas');
+  canvas.className = 'design-burn-fire-canvas';
+  canvas.width = W;
+  canvas.height = H;
+  container.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  if (!ctx){ canvas.remove(); return { stop(){} }; }
+
+  if (!__firePalette) __firePalette = buildFirePalette();
+  const palette = __firePalette;
+  const fire = new Uint8ClampedArray(W * H);
+  const imgData = ctx.createImageData(W, H);
+
+  function reseedBase(){
+    for (let x = 0; x < W; x++){
+      fire[(H - 1) * W + x] = Math.random() < 0.72 ? 36 : 24 + Math.floor(Math.random() * 11);
+    }
+  }
+  reseedBase();
+
+  function step(){
+    // Walking y from 1 upward and writing to row (y-1) while reading
+    // row y is what lets this run as a single forward pass with no
+    // second buffer: row y is only ever read as a *source* before it
+    // later becomes a *destination* once y increments past it.
+    for (let y = 1; y < H; y++){
+      const rowOffset = y * W;
+      for (let x = 0; x < W; x++){
+        const decay = (Math.random() * 2.6) | 0;
+        const spread = ((Math.random() * 3) | 0) - 1;
+        const srcX = x + spread < 0 ? 0 : (x + spread >= W ? W - 1 : x + spread);
+        const srcVal = fire[rowOffset + srcX];
+        const dstIdx = (y - 1) * W + x;
+        fire[dstIdx] = srcVal > decay ? srcVal - decay : 0;
+      }
+    }
+    reseedBase();
+  }
+
+  function render(){
+    const data = imgData.data;
+    for (let i = 0; i < W * H; i++){
+      const c = palette[fire[i]];
+      const o = i * 4;
+      data[o] = c[0]; data[o + 1] = c[1]; data[o + 2] = c[2]; data[o + 3] = c[3];
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  let rafId = null;
+  let stopped = false;
+  function frame(){
+    if (stopped) return;
+    // Track the ACTUAL on-screen position of .design-burn-edge rather
+    // than recomputing progress from elapsed time independently — the
+    // edge's own CSS animation runs on a cubic-bezier easing curve, not
+    // linear time, so a separately time-based calculation here would
+    // drift out of sync with it (the fire band visibly detached from
+    // the glowing edge line). Reading its live rect guarantees the two
+    // always line up, however the easing is tuned later.
+    if (edgeEl){
+      const edgeRect = edgeEl.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      canvas.style.top = (edgeRect.top + edgeRect.height / 2 - containerRect.top) + 'px';
+    } else {
+      const progress = Math.min(1, (performance.now() - burnStart) / durationMs);
+      canvas.style.top = (progress * 100) + '%';
+    }
+    step();
+    render();
+    rafId = requestAnimationFrame(frame);
+  }
+  rafId = requestAnimationFrame(frame);
+
+  return {
+    stop(){
+      stopped = true;
+      if (rafId) cancelAnimationFrame(rafId);
+      canvas.remove();
+    }
+  };
+}
+
+function startDesignBurn(){
+  const overlay = document.getElementById('designBurnOverlay');
+  const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  const markUnlocked = () => {
+    try{
+      localStorage.setItem(DESIGN_REVEAL_KEY, '1');
+      localStorage.setItem(DESIGN_THEME_KEY, 'horde');
+    }catch(e){}
+    updateDesignSwitcherUI();
+  };
+
+  if (!overlay){
+    // No overlay markup somehow — still honor the unlock, just instantly.
+    document.documentElement.classList.add('theme-horde');
+    markUnlocked();
+    return;
+  }
+
+  // The new theme goes on right away, hidden under the still-opaque
+  // overlay — by the time the burn wipe has eaten through, the page
+  // underneath is already the one it reveals.
+  document.documentElement.classList.add('theme-horde');
+  overlay.classList.add('burning');
+
+  let emberInterval = null;
+  let fireCanvas = null;
+  if (!reduceMotion){
+    const emberLayer = overlay.querySelector('.design-burn-embers');
+    const start = performance.now();
+    emberInterval = setInterval(() => {
+      if (!emberLayer) return;
+      const progress = Math.min(1, (performance.now() - start) / DESIGN_BURN_DURATION_MS);
+      // A couple of embers per tick, scattered along the current burn
+      // line — matches .design-burn-edge's own top:X% position.
+      for (let i = 0; i < 2; i++){
+        const ember = document.createElement('div');
+        ember.className = 'design-burn-ember';
+        ember.style.left = (Math.random() * 100) + '%';
+        ember.style.top = (progress * 100) + '%';
+        ember.addEventListener('animationend', () => ember.remove());
+        emberLayer.appendChild(ember);
+      }
+    }, 70);
+
+    // The flame wall itself — a real per-pixel fire simulation running
+    // on a <canvas>, not discrete DOM shapes (see the long comment on
+    // .design-burn-flames in the CSS for why — a finite number of
+    // independently-animated flame divs always read as "icons", never
+    // as actual fire). startFireCanvas() owns its own render loop and
+    // tracks the edge element's live position every frame (see its own
+    // comment for why not time-based); it returns a stop() function we
+    // call during cleanup below.
+    const flameLayer = overlay.querySelector('.design-burn-flames');
+    const edgeEl = overlay.querySelector('.design-burn-edge');
+    fireCanvas = flameLayer ? startFireCanvas(flameLayer, edgeEl, start, DESIGN_BURN_DURATION_MS) : null;
+
+    // Slow, heavily-blurred smoke puffs drifting up off the flame line
+    // — see .design-burn-smoke-puff for why this is what separates
+    // "wildfire" from a clean fireplace flame.
+    const smokeLayer = overlay.querySelector('.design-burn-smoke');
+    let smokeInterval = null;
+    smokeInterval = setInterval(() => {
+      if (!smokeLayer) return;
+      const progress = Math.min(1, (performance.now() - start) / DESIGN_BURN_DURATION_MS);
+      const topPct = progress * 100;
+      const puff = document.createElement('div');
+      puff.className = 'design-burn-smoke-puff';
+      const sizePx = 60 + Math.random() * 90;
+      puff.style.left = (Math.random() * 100) + '%';
+      puff.style.top = topPct + '%';
+      puff.style.width = sizePx + 'px';
+      puff.style.height = sizePx + 'px';
+      puff.style.marginLeft = (-sizePx / 2) + 'px';
+      puff.style.marginTop = (-sizePx / 2) + 'px';
+      puff.style.filter = 'blur(' + (6 + Math.random() * 5) + 'px)';
+      puff.addEventListener('animationend', () => puff.remove());
+      smokeLayer.appendChild(puff);
+    }, 220);
+    // Stashed on the overlay element itself (rather than a third
+    // top-level `let`) purely so the cleanup block below has one place
+    // to look regardless of which branch created it.
+    overlay.__designBurnSmokeInterval = smokeInterval;
+  }
+
+  setTimeout(() => {
+    if (emberInterval) clearInterval(emberInterval);
+    if (fireCanvas) fireCanvas.stop();
+    if (overlay.__designBurnSmokeInterval) clearInterval(overlay.__designBurnSmokeInterval);
+    overlay.classList.remove('burning');
+    overlay.querySelectorAll('.design-burn-ember').forEach(el => el.remove());
+    overlay.querySelectorAll('.design-burn-smoke-puff').forEach(el => el.remove());
+    markUnlocked();
+  }, reduceMotion ? 0 : DESIGN_BURN_DURATION_MS + 150);
+}
+
+// Manual switcher in User Settings (admin-only for now — see
+// applyAccessControl()). Instant, no burn animation — that's reserved
+// for the first-time reveal; this is a deliberate settings change, not a
+// surprise. Also counts as "seen it" so the popup never nags someone who
+// only ever used the switcher without going through the burn.
+function setDesignTheme(theme){
+  const horde = theme === 'horde';
+  document.documentElement.classList.toggle('theme-horde', horde);
+  try{
+    localStorage.setItem(DESIGN_THEME_KEY, horde ? 'horde' : 'classic');
+    localStorage.setItem(DESIGN_REVEAL_KEY, '1');
+  }catch(e){}
+  designRevealChecked = true;
+  const modal = document.getElementById('designRevealModal');
+  if (modal) modal.classList.add('hidden');
+  updateDesignSwitcherUI();
+}
+
+function updateDesignSwitcherUI(){
+  const row = document.getElementById('settingsDesignRow');
+  if (!row) return;
+  const horde = document.documentElement.classList.contains('theme-horde');
+  row.querySelectorAll('.design-switcher-option').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.designTheme === (horde ? 'horde' : 'classic'));
+  });
+}
+
+async function bootstrap(){
+  renderPublicShell();
+  initDesignReveal();
+
+  if (!isFirebaseConfigured()){
+    showSetupOnly(els.setupScreen);
+    return;
+  }
+  if (!isDiscordConfigured()){
+    showSetupOnly(els.discordSetupScreen);
+    return;
+  }
+  if (!isWorkerConfigured()){
+    showSetupOnly(els.workerSetupScreen);
+    return;
+  }
+
+  const hint = document.getElementById('discordRedirectHint');
+  if (hint) hint.textContent = DISCORD_REDIRECT_URI;
+
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+  }catch(e){
+    setStatus('Could not connect to Firebase — check FIREBASE_CONFIG', true);
+    showSetupOnly(els.setupScreen);
+    return;
+  }
+
+  showPublicPage();
+  renderAll();
+  startPublicRecruitingSync();
+  fetchWowheadNews(); // fire-and-forget — re-renders the news grid once it lands
+
+  // If we're returning from the Discord redirect, this exchanges the code
+  // for a real Firebase login token (minted by the Worker after it
+  // verified the login with Discord itself, and checked their current
+  // Discord server roles — see handleDiscordCallback/ensureDiscordRole).
+  const pending = await handleDiscordCallback();
+  if (pending){
+    try{
+      await firebase.auth().signInWithCustomToken(pending.token);
+      freshDiscordRoleClaim = pending.role;
+    }catch(e){
+      showDiscordLoginError('Could not complete login. Please try again.');
+    }
+  }
+
+  // The authoritative gate: Firebase's own auth state, not just whatever
+  // we have cached locally. Fires immediately with the persisted session
+  // on repeat visits, so most people won't need to re-login every time.
+  firebase.auth().onAuthStateChanged((user) => {
+    if (user){
+      discordIdentity = loadDiscordIdentity() || { id: user.uid, username: 'Guild member', avatar: null };
+      startFirebaseSync();
+      let returnPage = null;
+      try{ returnPage = sessionStorage.getItem(RETURN_ANCHOR_KEY); sessionStorage.removeItem(RETURN_ANCHOR_KEY); }catch(e){}
+      if (returnPage){
+        const parts = returnPage.split('::app::');
+        if (parts[1]) pendingDeepLinkApplicationId = parts[1];
+        showPage(parts[0]);
+      }
+    } else {
+      try{ localStorage.removeItem(DISCORD_IDENTITY_KEY); }catch(e){}
+      discordIdentity = null;
+      foreverDraft = null;
+      foreverFirstPickIndex = 0;
+      renderAll();
+    }
+  });
+}
+
+bootstrap();

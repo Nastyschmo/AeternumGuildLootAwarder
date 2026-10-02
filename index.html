@@ -4340,10 +4340,17 @@
     // (see APPLICATION_REMINDER_COOLDOWN_DAYS) — starts unset, so the
     // cooldown is measured from createdAt until the first reminder is sent.
     const lastReminderAt = (entry && typeof entry.lastReminderAt === 'number' && entry.lastReminderAt > 0) ? entry.lastReminderAt : 0;
+    // Stamped only by the Worker's /notify-application (see
+    // sendDiscordNotification) — notifiedAt when the "new application" DM
+    // went out, reminderSentAt for the last reminder DM. Kept here so an
+    // Officer saving the whole record (status change, notes, …) doesn't
+    // wipe them; reminderSentAt is what the Worker's cooldown trusts.
+    const notifiedAt = (entry && typeof entry.notifiedAt === 'number' && entry.notifiedAt > 0) ? entry.notifiedAt : 0;
+    const reminderSentAt = (entry && typeof entry.reminderSentAt === 'number' && entry.reminderSentAt > 0) ? entry.reminderSentAt : 0;
     // Recruiting-team-only notes — never shown to the applicant, see the
     // "Notizen" textarea in the officer card and applyAccessControl().
     const notes = (entry && typeof entry.notes === 'string') ? entry.notes.slice(0, 2000) : '';
-    return { status, claimedBy, claimedByName, interviewAt, lastReminderAt, notes };
+    return { status, claimedBy, claimedByName, interviewAt, lastReminderAt: Math.max(lastReminderAt, reminderSentAt), notifiedAt, reminderSentAt, notes };
   }
   function normalizeApplication(entry){
     if (!entry || typeof entry !== 'object') return null;
@@ -7723,44 +7730,35 @@
     await saveData('characterProfiles/' + discordIdentity.id);
   }
 
-  // Who gets DM'd about a given application: every Officer/Admin opted
-  // into "Bewerbungen melden" (Manage access), except the applicant
-  // themselves — so an Officer/Admin who applies while their own account
-  // has the checkbox on doesn't get DM'd about their own application (see
-  // notifyOfficersOfNewApplication's note below, still relevant to the
-  // reminder path too).
-  function applicationNotifyRecipientIds(applicantId){
-    const roles = state.discordRoles || {};
-    return Object.keys(roles).filter(id => roles[id] && roles[id].notifyOnApplications && id !== applicantId);
-  }
   // Shared send: POSTs to the Worker's /notify-application endpoint and
   // logs the outcome (not silent — see the Discord-DM debugging session
-  // this was added for). The Worker independently re-reads the
-  // application from Firebase before DMing anyone, so this can't be used
-  // to spam arbitrary messages — see discord-auth-worker.js's
-  // handleNotifyApplication.
-  async function sendDiscordNotification(applicationId, recipientIds, message){
+  // this was added for). Only the application id and the kind of nudge
+  // are sent: the Worker builds the DM text and picks the recipients
+  // (every Officer/Admin opted into "Bewerbungen melden" in Manage access,
+  // minus the applicant) itself from Firebase, and enforces the 10-minute
+  // window / one-DM-per-application / reminder cooldown server-side — see
+  // discord-auth-worker.js's handleNotifyApplication. Returns the parsed
+  // Worker response on success, or null.
+  async function sendDiscordNotification(applicationId, kind){
     if (!isWorkerConfigured()){
       console.warn('[notify-application] skipped: Worker URL is not configured (still has the YOUR-WORKER-SUBDOMAIN placeholder).');
-      return false;
-    }
-    if (!recipientIds.length){
-      console.warn('[notify-application] skipped: no recipients. Either nobody has "Bewerbungen melden" checked in Manage Access, or the only person who does is the applicant themself (self-notifications are intentionally excluded).');
-      return false;
+      return null;
     }
     try{
       const res = await fetch(NOTIFY_APPLICATION_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ applicationId, recipientIds, message })
+        body: JSON.stringify({ applicationId, kind })
       });
       let body = null;
       try{ body = await res.json(); }catch(e){}
       if (!res.ok){
         console.warn('[notify-application] Worker responded with an error:', res.status, body);
-        return false;
+        return null;
       }
-      if (body && Array.isArray(body.results)){
+      if (body && body.reason === 'no_recipients'){
+        console.warn('[notify-application] no recipients. Either nobody has "Bewerbungen melden" checked in Manage Access, or the only person who does is the applicant themself (self-notifications are intentionally excluded).');
+      } else if (body && Array.isArray(body.results)){
         // Per-recipient outcome from Discord itself (e.g. "not a guild
         // member", "could not open DM channel" — the latter usually means
         // that person's Discord privacy settings block DMs from server
@@ -7769,7 +7767,7 @@
         if (failed.length) console.warn('[notify-application] Some DMs failed:', failed);
         else console.log('[notify-application] DMs sent to', body.results.length, 'recipient(s).');
       }
-      return true;
+      return body || {};
     }catch(e){
       // Network/CORS-level failure — most likely the Worker isn't deployed
       // with the /notify-application route yet, or NOTIFY_APPLICATION_URL
@@ -7777,7 +7775,7 @@
       // the browser console instead of looking identical to "nothing
       // happened".
       console.warn('[notify-application] fetch failed:', e);
-      return false;
+      return null;
     }
   }
   // Pings every opted-in Officer/Admin via Discord DM when a new
@@ -7785,37 +7783,25 @@
   // (questPendingApplicationsCount, above) is the notification that
   // always works regardless of Discord/Worker availability; this is just
   // the extra "even if you're not on the page" nudge on top of it.
-  async function notifyOfficersOfNewApplication(applicationId, application){
-    const recipientIds = applicationNotifyRecipientIds(application.applicantId);
-    const who = application.firstName || application.applicantName || 'Jemand';
-    const classLabel = (application.picks || [])
-      .map(p => (CLASS_MAP[p.classId] ? CLASS_MAP[p.classId].label : p.classId))
-      .join(' / ');
-    const message = `Neue Bewerbung von ${who}${classLabel ? ' (' + classLabel + ')' : ''} — direkt ansehen: ${applicationDeepLinkUrl(applicationId)}`;
-    await sendDiscordNotification(applicationId, recipientIds, message);
+  async function notifyOfficersOfNewApplication(applicationId){
+    await sendDiscordNotification(applicationId, 'new');
   }
   // The applicant's own "Erinnerung senden" button (see
   // recruitApplyGateState) — same DM mechanism as a new application, just
   // worded as a nudge and gated by APPLICATION_REMINDER_COOLDOWN_DAYS so
-  // it can't be used to spam the recruiting team. Stamps lastReminderAt
-  // on success so the cooldown re-starts from there.
+  // it can't be used to spam the recruiting team. The Worker enforces the
+  // cooldown and stamps lastReminderAt itself; the local copy is only
+  // updated here so the button switches to its cooldown state right away.
   async function sendApplicationReminder(id){
     if (!discordIdentity || !state.applications || !state.applications[id]) return;
     const application = state.applications[id];
     if (application.applicantId !== discordIdentity.id) return;
     if (application.status === 'accepted' || application.status === 'rejected') return;
-    const recipientIds = applicationNotifyRecipientIds(application.applicantId);
-    const who = application.firstName || application.applicantName || 'Jemand';
-    const classLabel = (application.picks || [])
-      .map(p => (CLASS_MAP[p.classId] ? CLASS_MAP[p.classId].label : p.classId))
-      .join(' / ');
-    const message = `Erinnerung: Die Bewerbung von ${who}${classLabel ? ' (' + classLabel + ')' : ''} wartet noch auf eine Rückmeldung — direkt ansehen: ${applicationDeepLinkUrl(id)}`;
     els.recruitApplyNoticeActions.querySelectorAll('[data-send-reminder]').forEach(b => { b.disabled = true; b.textContent = 'Wird gesendet…'; });
-    const ok = await sendDiscordNotification(id, recipientIds, message);
-    if (ok){
+    const result = await sendDiscordNotification(id, 'reminder');
+    if (result){
       const lastReminderAt = Date.now();
-      state.applications[id] = Object.assign({}, application, { lastReminderAt });
-      await saveDataPartial('applications/' + id, { lastReminderAt });
+      state.applications[id] = Object.assign({}, application, { lastReminderAt, reminderSentAt: lastReminderAt });
     }
     renderRecruitApplyGate();
   }
@@ -7855,7 +7841,7 @@
       els.applySubmitStatus.textContent = 'Bewerbung gesendet — wir melden uns bei dir!';
       els.applySubmitStatus.className = 'armory-status armory-status-ok';
       applyChatSaveNicknameIfNeeded(nicknameToSave);
-      notifyOfficersOfNewApplication(id, state.applications[id]).catch(() => {});
+      notifyOfficersOfNewApplication(id).catch(() => {});
     } else {
       delete state.applications[id];
       els.applySubmitStatus.textContent = 'Konnte nicht gesendet werden — bitte später erneut versuchen.';

@@ -1468,6 +1468,81 @@
     .classdive-toggle{ flex-wrap: wrap; }
     .classdive-toggle-meta{ text-align: left; width: 100%; order: 3; }
   }
+  /* Class Deep Dives — left-hand category pre-filter (General + every
+     class) plus a single-category main pane, replacing the old stacked
+     "one collapsible card per class" layout. The sidebar is sticky on
+     desktop so it stays in view while scrolling a long list of Patch-
+     Update posts; it collapses into a horizontally-scrollable pill row
+     above the main pane on narrow screens (see the media query below). */
+  .classdive-layout{ display: flex; align-items: flex-start; gap: 22px; margin-bottom: 18px; }
+  .classdive-sidebar{
+    flex: 0 0 196px; display: flex; flex-direction: column; gap: 3px;
+    position: sticky; top: 16px;
+  }
+  .classdive-filter-btn{
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    background: none; border: 1px solid transparent; border-radius: 7px;
+    padding: 8px 10px; cursor: pointer; text-align: left; color: var(--text-muted);
+    font-family: inherit; font-size: 13px; font-weight: 600;
+  }
+  .classdive-filter-btn:hover{ background: var(--bg-panel); color: var(--text); }
+  .classdive-filter-btn.active{
+    background: var(--bg-panel-raised); border-color: var(--classdive-color, var(--gold-bright));
+    color: var(--classdive-color, var(--gold-bright));
+  }
+  .classdive-filter-icon{ width: 18px; height: 18px; flex-shrink: 0; }
+  .classdive-filter-label{ flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .classdive-filter-count{
+    flex-shrink: 0; font-size: 10.5px; font-weight: 700; color: var(--text-faint);
+    background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 999px;
+    padding: 1px 6px; min-width: 18px; text-align: center;
+  }
+  .classdive-filter-btn.active .classdive-filter-count{ color: var(--classdive-color, var(--gold-bright)); border-color: currentColor; }
+  .classdive-main{ flex: 1 1 auto; min-width: 0; }
+  .classdive-main-head{ display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .classdive-main-head .classdive-filter-icon{ width: 26px; height: 26px; }
+  .classdive-main-title{ font-family: 'Cinzel', serif; font-size: 20px; margin: 0; }
+  .classdive-main-meta{ font-size: 11.5px; color: var(--text-faint); flex: 1; }
+  .classdive-summary-card .classdive-section-head{ display: flex; align-items: center; gap: 10px; margin-top: 0; }
+  .classdive-summary-card .classdive-section-head .classdive-section-title{ margin-bottom: 0; }
+  .classdive-summary-card .classdive-section-head .btn{ margin-left: auto; }
+  .classdive-updates-section{ margin-top: 4px; }
+  .classdive-updates{ display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+  /* A single Patch-Update, forum-post style: a clickable header (title +
+     date + expand arrow) and, collapsed, a short plain-text preview of
+     the first few lines so you can tell what it's about before opening
+     it — same idea as a forum thread list. */
+  .classdive-post{ background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 7px; overflow: hidden; }
+  .classdive-post.expanded{ border-color: var(--border); }
+  .classdive-post-head{
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 10px 12px; cursor: pointer;
+  }
+  .classdive-post-head:hover{ background: rgba(255,255,255,0.03); }
+  .classdive-post-title{ font-weight: 700; font-size: 13.5px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .classdive-post-date{ font-size: 11px; font-weight: 700; color: var(--text-muted); flex-shrink: 0; }
+  .classdive-post-arrow{ font-size: 10px; color: var(--text-faint); flex-shrink: 0; }
+  .classdive-post-preview{ padding: 0 12px 10px; cursor: pointer; }
+  .classdive-post-preview p{ font-size: 12.5px; line-height: 1.5; color: var(--text-muted); margin: 0 0 3px; }
+  .classdive-post-preview p:last-child{ margin-bottom: 0; }
+  .classdive-post-more{ color: var(--teal-bright) !important; font-weight: 600; }
+  .classdive-post-body{ padding: 0 12px 10px; }
+  .classdive-post-actions{ display: flex; justify-content: flex-end; padding: 0 8px 8px; }
+  .classdive-add-update-row{ display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .classdive-add-update-row .classdive-add-update-date{ margin-bottom: 0; flex: 0 0 auto; }
+  .classdive-add-update-title{
+    flex: 1; min-width: 180px; font-size: 12.5px; background: var(--bg-panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px;
+  }
+  @media (max-width: 760px){
+    .classdive-layout{ flex-direction: column; gap: 14px; }
+    .classdive-sidebar{
+      position: static; flex: none; flex-direction: row; flex-wrap: nowrap; overflow-x: auto;
+      width: 100%; gap: 6px; padding-bottom: 4px;
+    }
+    .classdive-filter-btn{ width: auto; flex-shrink: 0; }
+    .classdive-filter-label{ white-space: nowrap; }
+  }
   .application-class{ font-weight: 700; font-size: 13.5px; }
   .application-specs{ font-size: 12.5px; color: var(--text-muted); }
   .application-applicant{ font-size: 12.5px; color: var(--gold-bright); font-weight: 600; }
@@ -2310,6 +2385,7 @@
     <p>Die Fraktion wurde gewählt, der Name steht fest — und vor uns liegt nichts Geringeres als eine neue Welt. WoW: Forever bringt Dungeons, die noch niemand von uns betreten hat, Raids, an denen wir uns gemeinsam die Zähne ausbeißen werden, und ganz neue Möglichkeiten, die wir heute noch gar nicht alle kennen. Genau dafür gibt es rude.</p>
     <p>Ob ihr lieber allein durch die Open World streift, euch im offenen PvP mit anderen messt oder als eingespielter Haufen durch den nächsten Dungeon zieht: Es ist die Freude am Entdecken, am gemeinsamen Erlebnis und ja — auch am ehrlichen Gewinnen und Verlieren, die diese Gilde ausmacht. Neue Chars, neue Strategien, neue Gesichter im Discord. Wir erleben ein Spiel neu, das wir eigentlich schon in- und auswendig kennen, und genau das macht's so besonders.</p>
     <blockquote><p>„Wir haben so viel geschafft, wir schaffen das.“</p><cite>— Angela Merkel, vermutlich nicht über Loot-Rolls, trifft's aber trotzdem ziemlich gut</cite></blockquote>
+    <blockquote><p>„Das Internet ist für uns alle Neuland.“</p><cite>— dieselbe, und ehrlich: WoW: Forever für uns gerade auch</cite></blockquote>
     <p>Das neue Design hier ist unser kleiner Soundtrack zu diesem Aufbruch — ein frischer Anstrich für ein neues Kapitel, das wir zusammen schreiben. Bereit, einzutauchen?</p>
     <button type="button" class="btn" id="designRevealOkBtn">Auf geht's!</button>
   </div>
@@ -4420,6 +4496,12 @@
     return {
       id: (typeof raw.id === 'string' && raw.id) ? raw.id : (Date.now() + '_' + Math.random().toString(36).slice(2, 8)),
       date: (typeof raw.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.date)) ? raw.date : '',
+      // Optional, forum-post-style title (e.g. "Patch-Notes 2. Oktober") —
+      // same optional/trimmed/length-capped pattern as an Announcement's
+      // title (normalizeAnnouncement). Entries saved before this existed
+      // have none; the render side falls back to a generated title from
+      // the date (see classDiveUpdateTitle()).
+      title: (typeof raw.title === 'string') ? raw.title.trim().slice(0, 120) : '',
       text: html,
       createdAt: (typeof raw.createdAt === 'number' && raw.createdAt > 0) ? raw.createdAt : 0
     };
@@ -8102,11 +8184,24 @@
   // editing — both reset on reload, same pattern as the applications
   // list's expandedClosedApplications.
   // ---------------------------------------------------------------------
-  const expandedClassDives = new Set();
   const editingClassDiveSummary = new Set();
-  function toggleClassDiveExpanded(classId){
-    if (expandedClassDives.has(classId)) expandedClassDives.delete(classId);
-    else expandedClassDives.add(classId);
+  // Which class (General or a CLASSES id) is currently showing in the main
+  // pane, selected via the left-hand filter sidebar — one class's content
+  // visible at a time, forum-board style, rather than every class's cards
+  // stacked and individually collapsed as before. Starts on General.
+  let selectedClassDiveId = 'general';
+  function selectClassDive(classId){
+    if (selectedClassDiveId === classId) return;
+    selectedClassDiveId = classId;
+    renderClassDeepDivesView();
+  }
+  // Which individual Patch-Update "forum posts" are expanded — collapsed
+  // by default (see classDiveUpdatePostHtml), independent per update id,
+  // reset on reload same as the other UI-only state here.
+  const expandedClassDiveUpdates = new Set();
+  function toggleClassDiveUpdatePost(updateId){
+    if (expandedClassDiveUpdates.has(updateId)) expandedClassDiveUpdates.delete(updateId);
+    else expandedClassDiveUpdates.add(updateId);
     renderClassDeepDivesView();
   }
   async function saveClassDiveSummary(classId, html){
@@ -8119,7 +8214,7 @@
     const ok = await saveData('classDeepDives/' + classId);
     if (!ok){ state.classDeepDives[classId] = backup; renderClassDeepDivesView(); }
   }
-  async function addClassDiveUpdate(classId, dateStr, html){
+  async function addClassDiveUpdate(classId, dateStr, titleStr, html){
     if (!discordIdentity || !isOfficerOrAdmin() || !state.classDeepDives || !state.classDeepDives[classId]) return;
     const sanitized = sanitizeRichText(html || '');
     if (!stripHtmlToText(sanitized).trim()) return;
@@ -8127,6 +8222,7 @@
     const entry = {
       id: Date.now() + '_' + Math.random().toString(36).slice(2, 8),
       date: /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : '',
+      title: (typeof titleStr === 'string') ? titleStr.trim().slice(0, 120) : '',
       text: sanitized,
       createdAt: Date.now()
     };
@@ -8195,6 +8291,67 @@
       const [y, m, d] = dateStr.split('-').map(Number);
       return new Date(y, m - 1, d).toLocaleDateString('de-DE');
     }catch(e){ return dateStr; }
+  }
+  // Forum-post title for a Patch-Update: the officer's own title if they
+  // gave one, otherwise a generated "Patch-Update – <Datum>" so every post
+  // still has something to show as its card header.
+  function classDiveUpdateTitle(u){
+    if (u.title) return u.title;
+    const dateLabel = formatClassDiveDate(u.date);
+    return dateLabel ? `Patch-Update – ${dateLabel}` : 'Patch-Update';
+  }
+  // Pulls up to maxLines "lines" of plain text out of a Patch-Update's rich
+  // HTML, for the collapsed forum-post preview. Plain `.textContent` alone
+  // won't do — it runs block elements together with no separator at all
+  // (`<p>A</p><p>B</p>` → "AB") — so this walks the block-level children
+  // (paragraphs, list items, headings, table rows treated as one line
+  // each) and takes their text one "line" at a time instead. Falls back to
+  // the whole stripped text as a single line for content with no block
+  // structure at all (shouldn't normally happen, sanitizeRichText always
+  // wraps bare text in a paragraph, but better safe for old/odd data).
+  function classDiveHtmlPreviewLines(html, maxLines){
+    const container = document.createElement('div');
+    container.innerHTML = String(html ?? '');
+    const lines = [];
+    // Collect one line past maxLines on purpose — that's how "is there
+    // more?" gets decided below. Stopping exactly at maxLines would mean
+    // never discovering whether a 6th line exists, so a 6-line entry and a
+    // 5-line entry would look identical (both "not truncated").
+    const limit = maxLines + 1;
+    const pushLine = (text) => {
+      const t = String(text ?? '').replace(/\s+/g, ' ').trim();
+      if (t) lines.push(t);
+    };
+    const walk = (node) => {
+      for (const child of Array.from(node.children)){
+        if (lines.length >= limit) return;
+        const tag = child.tagName;
+        if (tag === 'TABLE'){
+          for (const tr of Array.from(child.querySelectorAll('tr'))){
+            if (lines.length >= limit) return;
+            const cells = Array.from(tr.children).map(td => td.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean);
+            if (cells.length) pushLine(cells.join(' – '));
+          }
+          continue;
+        }
+        if (tag === 'P' || tag === 'LI' || /^H[1-6]$/.test(tag)){
+          pushLine(child.textContent);
+          continue;
+        }
+        if (tag === 'UL' || tag === 'OL' || tag === 'DIV'){
+          walk(child);
+          continue;
+        }
+        pushLine(child.textContent);
+      }
+    };
+    walk(container);
+    if (!lines.length){
+      const whole = container.textContent.replace(/\s+/g, ' ').trim();
+      if (whole) lines.push(whole);
+    }
+    const truncated = lines.length > maxLines;
+    return { lines: lines.slice(0, maxLines), truncated };
   }
   const CLASSDIVE_CLOCK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>';
   const CLASSDIVE_LINK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l2.5-2.5a5 5 0 0 0-7.07-7.07L11 4.88"/><path d="M14 11a5 5 0 0 0-7.07 0l-2.5 2.5a5 5 0 0 0 7.07 7.07L13 19.12"/></svg>';
@@ -8283,6 +8440,38 @@
     </div>`;
   }
 
+  // One Patch-Update rendered as a collapsed-by-default "forum post": a
+  // header (title + date + officer delete button) and either a short
+  // plain-text preview (collapsed) or the full rich content (expanded).
+  // Both the header and the preview are click targets for expanding —
+  // `data-toggle-classdive-post` appears on each so either one opens it.
+  function classDiveUpdatePostHtml(c, u, canManage){
+    const expanded = expandedClassDiveUpdates.has(u.id);
+    const title = classDiveUpdateTitle(u);
+    const dateLabel = formatClassDiveDate(u.date);
+    const deleteBtnHtml = canManage
+      ? `<button type="button" class="btn btn-ghost btn-sm classdive-update-delete" data-delete-update="${c.id}" data-delete-update-id="${u.id}" title="Eintrag löschen">✕</button>`
+      : '';
+    const bodyHtml = expanded
+      ? `<div class="classdive-post-body">
+           <div class="classdive-update-text" data-classdive-update-id="${u.id}">${u.text}</div>
+         </div>`
+      : (() => {
+          const { lines, truncated } = classDiveHtmlPreviewLines(u.text, 5);
+          const previewHtml = lines.map(l => `<p>${escapeHtml(l)}</p>`).join('') + (truncated ? '<p class="classdive-post-more">…weiterlesen</p>' : '');
+          return `<div class="classdive-post-preview" data-toggle-classdive-post="${u.id}">${previewHtml}</div>`;
+        })();
+    return `<div class="classdive-post${expanded ? ' expanded' : ''}" data-classdive-post="${u.id}">
+      <div class="classdive-post-head" data-toggle-classdive-post="${u.id}">
+        <span class="classdive-post-title">${escapeHtml(title)}</span>
+        ${dateLabel ? `<span class="classdive-post-date">${escapeHtml(dateLabel)}</span>` : ''}
+        <span class="classdive-post-arrow" aria-hidden="true">${expanded ? '▲' : '▼'}</span>
+      </div>
+      ${bodyHtml}
+      ${canManage ? `<div class="classdive-post-actions">${deleteBtnHtml}</div>` : ''}
+    </div>`;
+  }
+
   function renderClassDeepDivesView(){
     const loggedIn = !!discordIdentity;
     const hasAccess = loggedIn && isMemberOrHigher();
@@ -8297,78 +8486,105 @@
       isGeneral: true,
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M9 7h7M9 11h7"/></svg>'
     };
-    els.classDivesList.innerHTML = [generalPseudo, ...CLASSES].map(c => {
+    const categories = [generalPseudo, ...CLASSES];
+    // selectedClassDiveId can point at a class that's no longer in the list
+    // in some odd edge case — fall back to General rather than rendering
+    // an empty main pane with nothing selected in the sidebar.
+    if (!categories.some(c => c.id === selectedClassDiveId)) selectedClassDiveId = 'general';
+    const activeCat = categories.find(c => c.id === selectedClassDiveId);
+    const activeDive = dives[activeCat.id] || { summary: '', summaryUpdatedAt: 0, updates: [] };
+
+    // Left-hand pre-filter — one button per category (General + every
+    // class), highlighting whichever is currently shown in the main pane.
+    const sidebarHtml = categories.map(c => {
       const dive = dives[c.id] || { summary: '', summaryUpdatedAt: 0, updates: [] };
       const iconUrl = c.isGeneral ? '' : foreverClassIconUrl(c.id);
-      const expanded = expandedClassDives.has(c.id);
-      const editingSummary = editingClassDiveSummary.has(c.id);
-      const metaText = dive.summaryUpdatedAt
-        ? `${dive.updates.length} Update${dive.updates.length === 1 ? '' : 's'} · Deep Dive zuletzt aktualisiert am ${new Date(dive.summaryUpdatedAt).toLocaleDateString('de-DE')}`
-        : (dive.updates.length ? `${dive.updates.length} Update${dive.updates.length === 1 ? '' : 's'} · noch kein Deep Dive hinterlegt` : 'Noch keine Einträge');
+      const active = c.id === selectedClassDiveId;
+      const count = dive.updates.length;
+      return `<button type="button" class="classdive-filter-btn${active ? ' active' : ''}" data-select-classdive="${c.id}" style="--classdive-color:${c.color}">
+        ${c.isGeneral ? `<span class="classdive-general-icon" aria-hidden="true">${c.icon}</span>` : (iconUrl ? `<img class="classdive-filter-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : '')}
+        <span class="classdive-filter-label">${escapeHtml(c.label)}</span>
+        ${count ? `<span class="classdive-filter-count">${count}</span>` : ''}
+      </button>`;
+    }).join('');
 
-      const summaryPlaceholder = escapeHtml(c.isGeneral
-        ? 'Allgemeine WoW Forever Infos (Regelwerk, serverweite Besonderheiten, etc.) hier einfügen oder reinkopieren…'
-        : `Blizzards Class Deep Dive für ${c.label} hier einfügen oder reinkopieren…`);
-      const summaryBodyHtml = editingSummary
-        ? `<div class="announce-toolbar" id="classdive-summary-toolbar-${c.id}">${announceToolbarMarkup()}</div>
-           <div class="announce-editor classdive-summary-edit" id="classdive-summary-edit-${c.id}" contenteditable="true" data-placeholder="${summaryPlaceholder}">${dive.summary}</div>
-           <div class="forever-actions">
-             <button type="button" class="btn btn-teal btn-sm" data-save-summary="${c.id}">Speichern</button>
-             <button type="button" class="btn btn-ghost btn-sm" data-cancel-summary="${c.id}">Abbrechen</button>
-           </div>`
-        : (dive.summary
-            ? `<div class="classdive-summary-text">${dive.summary}</div>`
-            : `<p class="classdive-empty">${c.isGeneral ? 'Noch keine allgemeinen Infos hinterlegt.' : 'Noch kein Deep Dive hinterlegt.'}</p>`);
-      const summaryEditBtnHtml = (canManage && !editingSummary)
-        ? `<button type="button" class="btn btn-ghost btn-sm" data-edit-summary="${c.id}">${dive.summary ? 'Bearbeiten' : (c.isGeneral ? 'Infos hinzufügen' : 'Deep Dive hinzufügen')}</button>`
-        : '';
+    // Main pane — only the selected category's content. The Deep Dive /
+    // Allgemeine Infos summary is pinned at the very top and always shown
+    // (no collapse) so anyone new to the class sees Blizzard's own write-up
+    // first; the Patch-Updates below it are individually collapsed "forum
+    // posts" (see classDiveUpdatePostHtml), newest first.
+    const c = activeCat, dive = activeDive;
+    const iconUrl = c.isGeneral ? '' : foreverClassIconUrl(c.id);
+    const editingSummary = editingClassDiveSummary.has(c.id);
+    const summaryPlaceholder = escapeHtml(c.isGeneral
+      ? 'Allgemeine WoW Forever Infos (Regelwerk, serverweite Besonderheiten, etc.) hier einfügen oder reinkopieren…'
+      : `Blizzards Class Deep Dive für ${c.label} hier einfügen oder reinkopieren…`);
+    const summaryBodyHtml = editingSummary
+      ? `<div class="announce-toolbar" id="classdive-summary-toolbar-${c.id}">${announceToolbarMarkup()}</div>
+         <div class="announce-editor classdive-summary-edit" id="classdive-summary-edit-${c.id}" contenteditable="true" data-placeholder="${summaryPlaceholder}">${dive.summary}</div>
+         <div class="forever-actions">
+           <button type="button" class="btn btn-teal btn-sm" data-save-summary="${c.id}">Speichern</button>
+           <button type="button" class="btn btn-ghost btn-sm" data-cancel-summary="${c.id}">Abbrechen</button>
+         </div>`
+      : (dive.summary
+          ? `<div class="classdive-summary-text">${dive.summary}</div>`
+          : `<p class="classdive-empty">${c.isGeneral ? 'Noch keine allgemeinen Infos hinterlegt.' : 'Noch kein Deep Dive hinterlegt.'}</p>`);
+    const summaryEditBtnHtml = (canManage && !editingSummary)
+      ? `<button type="button" class="btn btn-ghost btn-sm" data-edit-summary="${c.id}">${dive.summary ? 'Bearbeiten' : (c.isGeneral ? 'Infos hinzufügen' : 'Deep Dive hinzufügen')}</button>`
+      : '';
+    const summaryMetaHtml = dive.summaryUpdatedAt
+      ? `<span class="classdive-main-meta">Zuletzt aktualisiert am ${escapeHtml(new Date(dive.summaryUpdatedAt).toLocaleDateString('de-DE'))}</span>`
+      : '';
 
-      const updatesListHtml = dive.updates.length
-        ? dive.updates.map(u => `<div class="classdive-update">
-            <div class="classdive-update-head">
-              <span class="classdive-update-date">${escapeHtml(formatClassDiveDate(u.date))}</span>
-              ${canManage ? `<button type="button" class="btn btn-ghost btn-sm classdive-update-delete" data-delete-update="${c.id}" data-delete-update-id="${u.id}" title="Eintrag löschen">✕</button>` : ''}
-            </div>
-            <div class="classdive-update-text">${u.text}</div>
-          </div>`).join('')
-        : `<p class="classdive-empty">Noch keine Patch-Updates erfasst.</p>`;
-      const addUpdateFormHtml = canManage
-        ? `<div class="classdive-add-update">
+    const updatesListHtml = dive.updates.length
+      ? dive.updates.map(u => classDiveUpdatePostHtml(c, u, canManage)).join('')
+      : `<p class="classdive-empty">Noch keine Patch-Updates erfasst.</p>`;
+    const addUpdateFormHtml = canManage
+      ? `<div class="classdive-add-update">
+          <div class="classdive-add-update-row">
             <input type="date" class="classdive-add-update-date" id="classdive-update-date-${c.id}" value="${new Date().toISOString().slice(0, 10)}">
-            <div class="announce-toolbar classdive-add-update-toolbar" id="classdive-update-toolbar-${c.id}">${announceToolbarMarkup()}</div>
-            <div class="announce-editor classdive-add-update-text" id="classdive-update-text-${c.id}" contenteditable="true" data-placeholder="Was hat sich geändert? z.B. 'Buff auf X-Talent, Nerf auf Y-Prozentsatz'… (auch Einfügen mit Formatierung geht)"></div>
-            <div class="forever-actions">
-              <button type="button" class="btn btn-teal btn-sm" data-add-update="${c.id}">Update hinzufügen</button>
-            </div>
-          </div>`
-        : '';
+            <input type="text" class="classdive-add-update-title" id="classdive-update-title-${c.id}" maxlength="120" placeholder="Titel, z.B. „Patch-Notes 2. Oktober“ (optional)">
+          </div>
+          <div class="announce-toolbar classdive-add-update-toolbar" id="classdive-update-toolbar-${c.id}">${announceToolbarMarkup()}</div>
+          <div class="announce-editor classdive-add-update-text" id="classdive-update-text-${c.id}" contenteditable="true" data-placeholder="Was hat sich geändert? z.B. 'Buff auf X-Talent, Nerf auf Y-Prozentsatz'… (auch Einfügen mit Formatierung geht)"></div>
+          <div class="forever-actions">
+            <button type="button" class="btn btn-teal btn-sm" data-add-update="${c.id}">Update hinzufügen</button>
+          </div>
+        </div>`
+      : '';
 
-      return `<div class="tac-card classdive-card${c.isGeneral ? ' classdive-card-general' : ''}" data-classdive-card="${c.id}">
-        <button type="button" class="classdive-toggle" data-toggle-classdive="${c.id}">
-          ${c.isGeneral ? `<span class="classdive-general-icon" aria-hidden="true">${c.icon}</span>` : (iconUrl ? `<img class="forever-pick-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : '')}
-          <span class="classdive-toggle-title" style="color:${c.color}">${escapeHtml(c.label)}</span>
-          <span class="classdive-toggle-meta">${escapeHtml(metaText)}</span>
-          <span class="classdive-toggle-arrow" aria-hidden="true">${expanded ? '▲' : '▼'}</span>
-        </button>
-        <div class="classdive-body ${expanded ? '' : 'hidden'}">
-          <div class="classdive-section">
-            <div class="classdive-section-head">
-              <span class="classdive-section-title">${c.isGeneral ? 'Allgemeine Infos' : 'Deep Dive'}</span>
-              ${summaryEditBtnHtml}
-            </div>
-            ${summaryBodyHtml}
-          </div>
-          <div class="classdive-section">
-            <div class="classdive-section-title">Patch-Updates</div>
-            <div class="classdive-updates">${updatesListHtml}</div>
-            ${addUpdateFormHtml}
-          </div>
+    const mainHtml = `
+      <div class="classdive-main-head">
+        ${c.isGeneral ? `<span class="classdive-general-icon" aria-hidden="true">${c.icon}</span>` : (iconUrl ? `<img class="classdive-filter-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : '')}
+        <h2 class="classdive-main-title" style="color:${c.color}">${escapeHtml(c.label)}</h2>
+      </div>
+      <div class="tac-card classdive-summary-card" data-classdive-card="${c.id}">
+        <div class="classdive-section-head">
+          <span class="classdive-section-title">${c.isGeneral ? 'Allgemeine Infos' : 'Deep Dive'}</span>
+          ${summaryMetaHtml}
+          ${summaryEditBtnHtml}
         </div>
+        ${summaryBodyHtml}
+      </div>
+      <div class="classdive-updates-section">
+        <div class="classdive-section-title">Patch-Updates</div>
+        <div class="classdive-updates" data-classdive-updates="${c.id}">${updatesListHtml}</div>
+        ${addUpdateFormHtml}
       </div>`;
-    }).join('') + classDiveHistoryCardHtml(canManage) + classDiveSourcesCardHtml(canManage);
 
-    els.classDivesList.querySelectorAll('[data-toggle-classdive]').forEach(btn => {
-      btn.addEventListener('click', () => toggleClassDiveExpanded(btn.getAttribute('data-toggle-classdive')));
+    els.classDivesList.innerHTML = `
+      <div class="classdive-layout">
+        <nav class="classdive-sidebar" aria-label="Klassen-Filter">${sidebarHtml}</nav>
+        <div class="classdive-main">${mainHtml}</div>
+      </div>
+      ${classDiveHistoryCardHtml(canManage)}
+      ${classDiveSourcesCardHtml(canManage)}`;
+
+    els.classDivesList.querySelectorAll('[data-select-classdive]').forEach(btn => {
+      btn.addEventListener('click', () => selectClassDive(btn.getAttribute('data-select-classdive')));
+    });
+    els.classDivesList.querySelectorAll('[data-toggle-classdive-post]').forEach(el => {
+      el.addEventListener('click', () => toggleClassDiveUpdatePost(el.getAttribute('data-toggle-classdive-post')));
     });
     els.classDivesList.querySelectorAll('[data-edit-summary]').forEach(btn => {
       btn.addEventListener('click', () => { editingClassDiveSummary.add(btn.getAttribute('data-edit-summary')); renderClassDeepDivesView(); });
@@ -8387,35 +8603,35 @@
       btn.addEventListener('click', () => {
         const classId = btn.getAttribute('data-add-update');
         const dateInput = document.getElementById('classdive-update-date-' + classId);
+        const titleInput = document.getElementById('classdive-update-title-' + classId);
         const editor = document.getElementById('classdive-update-text-' + classId);
-        addClassDiveUpdate(classId, dateInput ? dateInput.value : '', editor ? editor.innerHTML : '');
+        addClassDiveUpdate(classId, dateInput ? dateInput.value : '', titleInput ? titleInput.value : '', editor ? editor.innerHTML : '');
       });
     });
     // Rich-text toolbars: the summary editor only exists while editing, the
-    // add-update editor exists for every card whenever canManage — wire up
-    // whichever of each are currently in the DOM.
-    [...CLASSES, generalPseudo].forEach(c => {
-      const summaryToolbar = document.getElementById('classdive-summary-toolbar-' + c.id);
-      const summaryEditor = document.getElementById('classdive-summary-edit-' + c.id);
-      if (summaryToolbar && summaryEditor) wireAnnounceToolbar(summaryToolbar, summaryEditor);
-      const updateToolbar = document.getElementById('classdive-update-toolbar-' + c.id);
-      const updateEditor = document.getElementById('classdive-update-text-' + c.id);
-      if (updateToolbar && updateEditor) wireAnnounceToolbar(updateToolbar, updateEditor);
-    });
+    // add-update editor only exists for the currently-selected class when
+    // canManage — wire up whichever of each are currently in the DOM.
+    const summaryToolbar = document.getElementById('classdive-summary-toolbar-' + c.id);
+    const summaryEditor = document.getElementById('classdive-summary-edit-' + c.id);
+    if (summaryToolbar && summaryEditor) wireAnnounceToolbar(summaryToolbar, summaryEditor);
+    const updateToolbar = document.getElementById('classdive-update-toolbar-' + c.id);
+    const updateEditor = document.getElementById('classdive-update-text-' + c.id);
+    if (updateToolbar && updateEditor) wireAnnounceToolbar(updateToolbar, updateEditor);
     els.classDivesList.querySelectorAll('[data-delete-update]').forEach(btn => {
-      btn.addEventListener('click', () => deleteClassDiveUpdate(btn.getAttribute('data-delete-update'), btn.getAttribute('data-delete-update-id')));
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteClassDiveUpdate(btn.getAttribute('data-delete-update'), btn.getAttribute('data-delete-update-id'));
+      });
     });
     // Auto-link ability/spell names mentioned in the read-only text against
     // that card's own Talent Builder spellbook, with the exact same hover
-    // tooltip. Only the displayed (non-editing) summary and the saved
+    // tooltip. Only the displayed (non-editing) summary and expanded
     // update entries — never the live editor, so nothing fights the
-    // officer's cursor while they're typing.
-    els.classDivesList.querySelectorAll('[data-classdive-card]').forEach(cardEl => {
-      const classId = cardEl.getAttribute('data-classdive-card');
-      const summaryTextEl = cardEl.querySelector('.classdive-section .classdive-summary-text');
-      if (summaryTextEl) annotateSpellMentions(summaryTextEl, classId);
-      cardEl.querySelectorAll('.classdive-update-text').forEach(el => annotateSpellMentions(el, classId));
-    });
+    // officer's cursor while they're typing, and never the collapsed
+    // plain-text previews, which have no markup to annotate anyway.
+    const summaryTextEl = els.classDivesList.querySelector('.classdive-summary-card .classdive-summary-text');
+    if (summaryTextEl) annotateSpellMentions(summaryTextEl, c.id);
+    els.classDivesList.querySelectorAll('.classdive-update-text').forEach(el => annotateSpellMentions(el, c.id));
 
     // Update-Historie + Quellen — always-expanded static cards, wired
     // separately since they have no toggle/expand state of their own.

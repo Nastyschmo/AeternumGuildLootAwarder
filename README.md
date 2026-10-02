@@ -343,7 +343,7 @@ Go to **Build → Realtime Database → Rules** and replace them with:
         ],
         "$appId": {
           ".write": "auth != null && (!data.exists() || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer'))",
-          ".validate": "(data.exists() && (!data.child('applicantId').exists() || newData.child('applicantId').val() == data.child('applicantId').val())) || (!data.exists() && newData.child('applicantId').val() == auth.uid && ((root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer') || ((!root.child('guild-loot-data/applicationLocks').child(auth.uid).exists() || now - root.child('guild-loot-data/applicationLocks').child(auth.uid).val() > 86400000) && newRoot.child('guild-loot-data/applicationLocks').child(auth.uid).val() == now)))"
+          ".validate": "(data.exists() && (!data.child('applicantId').exists() || newData.child('applicantId').val() == data.child('applicantId').val())) || (!data.exists() && newData.child('applicantId').val() == auth.uid && ((root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer') || ((!root.child('guild-loot-data/applicationLocks').child(auth.uid).exists() || now - root.child('guild-loot-data/applicationLocks').child(auth.uid).val() > 86400000) && newData.parent().parent().child('applicationLocks').child(auth.uid).val() == now)))"
         }
       },
       "applicationLocks": {

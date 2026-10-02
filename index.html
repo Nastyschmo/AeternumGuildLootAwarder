@@ -9,7 +9,7 @@
   // anyone whose active choice is 'horde' — either they burned through the
   // reveal, or they flipped the User Settings switcher back to it (see the
   // "Design reveal" comment in css/main.css and
-  // initDesignReveal()/setDesignTheme() near the end of js/app.js)
+  // initDesignReveal()/setDesignTheme() in js/design.js)
   // — otherwise there'd be a one-frame flash of the old navy/gold theme on
   // every repeat visit while the main script loads and re-applies the
   // class. Kept deliberately tiny and synchronous, and before the stylesheet, so
@@ -604,10 +604,10 @@
 <!-- Design reveal — one-time "unlock the new design" popup + burn
      transition. See the CSS comments near :root and near
      .design-reveal-modal/.design-burn-overlay, and initDesignReveal()/
-     startDesignBurn() in js/app.js, for how these two get shown,
+     startDesignBurn() in js/design.js, for how these two get shown,
      animated and torn down. Deliberately OUTSIDE #publicPage (which stays
      class="hidden" until Firebase finishes connecting) and before the
-     js/app.js script tag (so the elements already exist in the DOM by the
+     js/*.js script tags (so the elements already exist in the DOM by the
      time bootstrap() runs and calls initDesignReveal()) — the reveal is a
      purely local/cosmetic thing and has to work even if Firebase is slow,
      misconfigured, or down. -->

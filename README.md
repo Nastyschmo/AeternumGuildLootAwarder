@@ -4,7 +4,8 @@ This is a public guild homepage with a WoW Forever class survey. Files:
 
 - `index.html` — the page's HTML skeleton
 - `css/main.css` — styles (classic + Horde theme)
-- `js/app.js` — the app logic, including the config blocks below
+- `js/*.js` — the app logic, one file per area (`core.js` holds the config
+  blocks below and the editable guild content; see the header of each file)
 - `data/talentsforever.js` — game data for the Talent Builder
 - `assets/` — images (logo, backgrounds, news thumbnails)
 - `worker/discord-auth-worker.js` — the Cloudflare Worker (deployed
@@ -67,7 +68,7 @@ URL and everyone can vote.
 
 ## 4. Paste the config into the HTML file
 
-1. Open `js/app.js` in any text editor.
+1. Open `js/core.js` in any text editor.
 2. Find this block near the top:
 
    ```js
@@ -121,7 +122,7 @@ they've actually joined the guild.
    before finishing this step, it'll show you the exact string it expects
    here — just copy that in.
 4. Copy the **Client ID** shown near the top of the OAuth2 page.
-5. Open `js/app.js`, find the `DISCORD_CONFIG` block near the
+5. Open `js/core.js`, find the `DISCORD_CONFIG` block near the
    top, and paste your Client ID in, replacing
    the placeholder.
 
@@ -175,7 +176,7 @@ included alongside this README.
 
 ### 6c. Point the app at your Worker
 
-Open `js/app.js`, find `WORKER_URL` near the top, and set it to your Worker's URL plus `/mint-token`, e.g.:
+Open `js/core.js`, find `WORKER_URL` near the top, and set it to your Worker's URL plus `/mint-token`, e.g.:
 
 ```js
 const WORKER_URL = 'https://rude-guild-auth.your-subdomain.workers.dev/mint-token';
@@ -770,7 +771,7 @@ id, which is what a normal login does).
 
 Open `discord-auth-worker.js`, find `FIREBASE_DATABASE_URL` near
 `GUILD_ID`, and confirm it matches `databaseURL` in
-`js/app.js`'s `FIREBASE_CONFIG` (it's pre-filled with your
+`js/core.js`'s `FIREBASE_CONFIG` (it's pre-filled with your
 current one, so if you haven't changed Firebase projects there's nothing to
 do here). Paste the updated file into your Worker (**Edit code** → replace
 contents → **Deploy**) if you did change it.
@@ -930,7 +931,7 @@ own e-mail address.
 
 ## Editing the homepage content (guild name, intro text, news)
 
-Open `js/app.js`, find the block near the top headed
+Open `js/core.js`, find the block near the top headed
 "Easy-to-edit guild content" — it has plain
 constants for the guild name, hero tagline/description, intro text, and a
 `NEWS_ITEMS` list (title + blurb + optional `image` URL for a thumbnail).
@@ -944,7 +945,7 @@ Blizzard's official logo (not something Claude fetched or recreated
 itself; official brand logos are Blizzard's own trademarked artwork, so
 that one had to come from you). To swap it for a different version later,
 replace that file and/or update `const NEWS_BETA_IMAGE = 'assets/blizzard-logo.jpg';`
-near the top of `js/app.js`.
+near the top of `js/core.js`.
 
 The Wowhead "WoW: Forever" card and the announcement card are separate
 from this list and don't need editing — they're generated automatically
@@ -1072,7 +1073,7 @@ replay the popup and burn animation. The theme's hero background is
 
 Changes are made on feature branches and land on `main` via pull
 requests; GitHub Pages redeploys `main` automatically. The config blocks
-(`FIREBASE_CONFIG`, `DISCORD_CONFIG`, `WORKER_URL`) live in `js/app.js` and
+(`FIREBASE_CONFIG`, `DISCORD_CONFIG`, `WORKER_URL`) live in `js/core.js` and
 stay as they are across updates — nothing to re-paste.
 
 The Cloudflare Worker (`worker/discord-auth-worker.js`) is deployed

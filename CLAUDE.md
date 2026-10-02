@@ -52,12 +52,16 @@ Worker.
 ## Code-Konventionen
 
 - Aufbau: `index.html` (HTML-Gerüst), `css/main.css` (Styles),
-  `data/talentsforever.js` (Spiel-Daten), `js/app.js` (App-Logik). Alle
-  Scripts sind klassische `<script>`-Tags ohne Bundler; ihre Top-Level-
-  Deklarationen teilen sich den globalen Scope. `js/app.js` wird nach und
-  nach in weitere Dateien aufgeteilt – Reihenfolge der `<script>`-Tags
-  beachten, und Code, der beim Laden sofort läuft (Event-Listener,
-  `bootstrap()`), darf nur auf bereits geladene Dateien zugreifen.
+  `data/talentsforever.js` (Spiel-Daten) und `js/*.js` (App-Logik, eine
+  Datei pro Bereich: `core.js` → `state.js` → Feature-Dateien → `app.js`
+  zuletzt; Reihenfolge siehe `<script>`-Tags in `index.html`, Inhalt siehe
+  Kopfkommentar jeder Datei). Alle Scripts sind klassische `<script>`-Tags
+  ohne Bundler; ihre Top-Level-Deklarationen teilen sich den globalen
+  Scope (keine Namen wählen, die mit `window`-Eigenschaften kollidieren).
+- Code, der beim Laden sofort läuft (Event-Listener-Verdrahtung,
+  Top-Level-Aufrufe, `const`-Initialisierer), darf nur auf Dateien
+  zugreifen, die **vorher** geladen werden. Funktionsrümpfe dürfen alles
+  aufrufen. Neue Feature-Dateien vor `app.js` einhängen.
 - Farben immer über die CSS-Custom-Properties in `:root` (nie hartkodierte
   Hex-Werte), damit das Horde-Theme (`html.theme-horde`) greift.
 - Nutzereingaben in HTML immer über `escapeHtml()` bzw. für Rich Text über

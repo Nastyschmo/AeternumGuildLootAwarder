@@ -83,7 +83,7 @@ function bisTalentCardHtml(){
     return `<div class="bis-tal-tree">
       <div class="bis-tal-tree-head"><strong>${escapeHtml(tree.name)}</strong><span>${spent[i]}</span></div>
       <div class="bis-tal-icons">${chosen.length
-        ? chosen.map(t => `<span class="bis-tal-icon" title="${escapeHtml(t.name)} ${pts[i][t.name]}/${t.max}${t.desc && t.desc[pts[i][t.name] - 1] ? ' — ' + escapeHtml(t.desc[pts[i][t.name] - 1]) : ''}"><img src="${escapeHtml(talentIconUrl(t.icon))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><b>${pts[i][t.name]}</b></span>`).join('')
+        ? chosen.map(t => `<span class="bis-tal-icon" data-bis-tal-tree="${i}" data-bis-tal-name="${escapeHtml(t.name)}" tabindex="0" aria-label="${escapeHtml(t.name)} ${pts[i][t.name]}/${t.max}"><img src="${escapeHtml(talentIconUrl(t.icon))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><b>${pts[i][t.name]}</b></span>`).join('')
         : '<span class="bis-item-meta">—</span>'}</div>
     </div>`;
   }).join('');
@@ -100,10 +100,53 @@ function bisTalentCardHtml(){
   </div>`;
 }
 
+/**
+ * Tooltip for a talent in the set — same look as the Talent Builder's,
+ * but with the set's rank: name, rank, what it does at that rank, the
+ * next rank's text and the prerequisite.
+ * @param {string} cls @param {number} treeIdx @param {string} name @param {number} rank
+ */
+function bisTalentTooltipHtml(cls, treeIdx, name, rank){
+  const tree = TALENT_DATA[cls] && TALENT_DATA[cls].trees[treeIdx];
+  const t = tree && tree.talents.find(x => x.name === name);
+  if (!t) return '';
+  let html = `<div class="talent-tip-title">${escapeHtml(t.name)}</div>`;
+  html += `<div class="talent-tip-rank">Rang ${rank}/${t.max}${rank >= t.max ? ' (maximal)' : ''} · ${escapeHtml(tree.name)}</div>`;
+  const now = t.desc && t.desc[rank - 1];
+  if (now) html += `<div class="talent-tip-desc">${escapeHtml(now)}</div>`;
+  const next = rank < t.max && t.desc && t.desc[rank];
+  if (next) html += `<div class="talent-tip-rank bis-tal-tip-next">Nächster Rang:</div><div class="talent-tip-desc">${escapeHtml(next)}</div>`;
+  if (t.cost) html += `<div class="talent-tip-cost">${escapeHtml(t.cost)}</div>`;
+  if (t.req) html += `<div class="talent-tip-req ok">Benötigt: ${escapeHtml(t.req)} (max)</div>`;
+  return html;
+}
+
 /** @param {HTMLElement} root */
 function bisWireTalentCard(root){
+  hideTalentTooltip(); // the card was just re-rendered
   const b = bisDraft;
   const cls = bisTalentClass(b.classId);
+  root.querySelectorAll('[data-bis-tal-name]').forEach((/** @type {HTMLElement} */ icon) => {
+    const treeIdx = Number(icon.getAttribute('data-bis-tal-tree'));
+    const name = icon.getAttribute('data-bis-tal-name');
+    const show = (/** @type {MouseEvent} */ evt) => {
+      const rank = (b.talents && b.talents[treeIdx] && b.talents[treeIdx][name]) || 0;
+      const html = bisTalentTooltipHtml(cls, treeIdx, name, rank);
+      if (!html || !els.talentTooltip) return;
+      els.talentTooltip.innerHTML = html;
+      els.talentTooltip.classList.remove('hidden');
+      positionTalentTooltip(evt);
+    };
+    icon.addEventListener('mouseenter', show);
+    icon.addEventListener('mousemove', positionTalentTooltip);
+    icon.addEventListener('mouseleave', hideTalentTooltip);
+    // Keyboard: show next to the icon.
+    icon.addEventListener('focus', () => {
+      const r = icon.getBoundingClientRect();
+      show(/** @type {MouseEvent} */ ({ clientX: r.right, clientY: r.top }));
+    });
+    icon.addEventListener('blur', hideTalentTooltip);
+  });
   const on = (id, fn) => { const el = root.querySelector(id); if (el) el.addEventListener('click', fn); };
   on('#bisTalentEditBtn', () => {
     ensureTalentBuildLoaded();

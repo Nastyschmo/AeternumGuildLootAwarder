@@ -280,9 +280,18 @@ const zoneName = id => {
 const sparse = byId(t.ItemSparse);
 const itemName = id => ((sparse.get(id) || eraSparse.get(id) || {}).Display_lang || (qItems.get(id) || [])[0]);
 const wotlk = { items: parseLuaRecords(wItemsTxt), npcs: parseLuaRecords(wNpcsTxt) };
+const mapKind = row => INSTANCE_KIND[I((maps.get(I(row.ContinentID)) || {}).InstanceType)];
+// Some instances' NPCs sit in an open-world area of the same name (e.g.
+// Blackrock Spire inside Blackrock Mountain): fall back to a top-level
+// (no parent area) instance zone with that name.
+const topInstanceKind = new Map();
+for (const row of area.values()) {
+  const kind = mapKind(row);
+  if (kind && !I(row.ParentAreaID) && row.AreaName_lang) topInstanceKind.set(row.AreaName_lang, kind);
+}
 const zoneKind = id => {
   const row = id && area.get(id);
-  return row ? INSTANCE_KIND[I((maps.get(I(row.ContinentID)) || {}).InstanceType)] : undefined;
+  return row ? mapKind(row) || topInstanceKind.get(row.AreaName_lang) : undefined;
 };
 const sources = buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName, wotlk,
   id => zoneKind(id) === 'd' || zoneKind(id) === 'r');
@@ -345,8 +354,9 @@ if (withStats < items.length * 0.5) fail.push(`only ${withStats} items with stat
 if (withIcon < items.length * 0.8) fail.push(`only ${withIcon} items with icons`);
 const reaper = (items.find(r => r.id === 12784) || { src: {} }).src?.craft;
 if (!reaper || reaper.p !== 164 || reaper.r !== 300 || !reaper.rec || !reaper.m?.some(([id]) => id === 12360)) fail.push(`crafting check: Arcanite Reaper ${JSON.stringify(reaper)}`);
-if (instances['Naxxramas'] !== 'r' || instances['The Deadmines'] !== 'd' || instances['Molten Core'] !== 'r')
-  fail.push(`instance check: Naxxramas ${instances['Naxxramas']}, The Deadmines ${instances['The Deadmines']}, Molten Core ${instances['Molten Core']}`);
+const expectKind = { Naxxramas: 'r', 'Molten Core': 'r', 'The Deadmines': 'd', 'Blackrock Spire': 'd' };
+for (const [z, k] of Object.entries(expectKind)) if (instances[z] !== k) fail.push(`instance check: ${z} is ${instances[z]}, expected ${k}`);
+for (const z of ['Westfall', 'Elwynn Forest', 'The Barrens']) if (instances[z]) fail.push(`instance check: open-world zone ${z} marked ${instances[z]}`);
 // Warsong Gulch necklaces: sold only by Horde / Alliance supply officers.
 const factionOf = id => (items.find(r => r.id === id) || {}).fa;
 if (factionOf(19534) !== 'H' || factionOf(19538) !== 'A') fail.push(`faction check: Scout's Medallion ${factionOf(19534)}, Sentinel's Medallion ${factionOf(19538)}`);

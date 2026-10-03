@@ -1108,7 +1108,10 @@ uncommon quality or better — name, slot, item level, required level,
 armor/weapon type, icon, final stats, armor, weapon damage, item set — plus
 where it comes from (NPC drops with zone, quest rewards, vendors, objects,
 containers). `data/forever/meta.json` records the client build it was made
-from. Nobody edits these by hand:
+from. `data/forever/class-stats.json` holds base health, mana and
+attributes per class and level (1–60), race offsets, crit per
+agility/intellect and the level-60 combat rating conversions. Nobody edits
+these by hand:
 
 - `scripts/forever-data/update.mjs` builds them from the newest WoW Forever
   client build on [wago.tools](https://wago.tools) (DB2 exports; items the
@@ -1116,6 +1119,15 @@ from. Nobody edits these by hand:
   sources from [QuestieDB](https://github.com/Questie/QuestieDB)
   (`data/Forever`), and icon names from the
   [wowdev listfile](https://github.com/wowdev/wow-listfile).
+- Class stats (`scripts/forever-data/class-stats.mjs`): base mana and crit
+  per agility/intellect from the client's `PlayerExpectedStat`; base
+  health and attributes (server-side, not in the client) from Wowhead's
+  Forever gear-planner data as snapshotted in
+  [ElliotWood/Forever](https://github.com/ElliotWood/Forever) (MIT), which
+  checked them against Forever character sheets. Below level 60 the rating
+  → % conversion isn't in the client anymore; the TBC curve is assumed
+  (rating per 1% × max(level − 8, 2) / 52) and should be shown as an
+  estimate.
 - `.github/workflows/forever-data.yml` runs it **every day**. If the data
   changed, it runs the importer's sanity checks and the type check, opens a
   pull request and merges it immediately.

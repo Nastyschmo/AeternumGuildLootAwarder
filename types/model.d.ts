@@ -180,6 +180,55 @@ interface ForeverClassStats {
   classes: Record<string, { name: string; levels: ForeverClassLevelStats[] }>;
   /** ChrRaces id -> attribute offset added to the class row (pre-racial). */
   raceOffsets: Record<string, { name: string; str: number; agi: number; sta: number; int: number; spi: number }>;
+  /** ChrRaces id -> playable ChrClasses ids (from CharBaseInfo; may be absent). */
+  combos?: Record<string, number[]>;
   /** Rating needed for 1% (defense: 1 skill point) at level 60. */
   ratingPerPercentAt60: Record<'hit' | 'crit' | 'haste' | 'expertise' | 'dodge' | 'parry' | 'block' | 'defense', number>;
+}
+
+// ---------------------------------------------------------------------
+// data/forever/items.json (generated). Short keys keep the file small.
+interface ForeverNpcRef { n: string; z?: string; }
+interface ForeverItemSource {
+  drops?: ForeverNpcRef[];
+  /** More than six dropping NPCs: a world/trash drop, only counted. */
+  dropCount?: number;
+  objects?: string[];
+  containers?: string[];
+  quests?: { n: string; id: number; l?: number }[];
+  vendors?: ForeverNpcRef[];
+}
+interface ForeverItem {
+  id: number;
+  /** Name. */ n: string;
+  /** Quality (2 uncommon … 5 legendary). */ q: number;
+  /** Item level. */ il: number;
+  /** Item class (2 weapon, 4 armor) and subclass. */ c: number; sc: number;
+  /** Inventory type (slot kind). */ it: number;
+  /** Required level. */ rl?: number;
+  /** AllowableClass bitmask (bit = ChrClasses id - 1); absent = all. */ ac?: number;
+  /** Bonding (1 BoP, 2 BoE, …). */ b?: number;
+  /** Icon file name (wow.zamimg.com). */ ic?: string;
+  /** Stats as [statId, value]. */ s?: [number, number][];
+  /** Armor. */ ar?: number;
+  /** Weapon damage. */ dm?: { min: number; max: number; speed: number; dps: number };
+  /** Item set id. */ set?: number;
+  src?: ForeverItemSource;
+}
+interface ForeverItemsFile {
+  build: string;
+  eraBuild: string;
+  sets: Record<string, string>;
+  items: ForeverItem[];
+}
+
+/** A BiS planner build (stored locally for now). */
+interface BisBuild {
+  classId: ClassId;
+  specId: SpecId;
+  /** ChrRaces id as string. */
+  raceId: string;
+  level: number;
+  /** Slot key -> chosen item and whether it's already obtained. */
+  slots: Record<string, { itemId: number; done?: boolean }>;
 }

@@ -58,7 +58,21 @@ export async function buildClassStats({ build, table, getText }) {
     pes.set(`${Number(r.ClassID)}:${Number(r.Level)}`, r);
   }
 
-  const out = { classes: {}, raceOffsets: {}, ratingPerPercentAt60: RATING_PER_PERCENT_AT_60 };
+  // Which race/class combinations exist (Forever adds new ones). Optional:
+  // if the table or its columns ever change, the page falls back to
+  // offering every race.
+  /** @type {Record<string, number[]> | undefined} */
+  let combos;
+  try {
+    const rows = await table('CharBaseInfo', build, ['RaceID', 'ClassID']);
+    combos = {};
+    for (const r of rows) (combos[r.RaceID] = combos[r.RaceID] || []).push(Number(r.ClassID));
+    for (const k of Object.keys(combos)) combos[k].sort((a, b) => a - b);
+  } catch (e) {
+    console.log('CharBaseInfo skipped:', e.message);
+  }
+
+  const out = { classes: {}, raceOffsets: {}, combos, ratingPerPercentAt60: RATING_PER_PERCENT_AT_60 };
   for (const cid of CLASS_IDS) {
     const plannerClass = base.stats[String(cid)];
     if (!plannerClass) throw new Error(`no base stats for class ${cid}`);

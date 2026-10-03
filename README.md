@@ -1110,7 +1110,8 @@ where it comes from (NPC drops with zone, quest rewards, vendors, objects,
 containers). `data/forever/meta.json` records the client build it was made
 from. `data/forever/class-stats.json` holds base health, mana and
 attributes per class and level (1–60), race offsets, crit per
-agility/intellect and the level-60 combat rating conversions. Nobody edits
+agility/intellect, the level-60 combat rating conversions and which races
+can play which class (`combos`, from the client's `CharBaseInfo`). Nobody edits
 these by hand:
 
 - `scripts/forever-data/update.mjs` builds them from the newest WoW Forever
@@ -1136,6 +1137,21 @@ One-time GitHub setting this needs: **Settings → Actions → General →
 Workflow permissions** = *Read and write permissions*, and tick *Allow
 GitHub Actions to create and approve pull requests*. To refresh right away,
 open the **Actions** tab → *Forever data* → *Run workflow*.
+
+## BiS-Planer
+
+Page *BiS-Planer* (`js/bis-planner.js`) loads `data/forever/items.json` and
+`class-stats.json` the first time it is opened. Pick class, spec, race and
+level (1–60); per slot you choose an item from all items your class can
+wear at that level (armor/weapon proficiencies, class restrictions,
+two-handers block the off hand). The page sums up the stats (health, mana,
+attributes, armor, attack power, hit/crit %), shows where every item comes
+from and builds a farm list grouped by zone; a slot ticked as *Habe ich*
+drops off the list. Quest rewards without a required level count from the
+quest's level. The selection is stored only in the browser
+(`localStorage` key `rude-bis-draft-v1`) — saving builds to the database,
+admin-recommended builds and talents come in later steps. No Firebase rules
+are needed for it.
 
 ## Type checking (development only)
 

@@ -594,7 +594,16 @@ const els = {
   mycharLoggedIn: document.getElementById('mycharLoggedIn'),
   mycharManageBtn: /** @type {HTMLButtonElement} */ (document.getElementById('mycharManageBtn')),
   mycharRefreshAllBtn: /** @type {HTMLButtonElement} */ (document.getElementById('mycharRefreshAllBtn')),
-  mycharList: document.getElementById('mycharList')
+  mycharList: document.getElementById('mycharList'),
+  bisPickerModal: document.getElementById('bisPickerModal'),
+  bisPickerTitle: document.getElementById('bisPickerTitle'),
+  bisPickerCloseBtn: /** @type {HTMLButtonElement} */ (document.getElementById('bisPickerCloseBtn')),
+  bisPickerSearch: /** @type {HTMLInputElement} */ (document.getElementById('bisPickerSearch')),
+  bisPickerQuality: /** @type {HTMLSelectElement} */ (document.getElementById('bisPickerQuality')),
+  bisPickerSourcedOnly: /** @type {HTMLInputElement} */ (document.getElementById('bisPickerSourcedOnly')),
+  bisPickerHigherLevel: /** @type {HTMLInputElement} */ (document.getElementById('bisPickerHigherLevel')),
+  bisPickerCount: document.getElementById('bisPickerCount'),
+  bisPickerList: document.getElementById('bisPickerList')
 };
 
 // Coarse, human-friendly relative time in German — good enough for "how

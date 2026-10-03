@@ -74,6 +74,9 @@ Worker.
   (anhand der Tags in `index.html`). Das Datenmodell (`State`, `Application`,
   `Poll` …) steht in `types/model.d.ts` – bei neuen/entfernten Feldern in
   einem Normalizer dort mitpflegen. Vor jedem Push `npm run typecheck`.
+- `data/forever/` wird automatisch erzeugt (README „WoW Forever item
+  data“, täglicher Workflow) – nie von Hand bearbeiten; Änderungen am
+  Format gehören in `scripts/forever-data/update.mjs`.
 - Farben immer über die CSS-Custom-Properties in `:root` (nie hartkodierte
   Hex-Werte), damit das Horde-Theme (`html.theme-horde`) greift.
 - Nutzereingaben in HTML immer über `escapeHtml()` bzw. für Rich Text über

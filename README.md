@@ -1101,6 +1101,30 @@ Cloudflare dashboard → **Edit code** → paste the new contents → **Deploy**
 The pull request says so when that's needed, and in which order relative
 to merging.
 
+## WoW Forever item data (automatic)
+
+`data/forever/items.json` holds every equippable WoW Forever item of
+uncommon quality or better — name, slot, item level, required level,
+armor/weapon type, icon, final stats, armor, weapon damage, item set — plus
+where it comes from (NPC drops with zone, quest rewards, vendors, objects,
+containers). `data/forever/meta.json` records the client build it was made
+from. Nobody edits these by hand:
+
+- `scripts/forever-data/update.mjs` builds them from the newest WoW Forever
+  client build on [wago.tools](https://wago.tools) (DB2 exports; items the
+  Forever export lacks are taken from the newest Classic Era build), the
+  sources from [QuestieDB](https://github.com/Questie/QuestieDB)
+  (`data/Forever`), and icon names from the
+  [wowdev listfile](https://github.com/wowdev/wow-listfile).
+- `.github/workflows/forever-data.yml` runs it **every day**. If the data
+  changed, it runs the importer's sanity checks and the type check, opens a
+  pull request and merges it immediately.
+
+One-time GitHub setting this needs: **Settings → Actions → General →
+Workflow permissions** = *Read and write permissions*, and tick *Allow
+GitHub Actions to create and approve pull requests*. To refresh right away,
+open the **Actions** tab → *Forever data* → *Run workflow*.
+
 ## Type checking (development only)
 
 The page has no build step — browsers run `js/*.js` as-is. TypeScript is

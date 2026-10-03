@@ -1,11 +1,11 @@
 {
   "build": "1.60.1.70205",
   "eraBuild": "1.15.9.70003",
-  "generatedAt": "2026-10-03T09:51:46.852Z",
+  "generatedAt": "2026-10-03T08:04:49.467Z",
   "counts": {
     "items": 14169,
     "withStats": 11248,
-    "withSources": 5014,
+    "withSources": 6447,
     "withIcons": 13291
   },
   "sources": [

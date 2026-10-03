@@ -1242,7 +1242,15 @@ bearbeiten — `bisDialog()` in js/bis-sets.js, also used for delete and
 "Alle Slots leeren"). Admins can tick *★ empfehlen* on any public set:
 recommended sets head the dropdown for everyone (group "★ Empfohlen",
 with a "Von der Gildenleitung empfohlen" note when loaded), and switching
-to a class/spec without own sets opens the newest recommendation. Rules: README § 6f.
+to a class/spec without own sets opens the newest recommendation.
+
+**Öffentliche Builds** (`js/bis-browser.js`): a second tab on the BiS
+page lists every public set as a card (class, spec, level, owner, date,
+★ for recommended, item icons, "x/y hast Du") — filter by class / spec,
+search by set or player name, recommended first, then newest. "Im
+Planer öffnen" loads the set into the planner. Every logged-in account
+(Community included) can browse; Admins can remove someone else's public
+set (also clears its recommendation). No comments by design. Rules: README § 6f.
 
 ## Type checking (development only)
 

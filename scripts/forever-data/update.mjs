@@ -23,6 +23,9 @@ const OUT_DIR = new URL('../../data/forever/', import.meta.url);
 const WAGO = 'https://wago.tools';
 const PRODUCT = 'wow_classic_beta';
 const QUESTIE = 'https://raw.githubusercontent.com/Questie/QuestieDB/master/data/Forever';
+// QuestieDB's Forever (and Classic) data has no loot for some raid bosses
+// (e.g. Molten Core); its Wotlk data does, for the same NPC and item ids.
+const QUESTIE_WOTLK = 'https://raw.githubusercontent.com/Questie/QuestieDB/master/data/Wotlk';
 const LISTFILE = 'https://github.com/wowdev/wow-listfile/releases/latest/download/community-listfile.csv';
 const UA = { 'User-Agent': 'rude-guild-page data importer (github.com/Nastyschmo/AeternumGuildLootAwarder)' };
 
@@ -163,12 +166,14 @@ const questFaction = mask => {
 const npcFaction = f => (f === 'A' || f === 'H' ? f : undefined);
 
 // ---------------------------------------------------------------- sources
-function buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName) {
+function buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName, wotlk, isInstanceZone) {
+  // An NPC's zone; Forever has none for a few bosses (e.g. Ragnaros), Wotlk does.
+  const npcZone = id => I((qNpcs.get(id) || [])[8]) || I((wotlk.npcs.get(id) || [])[8]);
   const npcLabel = (id, withFaction) => {
     const n = qNpcs.get(id);
     if (!n) return null;
     const ref = { n: n[0] };
-    const zone = zoneName(n[8]); if (zone) ref.z = zone;
+    const zone = zoneName(npcZone(id)); if (zone) ref.z = zone;
     // Only for vendors: a mob friendly to one faction can still drop its
     // loot for the other.
     const f = withFaction && npcFaction(n[12]); if (f) ref.f = f;
@@ -177,7 +182,10 @@ function buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName) {
   const out = new Map();
   for (const [id, r] of qItems) {
     const src = {};
-    const drops = (r[1] || []).filter(Boolean);
+    let drops = (r[1] || []).filter(Boolean);
+    // Fallback, dungeon/raid bosses only (Wotlk world-drop tables differ):
+    // Wotlk loot from NPCs Forever has too, in an instance zone.
+    if (!drops.length) drops = ((wotlk.items.get(id) || [])[1] || []).filter(n => qNpcs.has(n) && isInstanceZone(npcZone(n)));
     if (drops.length > MAX_LISTED_DROPPERS) src.dropCount = drops.length;
     else if (drops.length) src.drops = drops.map(d => npcLabel(d, false)).filter(Boolean);
     const objects = (r[2] || []).map(o => qObjects.get(o)).filter(Boolean).map(o => o[0]);
@@ -226,9 +234,10 @@ for (const name of [...Object.keys(NEED), ...DMG_TABLES]) {
   console.log(`  ${name}: ${t[name].length} rows`);
 }
 
-const [qItemsTxt, qNpcsTxt, qQuestsTxt, qObjectsTxt, listfileTxt] = await Promise.all([
+const [qItemsTxt, qNpcsTxt, qQuestsTxt, qObjectsTxt, listfileTxt, wItemsTxt, wNpcsTxt] = await Promise.all([
   getText(`${QUESTIE}/foreverItemDB.lua`), getText(`${QUESTIE}/foreverNpcDB.lua`),
-  getText(`${QUESTIE}/foreverQuestDB.lua`), getText(`${QUESTIE}/foreverObjectDB.lua`), getText(LISTFILE)
+  getText(`${QUESTIE}/foreverQuestDB.lua`), getText(`${QUESTIE}/foreverObjectDB.lua`), getText(LISTFILE),
+  getText(`${QUESTIE_WOTLK}/wotlkItemDB.lua`), getText(`${QUESTIE_WOTLK}/wotlkNpcDB.lua`)
 ]);
 const qItems = parseLuaRecords(qItemsTxt), qNpcs = parseLuaRecords(qNpcsTxt);
 const qQuests = parseLuaRecords(qQuestsTxt), qObjects = parseLuaRecords(qObjectsTxt);
@@ -263,17 +272,20 @@ const instances = {};
 const zoneName = id => {
   const row = id && area.get(id);
   if (!row) return '';
-  const kind = INSTANCE_KIND[I((maps.get(I(row.ContinentID)) || {}).InstanceType)];
+  const kind = zoneKind(id);
   if (kind && row.AreaName_lang && !instances[row.AreaName_lang]) instances[row.AreaName_lang] = kind;
   return row.AreaName_lang;
 };
-for (const id of [2717, 3456, 1581, 40]) {
-  const row = area.get(id), map = row && maps.get(I(row.ContinentID));
-  console.log(`  zone ${id}: ${row ? row.AreaName_lang : '?'} map ${row ? row.ContinentID : '?'} ${map ? map.MapName_lang + ' type ' + map.InstanceType : '?'}`);
-}
+
 const sparse = byId(t.ItemSparse);
 const itemName = id => ((sparse.get(id) || eraSparse.get(id) || {}).Display_lang || (qItems.get(id) || [])[0]);
-const sources = buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName);
+const wotlk = { items: parseLuaRecords(wItemsTxt), npcs: parseLuaRecords(wNpcsTxt) };
+const zoneKind = id => {
+  const row = id && area.get(id);
+  return row ? INSTANCE_KIND[I((maps.get(I(row.ContinentID)) || {}).InstanceType)] : undefined;
+};
+const sources = buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName, wotlk,
+  id => zoneKind(id) === 'd' || zoneKind(id) === 'r');
 
 // Crafting, checked for every weapon/armor item (a superset of what's kept).
 const { craftOf, professions, reagents } = await buildCrafting({

@@ -2024,3 +2024,9 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 @media (max-width: 720px){
   .htp-grid{ grid-template-columns: 1fr; }
 }
+.htp-drift{ margin: 8px 0 4px; padding: 8px 10px; border: 1px solid var(--danger); border-radius: 8px; font-size: 13px; }
+.htp-drift summary{ cursor: pointer; color: var(--danger-bright); font-weight: 600; }
+.htp-drift ul{ margin: 6px 0 0; padding-left: 18px; line-height: 1.5; }
+.htp-drift li + li{ margin-top: 6px; }
+.htp-drift-old{ color: var(--text-faint); }
+.htp-drift-new{ color: var(--text); }

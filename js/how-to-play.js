@@ -11,6 +11,53 @@
 // the link box is re-rendered (htpRefreshLinks) — a full re-render of
 // the Class Overview would throw away an officer's unsaved editor text.
 
+/**
+ * Talent texts as they were when the guide was last reviewed
+ * (data/howtoplay-baseline.json, written by scripts/howtoplay/check.mjs).
+ * Loaded on first use; the card then flags talents whose live text changed.
+ * @typedef {{ updated: string, build: string, classes: Record<string, Record<string, { max: number, desc: string }>> }} HtpBaseline
+ * @type {HtpBaseline | null}
+ */
+let htpBaseline = null;
+/** @type {Promise<void> | null} */
+let htpBaselinePromise = null;
+function htpLoadBaseline(){
+  if (!htpBaselinePromise){
+    htpBaselinePromise = fetch('data/howtoplay-baseline.json', { cache: 'no-cache' })
+      .then(r => r.ok ? r.json() : null)
+      .then(json => { htpBaseline = json && json.classes ? json : null; }, () => {});
+  }
+  return htpBaselinePromise;
+}
+/** Talents named in the guide whose live data differs from the baseline. @param {string} classId */
+function htpDrift(classId){
+  const base = htpBaseline && htpBaseline.classes[classId];
+  const data = TALENT_DATA[CLASS_MAP[classId].label];
+  if (!base || !data) return [];
+  const live = new Map(data.trees.flatMap(tr => tr.talents.map(t => [t.name, t])));
+  /** @type {{ name: string, old: string, now: string }[]} */
+  const out = [];
+  for (const [name, old] of Object.entries(base)){
+    const t = live.get(name);
+    const now = t ? (Array.isArray(t.desc) ? t.desc[t.desc.length - 1] || '' : String(t.desc || '')) : '';
+    if (!t) out.push({ name, old: old.desc, now: '' });
+    else if (t.max !== old.max || now !== old.desc) out.push({ name, old: old.desc, now: t.max !== old.max ? `${now} (${t.max} statt ${old.max} Ränge)` : now });
+  }
+  return out;
+}
+/** @param {string} classId */
+function htpDriftHtml(classId){
+  const drift = htpDrift(classId);
+  if (!drift.length) return '';
+  const since = new Date(HOW_TO_PLAY_UPDATED + 'T12:00:00').toLocaleDateString('de-DE');
+  return `<details class="htp-drift">
+    <summary>⚠ ${drift.length === 1 ? 'Ein hier genanntes Talent wurde' : `${drift.length} hier genannte Talente wurden`} seit dem ${escapeHtml(since)} im Spiel geändert – Texte dazu evtl. veraltet</summary>
+    <ul>${drift.map(d => `<li><strong>${escapeHtml(d.name)}</strong>${d.now
+      ? `<div class="htp-drift-old">vorher: ${escapeHtml(d.old)}</div><div class="htp-drift-new">jetzt: ${escapeHtml(d.now)}</div>`
+      : ' — nicht mehr im Talentbaum'}</li>`).join('')}</ul>
+  </details>`;
+}
+
 /** Selected spec per class (UI only, reset on reload). @type {Record<string, string>} */
 const htpSpecByClass = {};
 
@@ -74,6 +121,7 @@ function howToPlayCardHtml(classId){
       <span class="classdive-section-title">How to play</span>
       <span class="classdive-post-date">Stand ${escapeHtml(updated)}</span>
     </div>
+    ${htpDriftHtml(classId)}
     <div class="htp-text">
       <p class="htp-intro">${escapeHtml(guide.intro)}</p>
       <div class="htp-facts">
@@ -106,6 +154,13 @@ function wireHowToPlay(root, classId){
   const card = /** @type {HTMLElement} */ (root.querySelector('#howToPlayCard'));
   if (!card) return;
   bisSyncListeners();
+  if (!htpBaselinePromise) htpLoadBaseline().then(() => {
+    // Re-render the card (only) once the baseline is in, if it's still shown.
+    const shown = /** @type {HTMLElement} */ (root.querySelector('#howToPlayCard'));
+    if (!shown || !htpDrift(classId).length || selectedClassDiveId !== classId) return;
+    shown.outerHTML = howToPlayCardHtml(classId);
+    wireHowToPlay(root, classId);
+  });
   card.querySelectorAll('[data-htp-spec]').forEach(btn => btn.addEventListener('click', () => {
     htpSpecByClass[classId] = btn.getAttribute('data-htp-spec');
     card.outerHTML = howToPlayCardHtml(classId);

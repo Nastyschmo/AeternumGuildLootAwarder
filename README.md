@@ -1307,6 +1307,20 @@ BiS planner (opens the newest own / ★ recommended set of that spec), its
 ("How to play <Spec> →" under the spec select). No new Firebase paths – it
 reads `bisPublic` and `bisRecommended`, which already have their rules.
 
+**Staying current.** The talent data under `data/forever/` refreshes daily
+from the game client. `data/howtoplay-baseline.json` remembers, for every
+talent the guide names, its rank count and max-rank text at the time the
+guide was last reviewed. When they drift apart:
+
+- the card shows "⚠ … seit dem <Stand> im Spiel geändert" with before/after
+  text per talent;
+- the daily *Forever data* workflow keeps one open issue labelled
+  `how-to-play` with the same list (and closes it when nothing differs);
+- after updating the guide text: `node scripts/howtoplay/check.mjs --baseline`
+  and bump `HOW_TO_PLAY_UPDATED`. The *Type check* workflow runs
+  `check.mjs --strict` on every PR and fails if the guide names a talent
+  the baseline doesn't know (or the other way round).
+
 ## Type checking (development only)
 
 The page has no build step — browsers run `js/*.js` as-is. TypeScript is

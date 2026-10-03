@@ -1203,6 +1203,13 @@ these by hand:
   recipe's own sources come from QuestieDB. Trainer-learned recipes have
   no recipe item; their skill is estimated (marked `e`). Materials from
   `SpellReagents` (`m`, names in the top-level `reagents` map).
+- Materials (`scripts/forever-data/materials.mjs`): for every reagent of
+  crafted gear — and, recursively, of crafted reagents (Arcanite Bar →
+  Thorium Bar → Thorium Ore) — where to get it, in the top-level
+  `materials` map: QuestieDB sources, the profession craft, zones of the
+  gathering nodes (`oz`, from object spawns), the zones most droppers of a
+  world drop live in (`dz`), and skinning (`sk`) / disenchanting (`de`)
+  hints derived from the name.
 - `.github/workflows/forever-data.yml` runs it **every day**. If the data
   changed, it runs the importer's sanity checks and the type check, opens a
   pull request and merges it immediately.
@@ -1230,7 +1237,9 @@ other-faction vendors/quests are left out of the sources. Crafted items show
 the profession and skill and where the recipe drops/is sold; the card
 *Benötigte Berufe* sums up which professions the open slots need — BoP
 crafts you must make yourself, BoE ones can be bought. *Materialliste*
-adds up the materials of all open crafted slots. The item picker can be narrowed by
+adds up the materials of all open crafted slots; clicking one shows where to
+get it, and "In Rohstoffe aufschlüsseln" breaks materials that are only
+crafted (bars, transmutes, bolts) down into their own materials. The item picker can be narrowed by
 *Herkunft*: a search field with suggestions (type "ra" → Ragefire Chasm,
 Razorfen …) where several entries can be picked at once — open world,
 quests, vendors, professions, dungeons, raids, battlegrounds

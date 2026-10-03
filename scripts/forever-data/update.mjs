@@ -20,6 +20,7 @@ import { parseCsv } from './csv.mjs';
 import { parseLuaRecords } from './lua-records.mjs';
 import { buildClassStats } from './class-stats.mjs';
 import { buildCrafting } from './crafting.mjs';
+import { buildMaterials } from './materials.mjs';
 import { buildTalents } from './talents.mjs';
 import { buildEnchants } from './enchants.mjs';
 import vm from 'node:vm';
@@ -328,10 +329,18 @@ const sources = buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemNam
   id => zoneKind(id) === 'd' || zoneKind(id) === 'r');
 
 // Crafting, checked for every weapon/armor item (a superset of what's kept).
-const { craftOf, professions, reagents } = await buildCrafting({
+const { craftOf, craftFor, professions, reagents } = await buildCrafting({
   build, eraBuild, table, sparse, eraSparse, sources, itemName,
   gearIds: new Set(t.Item.filter(it => I(it.ClassID) === 2 || I(it.ClassID) === 4).map(it => I(it.ID)))
 });
+
+// Materials: where to get every reagent of crafted gear (incl. crafted reagents' own).
+const npcZoneOf = id => I((qNpcs.get(id) || [])[8]) || I((wotlk.npcs.get(id) || [])[8]);
+const { materials, names: materialNames } = buildMaterials({
+  reagentIds: Object.keys(reagents).map(Number), craftFor, sources, qItems, qNpcs, qObjects,
+  npcZone: npcZoneOf, zoneName, itemName
+});
+Object.assign(reagents, materialNames);
 
 const setOf = new Map();
 for (const s of t.ItemSet) for (let i = 0; i < 17; i++) { const id = I(s[`ItemID_${i}`]); if (id) setOf.set(id, I(s.ID)); }
@@ -392,6 +401,13 @@ for (const z of ['Westfall', 'Elwynn Forest', 'The Barrens']) if (instances[z]) 
 const factionOf = id => (items.find(r => r.id === id) || {}).fa;
 if (factionOf(19534) !== 'H' || factionOf(19538) !== 'A') fail.push(`faction check: Scout's Medallion ${factionOf(19534)}, Sentinel's Medallion ${factionOf(19538)}`);
 if (withSrc < items.length * 0.2) fail.push(`only ${withSrc} items with sources`);
+// Materials: Thorium Bar is smelted (Mining), Black Lotus grows in nodes, Runecloth drops widely.
+const matCount = Object.keys(materials).length;
+console.log(`  materials: ${matCount} (crafted ${Object.values(materials).filter(m => m.craft).length}, nodes ${Object.values(materials).filter(m => m.oz).length}, drop zones ${Object.values(materials).filter(m => m.dz).length}, unknown ${Object.values(materials).filter(m => !Object.keys(m).length).length})`);
+for (const id of [12359, 12360, 13468, 14047]) console.log('  material', id, JSON.stringify(materials[id]).slice(0, 300));
+if (matCount < 200) fail.push(`only ${matCount} materials`);
+if (!materials[12359]?.craft || !materials[12360]?.craft?.m) fail.push(`materials check: Thorium Bar ${JSON.stringify(materials[12359])}, Arcanite Bar ${JSON.stringify(materials[12360])}`);
+if (!materials[13468]?.oz?.length) fail.push(`materials check: Black Lotus ${JSON.stringify(materials[13468])}`);
 if (fail.length) { console.error('Sanity check failed: ' + fail.join('; ')); process.exit(1); }
 
 // ---------------------------------------------------------------- enchants
@@ -427,7 +443,7 @@ async function writeIfChanged(name, json) {
   console.log(`Wrote data/forever/${name} (${Math.round(json.length / 1024)} KB).`);
   return true;
 }
-const itemsChanged = await writeIfChanged('items.json', JSON.stringify({ build, eraBuild, sets, professions, reagents, instances, items }) + '\n');
+const itemsChanged = await writeIfChanged('items.json', JSON.stringify({ build, eraBuild, sets, professions, reagents, materials, instances, items }) + '\n');
 const statsChanged = await writeIfChanged('class-stats.json', JSON.stringify({ build, ...classStats }) + '\n');
 const enchantsChanged = await writeIfChanged('enchants.json', JSON.stringify({ build, enchants }) + '\n');
 // A classic <script> (the Talent Builder needs it synchronously at load), not JSON.

@@ -205,6 +205,14 @@ interface ForeverItemSource {
   vendors?: ForeverNpcRef[];
   /** Made with a profession. */
   craft?: ForeverCraft;
+  /** Materials only: zones of the gathering nodes (most spawns first). */
+  oz?: string[];
+  /** Materials only: zones most of the many droppers live in. */
+  dz?: string[];
+  /** Materials only: skinned (leather, hides, scales). */
+  sk?: 1;
+  /** Materials only: from disenchanting (essences, shards, dusts). */
+  de?: 1;
 }
 interface ForeverCraft {
   /** Profession (SkillLine id, e.g. 164 Blacksmithing). */
@@ -244,6 +252,8 @@ interface ForeverItemsFile {
   professions?: Record<string, string>;
   /** Material item id -> name. */
   reagents?: Record<string, string>;
+  /** Material item id -> where to get it (scripts/forever-data/materials.mjs). */
+  materials?: Record<string, ForeverItemSource>;
   /** Zone name -> 'd' dungeon / 'r' raid / 'b' battleground (zones items drop in). */
   instances?: Record<string, 'd' | 'r' | 'b'>;
   items: ForeverItem[];

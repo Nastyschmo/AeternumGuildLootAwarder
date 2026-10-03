@@ -2030,3 +2030,15 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 .htp-drift li + li{ margin-top: 6px; }
 .htp-drift-old{ color: var(--text-faint); }
 .htp-drift-new{ color: var(--text); }
+
+/* ---- Materialliste with sources (js/bis-materials.js) ---- */
+.bis-mats .bis-mat-list{ display: flex; flex-direction: column; gap: 2px; }
+.bis-mat-head{ display: flex; align-items: baseline; gap: 6px; width: 100%; background: none; border: none; padding: 3px 0; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.bis-mat-head:disabled{ cursor: default; }
+.bis-mat-head:not(:disabled):hover span:first-of-type{ text-decoration: underline; }
+.bis-mat-head strong{ color: var(--gold-bright); min-width: 34px; }
+.bis-mat-head .bis-item-meta, .bis-mat-arrow{ margin-left: auto; }
+.bis-mat-arrow{ font-size: 10px; color: var(--text-faint); }
+.bis-mat-src{ font-size: 11.5px; color: var(--text-muted); line-height: 1.45; margin: 0 0 6px 40px; }
+.bis-mat-src > div + div{ margin-top: 2px; }
+.bis-mat-raw{ display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; cursor: pointer; }

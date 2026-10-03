@@ -19,13 +19,15 @@ const buildsRaw = await get(`${WAGO}/api/builds`);
 let builds;
 try { builds = JSON.parse(buildsRaw); } catch (e) { console.log('builds not JSON:', buildsRaw.slice(0, 500)); throw e; }
 console.log('builds top-level type:', Array.isArray(builds) ? 'array' : typeof builds, 'keys:', Array.isArray(builds) ? '' : Object.keys(builds).slice(0, 40).join(','));
-const list = Array.isArray(builds) ? builds.filter(b => (b.product || b.Product) === PRODUCT) : builds[PRODUCT];
-console.log(`${PRODUCT} entries:`, JSON.stringify((list || []).slice(0, 5), null, 1));
-const latest = (list || [])[0];
-const build = latest && (latest.version || latest.Version || latest.build || latest);
+// Forever builds are 1.60.x. List every product that carries one, newest
+// first by created_at, since wow_classic_beta also holds MoP Classic (5.5.x).
+const all = Object.entries(builds).flatMap(([product, entries]) => (entries || []).map(e => ({ ...e, product })));
+const forever = all.filter(e => /^1\.60\./.test(e.version)).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+console.log('1.60.x builds:', forever.length, JSON.stringify(forever.slice(0, 8).map(e => [e.product, e.version, e.created_at])));
+const build = forever[0] && forever[0].version;
 console.log('using build:', build);
 
-for (const table of ['ItemSparse', 'Item', 'RandPropPoints', 'AreaTable', 'ItemSet']) {
+for (const table of ['ItemSparse', 'Item', 'AreaTable', 'ChrRaces', 'ChrClasses']) {
   try {
     const csv = await get(`${WAGO}/db2/${table}/csv?build=${encodeURIComponent(build)}`);
     const rows = parseCsv(csv);
@@ -40,7 +42,7 @@ for (const table of ['ItemSparse', 'Item', 'RandPropPoints', 'AreaTable', 'ItemS
   }
 }
 
-const QDB = 'https://raw.githubusercontent.com/Questie/QuestieDB/main/data/Forever';
+const QDB = 'https://raw.githubusercontent.com/Questie/QuestieDB/master/data/Forever';
 for (const f of ['foreverItemDB.lua', 'foreverNpcDB.lua', 'foreverQuestDB.lua']) {
   try {
     const txt = await get(`${QDB}/${f}`);

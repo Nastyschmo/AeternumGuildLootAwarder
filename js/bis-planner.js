@@ -555,14 +555,14 @@ function bisWirePlanner(root){
   const changed = () => { bisSaveDraft(); renderBisPlanner(); };
   // Sets belong to a class + spec: switching leaves the active set (and
   // opens the newest saved set of the new spec, if there is one).
-  const leaveSet = () => !(b.setId && bisDraftDirty()) || confirm('Ungespeicherte Änderungen am Set verwerfen?');
+
   const openNewestSet = () => {
     const sets = bisSetsForCurrentSpec();
     if (sets.length) bisLoadSet(sets[0][0]); else changed();
   };
-  root.querySelectorAll('[data-bis-class]').forEach(btn => btn.addEventListener('click', () => {
+  root.querySelectorAll('[data-bis-class]').forEach(btn => btn.addEventListener('click', async () => {
     const c = btn.getAttribute('data-bis-class');
-    if (c === b.classId || !leaveSet()) return;
+    if (c === b.classId || !(await bisConfirmLeave())) return;
     b.classId = c;
     b.specId = foreverSpecsForClass(c)[0].id;
     b.slots = {};
@@ -572,9 +572,11 @@ function bisWirePlanner(root){
     openNewestSet();
   }));
   const spec = /** @type {HTMLSelectElement} */ (root.querySelector('#bisSpecSelect'));
-  spec.addEventListener('change', () => {
-    if (!leaveSet()){ spec.value = b.specId; return; }
-    b.specId = spec.value;
+  spec.addEventListener('change', async () => {
+    const target = spec.value;
+    spec.value = b.specId; // stays until the user confirms
+    if (!(await bisConfirmLeave())) return;
+    b.specId = target;
     const hadSet = Boolean(b.setId);
     b.setId = '';
     bisSetNameDraft = null;
@@ -588,7 +590,10 @@ function bisWirePlanner(root){
   lvl.addEventListener('input', () => { root.querySelector('#bisLevelValue').textContent = lvl.value; });
   lvl.addEventListener('change', () => { b.level = Number(lvl.value); changed(); });
   root.querySelector('#bisResetBtn').addEventListener('click', () => {
-    if (!Object.keys(b.slots).length || confirm('Alle Slots leeren?')){ b.slots = {}; changed(); }
+    if (!Object.keys(b.slots).length) return;
+    bisDialog('Alle Slots leeren?', 'Alle gewählten Items werden aus dem Entwurf entfernt. Ein gespeichertes Set bleibt unverändert, bis Du speicherst.',
+      [{ id: 'clear', label: 'Leeren', primary: true }, { id: 'cancel', label: 'Abbrechen' }])
+      .then(a => { if (a === 'clear'){ b.slots = {}; changed(); } });
   });
   root.querySelectorAll('[data-bis-pick]').forEach(btn => btn.addEventListener('click', () => openBisPicker(btn.getAttribute('data-bis-pick'))));
   root.querySelectorAll('[data-bis-clear]').forEach(btn => btn.addEventListener('click', () => { delete b.slots[btn.getAttribute('data-bis-clear')]; changed(); }));

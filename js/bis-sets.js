@@ -21,6 +21,8 @@ const BIS_SET_NAME_MAX = 60;
 
 /** @type {Record<string, BisSavedSet>} own sets, private and public, by id */
 let bisMySets = {};
+/** @type {Record<string, BisSavedSet>} other users' public sets, by id */
+let bisOtherSets = {};
 /** Owned item ids ("Habe ich"). */
 let bisOwned = bisLoadLocalOwned();
 /** uid the Firebase listeners are attached for ('' = none). */
@@ -69,6 +71,7 @@ function bisSyncListeners(){
   for (const { ref, cb } of bisSyncRefs) ref.off('value', cb);
   bisSyncRefs = [];
   bisMySets = {};
+  bisOtherSets = {};
   bisPrivateRaw = {};
   bisPublicRaw = {};
   bisSyncUid = uid;
@@ -82,7 +85,8 @@ function bisSyncListeners(){
     bisSyncRefs.push({ ref, cb });
   };
   listen(db.ref(`${DB_PATH}/bisSets/${uid}`), (v) => { bisPrivateRaw = v; bisMergeSets(); });
-  listen(db.ref(`${DB_PATH}/bisPublic`).orderByChild('ownerId').equalTo(uid), (v) => { bisPublicRaw = v; bisMergeSets(); });
+  // All public sets: own ones show under "Meine Sets", the others grouped by user.
+  listen(db.ref(`${DB_PATH}/bisPublic`), (v) => { bisPublicRaw = v; bisMergeSets(); });
   let firstOwned = true;
   listen(db.ref(`${DB_PATH}/bisOwned/${uid}`), (v) => {
     const remote = new Set(Object.keys(v).filter(k => v[k]).map(Number));
@@ -102,8 +106,14 @@ function bisMergeSets(){
   /** @type {Record<string, BisSavedSet>} */
   const all = {};
   for (const [id, raw] of Object.entries(bisPrivateRaw)){ const s = bisNormalizeSet(raw, false); if (s) all[id] = s; }
-  for (const [id, raw] of Object.entries(bisPublicRaw)){ const s = bisNormalizeSet(raw, true); if (s) all[id] = s; }
+  /** @type {Record<string, BisSavedSet>} */
+  const others = {};
+  for (const [id, raw] of Object.entries(bisPublicRaw)){
+    const s = bisNormalizeSet(raw, true);
+    if (s) (s.ownerId === bisSyncUid ? all : others)[id] = s;
+  }
   bisMySets = all;
+  bisOtherSets = others;
 }
 
 /** @param {any} raw @param {boolean} isPublic @returns {BisSavedSet | null} */
@@ -138,9 +148,38 @@ function bisSetsForCurrentSpec(){
     .sort((a, z) => z[1].updatedAt - a[1].updatedAt);
 }
 
+/** A set by id, own or someone else's public one. @param {string} id */
+function bisAnySet(id){
+  return (id && (bisMySets[id] || bisOtherSets[id])) || null;
+}
+/** Is the set someone else's (read-only, can be saved as an own copy)? @param {string} id */
+function bisIsForeignSet(id){
+  return Boolean(id && !bisMySets[id] && bisOtherSets[id]);
+}
+/** Display name of a set's owner: nickname, Discord name, or the name saved with the set. @param {BisSavedSet} set */
+function bisOwnerLabel(set){
+  const prof = state.characterProfiles[set.ownerId];
+  const role = state.discordRoles[set.ownerId];
+  return (prof && prof.nickname) || (role && role.username) || set.ownerName || 'Unbekannt';
+}
+/** Other users' public sets for the draft's class + spec, grouped by owner. @returns {{ owner: string, sets: [string, BisSavedSet][] }[]} */
+function bisOtherSetsByOwner(){
+  const b = bisDraft;
+  /** @type {Map<string, { owner: string, sets: [string, BisSavedSet][] }>} */
+  const groups = new Map();
+  for (const [id, s] of Object.entries(bisOtherSets)){
+    if (s.classId !== b.classId || s.specId !== b.specId) continue;
+    if (!groups.has(s.ownerId)) groups.set(s.ownerId, { owner: bisOwnerLabel(s), sets: [] });
+    groups.get(s.ownerId).sets.push([id, s]);
+  }
+  const list = [...groups.values()];
+  list.forEach(g => g.sets.sort((a, z) => a[1].name.localeCompare(z[1].name, 'de')));
+  return list.sort((a, z) => a.owner.localeCompare(z.owner, 'de'));
+}
+
 /** Does the draft differ from its saved set? */
 function bisDraftDirty(){
-  const set = bisDraft.setId && bisMySets[bisDraft.setId];
+  const set = bisAnySet(bisDraft.setId);
   if (!set) return Object.keys(bisDraft.slots).length > 0;
   if (set.raceId !== bisDraft.raceId || set.level !== bisDraft.level) return true;
   const keys = new Set([...Object.keys(set.slots), ...Object.keys(bisDraft.slots)]);
@@ -151,7 +190,7 @@ function bisDraftDirty(){
 // ---------------------------------------------------------------- actions
 /** @param {string} id */
 function bisLoadSet(id){
-  const set = bisMySets[id];
+  const set = bisAnySet(id);
   if (!set) return;
   bisDraft = {
     classId: set.classId, specId: set.specId, raceId: set.raceId, level: set.level, setId: id,
@@ -180,12 +219,17 @@ function bisSetPath(id, isPublic){
   return isPublic ? `bisPublic/${id}` : `bisSets/${bisSyncUid}/${id}`;
 }
 
-/** Save the draft: into its set, or as a new one. @param {boolean} asNew */
+/**
+ * Save the draft: into its own set, or as a new one (always new for
+ * someone else's public set). @param {boolean} asNew @returns {Promise<boolean>}
+ */
 async function bisSaveSet(asNew){
-  if (!bisCanSaveSets()) return;
-  const name = (bisSetNameDraft !== null ? bisSetNameDraft : (bisMySets[bisDraft.setId] || {}).name || '').trim().slice(0, BIS_SET_NAME_MAX);
-  if (!name){ bisSetStatus = 'Bitte gib dem Set einen Namen.'; renderBisPlanner(); return; }
+  if (!bisCanSaveSets()) return false;
+  const current = bisAnySet(bisDraft.setId);
+  const name = (bisSetNameDraft !== null ? bisSetNameDraft : (current ? current.name : '')).trim().slice(0, BIS_SET_NAME_MAX);
+  if (!name){ bisSetStatus = 'Bitte gib dem Set einen Namen.'; renderBisPlanner(); return false; }
   const prev = !asNew && bisDraft.setId ? bisMySets[bisDraft.setId] : null;
+  let ok = false;
   const id = prev ? bisDraft.setId : db.ref(`${DB_PATH}/bisSets`).push().key;
   const isPublic = prev ? prev.public : false;
   try {
@@ -194,15 +238,20 @@ async function bisSaveSet(asNew){
     bisSetNameDraft = null;
     bisSetStatus = prev ? `„${name}“ gespeichert.` : `Neues Set „${name}“ angelegt.`;
     bisSaveDraft();
+    ok = true;
   } catch (e){
     bisSetStatus = 'Speichern fehlgeschlagen — Firebase-Regeln aktualisiert?';
   }
   renderBisPlanner();
+  return ok;
 }
 
 async function bisDeleteSet(){
   const id = bisDraft.setId, set = id && bisMySets[id];
-  if (!set || !confirm(`Set „${set.name}“ wirklich löschen?`)) return;
+  if (!set) return;
+  const answer = await bisDialog('Set löschen?', `Das Set „${set.name}“ wird endgültig gelöscht. Deine aktuelle Auswahl bleibt als Entwurf erhalten.`,
+    [{ id: 'delete', label: 'Löschen', primary: true }, { id: 'cancel', label: 'Abbrechen' }]);
+  if (answer !== 'delete') return;
   try {
     await db.ref(`${DB_PATH}/${bisSetPath(id, set.public)}`).remove();
     bisDraft.setId = '';
@@ -232,39 +281,109 @@ async function bisSetPublic(makePublic){
   renderBisPlanner();
 }
 
+// ---------------------------------------------------------------- dialog
+/**
+ * Styled replacement for confirm(): a small modal with any buttons.
+ * Resolves with the clicked button's id, or 'cancel' on Escape / backdrop.
+ * @param {string} title @param {string} text
+ * @param {{ id: string, label: string, primary?: boolean }[]} buttons
+ * @returns {Promise<string>}
+ */
+function bisDialog(title, text, buttons){
+  return new Promise((resolve) => {
+    els.bisDialogTitle.textContent = title;
+    els.bisDialogText.textContent = text;
+    els.bisDialogActions.innerHTML = buttons.map(b =>
+      `<button type="button" class="btn btn-sm ${b.primary ? 'btn-teal' : 'btn-ghost'}" data-bis-dialog="${escapeHtml(b.id)}">${escapeHtml(b.label)}</button>`).join('');
+    const close = (answer) => {
+      els.bisDialog.classList.add('hidden');
+      els.bisDialog.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKey, true);
+      resolve(answer);
+    };
+    const onBackdrop = (e) => { if (e.target === els.bisDialog) close('cancel'); };
+    const onKey = (e) => { if (e.key === 'Escape'){ e.stopPropagation(); close('cancel'); } };
+    els.bisDialogActions.querySelectorAll('[data-bis-dialog]').forEach(btn =>
+      btn.addEventListener('click', () => close(btn.getAttribute('data-bis-dialog'))));
+    els.bisDialog.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKey, true);
+    els.bisDialog.classList.remove('hidden');
+    const first = /** @type {HTMLButtonElement | null} */ (els.bisDialogActions.querySelector('button'));
+    if (first) first.focus();
+  });
+}
+
+/**
+ * Before leaving the active set (other set, class, spec): if it has
+ * unsaved changes, ask — Speichern / Verwerfen / Weiter bearbeiten.
+ * @returns {Promise<boolean>} true = go on
+ */
+async function bisConfirmLeave(){
+  const set = bisAnySet(bisDraft.setId);
+  if (!set || !bisDraftDirty()) return true;
+  const foreign = bisIsForeignSet(bisDraft.setId);
+  /** @type {{ id: string, label: string, primary?: boolean }[]} */
+  const buttons = [];
+  if (bisCanSaveSets()) buttons.push({ id: 'save', label: foreign ? 'Als eigenes Set speichern' : 'Speichern', primary: true });
+  buttons.push({ id: 'discard', label: 'Verwerfen' }, { id: 'stay', label: 'Weiter bearbeiten' });
+  const answer = await bisDialog('Ungespeicherte Änderungen',
+    foreign
+      ? `Du hast das öffentliche Set „${set.name}“ von ${bisOwnerLabel(set)} verändert. Als eigenes Set speichern, die Änderungen verwerfen oder weiter bearbeiten?`
+      : `Das Set „${set.name}“ hat ungespeicherte Änderungen. Speichern, verwerfen oder weiter bearbeiten?`,
+    buttons);
+  if (answer === 'save') return bisSaveSet(foreign);
+  return answer === 'discard';
+}
+
 // ---------------------------------------------------------------- UI
 /** The "Item-Set" bar above the slots. */
 function bisSetBarHtml(){
   if (!discordIdentity){
-    return `<div class="bis-setbar"><span class="bis-hint">Melde Dich mit Discord an, um Item-Sets zu speichern — z. B. eins für Raids, eins für AoE-Farmen. Bis dahin bleibt Deine Auswahl in diesem Browser.</span></div>`;
+    return `<div class="bis-setbar"><span class="bis-hint">Melde Dich mit Discord an, um Item-Sets zu speichern und öffentliche Sets anderer anzusehen. Bis dahin bleibt Deine Auswahl in diesem Browser.</span></div>`;
   }
-  if (!isMemberOrHigher()){
-    return `<div class="bis-setbar"><span class="bis-hint">Item-Sets speichern können Gildenmitglieder. Deine Auswahl bleibt in diesem Browser.</span></div>`;
-  }
-  const sets = bisSetsForCurrentSpec();
-  const active = bisDraft.setId && bisMySets[bisDraft.setId];
+  const canSave = isMemberOrHigher();
+  const mine = canSave ? bisSetsForCurrentSpec() : [];
+  const others = bisOtherSetsByOwner();
+  const active = bisAnySet(bisDraft.setId);
+  const foreign = bisIsForeignSet(bisDraft.setId);
   const name = bisSetNameDraft !== null ? bisSetNameDraft : (active ? active.name : '');
   const dirty = bisDraftDirty();
-  return `<div class="bis-setbar">
-    <div class="bis-control">
+  const opt = ([id, s], extra) => `<option value="${escapeHtml(id)}" ${id === bisDraft.setId ? 'selected' : ''}>${escapeHtml(s.name)}${extra || ''}</option>`;
+  const select = `<div class="bis-control bis-setbar-select">
       <label for="bisSetSelect">Item-Set</label>
       <select id="bisSetSelect">
         <option value="">${active ? '— neuer Entwurf —' : '— ungespeicherter Entwurf —'}</option>
-        ${sets.map(([id, s]) => `<option value="${escapeHtml(id)}" ${id === bisDraft.setId ? 'selected' : ''}>${escapeHtml(s.name)}${s.public ? ' (öffentlich)' : ''}</option>`).join('')}
+        ${mine.length ? `<optgroup label="Meine Sets">${mine.map(e => opt(e, e[1].public ? ' · öffentlich' : '')).join('')}</optgroup>` : ''}
+        ${others.map(g => `<optgroup label="Öffentlich von ${escapeHtml(g.owner)}">${g.sets.map(e => opt(e, ` — ${escapeHtml(g.owner)}`)).join('')}</optgroup>`).join('')}
       </select>
-    </div>
+    </div>`;
+  const foreignNote = foreign
+    ? `<div class="bis-setbar-owner">Öffentliches Set von <strong>${escapeHtml(bisOwnerLabel(active))}</strong>${canSave ? ' — Änderungen kannst Du als eigenes Set speichern.' : ''}</div>`
+    : '';
+  if (!canSave){
+    return `<div class="bis-setbar">
+      ${select}
+      ${foreignNote}
+      <div class="bis-setbar-status"><span class="bis-hint">${others.length ? 'Öffentliche Sets anderer ansehen kannst Du; eigene speichern können Gildenmitglieder.' : 'Item-Sets speichern können Gildenmitglieder. Für diese Spec gibt es noch keine öffentlichen Sets.'}</span></div>
+    </div>`;
+  }
+  let actions;
+  if (active && !foreign){
+    actions = `<button type="button" class="btn btn-teal btn-sm" id="bisSetSaveBtn" ${dirty || bisSetNameDraft !== null ? '' : 'disabled'}>Speichern</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="bisSetSaveNewBtn">Als neues Set</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="bisSetDeleteBtn">Löschen</button>
+      <label class="bis-check" title="Öffentliche Sets können alle Eingeloggten sehen, auch Community."><input type="checkbox" id="bisSetPublic" ${active.public ? 'checked' : ''}> öffentlich</label>`;
+  } else {
+    actions = `<button type="button" class="btn btn-teal btn-sm" id="bisSetSaveNewBtn">${foreign ? 'Als eigenes Set speichern' : 'Set speichern'}</button>`;
+  }
+  return `<div class="bis-setbar">
+    ${select}
     <div class="bis-control bis-setbar-name">
       <label for="bisSetName">Name</label>
       <input type="text" id="bisSetName" class="apply-text-input" maxlength="${BIS_SET_NAME_MAX}" placeholder="z. B. Raid: Ragnaros, AoE-Farm, PvP" value="${escapeHtml(name)}">
     </div>
-    <div class="bis-setbar-actions">
-      ${active
-        ? `<button type="button" class="btn btn-teal btn-sm" id="bisSetSaveBtn" ${dirty || bisSetNameDraft !== null ? '' : 'disabled'}>Speichern</button>
-           <button type="button" class="btn btn-ghost btn-sm" id="bisSetSaveNewBtn">Als neues Set</button>
-           <button type="button" class="btn btn-ghost btn-sm" id="bisSetDeleteBtn">Löschen</button>
-           <label class="bis-check" title="Öffentliche Sets können alle Eingeloggten sehen, auch Community."><input type="checkbox" id="bisSetPublic" ${active.public ? 'checked' : ''}> öffentlich</label>`
-        : `<button type="button" class="btn btn-teal btn-sm" id="bisSetSaveNewBtn">Set speichern</button>`}
-    </div>
+    <div class="bis-setbar-actions">${actions}</div>
+    ${foreignNote}
     <div class="bis-setbar-status">${dirty && active ? '<span class="bis-dirty">● ungespeicherte Änderungen</span> ' : ''}${escapeHtml(bisSetStatus)}</div>
   </div>`;
 }
@@ -273,18 +392,24 @@ function bisSetBarHtml(){
 function bisWireSetBar(root){
   const sel = /** @type {HTMLSelectElement | null} */ (root.querySelector('#bisSetSelect'));
   if (!sel) return;
-  sel.addEventListener('change', () => {
-    if (bisDraftDirty() && !confirm('Ungespeicherte Änderungen verwerfen?')){ sel.value = bisDraft.setId || ''; return; }
-    if (sel.value) bisLoadSet(sel.value);
+  sel.addEventListener('change', async () => {
+    const target = sel.value;
+    sel.value = bisDraft.setId || ''; // stays until the user confirms
+    if (!(await bisConfirmLeave())) return;
+    if (target) bisLoadSet(target);
     else { bisDraft.setId = ''; bisSetNameDraft = null; bisSetStatus = ''; bisSaveDraft(); renderBisPlanner(); }
   });
-  const nameInput = /** @type {HTMLInputElement} */ (root.querySelector('#bisSetName'));
-  nameInput.addEventListener('input', () => {
-    bisSetNameDraft = nameInput.value;
-    const btn = /** @type {HTMLButtonElement | null} */ (root.querySelector('#bisSetSaveBtn'));
-    if (btn) btn.disabled = false;
-  });
-  nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter'){ e.preventDefault(); bisSaveSet(!bisDraft.setId); } });
+  const nameInput = /** @type {HTMLInputElement | null} */ (root.querySelector('#bisSetName'));
+  if (nameInput){
+    nameInput.addEventListener('input', () => {
+      bisSetNameDraft = nameInput.value;
+      const btn = /** @type {HTMLButtonElement | null} */ (root.querySelector('#bisSetSaveBtn'));
+      if (btn) btn.disabled = false;
+    });
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter'){ e.preventDefault(); bisSaveSet(!bisDraft.setId || bisIsForeignSet(bisDraft.setId)); }
+    });
+  }
   const on = (id, fn) => { const el = root.querySelector(id); if (el) el.addEventListener('click', fn); };
   on('#bisSetSaveBtn', () => bisSaveSet(false));
   on('#bisSetSaveNewBtn', () => bisSaveSet(true));

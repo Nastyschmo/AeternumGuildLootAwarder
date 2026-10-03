@@ -606,7 +606,11 @@ const els = {
   bisPickerSourcedOnly: /** @type {HTMLInputElement} */ (document.getElementById('bisPickerSourcedOnly')),
   bisPickerHigherLevel: /** @type {HTMLInputElement} */ (document.getElementById('bisPickerHigherLevel')),
   bisPickerCount: document.getElementById('bisPickerCount'),
-  bisPickerList: document.getElementById('bisPickerList')
+  bisPickerList: document.getElementById('bisPickerList'),
+  bisDialog: document.getElementById('bisDialog'),
+  bisDialogTitle: document.getElementById('bisDialogTitle'),
+  bisDialogText: document.getElementById('bisDialogText'),
+  bisDialogActions: document.getElementById('bisDialogActions')
 };
 
 // Coarse, human-friendly relative time in German — good enough for "how

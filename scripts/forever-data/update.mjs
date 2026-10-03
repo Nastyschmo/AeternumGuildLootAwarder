@@ -15,6 +15,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { parseCsv } from './csv.mjs';
 import { parseLuaRecords } from './lua-records.mjs';
+import { buildClassStats } from './class-stats.mjs';
 
 const OUT_DIR = new URL('../../data/forever/', import.meta.url);
 const WAGO = 'https://wago.tools';
@@ -251,19 +252,28 @@ if (withIcon < items.length * 0.8) fail.push(`only ${withIcon} items with icons`
 if (withSrc < items.length * 0.2) fail.push(`only ${withSrc} items with sources`);
 if (fail.length) { console.error('Sanity check failed: ' + fail.join('; ')); process.exit(1); }
 
+// ---------------------------------------------------------------- class stats
+const classStats = await buildClassStats({ build, table, getText });
+
 // ---------------------------------------------------------------- write
 await mkdir(OUT_DIR, { recursive: true });
-const itemsJson = JSON.stringify({ build, eraBuild, sets, items }) + '\n';
-const itemsUrl = new URL('items.json', OUT_DIR);
-let previous = '';
-try { previous = await readFile(itemsUrl, 'utf8'); } catch (e) { /* first run */ }
-if (previous === itemsJson) {
-  console.log('No changes.');
-} else {
-  await writeFile(itemsUrl, itemsJson);
+async function writeIfChanged(name, json) {
+  const url = new URL(name, OUT_DIR);
+  let previous = '';
+  try { previous = await readFile(url, 'utf8'); } catch (e) { /* first run */ }
+  if (previous === json) return false;
+  await writeFile(url, json);
+  console.log(`Wrote data/forever/${name} (${Math.round(json.length / 1024)} KB).`);
+  return true;
+}
+const itemsChanged = await writeIfChanged('items.json', JSON.stringify({ build, eraBuild, sets, items }) + '\n');
+const statsChanged = await writeIfChanged('class-stats.json', JSON.stringify({ build, ...classStats }) + '\n');
+if (itemsChanged || statsChanged) {
   await writeFile(new URL('meta.json', OUT_DIR), JSON.stringify({
     build, eraBuild, generatedAt: new Date().toISOString(), counts: { items: items.length, withStats, withSources: withSrc, withIcons: withIcon },
-    sources: ['wago.tools (WoW Forever client DB2)', 'Questie/QuestieDB data/Forever', 'wowdev/wow-listfile']
+    sources: ['wago.tools (WoW Forever client DB2)', 'Questie/QuestieDB data/Forever', 'wowdev/wow-listfile',
+      'ElliotWood/Forever (base health/attributes per level, Wowhead Forever gear planner snapshot)']
   }, null, 2) + '\n');
-  console.log(`Wrote data/forever/items.json (${Math.round(itemsJson.length / 1024)} KB).`);
+} else {
+  console.log('No changes.');
 }

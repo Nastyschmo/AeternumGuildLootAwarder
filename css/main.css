@@ -56,6 +56,17 @@
   --hero-scrim-rgb: 10,8,20;
   --body-vignette-rgb: 44,103,136;
   --topbar-bg-rgb: 7,22,34;
+
+  /* Primary button gradient and the collapsible cards (Ankündigungen,
+     Abstimmungen, Class Overview) — own tokens so the Horde theme can
+     keep those red while the page frame turns neutral grey. Classic
+     values = what these used before. */
+  --btn-primary-top: var(--teal-bright);
+  --btn-primary-bottom: var(--teal);
+  --fold-border: var(--border-soft);
+  --fold-head-bg: var(--bg-panel-raised);
+  --fold-head-hover: rgba(255,255,255,0.05);
+  --fold-body-bg: rgba(255,255,255,0.015);
 }
 
 /* ---------------------------------------------------------------------
@@ -95,18 +106,22 @@
    the banner's own glowing red-orange became --gold-bright (rgb
    219,90,56) almost unchanged. See PROJECT.md for the exact sampling. */
 html.theme-horde{
-  --bg-deep: #170b09;
-  --bg-panel: #241410;
-  --bg-panel-raised: #3a2019;
-  --border: #6b2e22;
-  --border-soft: #402019;
+  /* Page frame: neutral near-black and greys (2026-10-03, the all-red
+     look was too much). Red stays as the accent (--gold*, headings,
+     active nav, buttons) and on the collapsible cards (--fold-*) and the
+     Home intro card (--parchment-*), where it contrasts with the black. */
+  --bg-deep: #0b0b0c;
+  --bg-panel: #151517;
+  --bg-panel-raised: #1f1f22;
+  --border: #3a3a3f;
+  --border-soft: #26262a;
   --gold: #7a2a1c;
   --gold-bright: #db5a38;
   --teal: #5c2e1c;
-  --teal-bright: #c98456;
-  --text: #f2e3d5;
-  --text-muted: #c9a68c;
-  --text-faint: #8a6a56;
+  --teal-bright: #c39a7c;
+  --text: #ebe8e5;
+  --text-muted: #a7a39f;
+  --text-faint: #6f6c69;
   --danger: #9c2e28;
   --danger-bright: #e2705c;
 
@@ -116,21 +131,28 @@ html.theme-horde{
   --badge-text: #2a0e07;
   --crest-shade: #4a1712;
   --crest-text: #1a0806;
-  --body-grad-1: #2c1409;
-  --body-grad-2: #1f0d08;
-  --field-bg: #1a0d09;
+  --body-grad-1: #121213;
+  --body-grad-2: #0e0e0f;
+  --field-bg: #0f0f11;
   --parchment-grad-1: #5c2216;
   --parchment-grad-2: #38140d;
   --parchment-grad-3: #1a0806;
   --parchment-text: #f0ddc8;
   --news-thumb-grad-1: #4a1c12;
   --news-thumb-grad-2: #1c0b07;
-  --teal-btn-text: #fff0e0;
-  --teal-btn-border: #8a4a2a;
-  --hero-bg-fallback: #1a0806;
-  --hero-scrim-rgb: 20,8,5;
-  --body-vignette-rgb: 219,90,56;
-  --topbar-bg-rgb: 23,11,9;
+  --teal-btn-text: #fff0e8;
+  --teal-btn-border: #6e2418;
+  --hero-bg-fallback: #0b0b0c;
+  --hero-scrim-rgb: 11,11,12;
+  --body-vignette-rgb: 60,60,64;
+  --topbar-bg-rgb: 14,14,15;
+
+  --btn-primary-top: #9e3624;
+  --btn-primary-bottom: #82291b;
+  --fold-border: #5a2419;
+  --fold-head-bg: linear-gradient(135deg, #4a1a12 0%, #331109 100%);
+  --fold-head-hover: linear-gradient(135deg, #5a2116 0%, #3d150c 100%);
+  --fold-body-bg: #1b0d0a;
 }
 
 *{ box-sizing: border-box; }
@@ -177,7 +199,7 @@ h1, h2, h3{ font-family: 'Cinzel', serif; }
 .btn-sm{ padding: 6px 12px; font-size: 12px; border-radius: 3px; }
 .btn-block{ width: 100%; }
 .btn-ghost{ background: transparent; }
-.btn-teal{ background: linear-gradient(180deg, var(--teal-bright), var(--teal)); color: var(--teal-btn-text); border: 1px solid var(--teal-btn-border); }
+.btn-teal{ background: linear-gradient(180deg, var(--btn-primary-top), var(--btn-primary-bottom)); color: var(--teal-btn-text); border: 1px solid var(--teal-btn-border); }
 .btn-teal:hover{ filter: brightness(1.08); }
 .btn-outline-gold{ background: transparent; border: 1px solid var(--gold); color: var(--gold-bright); }
 .btn-outline-gold:hover{ background: rgba(201,162,39,0.12); }
@@ -701,12 +723,12 @@ html.theme-horde .hero{
    body that collapses. Add a new voting later by duplicating this markup
    with a new id and reusing the same JS helpers (renderVotingChrome,
    toggleVotingCard, toggleVotingClosed). ---------- */
-.voting-card{ border: 1px solid var(--border-soft); border-radius: 8px; margin-bottom: 20px; overflow: hidden; background: rgba(255,255,255,0.015); }
+.voting-card{ border: 1px solid var(--fold-border); border-radius: 8px; margin-bottom: 20px; overflow: hidden; background: var(--fold-body-bg); }
 .voting-card-header{
   width: 100%; display: flex; align-items: center; gap: 12px; padding: 16px 20px;
-  background: var(--bg-panel-raised); border: none; cursor: pointer; text-align: left;
+  background: var(--fold-head-bg); border: none; cursor: pointer; text-align: left;
 }
-.voting-card-header:hover{ background: rgba(255,255,255,0.05); }
+.voting-card-header:hover{ background: var(--fold-head-hover); }
 .voting-card-chevron{ flex: none; display: flex; color: var(--text-muted); transition: transform .15s ease; }
 .voting-card.open .voting-card-chevron{ transform: rotate(90deg); }
 .voting-card-chevron svg{ width: 14px; height: 14px; }
@@ -1349,6 +1371,7 @@ html.theme-horde .hero{
 }
 /* Class Deep Dives — one collapsed-by-default card per class. */
 .classdive-card{ padding: 0; margin-bottom: 12px; overflow: hidden; }
+html.theme-horde .classdive-card{ background: var(--fold-body-bg); border-color: var(--fold-border); }
 .classdive-card-general{ border-color: var(--gold-bright); margin-bottom: 20px; }
 .classdive-general-icon{ display: inline-flex; width: 22px; height: 22px; flex-shrink: 0; color: var(--gold-bright); }
 .classdive-general-icon svg{ width: 100%; height: 100%; }
@@ -1358,6 +1381,10 @@ html.theme-horde .hero{
   padding: 14px 16px; color: var(--text); font-family: inherit;
 }
 .classdive-toggle:hover{ background: var(--bg-panel); }
+/* Horde: class cards get the red fold header like Ankündigungen. */
+html.theme-horde .classdive-toggle{ background: var(--fold-head-bg); }
+html.theme-horde .classdive-toggle:hover{ background: var(--fold-head-hover); }
+html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg); }
 .classdive-toggle-title{ font-weight: 700; font-size: 14px; }
 .classdive-toggle-meta{ font-size: 11.5px; color: var(--text-faint); flex: 1; text-align: right; margin-right: 4px; }
 .classdive-toggle-arrow{ font-size: 10px; color: var(--text-faint); flex-shrink: 0; }

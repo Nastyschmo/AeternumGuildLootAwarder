@@ -56,6 +56,17 @@
   --hero-scrim-rgb: 10,8,20;
   --body-vignette-rgb: 44,103,136;
   --topbar-bg-rgb: 7,22,34;
+
+  /* Primary button gradient and the collapsible cards (Ankündigungen,
+     Abstimmungen, Class Overview) — own tokens so the Horde theme can
+     keep those red while the page frame turns neutral grey. Classic
+     values = what these used before. */
+  --btn-primary-top: var(--teal-bright);
+  --btn-primary-bottom: var(--teal);
+  --fold-border: var(--border-soft);
+  --fold-head-bg: var(--bg-panel-raised);
+  --fold-head-hover: rgba(255,255,255,0.05);
+  --fold-body-bg: rgba(255,255,255,0.015);
 }
 
 /* ---------------------------------------------------------------------
@@ -95,18 +106,24 @@
    the banner's own glowing red-orange became --gold-bright (rgb
    219,90,56) almost unchanged. See PROJECT.md for the exact sampling. */
 html.theme-horde{
-  --bg-deep: #170b09;
-  --bg-panel: #241410;
-  --bg-panel-raised: #3a2019;
-  --border: #6b2e22;
-  --border-soft: #402019;
+  /* Page frame: neutral near-black and greys (2026-10-03, the all-red
+     look was too much). Red stays as the accent (--gold*, headings,
+     active nav, buttons) and on the
+     Home intro card (--parchment-*), where it contrasts with the black.
+     Collapsible cards (--fold-*) are grey like the other cards; their
+     titles carry the red (see the html.theme-horde title rules). */
+  --bg-deep: #0b0b0c;
+  --bg-panel: #151517;
+  --bg-panel-raised: #1f1f22;
+  --border: #3a3a3f;
+  --border-soft: #26262a;
   --gold: #7a2a1c;
   --gold-bright: #db5a38;
   --teal: #5c2e1c;
-  --teal-bright: #c98456;
-  --text: #f2e3d5;
-  --text-muted: #c9a68c;
-  --text-faint: #8a6a56;
+  --teal-bright: #c39a7c;
+  --text: #ebe8e5;
+  --text-muted: #a7a39f;
+  --text-faint: #6f6c69;
   --danger: #9c2e28;
   --danger-bright: #e2705c;
 
@@ -116,21 +133,28 @@ html.theme-horde{
   --badge-text: #2a0e07;
   --crest-shade: #4a1712;
   --crest-text: #1a0806;
-  --body-grad-1: #2c1409;
-  --body-grad-2: #1f0d08;
-  --field-bg: #1a0d09;
+  --body-grad-1: #121213;
+  --body-grad-2: #0e0e0f;
+  --field-bg: #0f0f11;
   --parchment-grad-1: #5c2216;
   --parchment-grad-2: #38140d;
   --parchment-grad-3: #1a0806;
   --parchment-text: #f0ddc8;
   --news-thumb-grad-1: #4a1c12;
   --news-thumb-grad-2: #1c0b07;
-  --teal-btn-text: #fff0e0;
-  --teal-btn-border: #8a4a2a;
-  --hero-bg-fallback: #1a0806;
-  --hero-scrim-rgb: 20,8,5;
-  --body-vignette-rgb: 219,90,56;
-  --topbar-bg-rgb: 23,11,9;
+  --teal-btn-text: #fff0e8;
+  --teal-btn-border: #6e2418;
+  --hero-bg-fallback: #0b0b0c;
+  --hero-scrim-rgb: 11,11,12;
+  --body-vignette-rgb: 60,60,64;
+  --topbar-bg-rgb: 14,14,15;
+
+  --btn-primary-top: #9e3624;
+  --btn-primary-bottom: #82291b;
+  --fold-border: #2e2e33;
+  --fold-head-bg: #1f1f22;
+  --fold-head-hover: #26262a;
+  --fold-body-bg: #151517;
 }
 
 *{ box-sizing: border-box; }
@@ -177,7 +201,7 @@ h1, h2, h3{ font-family: 'Cinzel', serif; }
 .btn-sm{ padding: 6px 12px; font-size: 12px; border-radius: 3px; }
 .btn-block{ width: 100%; }
 .btn-ghost{ background: transparent; }
-.btn-teal{ background: linear-gradient(180deg, var(--teal-bright), var(--teal)); color: var(--teal-btn-text); border: 1px solid var(--teal-btn-border); }
+.btn-teal{ background: linear-gradient(180deg, var(--btn-primary-top), var(--btn-primary-bottom)); color: var(--teal-btn-text); border: 1px solid var(--teal-btn-border); }
 .btn-teal:hover{ filter: brightness(1.08); }
 .btn-outline-gold{ background: transparent; border: 1px solid var(--gold); color: var(--gold-bright); }
 .btn-outline-gold:hover{ background: rgba(201,162,39,0.12); }
@@ -701,16 +725,17 @@ html.theme-horde .hero{
    body that collapses. Add a new voting later by duplicating this markup
    with a new id and reusing the same JS helpers (renderVotingChrome,
    toggleVotingCard, toggleVotingClosed). ---------- */
-.voting-card{ border: 1px solid var(--border-soft); border-radius: 8px; margin-bottom: 20px; overflow: hidden; background: rgba(255,255,255,0.015); }
+.voting-card{ border: 1px solid var(--fold-border); border-radius: 8px; margin-bottom: 20px; overflow: hidden; background: var(--fold-body-bg); }
 .voting-card-header{
   width: 100%; display: flex; align-items: center; gap: 12px; padding: 16px 20px;
-  background: var(--bg-panel-raised); border: none; cursor: pointer; text-align: left;
+  background: var(--fold-head-bg); border: none; cursor: pointer; text-align: left;
 }
-.voting-card-header:hover{ background: rgba(255,255,255,0.05); }
+.voting-card-header:hover{ background: var(--fold-head-hover); }
 .voting-card-chevron{ flex: none; display: flex; color: var(--text-muted); transition: transform .15s ease; }
 .voting-card.open .voting-card-chevron{ transform: rotate(90deg); }
 .voting-card-chevron svg{ width: 14px; height: 14px; }
 .voting-card-title{ flex: 1; font-family: 'Cinzel', serif; font-size: 15.5px; font-weight: 600; letter-spacing: .5px; color: var(--text); }
+html.theme-horde .voting-card-title{ color: var(--gold-bright); }
 .voting-status-badge{
   flex: none; font-family: 'Karla', sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: .6px;
   text-transform: uppercase; padding: 4px 10px; border-radius: 999px;
@@ -961,6 +986,13 @@ html.theme-horde .hero{
    .voting-card / .tac-card shells. ---------- */
 .poll-option-input-row{ display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .poll-option-input-row input[type="text"]{ flex: 1; }
+/* Poll option and duration inputs: same look as the other text fields. */
+.poll-option-input-row input[type="text"], .poll-config-field input[type="number"]{
+  font-family: 'Karla', sans-serif; font-size: 13.5px; padding: 7px 10px;
+  background: var(--field-bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text);
+}
+.poll-option-input-row input[type="text"]:focus, .poll-config-field input[type="number"]:focus{ outline: none; border-color: var(--gold); }
+.poll-option-input-row input[type="text"]::placeholder{ color: var(--text-faint); }
 .poll-option-remove-btn{
   flex: none; width: 30px; height: 30px; padding: 0; font-size: 14px; line-height: 1;
   background: transparent; border: 1px solid var(--border); border-radius: 4px;
@@ -1349,6 +1381,7 @@ html.theme-horde .hero{
 }
 /* Class Deep Dives — one collapsed-by-default card per class. */
 .classdive-card{ padding: 0; margin-bottom: 12px; overflow: hidden; }
+html.theme-horde .classdive-card{ background: var(--fold-body-bg); border-color: var(--fold-border); }
 .classdive-card-general{ border-color: var(--gold-bright); margin-bottom: 20px; }
 .classdive-general-icon{ display: inline-flex; width: 22px; height: 22px; flex-shrink: 0; color: var(--gold-bright); }
 .classdive-general-icon svg{ width: 100%; height: 100%; }
@@ -1358,6 +1391,11 @@ html.theme-horde .hero{
   padding: 14px 16px; color: var(--text); font-family: inherit;
 }
 .classdive-toggle:hover{ background: var(--bg-panel); }
+/* Horde: class cards share the fold look of Ankündigungen; titles in the accent red. */
+html.theme-horde .classdive-toggle-title{ color: var(--gold-bright); }
+html.theme-horde .classdive-toggle{ background: var(--fold-head-bg); }
+html.theme-horde .classdive-toggle:hover{ background: var(--fold-head-hover); }
+html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg); }
 .classdive-toggle-title{ font-weight: 700; font-size: 14px; }
 .classdive-toggle-meta{ font-size: 11.5px; color: var(--text-faint); flex: 1; text-align: right; margin-right: 4px; }
 .classdive-toggle-arrow{ font-size: 10px; color: var(--text-faint); flex-shrink: 0; }
@@ -1842,7 +1880,7 @@ html.theme-horde .hero{
 .bis-picker-card{ max-width: 720px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; }
 .bis-picker-filters{ display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 8px 0 10px; }
 .bis-picker-filters input[type=search]{ flex: 1 1 220px; }
-.bis-picker-filters select{ flex: 0 1 180px; width: auto; }
+.bis-picker-filters select{ flex: 0 1 190px; width: auto; }
 .bis-check{ display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--text-muted); cursor: pointer; }
 .bis-picker-list{ overflow-y: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 4px; }
 .bis-pick-item{
@@ -1856,3 +1894,33 @@ html.theme-horde .hero{
   .bis-control-actions{ margin-left: 0; }
 }
 .bis-item-src-wrong{ color: var(--danger-bright); }
+.bis-profs .bis-prof{ border-bottom: 1px solid var(--border-soft); padding: 8px 0; font-size: 13px; }
+.bis-profs .bis-prof:last-of-type{ border-bottom: none; }
+.bis-prof-head{ display: flex; justify-content: space-between; gap: 8px; margin-bottom: 3px; }
+.bis-prof-head span{ color: var(--gold-bright); font-weight: 700; }
+.bis-prof-line{ font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.bis-prof-buy{ color: var(--text-faint); }
+.bis-mat-list{ list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 4px 14px; font-size: 13px; }
+.bis-mat-list strong{ color: var(--gold-bright); }
+.bis-combo{ position: relative; margin: 8px 0 0; }
+.bis-combo-box{ display: flex; flex-wrap: wrap; align-items: center; gap: 5px; cursor: text; }
+.bis-combo-box input{ flex: 1 1 160px; min-width: 120px; background: none; border: none; outline: none; color: var(--text); font: inherit; padding: 2px 0; }
+.bis-combo-box:focus-within{ border-color: var(--gold); }
+.bis-combo-chips{ display: contents; }
+.bis-chip{ display: inline-flex; align-items: center; gap: 4px; background: var(--bg-panel-raised); border: 1px solid var(--gold); color: var(--gold-bright); border-radius: 999px; padding: 1px 4px 1px 9px; font-size: 12px; }
+.bis-chip button{ background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 3px; }
+.bis-chip button:hover{ color: var(--danger-bright); }
+.bis-combo-list{ position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; max-height: 280px; overflow-y: auto; background: var(--bg-panel-raised); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.45); padding: 4px 0; }
+.bis-combo-group{ font-size: 11px; letter-spacing: .5px; text-transform: uppercase; color: var(--text-faint); padding: 6px 12px 2px; }
+.bis-combo-opt{ display: flex; align-items: center; gap: 8px; padding: 5px 12px; font-size: 13px; cursor: pointer; color: var(--text); }
+.bis-combo-opt:hover{ background: var(--bg-panel); }
+.bis-combo-opt.active{ color: var(--gold-bright); }
+.bis-combo-check{ width: 14px; color: var(--gold-bright); text-align: center; }
+.bis-setbar{ display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 18px; background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 8px; padding: 14px 22px; margin-bottom: 18px; }
+.bis-setbar .bis-control{ min-width: 200px; }
+.bis-setbar-name{ flex: 1 1 220px; }
+.bis-setbar-actions{ display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.bis-setbar-actions .btn:disabled{ opacity: .45; cursor: default; }
+.bis-setbar-status{ flex-basis: 100%; font-size: 12px; color: var(--text-muted); min-height: 0; }
+.bis-setbar-status:empty{ display: none; }
+.bis-dirty{ color: var(--gold-bright); }

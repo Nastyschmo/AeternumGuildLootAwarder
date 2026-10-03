@@ -421,6 +421,8 @@ function renderAll(){
   // open, but on every state change while open, since it shows live data
   // (own characterProfiles can change from "User Settings" (formerly "Meine Charaktere verwalten")).
   if (currentPage === 'mychar') renderMyCharactersPage();
+  // BiS-Planer: login / role changes decide whether sets can be saved.
+  if (currentPage === 'bis') renderBisPlanner();
 }
 
 // Public, always-on: keeps state.recruitingNeeds up to date for

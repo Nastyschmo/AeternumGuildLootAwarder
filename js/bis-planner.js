@@ -117,10 +117,14 @@ function bisLoadDraft(){
       d.specId = foreverSpecsForClass(raw.classId).some(s => s.id === raw.specId) ? raw.specId : foreverSpecsForClass(raw.classId)[0].id;
       d.raceId = typeof raw.raceId === 'string' ? raw.raceId : '1';
       d.level = Math.min(BIS_MAX_LEVEL, Math.max(1, Number(raw.level) || BIS_DEFAULT_LEVEL));
+      if (typeof raw.setId === 'string') d.setId = raw.setId;
       if (raw.slots && typeof raw.slots === 'object'){
         for (const s of BIS_SLOTS){
           const v = raw.slots[s.key];
-          if (v && Number(v.itemId) > 0) d.slots[s.key] = { itemId: Number(v.itemId), done: !!v.done };
+          if (!v || !(Number(v.itemId) > 0)) continue;
+          d.slots[s.key] = { itemId: Number(v.itemId) };
+          // Old drafts ticked slots; ticks now belong to the item (bis-sets.js).
+          if (v.done && !bisOwned.has(Number(v.itemId))){ bisOwned.add(Number(v.itemId)); bisSaveLocalOwned(); }
         }
       }
       return d;
@@ -223,18 +227,46 @@ function bisIconHtml(item, size){
   return `<img class="bis-icon wow-icon-frame" style="width:${px}px;height:${px}px;border-color:${bisQualityColor(item)}" src="${escapeHtml(url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`;
 }
 /**
- * Level from which an item is realistically usable: its required level, or
- * for quest rewards without one (common in Classic) the lowest quest level.
+ * Level from which an item is realistically usable: its required level; for
+ * quest rewards without one (common in Classic) the lowest quest level;
+ * otherwise (the client says 0, e.g. some raid drops) item level - 5, capped
+ * at 60 — the Classic rule, exact for ~94% of items that do have a level.
  * @param {ForeverItem} item
+ * @returns {{ level: number, kind: 'req' | 'quest' | 'est' }}
  */
-function bisItemLevel(item){
-  if (item.rl) return item.rl;
+function bisItemLevelInfo(item){
+  if (item.rl) return { level: item.rl, kind: 'req' };
   const ql = (item.src && item.src.quests || []).map(q => q.l || 0).filter(Boolean);
-  return ql.length ? Math.min(...ql) : 1;
+  if (ql.length) return { level: Math.min(...ql), kind: 'quest' };
+  return { level: Math.min(BIS_MAX_LEVEL, Math.max(1, item.il - 5)), kind: 'est' };
 }
-/** "Stufe 42" / "Quest-Stufe 42" for the item meta line. @param {ForeverItem} item */
+/** @param {ForeverItem} item */
+function bisItemLevel(item){
+  return bisItemLevelInfo(item).level;
+}
+/** "Stufe 42" / "Quest-Stufe 42" / "Stufe ca. 60" for the item meta line. @param {ForeverItem} item */
 function bisLevelLabel(item){
-  return item.rl ? `Stufe ${item.rl}` : `${bisItemLevel(item) > 1 ? 'Quest-' : ''}Stufe ${bisItemLevel(item)}`;
+  const { level, kind } = bisItemLevelInfo(item);
+  return kind === 'quest' ? `Quest-Stufe ${level}` : kind === 'est' ? `Stufe ca. ${level}` : `Stufe ${level}`;
+}
+const BIS_ARMOR_TYPES = { 1: 'Stoff', 2: 'Leder', 3: 'Kette', 4: 'Platte', 6: 'Schild', 7: 'Buchband', 8: 'Götze', 9: 'Totem' };
+const BIS_WEAPON_TYPES = {
+  0: 'Einhandaxt', 1: 'Zweihandaxt', 2: 'Bogen', 3: 'Schusswaffe', 4: 'Einhandstreitkolben', 5: 'Zweihandstreitkolben',
+  6: 'Stangenwaffe', 7: 'Einhandschwert', 8: 'Zweihandschwert', 10: 'Stab', 13: 'Faustwaffe', 15: 'Dolch',
+  16: 'Wurfwaffe', 18: 'Armbrust', 19: 'Zauberstab'
+};
+/** Armor or weapon type, e.g. "Platte" / "Zweihandschwert"; '' for rings, necks etc. @param {ForeverItem} item */
+function bisTypeLabel(item){
+  if (item.c === 4) return BIS_ARMOR_TYPES[item.sc] || '';
+  if (item.c === 2) return BIS_WEAPON_TYPES[item.sc] || '';
+  return '';
+}
+/** Meta line: type · level · item level · binding (· set). @param {ForeverItem} item @param {boolean} [withSet] */
+function bisMetaLine(item, withSet){
+  const parts = [bisTypeLabel(item), bisLevelLabel(item), `iLvl ${item.il}`];
+  if (item.b === 1) parts.push('BoP'); else if (item.b === 2) parts.push('BoE');
+  if (withSet && item.set && bisData.items.sets[item.set]) parts.push('Set: ' + bisData.items.sets[item.set]);
+  return parts.filter(Boolean).join(' · ');
 }
 /** @param {ForeverItem} item */
 function bisStatLine(item){
@@ -248,6 +280,41 @@ function bisStatLine(item){
   return parts.join(' · ');
 }
 const BIS_FACTION_LABEL = { A: 'Allianz', H: 'Horde' };
+/** SkillLine id -> German profession name (fallback: the client's English name in items.json). */
+const BIS_PROFESSION_LABELS = {
+  164: 'Schmiedekunst', 165: 'Lederverarbeitung', 197: 'Schneiderei', 202: 'Ingenieurskunst',
+  333: 'Verzauberkunst', 171: 'Alchemie', 755: 'Juwelierskunst', 186: 'Bergbau'
+};
+/** @param {number} p */
+function bisProfessionName(p){
+  return BIS_PROFESSION_LABELS[p] || (bisData && bisData.items.professions && bisData.items.professions[p]) || `Beruf ${p}`;
+}
+/** "Schmiedekunst 300" / "Schneiderei ca. 185". @param {ForeverCraft} c */
+function bisCraftSkill(c){
+  return `${bisProfessionName(c.p)} ${c.e ? 'ca. ' : ''}${c.r}`;
+}
+/**
+ * Craft line for the sources: skill, whether you must craft it yourself
+ * (BoP) or can buy it (BoE), and where the recipe comes from.
+ * @param {ForeverItem} item
+ */
+function bisCraftLine(item){
+  const c = item.src && item.src.craft;
+  if (!c) return '';
+  const who = item.b === 1 ? 'nur selbst herstellbar (BoP)' : 'BoE — auch von Handwerkern / im Auktionshaus';
+  let recipe = 'Rezept beim Lehrer';
+  if (c.rec){
+    const rs = c.rec.src ? bisSourceLines(/** @type {ForeverItem} */ ({ src: c.rec.src })) : [];
+    recipe = `Rezept: ${c.rec.n}${c.rec.b === 1 ? ' (BoP)' : ''}${rs.length ? ' — ' + rs.join('; ') : ''}`;
+  }
+  return `Herstellung: ${bisCraftSkill(c)}, ${who}. ${recipe}`;
+}
+/** "Material: 12× Arcanite Bar, 2× …" or ''. @param {ForeverCraft} c */
+function bisMaterialsLine(c){
+  if (!c || !c.m || !c.m.length) return '';
+  const names = (bisData && bisData.items.reagents) || {};
+  return 'Material: ' + c.m.map(([id, n]) => `${n}× ${names[id] || 'Item ' + id}`).join(', ');
+}
 /** Faction ('A' / 'H') of the planned character's race, or '' if unknown. */
 function bisFaction(){
   const r = bisData && bisDraft && bisData.stats.raceOffsets[bisDraft.raceId];
@@ -277,6 +344,11 @@ function bisSourceLines(item){
   if (!s) return [];
   const npc = n => n.z ? `${n.n} (${n.z})` : n.n;
   const out = [];
+  if (s.craft && item.id){ // item.id: not for a recipe's own sources
+    out.push(bisCraftLine(item));
+    const mats = bisMaterialsLine(s.craft);
+    if (mats) out.push(mats);
+  }
   if (s.drops && s.drops.length) out.push('Drop: ' + s.drops.map(npc).join(', '));
   if (s.dropCount) out.push(`Weltdrop / Trash (${s.dropCount} Gegner)`);
   if (s.quests && s.quests.length) out.push('Quest: ' + s.quests.map(q => q.l ? `${q.n} (Stufe ${q.l})` : q.n).join(', '));
@@ -292,6 +364,7 @@ function bisSourceGroup(item){
   if (!s) return 'Quelle unbekannt';
   const zoned = (s.drops || []).concat(s.vendors || []).find(n => n.z);
   if (zoned) return zoned.z;
+  if (s.craft && !(s.quests && s.quests.length) && !(s.drops && s.drops.length) && !s.dropCount) return 'Berufe: ' + bisProfessionName(s.craft.p);
   if (s.quests && s.quests.length) return 'Quests';
   if (s.drops && s.drops.length) return 'Drops (Zone unbekannt)';
   if (s.dropCount) return 'Weltdrops';
@@ -311,6 +384,7 @@ function renderBisPlanner(){
     return;
   }
   if (!bisDraft) bisDraft = bisLoadDraft();
+  bisSyncListeners();
   const b = bisDraft;
   const races = bisRacesForClass(b.classId);
   if (!races.includes(b.raceId)) b.raceId = races[0];
@@ -324,19 +398,20 @@ function renderBisPlanner(){
     const sel = b.slots[s.key];
     const item = sel && bisData.byId.get(sel.itemId);
     const src = item ? bisSourceLines(item) : [];
-    return `<div class="bis-slot${blocked ? ' bis-slot-blocked' : ''}${sel && sel.done ? ' bis-slot-done' : ''}">
+    const owned = Boolean(item && bisIsOwned(item.id));
+    return `<div class="bis-slot${blocked ? ' bis-slot-blocked' : ''}${owned ? ' bis-slot-done' : ''}">
       <button type="button" class="bis-slot-main" data-bis-pick="${s.key}" ${blocked ? 'disabled' : ''}>
         ${bisIconHtml(item, 36)}
         <span class="bis-slot-text">
           <span class="bis-slot-label">${escapeHtml(s.label)}</span>
           ${item ? `<span class="bis-item-name" style="color:${bisQualityColor(item)}">${escapeHtml(item.n)}</span>
-                    <span class="bis-item-meta">${bisLevelLabel(item)} · iLvl ${item.il}${item.b === 1 ? ' · BoP' : item.b === 2 ? ' · BoE' : ''}</span>
+                    <span class="bis-item-meta">${escapeHtml(bisMetaLine(item))}</span>
                     <span class="bis-item-stats">${escapeHtml(bisStatLine(item))}</span>
                     ${src.length ? `<span class="bis-item-src${bisWrongFaction(item) ? ' bis-item-src-wrong' : ''}">${escapeHtml(src[0])}</span>` : '<span class="bis-item-src bis-item-src-none">Quelle unbekannt</span>'}`
                  : `<span class="bis-slot-empty">${blocked ? 'Zweihandwaffe ausgerüstet' : 'Item wählen…'}</span>`}
         </span>
       </button>
-      ${item ? `<label class="bis-done"><input type="checkbox" data-bis-done="${s.key}" ${sel.done ? 'checked' : ''}> Habe ich</label>
+      ${item ? `<label class="bis-done" title="Gilt für dieses Item in all Deinen Sets"><input type="checkbox" data-bis-owned="${item.id}" ${owned ? 'checked' : ''}> Habe ich</label>
                 <button type="button" class="btn btn-ghost btn-sm" data-bis-clear="${s.key}" title="Slot leeren">✕</button>` : ''}
     </div>`;
   }).join('');
@@ -350,11 +425,57 @@ function renderBisPlanner(){
     const item = sel && bisData.byId.get(sel.itemId);
     if (!item || (s.key === 'offhand' && bisOffhandBlocked(b))) continue;
     total++;
-    if (sel.done){ done++; continue; }
+    if (bisIsOwned(item.id)){ done++; continue; }
     const g = bisSourceGroup(item);
     const lines = bisSourceLines(item);
-    (groups[g] = groups[g] || []).push(`<li><label><input type="checkbox" data-bis-done="${s.key}"> <strong>${escapeHtml(s.label)}:</strong> <span style="color:${bisQualityColor(item)}">${escapeHtml(item.n)}</span></label>${lines.length ? `<div class="bis-farm-src">${lines.map(escapeHtml).join('<br>')}</div>` : ''}</li>`);
+    (groups[g] = groups[g] || []).push(`<li><label><input type="checkbox" data-bis-owned="${item.id}"> <strong>${escapeHtml(s.label)}:</strong> <span style="color:${bisQualityColor(item)}">${escapeHtml(item.n)}</span></label>${lines.length ? `<div class="bis-farm-src">${lines.map(escapeHtml).join('<br>')}</div>` : ''}</li>`);
   }
+  // Professions the open slots need: BoP crafts must be made yourself.
+  /** @type {Record<string, { need: number, est: boolean, own: string[], buy: string[] }>} */
+  const profs = {};
+  for (const s of BIS_SLOTS){
+    const sel = b.slots[s.key];
+    const item = sel && !bisIsOwned(sel.itemId) && bisData.byId.get(sel.itemId);
+    const c = item && item.src && item.src.craft;
+    if (!c || (s.key === 'offhand' && bisOffhandBlocked(b))) continue;
+    const pr = profs[c.p] = profs[c.p] || { need: 0, est: false, own: [], buy: [] };
+    const label = `<span style="color:${bisQualityColor(item)}">${escapeHtml(item.n)}</span> <span class="bis-item-meta">(${c.e ? 'ca. ' : ''}${c.r})</span>`;
+    if (item.b === 1){
+      if (c.r > pr.need){ pr.need = c.r; pr.est = Boolean(c.e); }
+      pr.own.push(label);
+    } else pr.buy.push(label);
+  }
+  // Shopping list: materials of every open crafted slot (BoE ones too —
+  // skip those you'd rather buy finished).
+  /** @type {Map<number, number>} */
+  const matTotals = new Map();
+  for (const s of BIS_SLOTS){
+    const sel = b.slots[s.key];
+    const item = sel && !bisIsOwned(sel.itemId) && bisData.byId.get(sel.itemId);
+    const c = item && item.src && item.src.craft;
+    if (!c || !c.m || (s.key === 'offhand' && bisOffhandBlocked(b))) continue;
+    for (const [id, n] of c.m) matTotals.set(id, (matTotals.get(id) || 0) + n);
+  }
+  const matNames = bisData.items.reagents || {};
+  const matHtml = matTotals.size ? `<div class="tac-card bis-mats">
+      <h3 class="bis-card-title">Materialliste</h3>
+      <ul class="bis-mat-list">${[...matTotals].sort((a, z) => (matNames[a[0]] || '').localeCompare(matNames[z[0]] || '', 'de'))
+        .map(([id, n]) => `<li><strong>${n}×</strong> ${escapeHtml(matNames[id] || 'Item ' + id)}</li>`).join('')}</ul>
+      <p class="bis-hint">Alle Materialien für die offenen herstellbaren Slots, auch BoE-Teile, die Du alternativ fertig kaufen kannst.</p>
+    </div>` : '';
+  const profKeys = Object.keys(profs).sort((a, z) => profs[z].need - profs[a].need);
+  const profHtml = profKeys.length ? `<div class="tac-card bis-profs">
+      <h3 class="bis-card-title">Benötigte Berufe</h3>
+      ${profKeys.map(k => {
+        const pr = profs[k];
+        return `<div class="bis-prof">
+          <div class="bis-prof-head"><strong>${escapeHtml(bisProfessionName(Number(k)))}</strong>${pr.need ? `<span>mind. ${pr.est ? 'ca. ' : ''}${pr.need}</span>` : '<span class="bis-item-meta">optional</span>'}</div>
+          ${pr.own.length ? `<div class="bis-prof-line">Selbst herstellen (BoP): ${pr.own.join(', ')}</div>` : ''}
+          ${pr.buy.length ? `<div class="bis-prof-line bis-prof-buy">Kaufbar (BoE) oder selbst herstellen: ${pr.buy.join(', ')}</div>` : ''}
+        </div>`;
+      }).join('')}
+      <p class="bis-hint">BoP-Items musst Du mit dem Beruf selbst herstellen; BoE-Items kann Dir jeder Handwerker bauen oder Du kaufst sie im Auktionshaus.${profKeys.some(k => profs[k].est) ? ' „ca.“: beim Lehrer gelernt, die genaue Mindeststufe steht nicht in den Client-Daten.' : ''}</p>
+    </div>` : '';
   const groupNames = Object.keys(groups).sort((a, z) => Number(a === 'Quelle unbekannt') - Number(z === 'Quelle unbekannt') || a.localeCompare(z, 'de'));
   const farmHtml = total === 0
     ? '<p class="bis-hint">Noch keine Items gewählt. Klick links auf einen Slot.</p>'
@@ -389,6 +510,7 @@ function renderBisPlanner(){
         <button type="button" class="btn btn-ghost btn-sm" id="bisResetBtn">Alle Slots leeren</button>
       </div>
     </div>
+    ${bisSetBarHtml()}
     <div class="bis-layout">
       <div class="tac-card bis-slots">
         <h3 class="bis-card-title" style="color:${cls.color}">${escapeHtml(cls.label)} · ${escapeHtml(foreverSpecLabel(b.classId, b.specId))}</h3>
@@ -414,6 +536,8 @@ function renderBisPlanner(){
           </div>
           <p class="bis-hint">Grundwerte von Klasse, Rasse und Stufe plus Ausrüstung. Ohne Talente, Buffs, Verzauberungen und Rassen-Multiplikatoren; Krit ohne klassenspezifischen Grund-Krit.${st.estimated ? ' „ca.“: Unter Stufe 60 ist die Umrechnung Wertung → % geschätzt.' : ''}</p>
         </div>
+        ${profHtml}
+        ${matHtml}
         <div class="tac-card bis-farm">
           <h3 class="bis-card-title">Farm-Liste</h3>
           ${farmHtml}
@@ -422,22 +546,42 @@ function renderBisPlanner(){
     </div>
     <p class="bis-hint bis-footnote">Daten: WoW Forever Build ${escapeHtml(bisData.items.build)} (täglich automatisch aktualisiert). Deine Auswahl wird vorerst nur in diesem Browser gespeichert.</p>`;
   bisWirePlanner(root);
+  bisWireSetBar(root);
 }
 
 /** @param {HTMLElement} root */
 function bisWirePlanner(root){
   const b = bisDraft;
   const changed = () => { bisSaveDraft(); renderBisPlanner(); };
+  // Sets belong to a class + spec: switching leaves the active set (and
+  // opens the newest saved set of the new spec, if there is one).
+  const leaveSet = () => !(b.setId && bisDraftDirty()) || confirm('Ungespeicherte Änderungen am Set verwerfen?');
+  const openNewestSet = () => {
+    const sets = bisSetsForCurrentSpec();
+    if (sets.length) bisLoadSet(sets[0][0]); else changed();
+  };
   root.querySelectorAll('[data-bis-class]').forEach(btn => btn.addEventListener('click', () => {
     const c = btn.getAttribute('data-bis-class');
-    if (c === b.classId) return;
+    if (c === b.classId || !leaveSet()) return;
     b.classId = c;
     b.specId = foreverSpecsForClass(c)[0].id;
     b.slots = {};
-    changed();
+    b.setId = '';
+    bisSetNameDraft = null;
+    bisSetStatus = '';
+    openNewestSet();
   }));
   const spec = /** @type {HTMLSelectElement} */ (root.querySelector('#bisSpecSelect'));
-  spec.addEventListener('change', () => { b.specId = spec.value; changed(); });
+  spec.addEventListener('change', () => {
+    if (!leaveSet()){ spec.value = b.specId; return; }
+    b.specId = spec.value;
+    const hadSet = Boolean(b.setId);
+    b.setId = '';
+    bisSetNameDraft = null;
+    bisSetStatus = '';
+    // Coming from a saved set: show the new spec's own set; a plain draft keeps its items.
+    if (hadSet || !Object.keys(b.slots).length) openNewestSet(); else changed();
+  });
   const race = /** @type {HTMLSelectElement} */ (root.querySelector('#bisRaceSelect'));
   race.addEventListener('change', () => { b.raceId = race.value; changed(); });
   const lvl = /** @type {HTMLInputElement} */ (root.querySelector('#bisLevelInput'));
@@ -448,18 +592,124 @@ function bisWirePlanner(root){
   });
   root.querySelectorAll('[data-bis-pick]').forEach(btn => btn.addEventListener('click', () => openBisPicker(btn.getAttribute('data-bis-pick'))));
   root.querySelectorAll('[data-bis-clear]').forEach(btn => btn.addEventListener('click', () => { delete b.slots[btn.getAttribute('data-bis-clear')]; changed(); }));
-  root.querySelectorAll('[data-bis-done]').forEach((/** @type {HTMLInputElement} */ cb) => cb.addEventListener('change', () => {
-    const sel = b.slots[cb.getAttribute('data-bis-done')];
-    if (sel){ sel.done = cb.checked; changed(); }
+  root.querySelectorAll('[data-bis-owned]').forEach((/** @type {HTMLInputElement} */ cb) => cb.addEventListener('change', () => {
+    bisSetOwned(Number(cb.getAttribute('data-bis-owned')), cb.checked);
+    renderBisPlanner();
   }));
 }
 
 // ---------------------------------------------------------------- item picker
+const BIS_INSTANCE_GROUPS = [['d', 'Dungeons'], ['r', 'Raids'], ['b', 'Schlachtfelder']];
+const BIS_CONTENT_KEY = 'rude-bis-content-v1';
+/** Chosen "Herkunft" values (empty = everything); kept per browser across slots. */
+let bisContentSel = bisLoadContentSel();
+/** @type {{ v: string, label: string, group: string }[] | null} */
+let bisContentOptions = null;
+/** @returns {string[]} */
+function bisLoadContentSel(){
+  try {
+    const v = JSON.parse(localStorage.getItem(BIS_CONTENT_KEY) || '[]');
+    return Array.isArray(v) ? v.filter(x => typeof x === 'string') : [];
+  } catch (e){ return []; }
+}
+function bisSaveContentSel(){
+  try { localStorage.setItem(BIS_CONTENT_KEY, JSON.stringify(bisContentSel)); } catch (e){ /* private mode */ }
+}
+/** All "Herkunft" choices: kinds, professions, then every dungeon/raid/battleground. */
+function bisGetContentOptions(){
+  if (bisContentOptions) return bisContentOptions;
+  const inst = bisData.items.instances || {};
+  const profs = Object.keys(bisData.items.professions || {}).map(Number).sort((a, z) => bisProfessionName(a).localeCompare(bisProfessionName(z), 'de'));
+  const opts = [
+    { v: 'world', label: 'Open World (Drops)', group: 'Allgemein' },
+    { v: 'quest', label: 'Quests', group: 'Allgemein' },
+    { v: 'vendor', label: 'Händler', group: 'Allgemein' },
+    { v: 'craft', label: 'Alle Berufe', group: 'Berufe' },
+    ...profs.map(p => ({ v: 'craft:' + p, label: bisProfessionName(p), group: 'Berufe' }))
+  ];
+  for (const [k, group] of BIS_INSTANCE_GROUPS){
+    Object.keys(inst).filter(z => inst[z] === k).sort((a, z) => a.localeCompare(z, 'de'))
+      .forEach(z => opts.push({ v: 'z:' + z, label: z, group }));
+  }
+  // Drop choices that no longer exist (e.g. after a data update).
+  bisContentSel = bisContentSel.filter(v => opts.some(o => o.v === v));
+  return (bisContentOptions = opts);
+}
+function bisRenderContentChips(){
+  const opts = bisGetContentOptions();
+  els.bisPickerContentChips.innerHTML = bisContentSel.map(v => {
+    const o = opts.find(x => x.v === v);
+    return `<span class="bis-chip">${escapeHtml(o ? o.label : v)}<button type="button" data-bis-content-remove="${escapeHtml(v)}" aria-label="Entfernen">×</button></span>`;
+  }).join('');
+  els.bisPickerContentInput.placeholder = bisContentSel.length ? 'weitere hinzufügen …' : 'Herkunft: alle — tippen zum Filtern, z. B. „ra“ …';
+  els.bisPickerContentChips.querySelectorAll('[data-bis-content-remove]').forEach(btn => btn.addEventListener('click', () => {
+    bisToggleContent(btn.getAttribute('data-bis-content-remove'));
+  }));
+}
+/** Options matching the typed text, as rows grouped under headings. */
+function bisRenderContentList(){
+  const q = els.bisPickerContentInput.value.trim().toLowerCase();
+  const matches = bisGetContentOptions().filter(o => !q || o.label.toLowerCase().includes(q));
+  let html = '', group = '';
+  for (const o of matches){
+    if (o.group !== group){ group = o.group; html += `<div class="bis-combo-group">${escapeHtml(group)}</div>`; }
+    const on = bisContentSel.includes(o.v);
+    html += `<div class="bis-combo-opt${on ? ' active' : ''}" role="option" aria-selected="${on}" data-bis-content="${escapeHtml(o.v)}"><span class="bis-combo-check">${on ? '✓' : ''}</span>${escapeHtml(o.label)}</div>`;
+  }
+  els.bisPickerContentList.innerHTML = html || '<div class="bis-combo-group">Nichts gefunden</div>';
+  els.bisPickerContentList.querySelectorAll('[data-bis-content]').forEach(row => {
+    // mousedown: keep the input focused so the list stays open for more picks
+    row.addEventListener('mousedown', (e) => { e.preventDefault(); bisToggleContent(row.getAttribute('data-bis-content')); });
+  });
+}
+/** @param {string} v */
+function bisToggleContent(v){
+  bisContentSel = bisContentSel.includes(v) ? bisContentSel.filter(x => x !== v) : bisContentSel.concat(v);
+  bisSaveContentSel();
+  bisRenderContentChips();
+  if (!els.bisPickerContentList.classList.contains('hidden')) bisRenderContentList();
+  renderBisPickerList();
+}
+function bisOpenContentList(){
+  els.bisPickerContentList.classList.remove('hidden');
+  bisRenderContentList();
+}
+function bisCloseContentList(){
+  els.bisPickerContentList.classList.add('hidden');
+}
+/**
+ * Does the item come from any of the chosen contents (none = any)? Uses
+ * the sources the character's faction can use.
+ * @param {ForeverItem} item @param {string[]} contents
+ */
+function bisMatchesAnyContent(item, contents){
+  return !contents.length || contents.some(c => bisMatchesContent(item, c));
+}
+/** @param {ForeverItem} item @param {string} content */
+function bisMatchesContent(item, content){
+  if (!content) return true;
+  const s = bisSources(item);
+  if (!s || bisWrongFaction(item)) return false;
+  if (content.startsWith('z:')) return (s.drops || []).some(d => d.z === content.slice(2));
+  if (content === 'world'){
+    const inst = bisData.items.instances || {};
+    return Boolean(s.dropCount || (s.objects && s.objects.length) || (s.drops || []).some(d => d.z && !inst[d.z]));
+  }
+  if (content === 'quest') return Boolean(s.quests && s.quests.length);
+  if (content === 'vendor') return Boolean(s.vendors && s.vendors.length);
+  if (content === 'craft') return Boolean(s.craft);
+  if (content.startsWith('craft:')) return Boolean(s.craft && String(s.craft.p) === content.slice(6));
+  return true;
+}
+
 function openBisPicker(slotKey){
   bisPickerSlot = slotKey;
   const slot = BIS_SLOTS.find(s => s.key === slotKey);
   els.bisPickerTitle.textContent = slot ? slot.label + ' wählen' : 'Item wählen';
   els.bisPickerSearch.value = '';
+  els.bisPickerContentInput.value = '';
+  bisCloseContentList();
+  bisRenderContentChips();
   els.bisPickerModal.classList.remove('hidden');
   renderBisPickerList();
   els.bisPickerSearch.focus();
@@ -478,11 +728,13 @@ function renderBisPickerList(){
   const showHigher = els.bisPickerHigherLevel.checked;
   const minQuality = Number(els.bisPickerQuality.value) || 2;
   const faction = bisFaction();
+  const contents = bisContentSel;
   const matches = bisData.items.items.filter(i => inv.includes(i.it)
     && i.q >= minQuality
     && (showHigher || bisItemLevel(i) <= b.level)
     && (!onlySourced || i.src)
     && (!faction || !i.fa || i.fa === faction)
+    && bisMatchesAnyContent(i, contents)
     && bisCanUse(i, b)
     && (!q || i.n.toLowerCase().includes(q)))
     .sort((a, z) => z.il - a.il || z.q - a.q || a.n.localeCompare(z.n));
@@ -496,14 +748,14 @@ function renderBisPickerList(){
       ${bisIconHtml(i, 36)}
       <span class="bis-slot-text">
         <span class="bis-item-name" style="color:${bisQualityColor(i)}">${escapeHtml(i.n)}</span>
-        <span class="bis-item-meta">${bisLevelLabel(i)} · iLvl ${i.il}${i.b === 1 ? ' · BoP' : i.b === 2 ? ' · BoE' : ''}${i.set && bisData.items.sets[i.set] ? ' · Set: ' + escapeHtml(bisData.items.sets[i.set]) : ''}</span>
+        <span class="bis-item-meta">${escapeHtml(bisMetaLine(i, true))}</span>
         <span class="bis-item-stats">${escapeHtml(bisStatLine(i))}</span>
         <span class="bis-item-src${src.length ? '' : ' bis-item-src-none'}">${escapeHtml(src.length ? src.join(' · ') : 'Quelle unbekannt')}</span>
       </span>
     </button>`;
   }).join('') || '<p class="bis-hint">Keine passenden Items. Filter lockern?</p>';
   els.bisPickerList.querySelectorAll('[data-bis-item]').forEach(btn => btn.addEventListener('click', () => {
-    b.slots[bisPickerSlot] = { itemId: Number(btn.getAttribute('data-bis-item')), done: false };
+    b.slots[bisPickerSlot] = { itemId: Number(btn.getAttribute('data-bis-item')) };
     if (bisPickerSlot === 'mainhand'){
       const item = bisData.byId.get(b.slots.mainhand.itemId);
       if (item && item.it === 17) delete b.slots.offhand;
@@ -518,6 +770,21 @@ els.bisPickerSearch.addEventListener('input', renderBisPickerList);
 els.bisPickerSourcedOnly.addEventListener('change', renderBisPickerList);
 els.bisPickerHigherLevel.addEventListener('change', renderBisPickerList);
 els.bisPickerQuality.addEventListener('change', renderBisPickerList);
+els.bisPickerContentInput.addEventListener('focus', bisOpenContentList);
+els.bisPickerContentInput.addEventListener('input', bisOpenContentList);
+els.bisPickerContentInput.addEventListener('blur', bisCloseContentList);
+els.bisPickerContentInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter'){
+    e.preventDefault();
+    const first = els.bisPickerContentList.querySelector('[data-bis-content]');
+    if (first){ bisToggleContent(first.getAttribute('data-bis-content')); els.bisPickerContentInput.value = ''; bisRenderContentList(); }
+  } else if (e.key === 'Backspace' && !els.bisPickerContentInput.value && bisContentSel.length){
+    bisToggleContent(bisContentSel[bisContentSel.length - 1]);
+  } else if (e.key === 'Escape' && !els.bisPickerContentList.classList.contains('hidden')){
+    e.stopPropagation(); // close the list, not the whole picker
+    bisCloseContentList();
+  }
+});
 els.bisPickerCloseBtn.addEventListener('click', closeBisPicker);
 els.bisPickerModal.addEventListener('click', (e) => { if (e.target === els.bisPickerModal) closeBisPicker(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && bisPickerSlot) closeBisPicker(); });

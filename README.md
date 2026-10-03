@@ -369,6 +369,32 @@ Go to **Build → Realtime Database → Rules** and replace them with:
         "$sourceId": {
           ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer')"
         }
+      },
+      "bisSets": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          "$setId": {
+            ".write": "auth != null && auth.uid === $uid && (!newData.exists() || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'member' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin'))",
+            ".validate": "newData.hasChildren(['name', 'classId', 'specId', 'raceId', 'level', 'ownerId']) && newData.child('ownerId').val() === auth.uid && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 60 && newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 60"
+          }
+        }
+      },
+      "bisPublic": {
+        ".read": "auth != null",
+        ".indexOn": ["ownerId"],
+        "$setId": {
+          ".write": "auth != null && (!data.exists() || data.child('ownerId').val() === auth.uid || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin') && (!newData.exists() || (newData.child('ownerId').val() === auth.uid && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'member' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')))",
+          ".validate": "newData.hasChildren(['name', 'classId', 'specId', 'raceId', 'level', 'ownerId']) && newData.child('ownerId').val() === auth.uid && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 60 && newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 60"
+        }
+      },
+      "bisOwned": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          "$itemId": {
+            ".validate": "newData.val() === true"
+          }
+        }
       }
     }
   }
@@ -391,6 +417,16 @@ Click **Publish**. What this enforces at the database level (not just in the UI)
   query `orderByChild('applicantId').equalTo(<own uid>)` (that's what the
   Bewerbung page uses to show an applicant their own status). The
   `.indexOn: ["applicantId"]` entry is required for that query.
+- **BiS-Planer:** `bisSets/<uid>` (private item sets) and
+  `bisOwned/<uid>` ("Habe ich" items) are readable only by their owner;
+  the page listens to the own path directly (not via `SYNCED_KEYS`).
+  `bisPublic` holds the sets an owner marked "öffentlich" and is readable
+  by every logged-in account (Community included); the page reads its own
+  ones with `orderByChild('ownerId').equalTo(<own uid>)`, which needs the
+  `.indexOn: ["ownerId"]`. Saving a set needs the role Gildenmitglied,
+  Officer or Admin, and only into one's own name (`ownerId`); deleting
+  one's own sets always works, and Admins may delete any public set.
+  Owned items can be written by any logged-in account for itself.
 - Apart from `applications`, any logged-in account — including a
   Community login — can still technically read the remaining keys
   (announcements, polls, …) directly from Firebase, even though the page's
@@ -1130,6 +1166,18 @@ these by hand:
   → % conversion isn't in the client anymore; the TBC curve is assumed
   (rating per 1% × max(level − 8, 2) / 52) and should be shown as an
   estimate.
+- Zones: names from the client's `AreaTable` (Forever, gaps from Classic
+  Era); which zone ids are dungeons/raids/battlegrounds from QuestieDB's
+  zone enum (`src/corrections/enum/zones.lua`), dungeon vs. raid from the
+  `Map` table. QuestieDB's Forever data lacks loot for some raid bosses
+  (Molten Core), so for items without drops the droppers come from its
+  Wotlk data — only NPCs Forever has, in a dungeon/raid zone.
+- Crafting (`scripts/forever-data/crafting.mjs`): which profession makes
+  an item and at what skill, from the client's `SpellEffect` (create
+  item), `SkillLineAbility` and the recipe items' `ItemEffect`; the
+  recipe's own sources come from QuestieDB. Trainer-learned recipes have
+  no recipe item; their skill is estimated (marked `e`). Materials from
+  `SpellReagents` (`m`, names in the top-level `reagents` map).
 - `.github/workflows/forever-data.yml` runs it **every day**. If the data
   changed, it runs the importer's sanity checks and the type check, opens a
   pull request and merges it immediately.
@@ -1149,13 +1197,33 @@ two-handers block the off hand). The page sums up the stats (health, mana,
 attributes, armor, attack power, hit/crit %), shows where every item comes
 from and builds a farm list grouped by zone; a slot ticked as *Habe ich*
 drops off the list. Quest rewards without a required level count from the
-quest's level. Faction: the race decides Alliance/Horde; items only one
+quest's level; items the client gives no level at all (some raid drops)
+count from item level − 5, max. 60, shown as "ca.". Faction: the race decides Alliance/Horde; items only one
 faction can get (the importer's `fa`, from one-faction vendors/quests in
 QuestieDB, e.g. Warsong Gulch gear) are hidden for the other one, and
-other-faction vendors/quests are left out of the sources. The selection is stored only in the browser
-(`localStorage` key `rude-bis-draft-v1`) — saving builds to the database,
-admin-recommended builds and talents come in later steps. No Firebase rules
-are needed for it.
+other-faction vendors/quests are left out of the sources. Crafted items show
+the profession and skill and where the recipe drops/is sold; the card
+*Benötigte Berufe* sums up which professions the open slots need — BoP
+crafts you must make yourself, BoE ones can be bought. *Materialliste*
+adds up the materials of all open crafted slots. The item picker can be narrowed by
+*Herkunft*: a search field with suggestions (type "ra" → Ragefire Chasm,
+Razorfen …) where several entries can be picked at once — open world,
+quests, vendors, professions, dungeons, raids, battlegrounds
+(`instances` in items.json). The choice is remembered per browser
+(`rude-bis-content-v1`) so it stays while you go through the slots. The working copy lives in the
+browser (`localStorage` key `rude-bis-draft-v1`).
+
+**Item-Sets** (`js/bis-sets.js`): Gildenmitglieder and up can save the
+current selection as a named set per class + spec (free text, e.g. "Raid:
+Ragnaros", "AoE-Farm", "PvP"), several per spec; the set bar above the
+slots loads, saves, saves as new, deletes and toggles *öffentlich*.
+Private sets live in `bisSets/<uid>`, public ones in `bisPublic` (moved
+there with one multi-path update; readable by every logged-in account as
+the basis for a later public build list). *Habe ich* belongs to the item,
+not the set: `bisOwned/<uid>/<itemId>` — one tick counts in every set;
+logged out it stays in `localStorage` (`rude-bis-owned-v1`) and joins the
+account at the next login. Community and logged-out visitors use the
+planner locally. Rules: README § 6f.
 
 ## Type checking (development only)
 

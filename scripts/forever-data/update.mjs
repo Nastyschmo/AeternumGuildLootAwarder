@@ -4,7 +4,8 @@
 //    stats, armor, damage, sets and icons;
 //  - QuestieDB (github.com/Questie/QuestieDB, data/Forever) for where an
 //    item comes from: NPC drops, quest rewards, vendors, objects, containers;
-//  - the wowdev community listfile for icon file names.
+//  - the wowdev community listfile for icon file names;
+//  - crafting (profession, skill, recipe) from the client, see crafting.mjs.
 // Runs in GitHub Actions (.github/workflows/forever-data.yml). Writes the
 // files only when their content changed, so an unchanged build produces no
 // diff and no pull request.
@@ -16,11 +17,16 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { parseCsv } from './csv.mjs';
 import { parseLuaRecords } from './lua-records.mjs';
 import { buildClassStats } from './class-stats.mjs';
+import { buildCrafting } from './crafting.mjs';
 
 const OUT_DIR = new URL('../../data/forever/', import.meta.url);
 const WAGO = 'https://wago.tools';
 const PRODUCT = 'wow_classic_beta';
 const QUESTIE = 'https://raw.githubusercontent.com/Questie/QuestieDB/master/data/Forever';
+// QuestieDB's Forever (and Classic) data has no loot for some raid bosses
+// (e.g. Molten Core); its Wotlk data does, for the same NPC and item ids.
+const QUESTIE_ZONES = 'https://raw.githubusercontent.com/Questie/QuestieDB/master/src/corrections/enum/zones.lua';
+const QUESTIE_WOTLK = 'https://raw.githubusercontent.com/Questie/QuestieDB/master/data/Wotlk';
 const LISTFILE = 'https://github.com/wowdev/wow-listfile/releases/latest/download/community-listfile.csv';
 const UA = { 'User-Agent': 'rude-guild-page data importer (github.com/Nastyschmo/AeternumGuildLootAwarder)' };
 
@@ -161,12 +167,14 @@ const questFaction = mask => {
 const npcFaction = f => (f === 'A' || f === 'H' ? f : undefined);
 
 // ---------------------------------------------------------------- sources
-function buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName) {
+function buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName, wotlk, isInstanceZone) {
+  // An NPC's zone; Forever has none for a few bosses (e.g. Ragnaros), Wotlk does.
+  const npcZone = id => I((qNpcs.get(id) || [])[8]) || I((wotlk.npcs.get(id) || [])[8]);
   const npcLabel = (id, withFaction) => {
     const n = qNpcs.get(id);
     if (!n) return null;
     const ref = { n: n[0] };
-    const zone = zoneName(n[8]); if (zone) ref.z = zone;
+    const zone = zoneName(npcZone(id)); if (zone) ref.z = zone;
     // Only for vendors: a mob friendly to one faction can still drop its
     // loot for the other.
     const f = withFaction && npcFaction(n[12]); if (f) ref.f = f;
@@ -175,7 +183,10 @@ function buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName) {
   const out = new Map();
   for (const [id, r] of qItems) {
     const src = {};
-    const drops = (r[1] || []).filter(Boolean);
+    let drops = (r[1] || []).filter(Boolean);
+    // Fallback, dungeon/raid bosses only (Wotlk world-drop tables differ):
+    // Wotlk loot from NPCs Forever has too, in an instance zone.
+    if (!drops.length) drops = ((wotlk.items.get(id) || [])[1] || []).filter(n => qNpcs.has(n) && isInstanceZone(npcZone(n)));
     if (drops.length > MAX_LISTED_DROPPERS) src.dropCount = drops.length;
     else if (drops.length) src.drops = drops.map(d => npcLabel(d, false)).filter(Boolean);
     const objects = (r[2] || []).map(o => qObjects.get(o)).filter(Boolean).map(o => o[0]);
@@ -198,7 +209,33 @@ function buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName) {
 function sourceFaction(src) {
   if (!src || src.drops || src.dropCount || src.objects || src.containers) return undefined;
   const fs = [...(src.vendors || []), ...(src.quests || [])].map(x => x.f);
+  // Crafted: limited only if the recipe is (trainer recipes: both factions).
+  if (src.craft) fs.push(src.craft.rec ? sourceFaction(src.craft.rec.src) : undefined);
   return fs.length && fs.every(f => f && f === fs[0]) ? fs[0] : undefined;
+}
+
+/**
+ * Instance zone ids from QuestieDB's zone enum: the "Classic battlegrounds",
+ * "Classic dungeons and raids" and "Forever: instance areas" sections.
+ * A sub-area (NAME_SOMETHING) points to its instance (NAME).
+ */
+function parseInstanceZones(text) {
+  const SECTIONS = { 'classic battlegrounds': 'b', 'classic dungeons and raids': 'i', 'forever: instance areas': 'i' };
+  const out = new Map();
+  let section = null;
+  const names = [];
+  for (const line of text.split('\n')) {
+    const head = /^\s*--\s*(.+?)\s*(?:,.*)?$/.exec(line);
+    if (head) { section = SECTIONS[head[1].toLowerCase()] || null; continue; }
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*(\d+)\s*,/.exec(line);
+    if (m && section) names.push({ name: m[1], id: Number(m[2]), battleground: section === 'b' });
+  }
+  for (const z of names) {
+    const parent = names.filter(p => z.name.startsWith(p.name + '_')).sort((a, b) => b.name.length - a.name.length)[0];
+    out.set(z.id, { parent: parent ? parent.id : z.id, battleground: z.battleground });
+  }
+  if (!out.has(2717) || !out.has(1583)) throw new Error('QuestieDB zone enum: instance sections not found — format changed?');
+  return out;
 }
 
 // ---------------------------------------------------------------- main
@@ -214,7 +251,7 @@ const NEED = {
   ItemSparse: ['Display_lang', 'ItemLevel', 'OverallQualityID', 'RequiredLevel', 'StatModifier_bonusStat_0', 'StatPercentEditor_0', 'ItemDelay', 'DmgVariance', 'ItemSet', 'AllowableClass', 'Bonding'],
   Item: ['ClassID', 'SubclassID', 'InventoryType', 'IconFileDataID'],
   RandPropPoints: [], ItemArmorTotal: ['Cloth', 'Leather', 'Mail', 'Plate'], ItemArmorQuality: ['Qualitymod_4'],
-  ArmorLocation: ['Clothmodifier'], ItemSet: ['Name_lang', 'ItemID_0'], AreaTable: ['AreaName_lang']
+  ArmorLocation: ['Clothmodifier'], ItemSet: ['Name_lang', 'ItemID_0'], AreaTable: ['AreaName_lang', 'ContinentID'], Map: ['InstanceType']
 };
 const t = {};
 for (const name of [...Object.keys(NEED), ...DMG_TABLES]) {
@@ -222,9 +259,10 @@ for (const name of [...Object.keys(NEED), ...DMG_TABLES]) {
   console.log(`  ${name}: ${t[name].length} rows`);
 }
 
-const [qItemsTxt, qNpcsTxt, qQuestsTxt, qObjectsTxt, listfileTxt] = await Promise.all([
+const [qItemsTxt, qNpcsTxt, qQuestsTxt, qObjectsTxt, listfileTxt, wItemsTxt, wNpcsTxt, zonesEnumTxt] = await Promise.all([
   getText(`${QUESTIE}/foreverItemDB.lua`), getText(`${QUESTIE}/foreverNpcDB.lua`),
-  getText(`${QUESTIE}/foreverQuestDB.lua`), getText(`${QUESTIE}/foreverObjectDB.lua`), getText(LISTFILE)
+  getText(`${QUESTIE}/foreverQuestDB.lua`), getText(`${QUESTIE}/foreverObjectDB.lua`), getText(LISTFILE),
+  getText(`${QUESTIE_WOTLK}/wotlkItemDB.lua`), getText(`${QUESTIE_WOTLK}/wotlkNpcDB.lua`), getText(QUESTIE_ZONES)
 ]);
 const qItems = parseLuaRecords(qItemsTxt), qNpcs = parseLuaRecords(qNpcsTxt);
 const qQuests = parseLuaRecords(qQuestsTxt), qObjects = parseLuaRecords(qObjectsTxt);
@@ -241,11 +279,54 @@ const eraSparseRows = await table('ItemSparse', eraBuild, ['Display_lang', 'Item
 console.log(`  ItemSparse (Era ${eraBuild}): ${eraSparseRows.length} rows`);
 const eraSparse = byId(eraSparseRows);
 
-const area = byId(t.AreaTable);
-const zoneName = id => (id && area.get(id) ? area.get(id).AreaName_lang : '');
+// Zones: Forever's AreaTable export lacks unchanged Classic zones (e.g.
+// Molten Core), so Era rows fill the gaps.
+const area = byId(await table('AreaTable', eraBuild, NEED.AreaTable));
+for (const [id, row] of byId(t.AreaTable)) area.set(id, row);
+const maps = byId(await table('Map', eraBuild, NEED.Map));
+for (const [id, row] of byId(t.Map)) maps.set(id, row);
+console.log(`  zones: ${area.size} (Era + Forever), maps: ${maps.size}`);
+
+// Which zone ids are dungeons/raids/battlegrounds: QuestieDB's zone enum
+// lists them by id (with sub-areas like BLACKROCK_SPIRE_HORDEMAR_CITY).
+// Matching AreaTable names doesn't work — names repeat (instances with
+// areas called "Westfall"), and some instance NPCs sit in outdoor areas.
+// The Map table then tells dungeon from raid.
+const INSTANCE_KIND = { 1: 'd', 2: 'r', 3: 'b' };
+// Classic raids (Onyxia, ZG, MC, BWL, AQ20, AQ40, Naxx): fixed, the Map
+// lookup doesn't classify all of them.
+const CLASSIC_RAIDS = new Set([2159, 1977, 2717, 2677, 3429, 3428, 3456]);
+const instanceZones = parseInstanceZones(zonesEnumTxt); // zone id -> { parent, battleground }
+const zoneKind = id => {
+  const z = instanceZones.get(id);
+  if (!z) return undefined;
+  if (z.battleground) return 'b';
+  if (CLASSIC_RAIDS.has(z.parent)) return 'r';
+  const row = area.get(z.parent) || area.get(id);
+  return (row && INSTANCE_KIND[I((maps.get(I(row.ContinentID)) || {}).InstanceType)]) || 'd';
+};
+/** zone name -> 'd' dungeon / 'r' raid / 'b' battleground, filled as NPC zones get named. */
+const instances = {};
+const zoneName = id => {
+  const z = instanceZones.get(id);
+  const row = area.get(z ? z.parent : id) || area.get(id); // instance sub-areas show the instance
+  if (!row || !row.AreaName_lang) return '';
+  const kind = zoneKind(id);
+  if (kind && !instances[row.AreaName_lang]) instances[row.AreaName_lang] = kind;
+  return row.AreaName_lang;
+};
+
 const sparse = byId(t.ItemSparse);
 const itemName = id => ((sparse.get(id) || eraSparse.get(id) || {}).Display_lang || (qItems.get(id) || [])[0]);
-const sources = buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName);
+const wotlk = { items: parseLuaRecords(wItemsTxt), npcs: parseLuaRecords(wNpcsTxt) };
+const sources = buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName, wotlk,
+  id => zoneKind(id) === 'd' || zoneKind(id) === 'r');
+
+// Crafting, checked for every weapon/armor item (a superset of what's kept).
+const { craftOf, professions, reagents } = await buildCrafting({
+  build, eraBuild, table, sparse, eraSparse, sources, itemName,
+  gearIds: new Set(t.Item.filter(it => I(it.ClassID) === 2 || I(it.ClassID) === 4).map(it => I(it.ID)))
+});
 
 const setOf = new Map();
 for (const s of t.ItemSet) for (let i = 0; i < 17; i++) { const id = I(s[`ItemID_${i}`]); if (id) setOf.set(id, I(s.ID)); }
@@ -270,7 +351,9 @@ for (const it of t.Item) {
   const dm = math.damage(cls, sub, sp, q); if (dm) rec.dm = dm;
   const set = I(sp.ItemSet) || setOf.get(id);
   if (set) { rec.set = set; const row = t.ItemSet.find(s => I(s.ID) === set); if (row) sets[set] = row.Name_lang; }
-  const src = sources.get(id); if (src) rec.src = src;
+  const craft = craftOf.get(id);
+  const src = craft ? { ...sources.get(id), craft } : sources.get(id);
+  if (src) rec.src = src;
   // Faction: the item's own race mask if it names one faction (rare in
   // Forever — even PvP rank gear says "all races"), else the sources: an
   // item only sold by one faction's vendors / rewarded by its quests is
@@ -282,7 +365,12 @@ for (const it of t.Item) {
 items.sort((a, b) => a.id - b.id);
 
 // ---------------------------------------------------------------- sanity
+console.log(`  crafted: ${items.filter(r => r.src?.craft).length}, with materials ${items.filter(r => r.src?.craft?.m).length} (with recipe item ${items.filter(r => r.src?.craft?.rec).length}, estimated skill ${items.filter(r => r.src?.craft?.e).length})`);
 console.log(`  faction items: ${items.filter(r => r.fa === 'A').length} Alliance, ${items.filter(r => r.fa === 'H').length} Horde`);
+// Keep only instance zones that items actually drop in.
+const dropZones = new Set(items.flatMap(r => (r.src?.drops || []).map(d => d.z)));
+for (const z of Object.keys(instances)) if (!dropZones.has(z)) delete instances[z];
+console.log(`  instances: ${Object.entries(instances).map(([z, k]) => z + ':' + k).join(', ')}`);
 const withStats = items.filter(r => r.s).length, withSrc = items.filter(r => r.src).length, withIcon = items.filter(r => r.ic).length;
 console.log(`Items: ${items.length} (stats ${withStats}, sources ${withSrc}, icons ${withIcon}, sets ${Object.keys(sets).length})`);
 for (const id of [12640, 15063, 13340, 16707, 19019]) console.log('  sample', JSON.stringify(items.find(r => r.id === id)));
@@ -290,6 +378,11 @@ const fail = [];
 if (items.length < 3000) fail.push(`only ${items.length} items`);
 if (withStats < items.length * 0.5) fail.push(`only ${withStats} items with stats`);
 if (withIcon < items.length * 0.8) fail.push(`only ${withIcon} items with icons`);
+const reaper = (items.find(r => r.id === 12784) || { src: {} }).src?.craft;
+if (!reaper || reaper.p !== 164 || reaper.r !== 300 || !reaper.rec || !reaper.m?.some(([id]) => id === 12360)) fail.push(`crafting check: Arcanite Reaper ${JSON.stringify(reaper)}`);
+const expectKind = { Naxxramas: 'r', 'Molten Core': 'r', "Onyxia's Lair": 'r', 'The Deadmines': 'd', 'Blackrock Spire': 'd', 'Blackrock Depths': 'd' };
+for (const [z, k] of Object.entries(expectKind)) if (instances[z] !== k) fail.push(`instance check: ${z} is ${instances[z]}, expected ${k}`);
+for (const z of ['Westfall', 'Elwynn Forest', 'The Barrens']) if (instances[z]) fail.push(`instance check: open-world zone ${z} marked ${instances[z]}`);
 // Warsong Gulch necklaces: sold only by Horde / Alliance supply officers.
 const factionOf = id => (items.find(r => r.id === id) || {}).fa;
 if (factionOf(19534) !== 'H' || factionOf(19538) !== 'A') fail.push(`faction check: Scout's Medallion ${factionOf(19534)}, Sentinel's Medallion ${factionOf(19538)}`);
@@ -310,7 +403,7 @@ async function writeIfChanged(name, json) {
   console.log(`Wrote data/forever/${name} (${Math.round(json.length / 1024)} KB).`);
   return true;
 }
-const itemsChanged = await writeIfChanged('items.json', JSON.stringify({ build, eraBuild, sets, items }) + '\n');
+const itemsChanged = await writeIfChanged('items.json', JSON.stringify({ build, eraBuild, sets, professions, reagents, instances, items }) + '\n');
 const statsChanged = await writeIfChanged('class-stats.json', JSON.stringify({ build, ...classStats }) + '\n');
 if (itemsChanged || statsChanged) {
   await writeFile(new URL('meta.json', OUT_DIR), JSON.stringify({

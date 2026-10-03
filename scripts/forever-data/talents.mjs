@@ -61,6 +61,12 @@ const fmtDuration = ms => {
 export async function buildTalents({ build, table, icons, snapshot }) {
   const t = {};
   for (const [name, cols] of Object.entries(TABLES)) t[name] = await table(name, build, cols);
+  // Optional: proc chance / charges / stacks for $h $n $u.
+  let auraRows = [];
+  try { auraRows = await table('SpellAuraOptions', build, ['SpellID', 'ProcChance', 'ProcCharges', 'CumulativeAura']); }
+  catch (e){ console.log(`  talents: SpellAuraOptions skipped (${e.message})`); }
+  const aura = new Map();
+  for (const r of auraRows) if (!aura.has(r.SpellID)) aura.set(r.SpellID, r);
 
   const spellName = new Map(t.SpellName.map(r => [r.ID, r.Name_lang]));
   const description = new Map(t.Spell.map(r => [r.ID, r.Description_lang]));
@@ -133,6 +139,17 @@ export async function buildTalents({ build, table, icons, snapshot }) {
         try { const v = Function(`"use strict"; return (${e});`)(); return Number.isFinite(v) ? String(num(v)) : '\u0000'; } catch (err){ return '\u0000'; }
       });
       txt = txt.replace(/\$\/(-?\d+);([smSM])(\d)/g, (_, div, _l, i) => String(num(val(i) / I(div))));
+      // Another spell's effect value: $12345s1
+      txt = txt.replace(/\$(\d+)([smSM])(\d)/g, (m, other, _l, i) => {
+        const v = base.get(other) && base.get(other).get(I(i) - 1);
+        return v ? String(num(v)) : '\u0000';
+      });
+      // Proc chance, charges, max stacks (own or another spell): $h $n $u $12345h
+      txt = txt.replace(/\$(\d*)([hnu])(?![a-zA-Z])/g, (m, other, k) => {
+        const a = aura.get(other || String(spell));
+        const v = a && I(a[{ h: 'ProcChance', n: 'ProcCharges', u: 'CumulativeAura' }[k]]);
+        return v ? String(v) : '\u0000';
+      });
       txt = txt.replace(/\$([smSM])(\d)/g, (_, _l, i) => String(num(val(i))));
       txt = txt.replace(/\$(\d*)d(?![a-zA-Z])/g, (m, other) => {
         const ms = spellDuration(other || spell);

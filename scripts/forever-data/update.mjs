@@ -281,7 +281,7 @@ const sparse = byId(t.ItemSparse);
 const itemName = id => ((sparse.get(id) || eraSparse.get(id) || {}).Display_lang || (qItems.get(id) || [])[0]);
 const wotlk = { items: parseLuaRecords(wItemsTxt), npcs: parseLuaRecords(wNpcsTxt) };
 const mapKind = row => INSTANCE_KIND[I((maps.get(I(row.ContinentID)) || {}).InstanceType)];
-// Some instances' NPCs sit in an open-world area of the same name (e.g.
+// Some instances' NPCs sit in an open-world subzone of the same name (e.g.
 // Blackrock Spire inside Blackrock Mountain): fall back to a top-level
 // (no parent area) instance zone with that name.
 const topInstanceKind = new Map();
@@ -291,7 +291,10 @@ for (const row of area.values()) {
 }
 const zoneKind = id => {
   const row = id && area.get(id);
-  return row ? mapKind(row) || topInstanceKind.get(row.AreaName_lang) : undefined;
+  if (!row) return undefined;
+  // Only for an outdoor subzone: Forever has instances with top-level zones
+  // named like open-world zones (Westfall, Elwynn Forest).
+  return mapKind(row) || (I(row.ParentAreaID) ? topInstanceKind.get(row.AreaName_lang) : undefined);
 };
 const sources = buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName, wotlk,
   id => zoneKind(id) === 'd' || zoneKind(id) === 'r');

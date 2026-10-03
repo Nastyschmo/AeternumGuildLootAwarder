@@ -32,7 +32,8 @@ const TABLES = {
   SpellName: ['Name_lang'],
   Spell: ['Description_lang'],
   SpellEffect: ['SpellID', 'EffectIndex', 'EffectBasePointsF'],
-  SpellMisc: ['SpellID', 'SpellIconFileDataID']
+  SpellMisc: ['SpellID', 'SpellIconFileDataID', 'DurationIndex'],
+  SpellDuration: ['Duration']
 };
 // Canvas layout of the class trees in 1.60.x (from the Forever sim's
 // exporter): tab origins on PosX, 600 per column and per row. Checked
@@ -48,8 +49,11 @@ const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const onGrid = (v, hi) => { while (v > hi) v = Math.floor(v / 10); return v; };
 const num = v => { v = Math.abs(v); return Number.isInteger(v) ? v : Math.round(v * 100) / 100; };
 
-// $s1 $m1 $S1 $M1, optionally with a divisor: $/1000;s1  ${$m1/1000}  ${$m1/-10}
-const TOKEN = /\$\/(-?\d+);([smSM])(\d)|\$\{\$([smSM])(\d)\/(-?\d+)\}(?:\.\d)?|\$([smSM])(\d)/g;
+/** "6 sec", "1.5 min" — how the client shows durations. @param {number} ms */
+const fmtDuration = ms => {
+  const s = Math.abs(ms) / 1000;
+  return s >= 60 && s % 60 === 0 ? `${s / 60} min` : s >= 120 ? `${num(s / 60)} min` : `${num(s)} sec`;
+};
 
 /**
  * @param {{ build: string, table: Function, icons: Map<number, string>, snapshot: Record<string, any> }} io
@@ -84,8 +88,13 @@ export async function buildTalents({ build, table, icons, snapshot }) {
     if (!base.has(r.SpellID)) base.set(r.SpellID, new Map());
     base.get(r.SpellID).set(I(r.EffectIndex), F(r.EffectBasePointsF));
   }
-  const iconFid = new Map();
-  for (const r of t.SpellMisc) if (!iconFid.has(r.SpellID) && I(r.SpellIconFileDataID)) iconFid.set(r.SpellID, I(r.SpellIconFileDataID));
+  const iconFid = new Map(), durationIdx = new Map();
+  for (const r of t.SpellMisc){
+    if (!iconFid.has(r.SpellID) && I(r.SpellIconFileDataID)) iconFid.set(r.SpellID, I(r.SpellIconFileDataID));
+    if (!durationIdx.has(r.SpellID) && I(r.DurationIndex)) durationIdx.set(r.SpellID, r.DurationIndex);
+  }
+  const durationMs = new Map(t.SpellDuration.map(r => [r.ID, I(r.Duration)]));
+  const spellDuration = spellId => durationMs.get(durationIdx.get(String(spellId)));
   const nodesByTree = new Map();
   for (const r of t.TraitNode) {
     if (!nodesByTree.has(r.TraitTreeID)) nodesByTree.set(r.TraitTreeID, []);
@@ -104,27 +113,34 @@ export async function buildTalents({ build, table, icons, snapshot }) {
     if (curve && points.has(curve) && points.get(curve).has(rank)) return points.get(curve).get(rank);
     return (base.get(spell) && base.get(spell).get(effect)) || 0;
   };
-  /** Per-rank tooltip lines; partial = the text still has tokens we don't model. */
+  /**
+   * Per-rank tooltip lines. Resolves $s1/$m1 (with $/1000;s1 divisors),
+   * ${...} arithmetic over those, $d / $<spellId>d durations; anything
+   * else becomes "?" and marks the tooltip partial (the merge then keeps
+   * the snapshot's wording if it has one).
+   */
   const tooltip = (defId, spell, maxRank) => {
     const d = definition.get(defId);
-    let text = d.OverrideDescription_lang || description.get(spell) || '';
-    const slots = [];
-    const slot = (effect, div) => {
-      const k = effect + '/' + div;
-      if (!slots.some(s => s.k === k)) slots.push({ k, effect, div });
-      return '{' + slots.findIndex(s => s.k === k) + '}';
-    };
-    text = text.replace(/\|c[0-9A-Fa-f]{8}|\|[rR]/g, '');
-    text = text.replace(TOKEN, (m, d1, _l1, e1, _l2, e2, d2, _l3, e3) =>
-      d1 ? slot(I(e1) - 1, I(d1)) : e2 ? slot(I(e2) - 1, I(d2)) : slot(I(e3) - 1, 1));
-    const partial = /\$/.test(text);
-    text = text.replace(/\$\{[^}]*\}(?:\.\d)?|\$(?:\/-?\d+;)?\d*[a-zA-Z]\d?/g, '?').replace(/\s+/g, ' ').trim();
+    let raw = d.OverrideDescription_lang || description.get(spell) || '';
+    raw = raw.replace(/\|[cC][0-9A-Fa-f]{8}|\|[rR]/g, '').replace(/\s+/g, ' ').trim();
+    let partial = false;
     const desc = [];
-    for (let rank = 1; rank <= maxRank; rank++) {
-      desc.push(text.replace(/\{(\d+)\}/g, (m, i) => {
-        const s = slots[I(i)];
-        return String(num(value(defId, spell, s.effect, rank) / (s.div || 1)));
-      }));
+    for (let rank = 1; rank <= maxRank; rank++){
+      const val = (i) => value(defId, spell, I(i) - 1, rank);
+      let txt = raw.replace(/\$\{([^}]*)\}(\.\d)?/g, (m, expr) => {
+        const e = expr.replace(/\$([smSM])(\d)/g, (_, _l, i) => String(val(i)));
+        if (!/^[\d.+\-*/() ]+$/.test(e)) return '\u0000';
+        try { const v = Function(`"use strict"; return (${e});`)(); return Number.isFinite(v) ? String(num(v)) : '\u0000'; } catch (err){ return '\u0000'; }
+      });
+      txt = txt.replace(/\$\/(-?\d+);([smSM])(\d)/g, (_, div, _l, i) => String(num(val(i) / I(div))));
+      txt = txt.replace(/\$([smSM])(\d)/g, (_, _l, i) => String(num(val(i))));
+      txt = txt.replace(/\$(\d*)d(?![a-zA-Z])/g, (m, other) => {
+        const ms = spellDuration(other || spell);
+        return ms > 0 ? fmtDuration(ms) : '\u0000';
+      });
+      txt = txt.replace(/\$\d*[a-zA-Z]\d?/g, '\u0000');
+      if (txt.includes('\u0000')) partial = true;
+      desc.push(txt.replace(/\u0000/g, '?'));
     }
     return { desc, partial };
   };

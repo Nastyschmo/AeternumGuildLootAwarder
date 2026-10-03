@@ -1,7 +1,7 @@
 {
   "build": "1.60.1.70170",
   "eraBuild": "1.15.9.70003",
-  "generatedAt": "2026-10-03T00:22:50.105Z",
+  "generatedAt": "2026-10-03T00:44:56.978Z",
   "counts": {
     "items": 14169,
     "withStats": 11248,
@@ -11,6 +11,7 @@
   "sources": [
     "wago.tools (WoW Forever client DB2)",
     "Questie/QuestieDB data/Forever",
-    "wowdev/wow-listfile"
+    "wowdev/wow-listfile",
+    "ElliotWood/Forever (base health/attributes per level, Wowhead Forever gear planner snapshot)"
   ]
 }

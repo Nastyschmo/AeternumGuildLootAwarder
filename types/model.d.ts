@@ -163,3 +163,23 @@ interface State {
   characterProfiles: Record<DiscordId, CharacterProfile>;
   seenState: Record<DiscordId, SeenState>;
 }
+
+// ---------------------------------------------------------------------
+// data/forever/class-stats.json (generated, see scripts/forever-data/).
+interface ForeverClassLevelStats {
+  hp: number;
+  mana: number;
+  str: number; agi: number; sta: number; int: number; spi: number;
+  /** Crit % gained per point of agility / intellect at this level. */
+  critPerAgi: number | null;
+  critPerInt: number | null;
+}
+interface ForeverClassStats {
+  build: string;
+  /** ChrClasses id -> name + stats for levels 1..60 (index 0 = level 1). */
+  classes: Record<string, { name: string; levels: ForeverClassLevelStats[] }>;
+  /** ChrRaces id -> attribute offset added to the class row (pre-racial). */
+  raceOffsets: Record<string, { name: string; str: number; agi: number; sta: number; int: number; spi: number }>;
+  /** Rating needed for 1% (defense: 1 skill point) at level 60. */
+  ratingPerPercentAt60: Record<'hit' | 'crit' | 'haste' | 'expertise' | 'dodge' | 'parry' | 'block' | 'defense', number>;
+}

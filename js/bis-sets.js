@@ -132,6 +132,7 @@ function bisNormalizeSet(raw, isPublic){
     raceId: String(raw.raceId || '1'),
     level: Math.min(BIS_MAX_LEVEL, Math.max(1, Number(raw.level) || BIS_DEFAULT_LEVEL)),
     slots,
+    talents: bisNormalizeTalents(raw.talents, raw.classId),
     public: isPublic,
     ownerId: String(raw.ownerId || ''),
     ownerName: String(raw.ownerName || ''),
@@ -212,8 +213,9 @@ function bisOtherSetsByOwner(){
 /** Does the draft differ from its saved set? */
 function bisDraftDirty(){
   const set = bisAnySet(bisDraft.setId);
-  if (!set) return Object.keys(bisDraft.slots).length > 0;
+  if (!set) return Object.keys(bisDraft.slots).length > 0 || Boolean(bisTalentSummary(bisDraft.talents));
   if (set.raceId !== bisDraft.raceId || set.level !== bisDraft.level) return true;
+  if (!bisTalentsEqual(set.talents, bisDraft.talents)) return true;
   const keys = new Set([...Object.keys(set.slots), ...Object.keys(bisDraft.slots)]);
   for (const k of keys) if ((set.slots[k] || 0) !== ((bisDraft.slots[k] && bisDraft.slots[k].itemId) || 0)) return true;
   return false;
@@ -226,7 +228,8 @@ function bisLoadSet(id){
   if (!set) return;
   bisDraft = {
     classId: set.classId, specId: set.specId, raceId: set.raceId, level: set.level, setId: id,
-    slots: Object.fromEntries(Object.entries(set.slots).map(([k, itemId]) => [k, { itemId }]))
+    slots: Object.fromEntries(Object.entries(set.slots).map(([k, itemId]) => [k, { itemId }])),
+    talents: set.talents.map(t => ({ ...t }))
   };
   bisSetNameDraft = null;
   bisSetStatus = '';
@@ -241,6 +244,7 @@ function bisSetPayload(name, prev){
   return {
     name, classId: b.classId, specId: b.specId, raceId: b.raceId, level: b.level,
     slots: Object.fromEntries(Object.entries(b.slots).map(([k, v]) => [k, v.itemId])),
+    talents: bisTalentsPayload(b.talents),
     ownerId: discordIdentity.id,
     ownerName: (state.characterProfiles[discordIdentity.id] && state.characterProfiles[discordIdentity.id].nickname) || discordIdentity.username || '',
     createdAt: prev && prev.createdAt ? prev.createdAt : now,
@@ -302,6 +306,7 @@ async function bisSetPublic(makePublic){
   if (!set || set.public === makePublic) return;
   const payload = bisSetPayload(set.name, set);
   payload.slots = set.slots; // move the saved version, not unsaved draft edits
+  payload.talents = bisTalentsPayload(set.talents);
   payload.raceId = set.raceId;
   payload.level = set.level;
   try {

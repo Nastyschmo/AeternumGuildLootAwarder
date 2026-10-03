@@ -118,6 +118,7 @@ function bisLoadDraft(){
       d.raceId = typeof raw.raceId === 'string' ? raw.raceId : '1';
       d.level = Math.min(BIS_MAX_LEVEL, Math.max(1, Number(raw.level) || BIS_DEFAULT_LEVEL));
       if (typeof raw.setId === 'string') d.setId = raw.setId;
+      if (raw.talents) d.talents = bisNormalizeTalents(raw.talents, d.classId);
       if (raw.slots && typeof raw.slots === 'object'){
         for (const s of BIS_SLOTS){
           const v = raw.slots[s.key];
@@ -518,6 +519,7 @@ function renderBisPlanner(){
         ${slotRows}
       </div>
       <div class="bis-side">
+        ${bisTalentCardHtml()}
         <div class="tac-card bis-stats">
           <h3 class="bis-card-title">Werte auf Stufe ${b.level}</h3>
           <div class="bis-stat-grid">
@@ -549,6 +551,7 @@ function renderBisPlanner(){
   bisWireViewTabs(root);
   bisWirePlanner(root);
   bisWireSetBar(root);
+  bisWireTalentCard(root);
 }
 
 /** @param {HTMLElement} root */
@@ -568,6 +571,7 @@ function bisWirePlanner(root){
     b.classId = c;
     b.specId = foreverSpecsForClass(c)[0].id;
     b.slots = {};
+    b.talents = [{}, {}, {}]; // talents belong to the class
     b.setId = '';
     bisSetNameDraft = null;
     bisSetStatus = '';

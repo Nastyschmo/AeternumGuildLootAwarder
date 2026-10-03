@@ -52,7 +52,7 @@ function bisBrowseCardHtml(id, s){
       <img class="bis-build-class" src="${escapeHtml(foreverClassIconUrl(s.classId))}" alt="" style="border-color:${cls.color}">
       <div class="bis-build-title">
         <div class="bis-build-name">${bisIsRecommended(id) ? '<span class="bis-rec-badge" title="Von der Gildenleitung empfohlen">★</span>' : ''}${escapeHtml(s.name)}</div>
-        <div class="bis-build-meta"><span style="color:${cls.color}">${escapeHtml(cls.label)} · ${escapeHtml(foreverSpecLabel(s.classId, s.specId))}</span> · Stufe ${s.level} · von <strong>${escapeHtml(bisOwnerLabel(s))}</strong>${mine ? ' (Du)' : ''}${date ? ' · ' + date : ''}</div>
+        <div class="bis-build-meta"><span style="color:${cls.color}">${escapeHtml(cls.label)} · ${escapeHtml(foreverSpecLabel(s.classId, s.specId))}</span> · Stufe ${s.level}${bisTalentSummary(s.talents) ? ' · Talente ' + bisTalentSummary(s.talents) : ''} · von <strong>${escapeHtml(bisOwnerLabel(s))}</strong>${mine ? ' (Du)' : ''}${date ? ' · ' + date : ''}</div>
       </div>
     </div>
     <div class="bis-build-items">${items.length

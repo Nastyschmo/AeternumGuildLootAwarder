@@ -1260,7 +1260,17 @@ page lists every public set as a card (class, spec, level, owner, date,
 search by set or player name, recommended first, then newest. "Im
 Planer öffnen" loads the set into the planner. Every logged-in account
 (Community included) can browse; Admins can remove someone else's public
-set (also clears its recommendation). No comments by design. Rules: README § 6f.
+set (also clears its recommendation). No comments by design.
+
+**Talente im Set** (`js/bis-talents.js`): the side card "Talente" shows
+the set's talent points per tree (icons with rank, "31/20/0", warning
+when more points than the level allows). "Im Talent Builder bearbeiten"
+opens the Talent Builder with the set's talents (the user's own builder
+state for that class is backed up), a banner there offers "Übernehmen &
+zurück" / "Abbrechen" and restores the backup; "Aus Talent Builder
+übernehmen" copies the current builder state. Saved with the set as
+`talents: { t0, t1, t2 }` (talent name -> rank); switching class clears
+them. No rules change. Rules: README § 6f.
 
 ## Type checking (development only)
 

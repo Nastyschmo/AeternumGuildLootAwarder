@@ -252,13 +252,24 @@ const area = byId(await table('AreaTable', eraBuild, NEED.AreaTable));
 for (const [id, row] of byId(t.AreaTable)) area.set(id, row);
 const maps = byId(await table('Map', eraBuild, NEED.Map));
 for (const [id, row] of byId(t.Map)) maps.set(id, row);
-const zoneName = id => (id && area.get(id) ? area.get(id).AreaName_lang : '');
+console.log(`  zones: ${area.size} (Era + Forever), maps: ${maps.size}`);
 const INSTANCE_KIND = { 1: 'd', 2: 'r', 3: 'b' };
-/** zone name -> 'd' dungeon / 'r' raid / 'b' battleground, for zones items drop in. */
+/**
+ * zone name -> 'd' dungeon / 'r' raid / 'b' battleground. Filled by zone id
+ * as NPC zones are named (names aren't unique: Forever has instances with
+ * subzones called e.g. "Westfall").
+ */
 const instances = {};
-for (const row of area.values()) {
+const zoneName = id => {
+  const row = id && area.get(id);
+  if (!row) return '';
   const kind = INSTANCE_KIND[I((maps.get(I(row.ContinentID)) || {}).InstanceType)];
-  if (kind && row.AreaName_lang) instances[row.AreaName_lang] = kind;
+  if (kind && row.AreaName_lang && !instances[row.AreaName_lang]) instances[row.AreaName_lang] = kind;
+  return row.AreaName_lang;
+};
+for (const id of [2717, 3456, 1581, 40]) {
+  const row = area.get(id), map = row && maps.get(I(row.ContinentID));
+  console.log(`  zone ${id}: ${row ? row.AreaName_lang : '?'} map ${row ? row.ContinentID : '?'} ${map ? map.MapName_lang + ' type ' + map.InstanceType : '?'}`);
 }
 const sparse = byId(t.ItemSparse);
 const itemName = id => ((sparse.get(id) || eraSparse.get(id) || {}).Display_lang || (qItems.get(id) || [])[0]);

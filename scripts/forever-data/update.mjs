@@ -66,11 +66,10 @@ async function table(name, build, need = []) {
 const byId = (rows, key = 'ID') => new Map(rows.map(r => [I(r[key]), r]));
 
 // ---------------------------------------------------------------- build
-async function newestForeverBuild() {
-  const builds = JSON.parse(await getText(`${WAGO}/api/builds`));
-  const list = (builds[PRODUCT] || []).filter(b => /^1\.60\./.test(b.version))
+async function newestBuild(builds, product, prefix) {
+  const list = (builds[product] || []).filter(b => b.version.startsWith(prefix))
     .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-  if (!list.length) throw new Error(`no 1.60.x build found under ${PRODUCT}`);
+  if (!list.length) throw new Error(`no ${prefix}x build found under ${product}`);
   return list[0].version;
 }
 
@@ -104,7 +103,8 @@ function itemMath(t) {
       }
       return out;
     },
-    armor(cls, sub, inv, ilvl, quality) {
+    armor(cls, sub, inv, ilvl, quality, sp) {
+      if (sp && 'Resistances_0' in sp) return I(sp.Resistances_0); // Classic Era layout: stored on the item
       if (cls !== 4 || quality > 6) return 0;
       const q = Math.min(quality, 6);
       if (sub === 6) { const row = dmg.ItemArmorShield.get(ilvl); return row ? Math.floor(F(row[`Quality_${q}`]) + 0.5) : 0; }
@@ -116,6 +116,12 @@ function itemMath(t) {
     },
     damage(cls, sub, sp, quality) {
       if (cls !== 2) return null;
+      if ('MinDamage_0' in sp) { // Classic Era layout: stored on the item
+        const min = I(sp.MinDamage_0), max = I(sp.MaxDamage_0), delay = I(sp.ItemDelay);
+        if (!(min || max) || delay <= 0) return null;
+        const speed = delay / 1000;
+        return { min, max, speed, dps: Math.round((min + max) / 2 / speed * 10) / 10 };
+      }
       const ilvl = I(sp.ItemLevel), q = quality === 7 ? 3 : Math.min(quality, 6);
       const caster = (I(sp.Flags_1) & 0x200) !== 0;
       let name;
@@ -161,8 +167,13 @@ function buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName) {
 }
 
 // ---------------------------------------------------------------- main
-const build = await newestForeverBuild();
-console.log('Forever build:', build);
+const builds = JSON.parse(await getText(`${WAGO}/api/builds`));
+const build = await newestBuild(builds, PRODUCT, '1.60.');
+// wago.tools' Forever ItemSparse export only holds part of the items (the
+// rest are unchanged Classic items). Those are filled in from the newest
+// Classic Era build, whose ItemSparse stores final stat/armor/damage values.
+const eraBuild = await newestBuild(builds, 'wow_classic_era', '1.15.');
+console.log('Forever build:', build, '| Classic Era fallback:', eraBuild);
 
 const NEED = {
   ItemSparse: ['Display_lang', 'ItemLevel', 'OverallQualityID', 'RequiredLevel', 'StatModifier_bonusStat_0', 'StatPercentEditor_0', 'ItemDelay', 'DmgVariance', 'ItemSet', 'AllowableClass', 'Bonding'],
@@ -191,10 +202,14 @@ for (const line of listfileTxt.split('\n')) {
 }
 console.log(`  listfile: ${icons.size} icon names`);
 
+const eraSparseRows = await table('ItemSparse', eraBuild, ['Display_lang', 'ItemLevel', 'OverallQualityID', 'StatModifier_bonusAmount_0']);
+console.log(`  ItemSparse (Era ${eraBuild}): ${eraSparseRows.length} rows`);
+const eraSparse = byId(eraSparseRows);
+
 const area = byId(t.AreaTable);
 const zoneName = id => (id && area.get(id) ? area.get(id).AreaName_lang : '');
 const sparse = byId(t.ItemSparse);
-const itemName = id => (sparse.get(id) ? sparse.get(id).Display_lang : (qItems.get(id) || [])[0]);
+const itemName = id => ((sparse.get(id) || eraSparse.get(id) || {}).Display_lang || (qItems.get(id) || [])[0]);
 const sources = buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName);
 
 const setOf = new Map();
@@ -204,7 +219,7 @@ const sets = {};
 const math = itemMath(t);
 const items = [];
 for (const it of t.Item) {
-  const id = I(it.ID), sp = sparse.get(id);
+  const id = I(it.ID), sp = sparse.get(id) || eraSparse.get(id);
   if (!sp) continue;
   const cls = I(it.ClassID), sub = I(it.SubclassID), inv = I(it.InventoryType), q = I(sp.OverallQualityID);
   if ((cls !== 2 && cls !== 4) || !GEAR_INV_TYPES.has(inv) || q < MIN_QUALITY || q > 5) continue;
@@ -216,7 +231,7 @@ for (const it of t.Item) {
   const b = I(sp.Bonding); if (b) rec.b = b;
   const icon = icons.get(I(it.IconFileDataID)); if (icon) rec.ic = icon;
   const st = math.stats(sp, q, inv); if (st.length) rec.s = st;
-  const ar = math.armor(cls, sub, inv, rec.il, q); if (ar) rec.ar = ar;
+  const ar = math.armor(cls, sub, inv, rec.il, q, sp); if (ar) rec.ar = ar;
   const dm = math.damage(cls, sub, sp, q); if (dm) rec.dm = dm;
   const set = I(sp.ItemSet) || setOf.get(id);
   if (set) { rec.set = set; const row = t.ItemSet.find(s => I(s.ID) === set); if (row) sets[set] = row.Name_lang; }
@@ -238,7 +253,7 @@ if (fail.length) { console.error('Sanity check failed: ' + fail.join('; ')); pro
 
 // ---------------------------------------------------------------- write
 await mkdir(OUT_DIR, { recursive: true });
-const itemsJson = JSON.stringify({ build, sets, items }) + '\n';
+const itemsJson = JSON.stringify({ build, eraBuild, sets, items }) + '\n';
 const itemsUrl = new URL('items.json', OUT_DIR);
 let previous = '';
 try { previous = await readFile(itemsUrl, 'utf8'); } catch (e) { /* first run */ }
@@ -247,7 +262,7 @@ if (previous === itemsJson) {
 } else {
   await writeFile(itemsUrl, itemsJson);
   await writeFile(new URL('meta.json', OUT_DIR), JSON.stringify({
-    build, generatedAt: new Date().toISOString(), counts: { items: items.length, withStats, withSources: withSrc, withIcons: withIcon },
+    build, eraBuild, generatedAt: new Date().toISOString(), counts: { items: items.length, withStats, withSources: withSrc, withIcons: withIcon },
     sources: ['wago.tools (WoW Forever client DB2)', 'Questie/QuestieDB data/Forever', 'wowdev/wow-listfile']
   }, null, 2) + '\n');
   console.log(`Wrote data/forever/items.json (${Math.round(itemsJson.length / 1024)} KB).`);

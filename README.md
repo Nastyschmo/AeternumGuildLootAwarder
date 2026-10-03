@@ -1222,8 +1222,14 @@ there with one multi-path update; readable by every logged-in account as
 the basis for a later public build list). *Habe ich* belongs to the item,
 not the set: `bisOwned/<uid>/<itemId>` — one tick counts in every set;
 logged out it stays in `localStorage` (`rude-bis-owned-v1`) and joins the
-account at the next login. Community and logged-out visitors use the
-planner locally. Rules: README § 6f.
+account at the next login. The set dropdown also lists
+other users' public sets for the same class + spec, grouped per user
+("Öffentlich von <Name>"); loading one shows the owner, and changes can
+be saved as an own copy. Community accounts can browse those but not
+save; logged-out visitors use the planner locally. Leaving a set with
+unsaved changes asks in a styled dialog (Speichern / Verwerfen / Weiter
+bearbeiten — `bisDialog()` in js/bis-sets.js, also used for delete and
+"Alle Slots leeren"). Rules: README § 6f.
 
 ## Type checking (development only)
 

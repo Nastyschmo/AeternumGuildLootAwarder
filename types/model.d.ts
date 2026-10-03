@@ -282,6 +282,8 @@ interface BisBuild {
   slots: Record<string, { itemId: number }>;
   /** Saved set this draft was loaded from / saved to ('' = none). */
   setId?: string;
+  /** Talent points per tree (0..2): talent name -> rank. */
+  talents?: Record<string, number>[];
 }
 /** A saved item set: bisSets/<uid>/<id> (private) or bisPublic/<id>. */
 interface BisSavedSet {
@@ -292,6 +294,8 @@ interface BisSavedSet {
   level: number;
   /** Slot key -> item id. */
   slots: Record<string, number>;
+  /** Talent points per tree (stored in Firebase as { t0, t1, t2 }). */
+  talents: Record<string, number>[];
   /** True when it lives under bisPublic (not stored, derived from the path). */
   public: boolean;
   ownerId: DiscordId;

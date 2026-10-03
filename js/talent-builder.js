@@ -341,6 +341,7 @@ function renderTalentTree(cls, treeIdx){
 function renderTalentBuilder(){
   ensureTalentBuildLoaded();
   if (!els.talentTreesContainer) return;
+  bisRenderTalentBanner(); // "editing talents for a BiS set" (js/bis-talents.js)
   renderTalentClassSelector();
 
   const cls = talentBuilderClass;

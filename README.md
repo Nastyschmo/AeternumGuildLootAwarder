@@ -1111,7 +1111,8 @@ containers). `data/forever/meta.json` records the client build it was made
 from. `data/forever/class-stats.json` holds base health, mana and
 attributes per class and level (1–60), race offsets, crit per
 agility/intellect, the level-60 combat rating conversions and which races
-can play which class (`combos`, from the client's `CharBaseInfo`). Nobody edits
+can play which class (`combos`, from the client's `CharBaseInfo`) and each
+race's faction. Nobody edits
 these by hand:
 
 - `scripts/forever-data/update.mjs` builds them from the newest WoW Forever
@@ -1148,7 +1149,10 @@ two-handers block the off hand). The page sums up the stats (health, mana,
 attributes, armor, attack power, hit/crit %), shows where every item comes
 from and builds a farm list grouped by zone; a slot ticked as *Habe ich*
 drops off the list. Quest rewards without a required level count from the
-quest's level. The selection is stored only in the browser
+quest's level. Faction: the race decides Alliance/Horde; items only one
+faction can get (the importer's `fa`, from one-faction vendors/quests in
+QuestieDB, e.g. Warsong Gulch gear) are hidden for the other one, and
+other-faction vendors/quests are left out of the sources. The selection is stored only in the browser
 (`localStorage` key `rude-bis-draft-v1`) — saving builds to the database,
 admin-recommended builds and talents come in later steps. No Firebase rules
 are needed for it.

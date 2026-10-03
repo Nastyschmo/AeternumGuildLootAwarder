@@ -140,31 +140,65 @@ function itemMath(t) {
   };
 }
 
+// ---------------------------------------------------------------- faction
+// Playable races as ChrRaces id - 1 bits. Forever's new Skyborne races sit
+// above bit 31 (32 = High Order / Alliance, 33 = Windshaper / Horde), so
+// masks are split into a low and a high 32-bit word.
+const ALLIANCE_LO = 77, HORDE_LO = 178, ALLIANCE_HI = 1, HORDE_HI = 2;
+/** 'A' / 'H' if a race mask only allows one faction, else undefined. */
+function maskFaction(lo, hi = 0) {
+  lo >>>= 0; hi >>>= 0;
+  if (lo === 0xffffffff || (!lo && !hi)) return undefined;
+  const a = (lo & ALLIANCE_LO) || (hi & ALLIANCE_HI), h = (lo & HORDE_LO) || (hi & HORDE_HI);
+  return a && !h ? 'A' : h && !a ? 'H' : undefined;
+}
+/** QuestieDB stores quest race masks as one (up to 64-bit) number. */
+const questFaction = mask => {
+  const m = Number(mask) || 0;
+  return maskFaction(m % 4294967296, Math.floor(m / 4294967296));
+};
+/** QuestieDB friendlyToFaction: 'A', 'H', 'AH' or nil. Only one-faction vendors matter. */
+const npcFaction = f => (f === 'A' || f === 'H' ? f : undefined);
+
 // ---------------------------------------------------------------- sources
 function buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName) {
-  const npcLabel = id => {
+  const npcLabel = (id, withFaction) => {
     const n = qNpcs.get(id);
     if (!n) return null;
-    const zone = zoneName(n[8]);
-    return zone ? { n: n[0], z: zone } : { n: n[0] };
+    const ref = { n: n[0] };
+    const zone = zoneName(n[8]); if (zone) ref.z = zone;
+    // Only for vendors: a mob friendly to one faction can still drop its
+    // loot for the other.
+    const f = withFaction && npcFaction(n[12]); if (f) ref.f = f;
+    return ref;
   };
   const out = new Map();
   for (const [id, r] of qItems) {
     const src = {};
     const drops = (r[1] || []).filter(Boolean);
     if (drops.length > MAX_LISTED_DROPPERS) src.dropCount = drops.length;
-    else if (drops.length) src.drops = drops.map(npcLabel).filter(Boolean);
+    else if (drops.length) src.drops = drops.map(d => npcLabel(d, false)).filter(Boolean);
     const objects = (r[2] || []).map(o => qObjects.get(o)).filter(Boolean).map(o => o[0]);
     if (objects.length) src.objects = [...new Set(objects)].slice(0, MAX_LISTED_DROPPERS);
     const containers = (r[3] || []).map(itemName).filter(Boolean);
     if (containers.length) src.containers = containers.slice(0, MAX_LISTED_DROPPERS);
-    const quests = (r[5] || []).map(q => qQuests.get(q) && { n: qQuests.get(q)[0], id: q, l: qQuests.get(q)[4] || undefined }).filter(Boolean);
+    const quests = (r[5] || []).map(q => {
+      const row = qQuests.get(q);
+      return row && { n: row[0], id: q, l: row[4] || undefined, f: questFaction(row[5]) };
+    }).filter(Boolean);
     if (quests.length) src.quests = quests;
-    const vendors = (r[13] || []).map(npcLabel).filter(Boolean);
+    const vendors = (r[13] || []).map(v => npcLabel(v, true)).filter(Boolean);
     if (vendors.length) src.vendors = vendors.slice(0, MAX_LISTED_DROPPERS);
     if (Object.keys(src).length) out.set(id, src);
   }
   return out;
+}
+
+/** 'A' / 'H' if every way to get the item is limited to that faction. */
+function sourceFaction(src) {
+  if (!src || src.drops || src.dropCount || src.objects || src.containers) return undefined;
+  const fs = [...(src.vendors || []), ...(src.quests || [])].map(x => x.f);
+  return fs.length && fs.every(f => f && f === fs[0]) ? fs[0] : undefined;
 }
 
 // ---------------------------------------------------------------- main
@@ -237,11 +271,18 @@ for (const it of t.Item) {
   const set = I(sp.ItemSet) || setOf.get(id);
   if (set) { rec.set = set; const row = t.ItemSet.find(s => I(s.ID) === set); if (row) sets[set] = row.Name_lang; }
   const src = sources.get(id); if (src) rec.src = src;
+  // Faction: the item's own race mask if it names one faction (rare in
+  // Forever — even PvP rank gear says "all races"), else the sources: an
+  // item only sold by one faction's vendors / rewarded by its quests is
+  // that faction's (e.g. Warsong Gulch gear).
+  const fa = maskFaction(I(sp.AllowableRace_0 ?? sp.AllowableRace ?? -1), I(sp.AllowableRace_1 ?? 0)) || sourceFaction(src);
+  if (fa) rec.fa = fa;
   items.push(rec);
 }
 items.sort((a, b) => a.id - b.id);
 
 // ---------------------------------------------------------------- sanity
+console.log(`  faction items: ${items.filter(r => r.fa === 'A').length} Alliance, ${items.filter(r => r.fa === 'H').length} Horde`);
 const withStats = items.filter(r => r.s).length, withSrc = items.filter(r => r.src).length, withIcon = items.filter(r => r.ic).length;
 console.log(`Items: ${items.length} (stats ${withStats}, sources ${withSrc}, icons ${withIcon}, sets ${Object.keys(sets).length})`);
 for (const id of [12640, 15063, 13340, 16707, 19019]) console.log('  sample', JSON.stringify(items.find(r => r.id === id)));
@@ -249,6 +290,9 @@ const fail = [];
 if (items.length < 3000) fail.push(`only ${items.length} items`);
 if (withStats < items.length * 0.5) fail.push(`only ${withStats} items with stats`);
 if (withIcon < items.length * 0.8) fail.push(`only ${withIcon} items with icons`);
+// Warsong Gulch necklaces: sold only by Horde / Alliance supply officers.
+const factionOf = id => (items.find(r => r.id === id) || {}).fa;
+if (factionOf(19534) !== 'H' || factionOf(19538) !== 'A') fail.push(`faction check: Scout's Medallion ${factionOf(19534)}, Sentinel's Medallion ${factionOf(19538)}`);
 if (withSrc < items.length * 0.2) fail.push(`only ${withSrc} items with sources`);
 if (fail.length) { console.error('Sanity check failed: ' + fail.join('; ')); process.exit(1); }
 

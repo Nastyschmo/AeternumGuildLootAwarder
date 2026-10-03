@@ -93,6 +93,9 @@ export async function buildClassStats({ build, table, getText }) {
     const race = races.find(r => r.ID === rid);
     if (!race) continue; // planner keeps ids for races the client doesn't have
     out.raceOffsets[rid] = { name: race.Name_lang };
+    // ChrRaces.Alliance: 0 Alliance, 1 Horde (2 = neutral, e.g. unchosen Pandaren).
+    if (race.Alliance === '0') out.raceOffsets[rid].faction = 'A';
+    else if (race.Alliance === '1') out.raceOffsets[rid].faction = 'H';
     for (const [k, name] of Object.entries(ATTR_KEYS)) out.raceOffsets[rid][name] = offs[k] || 0;
   }
 
@@ -103,6 +106,7 @@ export async function buildClassStats({ build, table, getText }) {
   if (mage60.int !== 125) fail.push(`mage L60 int ${mage60.int} (expected 125)`);
   if (!out.classes[3].levels[59].critPerAgi) fail.push('hunter L60 crit per agility missing (PlayerExpectedStat)');
   if (Object.keys(out.raceOffsets).length < 8) fail.push(`only ${Object.keys(out.raceOffsets).length} races`);
+  if (out.raceOffsets[1]?.faction !== 'A' || out.raceOffsets[2]?.faction !== 'H') fail.push('race factions (ChrRaces.Alliance) missing');
   if (fail.length) throw new Error('class stats sanity check failed: ' + fail.join('; '));
 
   console.log(`Class stats: ${CLASS_IDS.length} classes × ${MAX_LEVEL} levels, ${Object.keys(out.raceOffsets).length} races;`,

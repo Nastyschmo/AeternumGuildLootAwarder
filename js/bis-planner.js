@@ -247,6 +247,95 @@ function bisStatLine(item){
   }
   return parts.join(' · ');
 }
+const BIS_FACTION_LABEL = { A: 'Allianz', H: 'Horde' };
+/** Faction ('A' / 'H') of the planned character's race, or '' if unknown. */
+function bisFaction(){
+  const r = bisData && bisDraft && bisData.stats.raceOffsets[bisDraft.raceId];
+  return (r && r.faction) || '';
+}
+/** True if the item can only be had by the other faction. @param {ForeverItem} item */
+function bisWrongFaction(item){
+  const f = bisFaction();
+  return Boolean(f && item.fa && item.fa !== f);
+}
+/** Sources the planned character's faction can use (other faction's vendors / quests dropped). @param {ForeverItem} item */
+function bisSources(item){
+  const s = item.src;
+  const f = bisFaction();
+  if (!s || !f) return s;
+  const ok = x => !x.f || x.f === f;
+  /** @type {ForeverItemSource} */
+  const out = Object.assign({}, s);
+  if (s.vendors) out.vendors = s.vendors.filter(ok);
+  if (s.quests) out.quests = s.quests.filter(ok);
+  return out;
+}
+/** Short German description of where an item comes from. @param {ForeverItem} item */
+function bisSourceLines(item){
+  if (bisWrongFaction(item)) return [`Nur für ${BIS_FACTION_LABEL[item.fa]} erhältlich`];
+  const s = bisSources(item);
+  if (!s) return [];
+  const npc = n => n.z ? `${n.n} (${n.z})` : n.n;
+  const out = [];
+  if (s.drops && s.drops.length) out.push('Drop: ' + s.drops.map(npc).join(', '));
+  if (s.dropCount) out.push(`Weltdrop / Trash (${s.dropCount} Gegner)`);
+  if (s.quests && s.quests.length) out.push('Quest: ' + s.quests.map(q => q.l ? `${q.n} (Stufe ${q.l})` : q.n).join(', '));
+  if (s.vendors && s.vendors.length) out.push('Händler: ' + s.vendors.map(npc).join(', '));
+  if (s.objects && s.objects.length) out.push('Objekt: ' + s.objects.join(', '));
+  if (s.containers && s.containers.length) out.push('Enthalten in: ' + s.containers.join(', '));
+  return out;
+}
+/** Grouping key for the farm list: the first zone we know, else the source kind. @param {ForeverItem} item */
+function bisSourceGroup(item){
+  if (bisWrongFaction(item)) return 'Andere Fraktion';
+  const s = bisSources(item);
+  if (!s) return 'Quelle unbekannt';
+  const zoned = (s.drops || []).concat(s.vendors || []).find(n => n.z);
+  if (zoned) return zoned.z;
+  if (s.quests && s.quests.length) return 'Quests';
+  if (s.drops && s.drops.length) return 'Drops (Zone unbekannt)';
+  if (s.dropCount) return 'Weltdrops';
+  if (s.vendors && s.vendors.length) return 'Händler';
+  return 'Sonstiges';
+}
+
+// ---------------------------------------------------------------- render helpers
+/** @param {ForeverItem} item */
+function bisQualityColor(item){
+  return ITEM_QUALITY_COLORS[BIS_QUALITY_KEYS[item.q] || 'COMMON'];
+}
+/** @param {ForeverItem | undefined} item */
+function bisIconHtml(item, size){
+  const px = size || 36;
+  if (!item) return `<span class="bis-icon bis-icon-empty" style="width:${px}px;height:${px}px"></span>`;
+  const url = talentIconUrl(item.ic || 'inv_misc_questionmark', px > 40 ? 'large' : 'medium');
+  return `<img class="bis-icon wow-icon-frame" style="width:${px}px;height:${px}px;border-color:${bisQualityColor(item)}" src="${escapeHtml(url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`;
+}
+/**
+ * Level from which an item is realistically usable: its required level, or
+ * for quest rewards without one (common in Classic) the lowest quest level.
+ * @param {ForeverItem} item
+ */
+function bisItemLevel(item){
+  if (item.rl) return item.rl;
+  const ql = (item.src && item.src.quests || []).map(q => q.l || 0).filter(Boolean);
+  return ql.length ? Math.min(...ql) : 1;
+}
+/** "Stufe 42" / "Quest-Stufe 42" for the item meta line. @param {ForeverItem} item */
+function bisLevelLabel(item){
+  return item.rl ? `Stufe ${item.rl}` : `${bisItemLevel(item) > 1 ? 'Quest-' : ''}Stufe ${bisItemLevel(item)}`;
+}
+/** @param {ForeverItem} item */
+function bisStatLine(item){
+  const parts = [];
+  if (item.dm) parts.push(`${item.dm.min}–${item.dm.max} Schaden (${item.dm.dps} DPS)`);
+  if (item.ar) parts.push(`${item.ar} Rüstung`);
+  for (const [stat, val] of item.s || []){
+    const label = BIS_STAT_LABELS[stat];
+    if (label) parts.push(`+${val} ${label}`);
+  }
+  return parts.join(' · ');
+}
 /** Short German description of where an item comes from. @param {ForeverItem} item */
 function bisSourceLines(item){
   const s = item.src;
@@ -307,7 +396,7 @@ function renderBisPlanner(){
           ${item ? `<span class="bis-item-name" style="color:${bisQualityColor(item)}">${escapeHtml(item.n)}</span>
                     <span class="bis-item-meta">${bisLevelLabel(item)} · iLvl ${item.il}${item.b === 1 ? ' · BoP' : item.b === 2 ? ' · BoE' : ''}</span>
                     <span class="bis-item-stats">${escapeHtml(bisStatLine(item))}</span>
-                    ${src.length ? `<span class="bis-item-src">${escapeHtml(src[0])}</span>` : '<span class="bis-item-src bis-item-src-none">Quelle unbekannt</span>'}`
+                    ${src.length ? `<span class="bis-item-src${bisWrongFaction(item) ? ' bis-item-src-wrong' : ''}">${escapeHtml(src[0])}</span>` : '<span class="bis-item-src bis-item-src-none">Quelle unbekannt</span>'}`
                  : `<span class="bis-slot-empty">${blocked ? 'Zweihandwaffe ausgerüstet' : 'Item wählen…'}</span>`}
         </span>
       </button>
@@ -354,7 +443,7 @@ function renderBisPlanner(){
       </div>
       <div class="bis-control">
         <label for="bisRaceSelect">Rasse</label>
-        <select id="bisRaceSelect">${races.map(r => `<option value="${r}" ${r === b.raceId ? 'selected' : ''}>${escapeHtml(bisData.stats.raceOffsets[r].name)}</option>`).join('')}</select>
+        <select id="bisRaceSelect">${races.map(r => `<option value="${r}" ${r === b.raceId ? 'selected' : ''}>${escapeHtml(bisData.stats.raceOffsets[r].name)}${bisData.stats.raceOffsets[r].faction ? ' (' + BIS_FACTION_LABEL[bisData.stats.raceOffsets[r].faction] + ')' : ''}</option>`).join('')}</select>
       </div>
       <div class="bis-control bis-control-level">
         <label for="bisLevelInput">Stufe <strong id="bisLevelValue">${b.level}</strong></label>
@@ -452,10 +541,12 @@ function renderBisPickerList(){
   const onlySourced = els.bisPickerSourcedOnly.checked;
   const showHigher = els.bisPickerHigherLevel.checked;
   const minQuality = Number(els.bisPickerQuality.value) || 2;
+  const faction = bisFaction();
   const matches = bisData.items.items.filter(i => inv.includes(i.it)
     && i.q >= minQuality
     && (showHigher || bisItemLevel(i) <= b.level)
     && (!onlySourced || i.src)
+    && (!faction || !i.fa || i.fa === faction)
     && bisCanUse(i, b)
     && (!q || i.n.toLowerCase().includes(q)))
     .sort((a, z) => z.il - a.il || z.q - a.q || a.n.localeCompare(z.n));

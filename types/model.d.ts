@@ -179,7 +179,7 @@ interface ForeverClassStats {
   /** ChrClasses id -> name + stats for levels 1..60 (index 0 = level 1). */
   classes: Record<string, { name: string; levels: ForeverClassLevelStats[] }>;
   /** ChrRaces id -> attribute offset added to the class row (pre-racial). */
-  raceOffsets: Record<string, { name: string; str: number; agi: number; sta: number; int: number; spi: number }>;
+  raceOffsets: Record<string, { name: string; str: number; agi: number; sta: number; int: number; spi: number; faction?: Faction }>;
   /** ChrRaces id -> playable ChrClasses ids (from CharBaseInfo; may be absent). */
   combos?: Record<string, number[]>;
   /** Rating needed for 1% (defense: 1 skill point) at level 60. */
@@ -188,14 +188,18 @@ interface ForeverClassStats {
 
 // ---------------------------------------------------------------------
 // data/forever/items.json (generated). Short keys keep the file small.
-interface ForeverNpcRef { n: string; z?: string; }
+/** 'A' = Alliance, 'H' = Horde. */
+type Faction = 'A' | 'H';
+/** NPC name, zone; `f` only on vendors that serve one faction. */
+interface ForeverNpcRef { n: string; z?: string; f?: Faction; }
 interface ForeverItemSource {
   drops?: ForeverNpcRef[];
   /** More than six dropping NPCs: a world/trash drop, only counted. */
   dropCount?: number;
   objects?: string[];
   containers?: string[];
-  quests?: { n: string; id: number; l?: number }[];
+  /** `f`: quest limited to one faction's races. */
+  quests?: { n: string; id: number; l?: number; f?: Faction }[];
   vendors?: ForeverNpcRef[];
 }
 interface ForeverItem {
@@ -214,6 +218,8 @@ interface ForeverItem {
   /** Weapon damage. */ dm?: { min: number; max: number; speed: number; dps: number };
   /** Item set id. */ set?: number;
   src?: ForeverItemSource;
+  /** Only obtainable by this faction (race mask or one-faction vendors/quests). */
+  fa?: Faction;
 }
 interface ForeverItemsFile {
   build: string;

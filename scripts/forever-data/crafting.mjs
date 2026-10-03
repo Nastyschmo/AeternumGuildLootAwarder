@@ -31,7 +31,12 @@ export async function buildCrafting({ build, table, gearIds, sparse, eraSparse, 
   const itemXEffects = await table('ItemXItemEffect', build, ['ItemEffectID', 'ItemID']);
 
   const abilityOf = new Map(abilities.map(a => [I(a.Spell), a]));
-  const skillName = new Map(skillLines.map(s => [I(s.ID), s.DisplayName_lang]));
+  // Professions only (SkillLine category 11 primary, 9 secondary) — class
+  // skill lines like Arcane or Demonology also own item-creating spells.
+  const PROFESSION_CATEGORIES = new Set([9, 11]);
+  const skillName = new Map(skillLines
+    .filter(s => !('CategoryID' in s) || PROFESSION_CATEGORIES.has(I(s.CategoryID)))
+    .map(s => [I(s.ID), s.DisplayName_lang]));
 
   // craft spell -> recipe item ids
   const effectById = new Map(itemEffects.map(e => [I(e.ID), e]));

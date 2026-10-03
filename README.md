@@ -1171,7 +1171,11 @@ these by hand:
   `data/forever/enchants.json`): ENCHANT_ITEM spells (SpellEffect 53) →
   SpellItemEnchantment effect text, SpellEquippedItems slot masks, source
   = profession (SkillLineAbility, recipe item) or on-use item (ItemEffect
-  TriggerType 0) with QuestieDB sources.
+  TriggerType 0) with QuestieDB sources. `st`: flat stats as
+  `[item stat id, value]` — stat effects (type 5), armor / resistances
+  (type 4) and equip spells (type 3) whose auras are plain bonuses
+  (stats, attack power, spell damage, healing, mana per 5, health,
+  defense, resistances); procs and % effects are left out.
 - Talent trees (`scripts/forever-data/talents.mjs` → `data/forever/talents.js`,
   `window.FOREVER_TALENT_TREES`): Forever keeps its trees in the client's
   retail-style Trait tables (not the Classic Talent/TalentTab ones). Names,
@@ -1296,8 +1300,8 @@ enchant and counts in every set (stored next to the owned items as
 `bisOwned/<uid>/e<itemId>_<enchantId>`); the farm list gets a
 "Verzauberungen" section. Saved with the set as `enchants: { slot:
 spellId }`; picking another item keeps the enchant only if it still
-fits. Enchants are not added to the stat totals (most work through
-spell auras). No rules change. Rules: README § 6f.
+fits. Flat enchant stats (`st`) are added to the stat totals; procs
+and % effects (Crusader, +1% dodge …) are not. No rules change. Rules: README § 6f.
 
 ## How to play (Class Overview)
 

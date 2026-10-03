@@ -12,6 +12,8 @@
 //    skill requirement is server-side. Then MinSkillLineRank is used when
 //    set, else the rank where the recipe turns yellow minus 20 — the most
 //    common gap for recipe items — flagged as an estimate (`e`).
+//  - SpellReagents: the materials per craft spell (Forever rows over
+//    Classic Era rows).
 
 const CREATE_ITEM = 24;
 const LEARN_ON_USE = 6;
@@ -20,15 +22,30 @@ const TRAINER_GAP = 20;
 const I = v => { const n = Math.trunc(Number(v)); return Number.isFinite(n) ? n : 0; };
 
 /**
- * @param {{ build: string, table: Function, gearIds: Set<number>, sparse: Map<number, any>, eraSparse: Map<number, any>, sources: Map<number, any> }} io
- * @returns {Promise<{ craftOf: Map<number, any>, professions: Record<string, string> }>}
+ * @param {{ build: string, eraBuild: string, table: Function, gearIds: Set<number>, sparse: Map<number, any>, eraSparse: Map<number, any>, sources: Map<number, any>, itemName: (id: number) => string | undefined }} io
+ * @returns {Promise<{ craftOf: Map<number, any>, professions: Record<string, string>, reagents: Record<string, string> }>}
  */
-export async function buildCrafting({ build, table, gearIds, sparse, eraSparse, sources }) {
+export async function buildCrafting({ build, eraBuild, table, gearIds, sparse, eraSparse, sources, itemName }) {
   const effects = await table('SpellEffect', build, ['Effect', 'EffectItemType', 'SpellID']);
   const abilities = await table('SkillLineAbility', build, ['SkillLine', 'Spell', 'MinSkillLineRank', 'TrivialSkillLineRankLow']);
   const skillLines = await table('SkillLine', build, ['DisplayName_lang']);
   const itemEffects = await table('ItemEffect', build, ['TriggerType', 'SpellID']);
   const itemXEffects = await table('ItemXItemEffect', build, ['ItemEffectID', 'ItemID']);
+
+  // Materials: Classic Era rows first, Forever rows override them (the
+  // Forever export may only hold changed spells, or lack the table).
+  const REAGENT_COLS = ['SpellID', 'Reagent_0', 'ReagentCount_0'];
+  const reagentsOf = new Map();
+  let reagentTables = 0;
+  for (const b of [eraBuild, build]) {
+    try {
+      for (const r of await table('SpellReagents', b, REAGENT_COLS)) reagentsOf.set(I(r.SpellID), r);
+      reagentTables++;
+    } catch (e) {
+      console.log(`SpellReagents (${b}) skipped: ${e.message}`);
+    }
+  }
+  if (!reagentTables) throw new Error('SpellReagents unavailable for both builds');
 
   const abilityOf = new Map(abilities.map(a => [I(a.Spell), a]));
   // Professions only (SkillLine category 11 primary, 9 secondary) — class
@@ -51,6 +68,7 @@ export async function buildCrafting({ build, table, gearIds, sparse, eraSparse, 
 
   const craftOf = new Map();
   const professions = {};
+  const reagents = {};
   for (const fx of effects) {
     if (I(fx.Effect) !== CREATE_ITEM) continue;
     const itemId = I(fx.EffectItemType), spell = I(fx.SpellID);
@@ -78,10 +96,21 @@ export async function buildCrafting({ build, table, gearIds, sparse, eraSparse, 
       craft.r = Math.max(1, I(ability.TrivialSkillLineRankLow) - TRAINER_GAP);
       craft.e = 1;
     }
+    const mats = [];
+    const rr = reagentsOf.get(spell);
+    for (let i = 0; rr && i < 8; i++) {
+      const id = I(rr[`Reagent_${i}`]), n = I(rr[`ReagentCount_${i}`]);
+      if (id <= 0 || n <= 0) continue;
+      const name = itemName(id);
+      if (!name) continue;
+      mats.push([id, n]);
+      reagents[id] = name;
+    }
+    if (mats.length) craft.m = mats;
     // Several spells can make the same item: keep the easiest one.
     const prev = craftOf.get(itemId);
     if (!prev || craft.r < prev.r) craftOf.set(itemId, craft);
     professions[p] = skillName.get(p);
   }
-  return { craftOf, professions };
+  return { craftOf, professions, reagents };
 }

@@ -252,8 +252,8 @@ const itemName = id => ((sparse.get(id) || eraSparse.get(id) || {}).Display_lang
 const sources = buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName);
 
 // Crafting, checked for every weapon/armor item (a superset of what's kept).
-const { craftOf, professions } = await buildCrafting({
-  build, table, sparse, eraSparse, sources,
+const { craftOf, professions, reagents } = await buildCrafting({
+  build, eraBuild, table, sparse, eraSparse, sources, itemName,
   gearIds: new Set(t.Item.filter(it => I(it.ClassID) === 2 || I(it.ClassID) === 4).map(it => I(it.ID)))
 });
 
@@ -294,7 +294,7 @@ for (const it of t.Item) {
 items.sort((a, b) => a.id - b.id);
 
 // ---------------------------------------------------------------- sanity
-console.log(`  crafted: ${items.filter(r => r.src?.craft).length} (with recipe item ${items.filter(r => r.src?.craft?.rec).length}, estimated skill ${items.filter(r => r.src?.craft?.e).length})`);
+console.log(`  crafted: ${items.filter(r => r.src?.craft).length}, with materials ${items.filter(r => r.src?.craft?.m).length} (with recipe item ${items.filter(r => r.src?.craft?.rec).length}, estimated skill ${items.filter(r => r.src?.craft?.e).length})`);
 console.log(`  faction items: ${items.filter(r => r.fa === 'A').length} Alliance, ${items.filter(r => r.fa === 'H').length} Horde`);
 const withStats = items.filter(r => r.s).length, withSrc = items.filter(r => r.src).length, withIcon = items.filter(r => r.ic).length;
 console.log(`Items: ${items.length} (stats ${withStats}, sources ${withSrc}, icons ${withIcon}, sets ${Object.keys(sets).length})`);
@@ -304,7 +304,7 @@ if (items.length < 3000) fail.push(`only ${items.length} items`);
 if (withStats < items.length * 0.5) fail.push(`only ${withStats} items with stats`);
 if (withIcon < items.length * 0.8) fail.push(`only ${withIcon} items with icons`);
 const reaper = (items.find(r => r.id === 12784) || { src: {} }).src?.craft;
-if (!reaper || reaper.p !== 164 || reaper.r !== 300 || !reaper.rec) fail.push(`crafting check: Arcanite Reaper ${JSON.stringify(reaper)}`);
+if (!reaper || reaper.p !== 164 || reaper.r !== 300 || !reaper.rec || !reaper.m?.some(([id]) => id === 12360)) fail.push(`crafting check: Arcanite Reaper ${JSON.stringify(reaper)}`);
 // Warsong Gulch necklaces: sold only by Horde / Alliance supply officers.
 const factionOf = id => (items.find(r => r.id === id) || {}).fa;
 if (factionOf(19534) !== 'H' || factionOf(19538) !== 'A') fail.push(`faction check: Scout's Medallion ${factionOf(19534)}, Sentinel's Medallion ${factionOf(19538)}`);
@@ -325,7 +325,7 @@ async function writeIfChanged(name, json) {
   console.log(`Wrote data/forever/${name} (${Math.round(json.length / 1024)} KB).`);
   return true;
 }
-const itemsChanged = await writeIfChanged('items.json', JSON.stringify({ build, eraBuild, sets, professions, items }) + '\n');
+const itemsChanged = await writeIfChanged('items.json', JSON.stringify({ build, eraBuild, sets, professions, reagents, items }) + '\n');
 const statsChanged = await writeIfChanged('class-stats.json', JSON.stringify({ build, ...classStats }) + '\n');
 if (itemsChanged || statsChanged) {
   await writeFile(new URL('meta.json', OUT_DIR), JSON.stringify({

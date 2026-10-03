@@ -212,6 +212,8 @@ interface ForeverCraft {
   e?: 1;
   /** Recipe item that teaches it (absent = learned at a trainer). */
   rec?: { id: number; n: string; b?: number; src?: ForeverItemSource };
+  /** Materials as [item id, count]; names in ForeverItemsFile.reagents. */
+  m?: [number, number][];
 }
 interface ForeverItem {
   id: number;
@@ -238,6 +240,8 @@ interface ForeverItemsFile {
   sets: Record<string, string>;
   /** SkillLine id -> English profession name. */
   professions?: Record<string, string>;
+  /** Material item id -> name. */
+  reagents?: Record<string, string>;
   items: ForeverItem[];
 }
 

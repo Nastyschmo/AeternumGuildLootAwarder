@@ -223,18 +223,46 @@ function bisIconHtml(item, size){
   return `<img class="bis-icon wow-icon-frame" style="width:${px}px;height:${px}px;border-color:${bisQualityColor(item)}" src="${escapeHtml(url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`;
 }
 /**
- * Level from which an item is realistically usable: its required level, or
- * for quest rewards without one (common in Classic) the lowest quest level.
+ * Level from which an item is realistically usable: its required level; for
+ * quest rewards without one (common in Classic) the lowest quest level;
+ * otherwise (the client says 0, e.g. some raid drops) item level - 5, capped
+ * at 60 — the Classic rule, exact for ~94% of items that do have a level.
  * @param {ForeverItem} item
+ * @returns {{ level: number, kind: 'req' | 'quest' | 'est' }}
  */
-function bisItemLevel(item){
-  if (item.rl) return item.rl;
+function bisItemLevelInfo(item){
+  if (item.rl) return { level: item.rl, kind: 'req' };
   const ql = (item.src && item.src.quests || []).map(q => q.l || 0).filter(Boolean);
-  return ql.length ? Math.min(...ql) : 1;
+  if (ql.length) return { level: Math.min(...ql), kind: 'quest' };
+  return { level: Math.min(BIS_MAX_LEVEL, Math.max(1, item.il - 5)), kind: 'est' };
 }
-/** "Stufe 42" / "Quest-Stufe 42" for the item meta line. @param {ForeverItem} item */
+/** @param {ForeverItem} item */
+function bisItemLevel(item){
+  return bisItemLevelInfo(item).level;
+}
+/** "Stufe 42" / "Quest-Stufe 42" / "Stufe ca. 60" for the item meta line. @param {ForeverItem} item */
 function bisLevelLabel(item){
-  return item.rl ? `Stufe ${item.rl}` : `${bisItemLevel(item) > 1 ? 'Quest-' : ''}Stufe ${bisItemLevel(item)}`;
+  const { level, kind } = bisItemLevelInfo(item);
+  return kind === 'quest' ? `Quest-Stufe ${level}` : kind === 'est' ? `Stufe ca. ${level}` : `Stufe ${level}`;
+}
+const BIS_ARMOR_TYPES = { 1: 'Stoff', 2: 'Leder', 3: 'Kette', 4: 'Platte', 6: 'Schild', 7: 'Buchband', 8: 'Götze', 9: 'Totem' };
+const BIS_WEAPON_TYPES = {
+  0: 'Einhandaxt', 1: 'Zweihandaxt', 2: 'Bogen', 3: 'Schusswaffe', 4: 'Einhandstreitkolben', 5: 'Zweihandstreitkolben',
+  6: 'Stangenwaffe', 7: 'Einhandschwert', 8: 'Zweihandschwert', 10: 'Stab', 13: 'Faustwaffe', 15: 'Dolch',
+  16: 'Wurfwaffe', 18: 'Armbrust', 19: 'Zauberstab'
+};
+/** Armor or weapon type, e.g. "Platte" / "Zweihandschwert"; '' for rings, necks etc. @param {ForeverItem} item */
+function bisTypeLabel(item){
+  if (item.c === 4) return BIS_ARMOR_TYPES[item.sc] || '';
+  if (item.c === 2) return BIS_WEAPON_TYPES[item.sc] || '';
+  return '';
+}
+/** Meta line: type · level · item level · binding (· set). @param {ForeverItem} item @param {boolean} [withSet] */
+function bisMetaLine(item, withSet){
+  const parts = [bisTypeLabel(item), bisLevelLabel(item), `iLvl ${item.il}`];
+  if (item.b === 1) parts.push('BoP'); else if (item.b === 2) parts.push('BoE');
+  if (withSet && item.set && bisData.items.sets[item.set]) parts.push('Set: ' + bisData.items.sets[item.set]);
+  return parts.filter(Boolean).join(' · ');
 }
 /** @param {ForeverItem} item */
 function bisStatLine(item){
@@ -277,6 +305,12 @@ function bisCraftLine(item){
   }
   return `Herstellung: ${bisCraftSkill(c)}, ${who}. ${recipe}`;
 }
+/** "Material: 12× Arcanite Bar, 2× …" or ''. @param {ForeverCraft} c */
+function bisMaterialsLine(c){
+  if (!c || !c.m || !c.m.length) return '';
+  const names = (bisData && bisData.items.reagents) || {};
+  return 'Material: ' + c.m.map(([id, n]) => `${n}× ${names[id] || 'Item ' + id}`).join(', ');
+}
 /** Faction ('A' / 'H') of the planned character's race, or '' if unknown. */
 function bisFaction(){
   const r = bisData && bisDraft && bisData.stats.raceOffsets[bisDraft.raceId];
@@ -306,7 +340,11 @@ function bisSourceLines(item){
   if (!s) return [];
   const npc = n => n.z ? `${n.n} (${n.z})` : n.n;
   const out = [];
-  if (s.craft && item.id) out.push(bisCraftLine(item)); // item.id: not for a recipe's own sources
+  if (s.craft && item.id){ // item.id: not for a recipe's own sources
+    out.push(bisCraftLine(item));
+    const mats = bisMaterialsLine(s.craft);
+    if (mats) out.push(mats);
+  }
   if (s.drops && s.drops.length) out.push('Drop: ' + s.drops.map(npc).join(', '));
   if (s.dropCount) out.push(`Weltdrop / Trash (${s.dropCount} Gegner)`);
   if (s.quests && s.quests.length) out.push('Quest: ' + s.quests.map(q => q.l ? `${q.n} (Stufe ${q.l})` : q.n).join(', '));
@@ -361,7 +399,7 @@ function renderBisPlanner(){
         <span class="bis-slot-text">
           <span class="bis-slot-label">${escapeHtml(s.label)}</span>
           ${item ? `<span class="bis-item-name" style="color:${bisQualityColor(item)}">${escapeHtml(item.n)}</span>
-                    <span class="bis-item-meta">${bisLevelLabel(item)} · iLvl ${item.il}${item.b === 1 ? ' · BoP' : item.b === 2 ? ' · BoE' : ''}</span>
+                    <span class="bis-item-meta">${escapeHtml(bisMetaLine(item))}</span>
                     <span class="bis-item-stats">${escapeHtml(bisStatLine(item))}</span>
                     ${src.length ? `<span class="bis-item-src${bisWrongFaction(item) ? ' bis-item-src-wrong' : ''}">${escapeHtml(src[0])}</span>` : '<span class="bis-item-src bis-item-src-none">Quelle unbekannt</span>'}`
                  : `<span class="bis-slot-empty">${blocked ? 'Zweihandwaffe ausgerüstet' : 'Item wählen…'}</span>`}
@@ -401,6 +439,24 @@ function renderBisPlanner(){
       pr.own.push(label);
     } else pr.buy.push(label);
   }
+  // Shopping list: materials of every open crafted slot (BoE ones too —
+  // skip those you'd rather buy finished).
+  /** @type {Map<number, number>} */
+  const matTotals = new Map();
+  for (const s of BIS_SLOTS){
+    const sel = b.slots[s.key];
+    const item = sel && !sel.done && bisData.byId.get(sel.itemId);
+    const c = item && item.src && item.src.craft;
+    if (!c || !c.m || (s.key === 'offhand' && bisOffhandBlocked(b))) continue;
+    for (const [id, n] of c.m) matTotals.set(id, (matTotals.get(id) || 0) + n);
+  }
+  const matNames = bisData.items.reagents || {};
+  const matHtml = matTotals.size ? `<div class="tac-card bis-mats">
+      <h3 class="bis-card-title">Materialliste</h3>
+      <ul class="bis-mat-list">${[...matTotals].sort((a, z) => (matNames[a[0]] || '').localeCompare(matNames[z[0]] || '', 'de'))
+        .map(([id, n]) => `<li><strong>${n}×</strong> ${escapeHtml(matNames[id] || 'Item ' + id)}</li>`).join('')}</ul>
+      <p class="bis-hint">Alle Materialien für die offenen herstellbaren Slots, auch BoE-Teile, die Du alternativ fertig kaufen kannst.</p>
+    </div>` : '';
   const profKeys = Object.keys(profs).sort((a, z) => profs[z].need - profs[a].need);
   const profHtml = profKeys.length ? `<div class="tac-card bis-profs">
       <h3 class="bis-card-title">Benötigte Berufe</h3>
@@ -474,6 +530,7 @@ function renderBisPlanner(){
           <p class="bis-hint">Grundwerte von Klasse, Rasse und Stufe plus Ausrüstung. Ohne Talente, Buffs, Verzauberungen und Rassen-Multiplikatoren; Krit ohne klassenspezifischen Grund-Krit.${st.estimated ? ' „ca.“: Unter Stufe 60 ist die Umrechnung Wertung → % geschätzt.' : ''}</p>
         </div>
         ${profHtml}
+        ${matHtml}
         <div class="tac-card bis-farm">
           <h3 class="bis-card-title">Farm-Liste</h3>
           ${farmHtml}
@@ -556,7 +613,7 @@ function renderBisPickerList(){
       ${bisIconHtml(i, 36)}
       <span class="bis-slot-text">
         <span class="bis-item-name" style="color:${bisQualityColor(i)}">${escapeHtml(i.n)}</span>
-        <span class="bis-item-meta">${bisLevelLabel(i)} · iLvl ${i.il}${i.b === 1 ? ' · BoP' : i.b === 2 ? ' · BoE' : ''}${i.set && bisData.items.sets[i.set] ? ' · Set: ' + escapeHtml(bisData.items.sets[i.set]) : ''}</span>
+        <span class="bis-item-meta">${escapeHtml(bisMetaLine(i, true))}</span>
         <span class="bis-item-stats">${escapeHtml(bisStatLine(i))}</span>
         <span class="bis-item-src${src.length ? '' : ' bis-item-src-none'}">${escapeHtml(src.length ? src.join(' · ') : 'Quelle unbekannt')}</span>
       </span>

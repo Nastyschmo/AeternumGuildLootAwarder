@@ -288,7 +288,8 @@ const BIS_FACTION_LABEL = { A: 'Allianz', H: 'Horde' };
 /** SkillLine id -> German profession name (fallback: the client's English name in items.json). */
 const BIS_PROFESSION_LABELS = {
   164: 'Schmiedekunst', 165: 'Lederverarbeitung', 197: 'Schneiderei', 202: 'Ingenieurskunst',
-  333: 'Verzauberkunst', 171: 'Alchemie', 755: 'Juwelierskunst', 186: 'Bergbau'
+  333: 'Verzauberkunst', 171: 'Alchemie', 755: 'Juwelierskunst', 186: 'Bergbau',
+  182: 'Kräuterkunde', 393: 'Kürschnerei', 185: 'Kochkunst', 129: 'Erste Hilfe'
 };
 /** @param {number} p */
 function bisProfessionName(p){
@@ -452,24 +453,7 @@ function renderBisPlanner(){
       pr.own.push(label);
     } else pr.buy.push(label);
   }
-  // Shopping list: materials of every open crafted slot (BoE ones too —
-  // skip those you'd rather buy finished).
-  /** @type {Map<number, number>} */
-  const matTotals = new Map();
-  for (const s of BIS_SLOTS){
-    const sel = b.slots[s.key];
-    const item = sel && !bisIsOwned(sel.itemId) && bisData.byId.get(sel.itemId);
-    const c = item && item.src && item.src.craft;
-    if (!c || !c.m || (s.key === 'offhand' && bisOffhandBlocked(b))) continue;
-    for (const [id, n] of c.m) matTotals.set(id, (matTotals.get(id) || 0) + n);
-  }
-  const matNames = bisData.items.reagents || {};
-  const matHtml = matTotals.size ? `<div class="tac-card bis-mats">
-      <h3 class="bis-card-title">Materialliste</h3>
-      <ul class="bis-mat-list">${[...matTotals].sort((a, z) => (matNames[a[0]] || '').localeCompare(matNames[z[0]] || '', 'de'))
-        .map(([id, n]) => `<li><strong>${n}×</strong> ${escapeHtml(matNames[id] || 'Item ' + id)}</li>`).join('')}</ul>
-      <p class="bis-hint">Alle Materialien für die offenen herstellbaren Slots, auch BoE-Teile, die Du alternativ fertig kaufen kannst.</p>
-    </div>` : '';
+  const matHtml = bisMaterialsCardHtml(b);
   const profKeys = Object.keys(profs).sort((a, z) => profs[z].need - profs[a].need);
   const profHtml = profKeys.length ? `<div class="tac-card bis-profs">
       <h3 class="bis-card-title">Benötigte Berufe</h3>
@@ -560,6 +544,7 @@ function renderBisPlanner(){
   bisWireSetBar(root);
   bisWireTalentCard(root);
   bisWireEnchants(root);
+  bisWireMaterials(root);
 }
 
 /** @param {HTMLElement} root */

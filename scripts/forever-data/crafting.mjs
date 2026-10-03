@@ -23,7 +23,7 @@ const I = v => { const n = Math.trunc(Number(v)); return Number.isFinite(n) ? n 
 
 /**
  * @param {{ build: string, eraBuild: string, table: Function, gearIds: Set<number>, sparse: Map<number, any>, eraSparse: Map<number, any>, sources: Map<number, any>, itemName: (id: number) => string | undefined }} io
- * @returns {Promise<{ craftOf: Map<number, any>, professions: Record<string, string>, reagents: Record<string, string> }>}
+ * @returns {Promise<{ craftOf: Map<number, any>, craftFor: (itemId: number) => any, professions: Record<string, string>, reagents: Record<string, string> }>}
  */
 export async function buildCrafting({ build, eraBuild, table, gearIds, sparse, eraSparse, sources, itemName }) {
   const effects = await table('SpellEffect', build, ['Effect', 'EffectItemType', 'SpellID']);
@@ -66,51 +66,67 @@ export async function buildCrafting({ build, eraBuild, table, gearIds, sparse, e
     recipesOf.get(spell).push(I(x.ItemID));
   }
 
-  const craftOf = new Map();
-  const professions = {};
-  const reagents = {};
+  // item id -> profession spells that create it
+  const spellsFor = new Map();
   for (const fx of effects) {
     if (I(fx.Effect) !== CREATE_ITEM) continue;
     const itemId = I(fx.EffectItemType), spell = I(fx.SpellID);
-    if (!gearIds.has(itemId)) continue;
     const ability = abilityOf.get(spell);
-    if (!ability) continue; // not a profession spell (NPC / quest spells)
-    const p = I(ability.SkillLine);
-    if (!skillName.get(p)) continue;
-
-    // Prefer a recipe item we have a row for, and among those one with known sources.
-    const recipes = (recipesOf.get(spell) || [])
-      .map(id => ({ id, row: sparse.get(id) || eraSparse.get(id) }))
-      .filter(r => r.row && r.row.Display_lang)
-      .sort((a, b) => Number(Boolean(sources.get(b.id))) - Number(Boolean(sources.get(a.id))) || a.id - b.id);
-    const craft = { p };
-    const recipe = recipes[0];
-    if (recipe && I(recipe.row.RequiredSkillRank) > 0) {
-      craft.r = I(recipe.row.RequiredSkillRank);
-      craft.rec = { id: recipe.id, n: recipe.row.Display_lang };
-      const b = I(recipe.row.Bonding); if (b) craft.rec.b = b;
-      const src = sources.get(recipe.id); if (src) craft.rec.src = src;
-    } else if (I(ability.MinSkillLineRank) > 1) {
-      craft.r = I(ability.MinSkillLineRank);
-    } else {
-      craft.r = Math.max(1, I(ability.TrivialSkillLineRankLow) - TRAINER_GAP);
-      craft.e = 1;
-    }
-    const mats = [];
-    const rr = reagentsOf.get(spell);
-    for (let i = 0; rr && i < 8; i++) {
-      const id = I(rr[`Reagent_${i}`]), n = I(rr[`ReagentCount_${i}`]);
-      if (id <= 0 || n <= 0) continue;
-      const name = itemName(id);
-      if (!name) continue;
-      mats.push([id, n]);
-      reagents[id] = name;
-    }
-    if (mats.length) craft.m = mats;
-    // Several spells can make the same item: keep the easiest one.
-    const prev = craftOf.get(itemId);
-    if (!prev || craft.r < prev.r) craftOf.set(itemId, craft);
-    professions[p] = skillName.get(p);
+    if (!ability || !skillName.get(I(ability.SkillLine))) continue; // NPC / quest / class spells
+    if (!spellsFor.has(itemId)) spellsFor.set(itemId, []);
+    spellsFor.get(itemId).push(spell);
   }
-  return { craftOf, professions, reagents };
+
+  const professions = {};
+  const reagents = {};
+  /** The easiest profession craft for an item, or undefined. */
+  function craftFor(itemId) {
+    let best;
+    for (const spell of spellsFor.get(itemId) || []) {
+      const ability = abilityOf.get(spell);
+      const p = I(ability.SkillLine);
+      // Prefer a recipe item we have a row for, and among those one with known sources.
+      const recipes = (recipesOf.get(spell) || [])
+        .map(id => ({ id, row: sparse.get(id) || eraSparse.get(id) }))
+        .filter(r => r.row && r.row.Display_lang)
+        .sort((a, b) => Number(Boolean(sources.get(b.id))) - Number(Boolean(sources.get(a.id))) || a.id - b.id);
+      const craft = { p };
+      const recipe = recipes[0];
+      if (recipe && I(recipe.row.RequiredSkillRank) > 0) {
+        craft.r = I(recipe.row.RequiredSkillRank);
+        craft.rec = { id: recipe.id, n: recipe.row.Display_lang };
+        const b = I(recipe.row.Bonding); if (b) craft.rec.b = b;
+        const src = sources.get(recipe.id); if (src) craft.rec.src = src;
+      } else if (I(ability.MinSkillLineRank) > 1) {
+        craft.r = I(ability.MinSkillLineRank);
+      } else {
+        craft.r = Math.max(1, I(ability.TrivialSkillLineRankLow) - TRAINER_GAP);
+        craft.e = 1;
+      }
+      const mats = [];
+      const rr = reagentsOf.get(spell);
+      for (let i = 0; rr && i < 8; i++) {
+        const id = I(rr[`Reagent_${i}`]), n = I(rr[`ReagentCount_${i}`]);
+        if (id <= 0 || n <= 0) continue;
+        const name = itemName(id);
+        if (!name) continue;
+        mats.push([id, n]);
+      }
+      if (mats.length) craft.m = mats;
+      // Several spells can make the same item: keep the easiest one.
+      if (!best || craft.r < best.r) best = craft;
+    }
+    if (best) {
+      professions[best.p] = skillName.get(best.p);
+      for (const [id] of best.m || []) reagents[id] = itemName(id);
+    }
+    return best;
+  }
+
+  const craftOf = new Map();
+  for (const itemId of gearIds) {
+    const craft = craftFor(itemId);
+    if (craft) craftOf.set(itemId, craft);
+  }
+  return { craftOf, craftFor, professions, reagents };
 }

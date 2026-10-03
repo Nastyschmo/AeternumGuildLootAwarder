@@ -167,6 +167,10 @@ const PAGES = [
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M9 7h7M9 11h7"/></svg>'
   },
   {
+    id: 'bis', label: 'BiS-Planer',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg>'
+  },
+  {
     id: 'recruit', label: 'Bewerbung',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>'
   },
@@ -271,6 +275,7 @@ function showPage(pageId, opts){
   // the page, not on every visit and never on renderAll() (nothing
   // about it ever changes at runtime).
   if (pageId === 'forevertools') renderForeverToolsPage();
+  if (pageId === 'bis') renderBisPlanner();
   // Opening Ankündigungen is what clears its quest "!" — mark up to the
   // newest post that exists right now as seen (no-op if already caught up).
   if (pageId === 'announcements') markAnnouncementsSeen();

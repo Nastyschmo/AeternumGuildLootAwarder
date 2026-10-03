@@ -58,7 +58,21 @@ export async function buildClassStats({ build, table, getText }) {
     pes.set(`${Number(r.ClassID)}:${Number(r.Level)}`, r);
   }
 
-  const out = { classes: {}, raceOffsets: {}, ratingPerPercentAt60: RATING_PER_PERCENT_AT_60 };
+  // Which race/class combinations exist (Forever adds new ones). Optional:
+  // if the table or its columns ever change, the page falls back to
+  // offering every race.
+  /** @type {Record<string, number[]> | undefined} */
+  let combos;
+  try {
+    const rows = await table('CharBaseInfo', build, ['RaceID', 'ClassID']);
+    combos = {};
+    for (const r of rows) (combos[r.RaceID] = combos[r.RaceID] || []).push(Number(r.ClassID));
+    for (const k of Object.keys(combos)) combos[k].sort((a, b) => a - b);
+  } catch (e) {
+    console.log('CharBaseInfo skipped:', e.message);
+  }
+
+  const out = { classes: {}, raceOffsets: {}, combos, ratingPerPercentAt60: RATING_PER_PERCENT_AT_60 };
   for (const cid of CLASS_IDS) {
     const plannerClass = base.stats[String(cid)];
     if (!plannerClass) throw new Error(`no base stats for class ${cid}`);
@@ -79,6 +93,9 @@ export async function buildClassStats({ build, table, getText }) {
     const race = races.find(r => r.ID === rid);
     if (!race) continue; // planner keeps ids for races the client doesn't have
     out.raceOffsets[rid] = { name: race.Name_lang };
+    // ChrRaces.Alliance: 0 Alliance, 1 Horde (2 = neutral, e.g. unchosen Pandaren).
+    if (race.Alliance === '0') out.raceOffsets[rid].faction = 'A';
+    else if (race.Alliance === '1') out.raceOffsets[rid].faction = 'H';
     for (const [k, name] of Object.entries(ATTR_KEYS)) out.raceOffsets[rid][name] = offs[k] || 0;
   }
 
@@ -89,6 +106,7 @@ export async function buildClassStats({ build, table, getText }) {
   if (mage60.int !== 125) fail.push(`mage L60 int ${mage60.int} (expected 125)`);
   if (!out.classes[3].levels[59].critPerAgi) fail.push('hunter L60 crit per agility missing (PlayerExpectedStat)');
   if (Object.keys(out.raceOffsets).length < 8) fail.push(`only ${Object.keys(out.raceOffsets).length} races`);
+  if (out.raceOffsets[1]?.faction !== 'A' || out.raceOffsets[2]?.faction !== 'H') fail.push('race factions (ChrRaces.Alliance) missing');
   if (fail.length) throw new Error('class stats sanity check failed: ' + fail.join('; '));
 
   console.log(`Class stats: ${CLASS_IDS.length} classes × ${MAX_LEVEL} levels, ${Object.keys(out.raceOffsets).length} races;`,

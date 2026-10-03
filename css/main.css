@@ -1935,3 +1935,27 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 .bis-dialog-actions{ display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .bis-rec-badge{ display: inline-block; color: var(--gold-bright); font-weight: 700; margin-right: 6px; }
 .bis-rec-toggle{ color: var(--gold-bright); }
+
+/* BiS-Planer tabs + "Öffentliche Builds" (js/bis-browser.js) */
+.bis-tabs{ display: flex; gap: 4px; border-bottom: 1px solid var(--border-soft); margin-bottom: 18px; }
+.bis-tab{ background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font: inherit; font-weight: 600; font-size: 14px; padding: 10px 16px; cursor: pointer; margin-bottom: -1px; }
+.bis-tab:hover{ color: var(--text); }
+.bis-tab.active{ color: var(--gold-bright); border-bottom-color: var(--gold-bright); }
+.bis-class-all{ padding: 6px 14px; }
+.bis-browse-count{ margin: 0 0 10px; }
+.bis-build-grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.bis-build-card{ background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.bis-build-card.bis-build-rec{ border-color: var(--gold); }
+.bis-build-head{ display: flex; gap: 10px; align-items: center; }
+.bis-build-class{ width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--border); flex: none; }
+.bis-build-title{ min-width: 0; }
+.bis-build-name{ font-family: 'Cinzel', serif; font-weight: 700; font-size: 15px; color: var(--gold-bright); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bis-build-meta{ font-size: 12px; color: var(--text-muted); }
+.bis-build-meta strong{ color: var(--text); }
+.bis-build-items{ display: flex; flex-wrap: wrap; gap: 4px; }
+.bis-build-items .bis-icon{ display: block; }
+.bis-build-owned{ opacity: .45; }
+.bis-build-foot{ display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+.bis-build-count{ font-size: 12px; color: var(--text-faint); }
+.bis-build-actions{ display: flex; gap: 6px; }
+@media (max-width: 600px){ .bis-build-grid{ grid-template-columns: 1fr; } }

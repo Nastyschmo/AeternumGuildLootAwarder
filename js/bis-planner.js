@@ -385,6 +385,7 @@ function renderBisPlanner(){
   }
   if (!bisDraft) bisDraft = bisLoadDraft();
   bisSyncListeners();
+  if (bisView === 'browse'){ renderBisBrowser(root); return; }
   const b = bisDraft;
   const races = bisRacesForClass(b.classId);
   if (!races.includes(b.raceId)) b.raceId = races[0];
@@ -488,7 +489,7 @@ function renderBisPlanner(){
     [51, 'Feuerwiderstand'], [52, 'Frostwiderstand'], [55, 'Naturwiderstand'], [54, 'Schattenwiderstand'], [56, 'Arkanwiderstand']]
     .filter(([id]) => st.gear[id]).map(([id, label]) => `<div class="bis-stat"><span>${label}</span><strong>${st.gear[id]}</strong></div>`).join('');
 
-  root.innerHTML = `
+  root.innerHTML = `${bisViewTabsHtml()}
     <div class="bis-controls tac-card">
       <div class="bis-control">
         <label>Klasse</label>
@@ -545,6 +546,7 @@ function renderBisPlanner(){
       </div>
     </div>
     <p class="bis-hint bis-footnote">Daten: WoW Forever Build ${escapeHtml(bisData.items.build)} (täglich automatisch aktualisiert). Deine Auswahl wird vorerst nur in diesem Browser gespeichert.</p>`;
+  bisWireViewTabs(root);
   bisWirePlanner(root);
   bisWireSetBar(root);
 }

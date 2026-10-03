@@ -1973,3 +1973,6 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 .bis-tal-actions{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .bis-tal-banner{ display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; background: var(--bg-panel-raised); border: 1px solid var(--gold); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 13.5px; }
 .bis-tal-banner .bis-tal-actions{ margin-top: 0; }
+.bis-tal-icon{ cursor: help; }
+.bis-tal-icon:focus{ outline: 1px solid var(--gold-bright); outline-offset: 1px; }
+.bis-tal-tip-next{ margin-top: 6px; }

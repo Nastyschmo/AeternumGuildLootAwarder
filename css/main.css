@@ -108,8 +108,10 @@
 html.theme-horde{
   /* Page frame: neutral near-black and greys (2026-10-03, the all-red
      look was too much). Red stays as the accent (--gold*, headings,
-     active nav, buttons) and on the collapsible cards (--fold-*) and the
-     Home intro card (--parchment-*), where it contrasts with the black. */
+     active nav, buttons) and on the
+     Home intro card (--parchment-*), where it contrasts with the black.
+     Collapsible cards (--fold-*) are grey like the other cards; their
+     titles carry the red (see the html.theme-horde title rules). */
   --bg-deep: #0b0b0c;
   --bg-panel: #151517;
   --bg-panel-raised: #1f1f22;
@@ -149,10 +151,10 @@ html.theme-horde{
 
   --btn-primary-top: #9e3624;
   --btn-primary-bottom: #82291b;
-  --fold-border: #5a2419;
-  --fold-head-bg: linear-gradient(135deg, #4a1a12 0%, #331109 100%);
-  --fold-head-hover: linear-gradient(135deg, #5a2116 0%, #3d150c 100%);
-  --fold-body-bg: #1b0d0a;
+  --fold-border: #2e2e33;
+  --fold-head-bg: #1f1f22;
+  --fold-head-hover: #26262a;
+  --fold-body-bg: #151517;
 }
 
 *{ box-sizing: border-box; }
@@ -733,6 +735,7 @@ html.theme-horde .hero{
 .voting-card.open .voting-card-chevron{ transform: rotate(90deg); }
 .voting-card-chevron svg{ width: 14px; height: 14px; }
 .voting-card-title{ flex: 1; font-family: 'Cinzel', serif; font-size: 15.5px; font-weight: 600; letter-spacing: .5px; color: var(--text); }
+html.theme-horde .voting-card-title{ color: var(--gold-bright); }
 .voting-status-badge{
   flex: none; font-family: 'Karla', sans-serif; font-size: 10.5px; font-weight: 700; letter-spacing: .6px;
   text-transform: uppercase; padding: 4px 10px; border-radius: 999px;
@@ -983,6 +986,13 @@ html.theme-horde .hero{
    .voting-card / .tac-card shells. ---------- */
 .poll-option-input-row{ display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .poll-option-input-row input[type="text"]{ flex: 1; }
+/* Poll option and duration inputs: same look as the other text fields. */
+.poll-option-input-row input[type="text"], .poll-config-field input[type="number"]{
+  font-family: 'Karla', sans-serif; font-size: 13.5px; padding: 7px 10px;
+  background: var(--field-bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text);
+}
+.poll-option-input-row input[type="text"]:focus, .poll-config-field input[type="number"]:focus{ outline: none; border-color: var(--gold); }
+.poll-option-input-row input[type="text"]::placeholder{ color: var(--text-faint); }
 .poll-option-remove-btn{
   flex: none; width: 30px; height: 30px; padding: 0; font-size: 14px; line-height: 1;
   background: transparent; border: 1px solid var(--border); border-radius: 4px;
@@ -1381,7 +1391,8 @@ html.theme-horde .classdive-card{ background: var(--fold-body-bg); border-color:
   padding: 14px 16px; color: var(--text); font-family: inherit;
 }
 .classdive-toggle:hover{ background: var(--bg-panel); }
-/* Horde: class cards get the red fold header like Ankündigungen. */
+/* Horde: class cards share the fold look of Ankündigungen; titles in the accent red. */
+html.theme-horde .classdive-toggle-title{ color: var(--gold-bright); }
 html.theme-horde .classdive-toggle{ background: var(--fold-head-bg); }
 html.theme-horde .classdive-toggle:hover{ background: var(--fold-head-hover); }
 html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg); }

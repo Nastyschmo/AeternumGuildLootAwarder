@@ -1856,3 +1856,9 @@ html.theme-horde .hero{
   .bis-control-actions{ margin-left: 0; }
 }
 .bis-item-src-wrong{ color: var(--danger-bright); }
+.bis-profs .bis-prof{ border-bottom: 1px solid var(--border-soft); padding: 8px 0; font-size: 13px; }
+.bis-profs .bis-prof:last-of-type{ border-bottom: none; }
+.bis-prof-head{ display: flex; justify-content: space-between; gap: 8px; margin-bottom: 3px; }
+.bis-prof-head span{ color: var(--gold-bright); font-weight: 700; }
+.bis-prof-line{ font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.bis-prof-buy{ color: var(--text-faint); }

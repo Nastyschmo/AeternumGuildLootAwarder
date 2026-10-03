@@ -1130,6 +1130,11 @@ these by hand:
   → % conversion isn't in the client anymore; the TBC curve is assumed
   (rating per 1% × max(level − 8, 2) / 52) and should be shown as an
   estimate.
+- Crafting (`scripts/forever-data/crafting.mjs`): which profession makes
+  an item and at what skill, from the client's `SpellEffect` (create
+  item), `SkillLineAbility` and the recipe items' `ItemEffect`; the
+  recipe's own sources come from QuestieDB. Trainer-learned recipes have
+  no recipe item; their skill is estimated (marked `e`).
 - `.github/workflows/forever-data.yml` runs it **every day**. If the data
   changed, it runs the importer's sanity checks and the type check, opens a
   pull request and merges it immediately.
@@ -1152,7 +1157,10 @@ drops off the list. Quest rewards without a required level count from the
 quest's level. Faction: the race decides Alliance/Horde; items only one
 faction can get (the importer's `fa`, from one-faction vendors/quests in
 QuestieDB, e.g. Warsong Gulch gear) are hidden for the other one, and
-other-faction vendors/quests are left out of the sources. The selection is stored only in the browser
+other-faction vendors/quests are left out of the sources. Crafted items show
+the profession and skill and where the recipe drops/is sold; the card
+*Benötigte Berufe* sums up which professions the open slots need — BoP
+crafts you must make yourself, BoE ones can be bought. The selection is stored only in the browser
 (`localStorage` key `rude-bis-draft-v1`) — saving builds to the database,
 admin-recommended builds and talents come in later steps. No Firebase rules
 are needed for it.

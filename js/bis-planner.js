@@ -248,6 +248,35 @@ function bisStatLine(item){
   return parts.join(' · ');
 }
 const BIS_FACTION_LABEL = { A: 'Allianz', H: 'Horde' };
+/** SkillLine id -> German profession name (fallback: the client's English name in items.json). */
+const BIS_PROFESSION_LABELS = {
+  164: 'Schmiedekunst', 165: 'Lederverarbeitung', 197: 'Schneiderei', 202: 'Ingenieurskunst',
+  333: 'Verzauberkunst', 171: 'Alchemie', 755: 'Juwelierskunst', 186: 'Bergbau'
+};
+/** @param {number} p */
+function bisProfessionName(p){
+  return BIS_PROFESSION_LABELS[p] || (bisData && bisData.items.professions && bisData.items.professions[p]) || `Beruf ${p}`;
+}
+/** "Schmiedekunst 300" / "Schneiderei ca. 185". @param {ForeverCraft} c */
+function bisCraftSkill(c){
+  return `${bisProfessionName(c.p)} ${c.e ? 'ca. ' : ''}${c.r}`;
+}
+/**
+ * Craft line for the sources: skill, whether you must craft it yourself
+ * (BoP) or can buy it (BoE), and where the recipe comes from.
+ * @param {ForeverItem} item
+ */
+function bisCraftLine(item){
+  const c = item.src && item.src.craft;
+  if (!c) return '';
+  const who = item.b === 1 ? 'nur selbst herstellbar (BoP)' : 'BoE — auch von Handwerkern / im Auktionshaus';
+  let recipe = 'Rezept beim Lehrer';
+  if (c.rec){
+    const rs = c.rec.src ? bisSourceLines(/** @type {ForeverItem} */ ({ src: c.rec.src })) : [];
+    recipe = `Rezept: ${c.rec.n}${c.rec.b === 1 ? ' (BoP)' : ''}${rs.length ? ' — ' + rs.join('; ') : ''}`;
+  }
+  return `Herstellung: ${bisCraftSkill(c)}, ${who}. ${recipe}`;
+}
 /** Faction ('A' / 'H') of the planned character's race, or '' if unknown. */
 function bisFaction(){
   const r = bisData && bisDraft && bisData.stats.raceOffsets[bisDraft.raceId];
@@ -277,6 +306,7 @@ function bisSourceLines(item){
   if (!s) return [];
   const npc = n => n.z ? `${n.n} (${n.z})` : n.n;
   const out = [];
+  if (s.craft && item.id) out.push(bisCraftLine(item)); // item.id: not for a recipe's own sources
   if (s.drops && s.drops.length) out.push('Drop: ' + s.drops.map(npc).join(', '));
   if (s.dropCount) out.push(`Weltdrop / Trash (${s.dropCount} Gegner)`);
   if (s.quests && s.quests.length) out.push('Quest: ' + s.quests.map(q => q.l ? `${q.n} (Stufe ${q.l})` : q.n).join(', '));
@@ -292,6 +322,7 @@ function bisSourceGroup(item){
   if (!s) return 'Quelle unbekannt';
   const zoned = (s.drops || []).concat(s.vendors || []).find(n => n.z);
   if (zoned) return zoned.z;
+  if (s.craft && !(s.quests && s.quests.length) && !(s.drops && s.drops.length) && !s.dropCount) return 'Berufe: ' + bisProfessionName(s.craft.p);
   if (s.quests && s.quests.length) return 'Quests';
   if (s.drops && s.drops.length) return 'Drops (Zone unbekannt)';
   if (s.dropCount) return 'Weltdrops';
@@ -355,6 +386,34 @@ function renderBisPlanner(){
     const lines = bisSourceLines(item);
     (groups[g] = groups[g] || []).push(`<li><label><input type="checkbox" data-bis-done="${s.key}"> <strong>${escapeHtml(s.label)}:</strong> <span style="color:${bisQualityColor(item)}">${escapeHtml(item.n)}</span></label>${lines.length ? `<div class="bis-farm-src">${lines.map(escapeHtml).join('<br>')}</div>` : ''}</li>`);
   }
+  // Professions the open slots need: BoP crafts must be made yourself.
+  /** @type {Record<string, { need: number, est: boolean, own: string[], buy: string[] }>} */
+  const profs = {};
+  for (const s of BIS_SLOTS){
+    const sel = b.slots[s.key];
+    const item = sel && !sel.done && bisData.byId.get(sel.itemId);
+    const c = item && item.src && item.src.craft;
+    if (!c || (s.key === 'offhand' && bisOffhandBlocked(b))) continue;
+    const pr = profs[c.p] = profs[c.p] || { need: 0, est: false, own: [], buy: [] };
+    const label = `<span style="color:${bisQualityColor(item)}">${escapeHtml(item.n)}</span> <span class="bis-item-meta">(${c.e ? 'ca. ' : ''}${c.r})</span>`;
+    if (item.b === 1){
+      if (c.r > pr.need){ pr.need = c.r; pr.est = Boolean(c.e); }
+      pr.own.push(label);
+    } else pr.buy.push(label);
+  }
+  const profKeys = Object.keys(profs).sort((a, z) => profs[z].need - profs[a].need);
+  const profHtml = profKeys.length ? `<div class="tac-card bis-profs">
+      <h3 class="bis-card-title">Benötigte Berufe</h3>
+      ${profKeys.map(k => {
+        const pr = profs[k];
+        return `<div class="bis-prof">
+          <div class="bis-prof-head"><strong>${escapeHtml(bisProfessionName(Number(k)))}</strong>${pr.need ? `<span>mind. ${pr.est ? 'ca. ' : ''}${pr.need}</span>` : '<span class="bis-item-meta">optional</span>'}</div>
+          ${pr.own.length ? `<div class="bis-prof-line">Selbst herstellen (BoP): ${pr.own.join(', ')}</div>` : ''}
+          ${pr.buy.length ? `<div class="bis-prof-line bis-prof-buy">Kaufbar (BoE) oder selbst herstellen: ${pr.buy.join(', ')}</div>` : ''}
+        </div>`;
+      }).join('')}
+      <p class="bis-hint">BoP-Items musst Du mit dem Beruf selbst herstellen; BoE-Items kann Dir jeder Handwerker bauen oder Du kaufst sie im Auktionshaus.${profKeys.some(k => profs[k].est) ? ' „ca.“: beim Lehrer gelernt, die genaue Mindeststufe steht nicht in den Client-Daten.' : ''}</p>
+    </div>` : '';
   const groupNames = Object.keys(groups).sort((a, z) => Number(a === 'Quelle unbekannt') - Number(z === 'Quelle unbekannt') || a.localeCompare(z, 'de'));
   const farmHtml = total === 0
     ? '<p class="bis-hint">Noch keine Items gewählt. Klick links auf einen Slot.</p>'
@@ -414,6 +473,7 @@ function renderBisPlanner(){
           </div>
           <p class="bis-hint">Grundwerte von Klasse, Rasse und Stufe plus Ausrüstung. Ohne Talente, Buffs, Verzauberungen und Rassen-Multiplikatoren; Krit ohne klassenspezifischen Grund-Krit.${st.estimated ? ' „ca.“: Unter Stufe 60 ist die Umrechnung Wertung → % geschätzt.' : ''}</p>
         </div>
+        ${profHtml}
         <div class="tac-card bis-farm">
           <h3 class="bis-card-title">Farm-Liste</h3>
           ${farmHtml}

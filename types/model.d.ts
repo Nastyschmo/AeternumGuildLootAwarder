@@ -201,6 +201,17 @@ interface ForeverItemSource {
   /** `f`: quest limited to one faction's races. */
   quests?: { n: string; id: number; l?: number; f?: Faction }[];
   vendors?: ForeverNpcRef[];
+  /** Made with a profession. */
+  craft?: ForeverCraft;
+}
+interface ForeverCraft {
+  /** Profession (SkillLine id, e.g. 164 Blacksmithing). */
+  p: number;
+  /** Skill needed: from the recipe item, or an estimate (`e`) for trainer recipes. */
+  r: number;
+  e?: 1;
+  /** Recipe item that teaches it (absent = learned at a trainer). */
+  rec?: { id: number; n: string; b?: number; src?: ForeverItemSource };
 }
 interface ForeverItem {
   id: number;
@@ -225,6 +236,8 @@ interface ForeverItemsFile {
   build: string;
   eraBuild: string;
   sets: Record<string, string>;
+  /** SkillLine id -> English profession name. */
+  professions?: Record<string, string>;
   items: ForeverItem[];
 }
 

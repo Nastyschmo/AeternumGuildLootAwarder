@@ -4,7 +4,8 @@
 //    stats, armor, damage, sets and icons;
 //  - QuestieDB (github.com/Questie/QuestieDB, data/Forever) for where an
 //    item comes from: NPC drops, quest rewards, vendors, objects, containers;
-//  - the wowdev community listfile for icon file names.
+//  - the wowdev community listfile for icon file names;
+//  - crafting (profession, skill, recipe) from the client, see crafting.mjs.
 // Runs in GitHub Actions (.github/workflows/forever-data.yml). Writes the
 // files only when their content changed, so an unchanged build produces no
 // diff and no pull request.
@@ -16,6 +17,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { parseCsv } from './csv.mjs';
 import { parseLuaRecords } from './lua-records.mjs';
 import { buildClassStats } from './class-stats.mjs';
+import { buildCrafting } from './crafting.mjs';
 
 const OUT_DIR = new URL('../../data/forever/', import.meta.url);
 const WAGO = 'https://wago.tools';
@@ -198,6 +200,8 @@ function buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName) {
 function sourceFaction(src) {
   if (!src || src.drops || src.dropCount || src.objects || src.containers) return undefined;
   const fs = [...(src.vendors || []), ...(src.quests || [])].map(x => x.f);
+  // Crafted: limited only if the recipe is (trainer recipes: both factions).
+  if (src.craft) fs.push(src.craft.rec ? sourceFaction(src.craft.rec.src) : undefined);
   return fs.length && fs.every(f => f && f === fs[0]) ? fs[0] : undefined;
 }
 
@@ -247,6 +251,12 @@ const sparse = byId(t.ItemSparse);
 const itemName = id => ((sparse.get(id) || eraSparse.get(id) || {}).Display_lang || (qItems.get(id) || [])[0]);
 const sources = buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName);
 
+// Crafting, checked for every weapon/armor item (a superset of what's kept).
+const { craftOf, professions } = await buildCrafting({
+  build, table, sparse, eraSparse, sources,
+  gearIds: new Set(t.Item.filter(it => I(it.ClassID) === 2 || I(it.ClassID) === 4).map(it => I(it.ID)))
+});
+
 const setOf = new Map();
 for (const s of t.ItemSet) for (let i = 0; i < 17; i++) { const id = I(s[`ItemID_${i}`]); if (id) setOf.set(id, I(s.ID)); }
 const sets = {};
@@ -270,7 +280,9 @@ for (const it of t.Item) {
   const dm = math.damage(cls, sub, sp, q); if (dm) rec.dm = dm;
   const set = I(sp.ItemSet) || setOf.get(id);
   if (set) { rec.set = set; const row = t.ItemSet.find(s => I(s.ID) === set); if (row) sets[set] = row.Name_lang; }
-  const src = sources.get(id); if (src) rec.src = src;
+  const craft = craftOf.get(id);
+  const src = craft ? { ...sources.get(id), craft } : sources.get(id);
+  if (src) rec.src = src;
   // Faction: the item's own race mask if it names one faction (rare in
   // Forever — even PvP rank gear says "all races"), else the sources: an
   // item only sold by one faction's vendors / rewarded by its quests is
@@ -282,6 +294,7 @@ for (const it of t.Item) {
 items.sort((a, b) => a.id - b.id);
 
 // ---------------------------------------------------------------- sanity
+console.log(`  crafted: ${items.filter(r => r.src?.craft).length} (with recipe item ${items.filter(r => r.src?.craft?.rec).length}, estimated skill ${items.filter(r => r.src?.craft?.e).length})`);
 console.log(`  faction items: ${items.filter(r => r.fa === 'A').length} Alliance, ${items.filter(r => r.fa === 'H').length} Horde`);
 const withStats = items.filter(r => r.s).length, withSrc = items.filter(r => r.src).length, withIcon = items.filter(r => r.ic).length;
 console.log(`Items: ${items.length} (stats ${withStats}, sources ${withSrc}, icons ${withIcon}, sets ${Object.keys(sets).length})`);
@@ -290,6 +303,8 @@ const fail = [];
 if (items.length < 3000) fail.push(`only ${items.length} items`);
 if (withStats < items.length * 0.5) fail.push(`only ${withStats} items with stats`);
 if (withIcon < items.length * 0.8) fail.push(`only ${withIcon} items with icons`);
+const reaper = (items.find(r => r.id === 12784) || { src: {} }).src?.craft;
+if (!reaper || reaper.p !== 164 || reaper.r !== 300 || !reaper.rec) fail.push(`crafting check: Arcanite Reaper ${JSON.stringify(reaper)}`);
 // Warsong Gulch necklaces: sold only by Horde / Alliance supply officers.
 const factionOf = id => (items.find(r => r.id === id) || {}).fa;
 if (factionOf(19534) !== 'H' || factionOf(19538) !== 'A') fail.push(`faction check: Scout's Medallion ${factionOf(19534)}, Sentinel's Medallion ${factionOf(19538)}`);
@@ -310,7 +325,7 @@ async function writeIfChanged(name, json) {
   console.log(`Wrote data/forever/${name} (${Math.round(json.length / 1024)} KB).`);
   return true;
 }
-const itemsChanged = await writeIfChanged('items.json', JSON.stringify({ build, eraBuild, sets, items }) + '\n');
+const itemsChanged = await writeIfChanged('items.json', JSON.stringify({ build, eraBuild, sets, professions, items }) + '\n');
 const statsChanged = await writeIfChanged('class-stats.json', JSON.stringify({ build, ...classStats }) + '\n');
 if (itemsChanged || statsChanged) {
   await writeFile(new URL('meta.json', OUT_DIR), JSON.stringify({

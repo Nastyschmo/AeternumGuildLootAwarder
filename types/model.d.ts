@@ -299,6 +299,8 @@ interface ForeverEnchant {
   /** … or an item you use. */
   item?: { id: number; n: string; src?: ForeverItemSource };
   icon?: string;
+  /** Flat stats as [item stat id, value], like ForeverItem.s (procs / % effects not included). */
+  st?: [number, number][];
 }
 
 /** The BiS planner's working copy (localStorage `rude-bis-draft-v1`). */

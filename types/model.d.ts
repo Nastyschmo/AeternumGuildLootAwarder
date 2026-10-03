@@ -249,6 +249,28 @@ interface ForeverItemsFile {
   items: ForeverItem[];
 }
 
+// ---------------------------------------------------------------------
+// data/forever/talents.js (generated, window.FOREVER_TALENT_TREES).
+interface ForeverTalent {
+  name: string;
+  max: number;
+  /** 1-based, like the snapshot. */
+  row: number;
+  col: number;
+  icon: string;
+  /** Tooltip per rank. */
+  desc: string[];
+  /** The client text had tokens the importer can't resolve ("?"). */
+  descPartial?: boolean;
+  /** Prerequisite talent (same tree) that must be maxed. */
+  req?: string;
+}
+interface ForeverTalentTrees {
+  build: string;
+  /** Class display name ("Warrior") -> its three trees in display order. */
+  classes: Record<string, { trees: { name: string; talents: ForeverTalent[] }[] }>;
+}
+
 /** The BiS planner's working copy (localStorage `rude-bis-draft-v1`). */
 interface BisBuild {
   classId: ClassId;

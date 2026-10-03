@@ -1167,6 +1167,16 @@ these by hand:
   sources from [QuestieDB](https://github.com/Questie/QuestieDB)
   (`data/Forever`), and icon names from the
   [wowdev listfile](https://github.com/wowdev/wow-listfile).
+- Talent trees (`scripts/forever-data/talents.mjs` → `data/forever/talents.js`,
+  `window.FOREVER_TALENT_TREES`): Forever keeps its trees in the client's
+  retail-style Trait tables (not the Classic Talent/TalentTab ones). Names,
+  ranks, positions, prerequisites and per-rank tooltip numbers come from
+  there (approach from ElliotWood/Forever's `export_beta.py`, MIT);
+  `data/talentsforever.js` keeps the hand-made snapshot
+  (`TALENT_DATA_SNAPSHOT`) for class/tree icons, tab names and tooltips
+  the client text can't resolve, and merges both into `TALENT_DATA`.
+  Sanity checks: nine classes, three named tabs each, 7×4 grid, name
+  overlap with the snapshot, key talents present.
 - Class stats (`scripts/forever-data/class-stats.mjs`): base mana and crit
   per agility/intellect from the client's `PlayerExpectedStat`; base
   health and attributes (server-side, not in the client) from Wowhead's

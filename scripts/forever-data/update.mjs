@@ -257,9 +257,10 @@ const eraSparse = byId(eraSparseRows);
 // Zones: Forever's AreaTable export lacks unchanged Classic zones (e.g.
 // Molten Core), so Era rows fill the gaps; Map gives each zone's instance
 // type (1 dungeon, 2 raid, 3 battleground).
-const area = byId(await table('AreaTable', eraBuild, NEED.AreaTable));
+const eraArea = byId(await table('AreaTable', eraBuild, NEED.AreaTable));
+const eraMaps = byId(await table('Map', eraBuild, NEED.Map));
+const area = new Map(eraArea), maps = new Map(eraMaps);
 for (const [id, row] of byId(t.AreaTable)) area.set(id, row);
-const maps = byId(await table('Map', eraBuild, NEED.Map));
 for (const [id, row] of byId(t.Map)) maps.set(id, row);
 console.log(`  zones: ${area.size} (Era + Forever), maps: ${maps.size}`);
 const INSTANCE_KIND = { 1: 'd', 2: 'r', 3: 'b' };
@@ -280,21 +281,19 @@ const zoneName = id => {
 const sparse = byId(t.ItemSparse);
 const itemName = id => ((sparse.get(id) || eraSparse.get(id) || {}).Display_lang || (qItems.get(id) || [])[0]);
 const wotlk = { items: parseLuaRecords(wItemsTxt), npcs: parseLuaRecords(wNpcsTxt) };
-const mapKind = row => INSTANCE_KIND[I((maps.get(I(row.ContinentID)) || {}).InstanceType)];
-// Some instances' NPCs sit in an open-world subzone of the same name (e.g.
-// Blackrock Spire inside Blackrock Mountain): fall back to a top-level
-// (no parent area) instance zone with that name.
-const topInstanceKind = new Map();
-for (const row of area.values()) {
-  const kind = mapKind(row);
-  if (kind && !I(row.ParentAreaID) && row.AreaName_lang) topInstanceKind.set(row.AreaName_lang, kind);
+const mapKind = (row, mapTable = maps) => INSTANCE_KIND[I((mapTable.get(I(row.ContinentID)) || {}).InstanceType)];
+// Some instances' NPCs sit in an outdoor zone of the same name (e.g.
+// Blackrock Spire): fall back to a Classic Era instance with that name.
+// Era only — Forever adds instances with zones named like open-world ones
+// (Westfall, Elwynn Forest).
+const eraInstanceKind = new Map();
+for (const row of eraArea.values()) {
+  const kind = mapKind(row, eraMaps);
+  if (kind && row.AreaName_lang && !eraInstanceKind.has(row.AreaName_lang)) eraInstanceKind.set(row.AreaName_lang, kind);
 }
 const zoneKind = id => {
   const row = id && area.get(id);
-  if (!row) return undefined;
-  // Only for an outdoor subzone: Forever has instances with top-level zones
-  // named like open-world zones (Westfall, Elwynn Forest).
-  return mapKind(row) || (I(row.ParentAreaID) ? topInstanceKind.get(row.AreaName_lang) : undefined);
+  return row ? mapKind(row) || eraInstanceKind.get(row.AreaName_lang) : undefined;
 };
 const sources = buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName, wotlk,
   id => zoneKind(id) === 'd' || zoneKind(id) === 'r');

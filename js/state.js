@@ -665,6 +665,14 @@ function normalizeState(parsed){
         out[uid] = { announcementsSeenAt: (v && typeof v.announcementsSeenAt === 'number' && v.announcementsSeenAt > 0) ? v.announcementsSeenAt : 0 };
       }
       return out;
+    })(),
+    // BiS-Planer: public set ids the Admins recommend (bisRecommended/<setId> = true).
+    bisRecommended: (() => {
+      const raw = (parsed.bisRecommended && typeof parsed.bisRecommended === 'object') ? parsed.bisRecommended : {};
+      /** @type {State['bisRecommended']} */
+      const out = {};
+      for (const id of Object.keys(raw)) if (raw[id] === true) out[id] = true;
+      return out;
     })()
   };
 }

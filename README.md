@@ -395,6 +395,13 @@ Go to **Build → Realtime Database → Rules** and replace them with:
             ".validate": "newData.val() === true"
           }
         }
+      },
+      "bisRecommended": {
+        ".read": "auth != null",
+        "$setId": {
+          ".write": "auth != null && root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin'",
+          ".validate": "newData.val() === true"
+        }
       }
     }
   }
@@ -427,6 +434,9 @@ Click **Publish**. What this enforces at the database level (not just in the UI)
   Officer or Admin, and only into one's own name (`ownerId`); deleting
   one's own sets always works, and Admins may delete any public set.
   Owned items can be written by any logged-in account for itself.
+- **`bisRecommended/<setId>` = true** marks a public set as recommended
+  ("★ Empfohlen" at the top of the set dropdown). Readable by every
+  logged-in account (it's in `SYNCED_KEYS`), writable only by Admins.
 - Apart from `applications`, any logged-in account — including a
   Community login — can still technically read the remaining keys
   (announcements, polls, …) directly from Firebase, even though the page's
@@ -1229,7 +1239,10 @@ be saved as an own copy. Community accounts can browse those but not
 save; logged-out visitors use the planner locally. Leaving a set with
 unsaved changes asks in a styled dialog (Speichern / Verwerfen / Weiter
 bearbeiten — `bisDialog()` in js/bis-sets.js, also used for delete and
-"Alle Slots leeren"). Rules: README § 6f.
+"Alle Slots leeren"). Admins can tick *★ empfehlen* on any public set:
+recommended sets head the dropdown for everyone (group "★ Empfohlen",
+with a "Von der Gildenleitung empfohlen" note when loaded), and switching
+to a class/spec without own sets opens the newest recommendation. Rules: README § 6f.
 
 ## Type checking (development only)
 

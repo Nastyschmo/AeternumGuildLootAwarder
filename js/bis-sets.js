@@ -162,13 +162,45 @@ function bisOwnerLabel(set){
   const role = state.discordRoles[set.ownerId];
   return (prof && prof.nickname) || (role && role.username) || set.ownerName || 'Unbekannt';
 }
-/** Other users' public sets for the draft's class + spec, grouped by owner. @returns {{ owner: string, sets: [string, BisSavedSet][] }[]} */
+/** Is the set recommended by the Admins? Only public sets count (a recommended set made private again drops out). @param {string} id */
+function bisIsRecommended(id){
+  const set = bisAnySet(id);
+  return Boolean(set && set.public && state.bisRecommended[id]);
+}
+/** Recommended sets for the draft's class + spec (own or others'), newest first. @returns {[string, BisSavedSet][]} */
+function bisRecommendedSets(){
+  const b = bisDraft;
+  return Object.entries({ ...bisOtherSets, ...bisMySets })
+    .filter(([id, s]) => s.classId === b.classId && s.specId === b.specId && bisIsRecommended(id))
+    .sort((a, z) => z[1].updatedAt - a[1].updatedAt);
+}
+/** Set to open when switching to a class/spec: the newest own one, else the newest recommendation. */
+function bisDefaultSetForSpec(){
+  const own = bisSetsForCurrentSpec();
+  if (own.length) return own[0][0];
+  const rec = bisRecommendedSets();
+  return rec.length ? rec[0][0] : '';
+}
+/** Admins mark / unmark a public set as recommended. @param {string} id @param {boolean} on */
+async function bisSetRecommended(id, on){
+  const set = bisAnySet(id);
+  if (!set || currentRole !== 'admin') return;
+  try {
+    await db.ref(`${DB_PATH}/bisRecommended/${id}`).set(on ? true : null);
+    bisSetStatus = on ? `„${set.name}“ wird jetzt empfohlen.` : `„${set.name}“ wird nicht mehr empfohlen.`;
+  } catch (e){
+    bisSetStatus = 'Empfehlung konnte nicht gespeichert werden — Firebase-Regeln aktualisiert?';
+  }
+  renderBisPlanner();
+}
+
+/** Other users' public sets for the draft's class + spec, grouped by owner (recommended ones are listed separately). @returns {{ owner: string, sets: [string, BisSavedSet][] }[]} */
 function bisOtherSetsByOwner(){
   const b = bisDraft;
   /** @type {Map<string, { owner: string, sets: [string, BisSavedSet][] }>} */
   const groups = new Map();
   for (const [id, s] of Object.entries(bisOtherSets)){
-    if (s.classId !== b.classId || s.specId !== b.specId) continue;
+    if (s.classId !== b.classId || s.specId !== b.specId || bisIsRecommended(id)) continue;
     if (!groups.has(s.ownerId)) groups.set(s.ownerId, { owner: bisOwnerLabel(s), sets: [] });
     groups.get(s.ownerId).sets.push([id, s]);
   }
@@ -342,7 +374,8 @@ function bisSetBarHtml(){
     return `<div class="bis-setbar"><span class="bis-hint">Melde Dich mit Discord an, um Item-Sets zu speichern und öffentliche Sets anderer anzusehen. Bis dahin bleibt Deine Auswahl in diesem Browser.</span></div>`;
   }
   const canSave = isMemberOrHigher();
-  const mine = canSave ? bisSetsForCurrentSpec() : [];
+  const recommended = bisRecommendedSets();
+  const mine = canSave ? bisSetsForCurrentSpec().filter(([id]) => !bisIsRecommended(id)) : [];
   const others = bisOtherSetsByOwner();
   const active = bisAnySet(bisDraft.setId);
   const foreign = bisIsForeignSet(bisDraft.setId);
@@ -353,12 +386,22 @@ function bisSetBarHtml(){
       <label for="bisSetSelect">Item-Set</label>
       <select id="bisSetSelect">
         <option value="">${active ? '— neuer Entwurf —' : '— ungespeicherter Entwurf —'}</option>
+        ${recommended.length ? `<optgroup label="★ Empfohlen">${recommended.map(e => opt(e, ` — ${escapeHtml(bisOwnerLabel(e[1]))}`)).join('')}</optgroup>` : ''}
         ${mine.length ? `<optgroup label="Meine Sets">${mine.map(e => opt(e, e[1].public ? ' · öffentlich' : '')).join('')}</optgroup>` : ''}
         ${others.map(g => `<optgroup label="Öffentlich von ${escapeHtml(g.owner)}">${g.sets.map(e => opt(e, ` — ${escapeHtml(g.owner)}`)).join('')}</optgroup>`).join('')}
       </select>
     </div>`;
+  const recNote = active && bisIsRecommended(bisDraft.setId)
+    ? '<span class="bis-rec-badge">★ Von der Gildenleitung empfohlen</span> '
+    : '';
   const foreignNote = foreign
-    ? `<div class="bis-setbar-owner">Öffentliches Set von <strong>${escapeHtml(bisOwnerLabel(active))}</strong>${canSave ? ' — Änderungen kannst Du als eigenes Set speichern.' : ''}</div>`
+    ? `<div class="bis-setbar-owner">${recNote}Öffentliches Set von <strong>${escapeHtml(bisOwnerLabel(active))}</strong>${canSave ? ' — Änderungen kannst Du als eigenes Set speichern.' : ''}</div>`
+    : (recNote ? `<div class="bis-setbar-owner">${recNote}</div>` : '');
+  // Admins: recommend the loaded set (only public ones can be recommended).
+  const recToggle = active && currentRole === 'admin'
+    ? (active.public
+      ? `<label class="bis-check bis-rec-toggle" title="Empfohlene Sets stehen bei allen ganz oben im Dropdown."><input type="checkbox" id="bisSetRecommend" ${bisIsRecommended(bisDraft.setId) ? 'checked' : ''}> ★ empfehlen</label>`
+      : `<label class="bis-check bis-rec-toggle" title="Nur öffentliche Sets können empfohlen werden."><input type="checkbox" disabled> ★ empfehlen (erst öffentlich machen)</label>`)
     : '';
   if (!canSave){
     return `<div class="bis-setbar">
@@ -372,9 +415,11 @@ function bisSetBarHtml(){
     actions = `<button type="button" class="btn btn-teal btn-sm" id="bisSetSaveBtn" ${dirty || bisSetNameDraft !== null ? '' : 'disabled'}>Speichern</button>
       <button type="button" class="btn btn-ghost btn-sm" id="bisSetSaveNewBtn">Als neues Set</button>
       <button type="button" class="btn btn-ghost btn-sm" id="bisSetDeleteBtn">Löschen</button>
-      <label class="bis-check" title="Öffentliche Sets können alle Eingeloggten sehen, auch Community."><input type="checkbox" id="bisSetPublic" ${active.public ? 'checked' : ''}> öffentlich</label>`;
+      <label class="bis-check" title="Öffentliche Sets können alle Eingeloggten sehen, auch Community."><input type="checkbox" id="bisSetPublic" ${active.public ? 'checked' : ''}> öffentlich</label>
+      ${recToggle}`;
   } else {
-    actions = `<button type="button" class="btn btn-teal btn-sm" id="bisSetSaveNewBtn">${foreign ? 'Als eigenes Set speichern' : 'Set speichern'}</button>`;
+    actions = `<button type="button" class="btn btn-teal btn-sm" id="bisSetSaveNewBtn">${foreign ? 'Als eigenes Set speichern' : 'Set speichern'}</button>
+      ${foreign ? recToggle : ''}`;
   }
   return `<div class="bis-setbar">
     ${select}
@@ -416,4 +461,6 @@ function bisWireSetBar(root){
   on('#bisSetDeleteBtn', bisDeleteSet);
   const pub = /** @type {HTMLInputElement | null} */ (root.querySelector('#bisSetPublic'));
   if (pub) pub.addEventListener('change', () => bisSetPublic(pub.checked));
+  const rec = /** @type {HTMLInputElement | null} */ (root.querySelector('#bisSetRecommend'));
+  if (rec) rec.addEventListener('change', () => bisSetRecommended(bisDraft.setId, rec.checked));
 }

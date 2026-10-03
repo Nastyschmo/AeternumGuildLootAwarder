@@ -162,6 +162,8 @@ interface State {
   classDiveSources: Record<PushId, ClassDiveSource>;
   characterProfiles: Record<DiscordId, CharacterProfile>;
   seenState: Record<DiscordId, SeenState>;
+  /** BiS-Planer: ids of public sets (bisPublic/<id>) the Admins recommend. */
+  bisRecommended: Record<PushId, true>;
 }
 
 // ---------------------------------------------------------------------

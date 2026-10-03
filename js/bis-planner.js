@@ -505,6 +505,7 @@ function renderBisPlanner(){
       <div class="bis-control">
         <label for="bisSpecSelect">Spezialisierung</label>
         <select id="bisSpecSelect">${foreverSpecsForClass(b.classId).map(s => `<option value="${s.id}" ${s.id === b.specId ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}</select>
+        ${HOW_TO_PLAY[b.classId] && discordIdentity && isMemberOrHigher() ? `<button type="button" class="bis-htp-link" id="bisHtpLink" title="Spielweise, Priorität und Stats in der Class Overview">How to play ${escapeHtml(foreverSpecLabel(b.classId, b.specId))} →</button>` : ''}
       </div>
       <div class="bis-control">
         <label for="bisRaceSelect">Rasse</label>
@@ -597,6 +598,8 @@ function bisWirePlanner(root){
     // Coming from a saved set: show the new spec's own set; a plain draft keeps its items.
     if (hadSet || !Object.keys(b.slots).length) openNewestSet(); else changed();
   });
+  const htp = root.querySelector('#bisHtpLink');
+  if (htp) htp.addEventListener('click', () => htpShow(b.classId, b.specId));
   const race = /** @type {HTMLSelectElement} */ (root.querySelector('#bisRaceSelect'));
   race.addEventListener('change', () => { b.raceId = race.value; changed(); });
   const lvl = /** @type {HTMLInputElement} */ (root.querySelector('#bisLevelInput'));

@@ -325,3 +325,21 @@ interface BisSavedSet {
   createdAt: Millis;
   updatedAt: Millis;
 }
+
+// data/howtoplay.js (hand-curated, shown by js/how-to-play.js).
+interface HowToPlaySpec {
+  summary: string;
+  playstyle: string;
+  /** Rotation / priority, most important first. */
+  priority: string[];
+  stats: string;
+  tips: string[];
+}
+interface HowToPlayClass {
+  intro: string;
+  leveling: string;
+  races: string;
+  /** Keyed by FOREVER_SPECS spec id. */
+  specs: Record<string, HowToPlaySpec>;
+  sources: { label: string; url: string }[];
+}

@@ -1290,6 +1290,37 @@ spellId }`; picking another item keeps the enchant only if it still
 fits. Enchants are not added to the stat totals (most work through
 spell auras). No rules change. Rules: README § 6f.
 
+## How to play (Class Overview)
+
+Each class in **Class Overview** has a "How to play" card above its
+Patch-Updates: an intro, leveling and race notes, then one tab per spec
+(role, playstyle, priority, stats, tips) and the sources it was summarised
+from. The text lives in `data/howtoplay.js` – a hand-curated best-of from
+public WoW Forever guides, written in our own words and checked against
+the live talent data (every talent it names exists in that tree). Edit it
+via PR and bump `HOW_TO_PLAY_UPDATED`; ability names stay English and get
+the Deep Dive hover tooltips automatically.
+
+The "Unsere Builds & Tools" box links each spec to the Talent Builder, the
+BiS planner (opens the newest own / ★ recommended set of that spec), its
+★ recommended sets and the spec's public builds; the BiS planner links back
+("How to play <Spec> →" under the spec select). No new Firebase paths – it
+reads `bisPublic` and `bisRecommended`, which already have their rules.
+
+**Staying current.** The talent data under `data/forever/` refreshes daily
+from the game client. `data/howtoplay-baseline.json` remembers, for every
+talent the guide names, its rank count and max-rank text at the time the
+guide was last reviewed. When they drift apart:
+
+- the card shows "⚠ … seit dem <Stand> im Spiel geändert" with before/after
+  text per talent;
+- the daily *Forever data* workflow keeps one open issue labelled
+  `how-to-play` with the same list (and closes it when nothing differs);
+- after updating the guide text: `node scripts/howtoplay/check.mjs --baseline`
+  and bump `HOW_TO_PLAY_UPDATED`. The *Type check* workflow runs
+  `check.mjs --strict` on every PR and fails if the guide names a talent
+  the baseline doesn't know (or the other way round).
+
 ## Type checking (development only)
 
 The page has no build step — browsers run `js/*.js` as-is. TypeScript is

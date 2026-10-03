@@ -81,7 +81,7 @@ function bisSyncListeners(){
     return;
   }
   const listen = (ref, onValue) => {
-    const cb = (snap) => { onValue(snap.val() || {}); if (currentPage === 'bis') renderBisPlanner(); };
+    const cb = (snap) => { onValue(snap.val() || {}); if (currentPage === 'bis') renderBisPlanner(); htpRefreshLinks(); };
     ref.on('value', cb, () => { onValue({}); bisSetStatus = 'Keine Leserechte für gespeicherte Sets — Firebase-Regeln aktualisiert?'; if (currentPage === 'bis') renderBisPlanner(); });
     bisSyncRefs.push({ ref, cb });
   };

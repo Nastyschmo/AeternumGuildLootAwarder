@@ -581,6 +581,7 @@ function renderClassDeepDivesView(){
       <h2 class="classdive-main-title" style="color:${c.color}">${escapeHtml(c.label)}</h2>
     </div>
     ${summaryCardHtml}
+    ${c.isGeneral ? '' : howToPlayCardHtml(c.id)}
     <div class="classdive-updates-section">
       <div class="classdive-section-title">Patch-Updates</div>
       <div class="classdive-updates" data-classdive-updates="${c.id}">${updatesListHtml}</div>
@@ -595,6 +596,7 @@ function renderClassDeepDivesView(){
     ${classDiveHistoryCardHtml(canManage)}
     ${classDiveSourcesCardHtml(canManage)}`;
 
+  if (!c.isGeneral) wireHowToPlay(els.classDivesList, c.id);
   els.classDivesList.querySelectorAll('[data-select-classdive]').forEach(btn => {
     btn.addEventListener('click', () => selectClassDive(btn.getAttribute('data-select-classdive')));
   });

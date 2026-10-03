@@ -18,3 +18,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - name: How to play — guide and baseline agree
+        run: node scripts/howtoplay/check.mjs --strict

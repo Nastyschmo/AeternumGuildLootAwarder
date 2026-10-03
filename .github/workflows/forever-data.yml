@@ -4,6 +4,10 @@
 # - Daily (and on demand via "Run workflow"): regenerates the data on main.
 #   If anything changed, it validates the result (importer sanity checks +
 #   the TypeScript check), opens a pull request and merges it right away.
+# - Daily on main, after that: checks the "How to play" guide against the
+#   (possibly new) talent data (scripts/howtoplay/check.mjs) and keeps one
+#   open issue labelled "how-to-play" listing the talents whose text changed
+#   since the guide was last reviewed; closes it once nothing differs.
 # - On pushes to Claude's feature branches that touch the importer: runs it
 #   and commits the regenerated data back to that branch, so the branch's
 #   preview always has data that matches its importer.
@@ -23,6 +27,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 concurrency:
   group: forever-data-${{ github.ref }}
@@ -75,3 +80,20 @@ jobs:
             --title "Daten-Update: WoW Forever Build ${{ steps.diff.outputs.build }}" \
             --body "Automatisches Update von \`data/forever/\` aus wago.tools und QuestieDB. Importer-Prüfungen und TypeScript-Check waren grün; dieser PR wird automatisch gemergt."
           gh pr merge "$branch" --squash --delete-branch
+      - name: How to play — talent changes since the guide was reviewed
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/howtoplay/check.mjs --report-file=howtoplay-report.md
+          gh label create how-to-play --color FBCA04 --description "How-to-play guide needs a review" --force
+          open=$(gh issue list --label how-to-play --state open --json number --jq '.[0].number // empty')
+          if [ -s howtoplay-report.md ]; then
+            if [ -n "$open" ]; then
+              gh issue edit "$open" --body-file howtoplay-report.md
+            else
+              gh issue create --label how-to-play --title "How to play: Talente im Spiel geändert" --body-file howtoplay-report.md
+            fi
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --comment "Keine Abweichungen mehr zwischen Guide und Talent-Daten."
+          fi

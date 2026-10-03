@@ -1,20 +1,77 @@
-# Forever game-data pipeline (work in progress). For now this only runs
-# the discovery script on pushes to Claude's feature branches, so the
-# importer can be written against the real wago.tools / QuestieDB data.
+# Keeps data/forever/ (WoW Forever items: stats, icons, where they drop)
+# up to date from wago.tools + QuestieDB — see scripts/forever-data/update.mjs.
+#
+# - Daily (and on demand via "Run workflow"): regenerates the data on main.
+#   If anything changed, it validates the result (importer sanity checks +
+#   the TypeScript check), opens a pull request and merges it right away.
+# - On pushes to Claude's feature branches that touch the importer: runs it
+#   and commits the regenerated data back to that branch, so the branch's
+#   preview always has data that matches its importer.
+#
+# Needs: Settings → Actions → General → Workflow permissions = "Read and
+# write", and "Allow GitHub Actions to create and approve pull requests".
 name: Forever data
 
 on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
   push:
     branches: ['claude/**']
     paths: ['scripts/forever-data/**', '.github/workflows/forever-data.yml']
-  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: forever-data-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  inspect:
+  update:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node scripts/forever-data/update.mjs
+          cache: npm
+      - run: npm ci
+      - name: Regenerate data/forever
+        run: node scripts/forever-data/update.mjs
+      - name: Type check
+        run: npm run typecheck
+      - name: Detect changes
+        id: diff
+        run: |
+          if git diff --quiet -- data/forever && [ -z "$(git ls-files --others --exclude-standard -- data/forever)" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "build=$(node -p "require('./data/forever/meta.json').build")" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Commit to feature branch
+        if: steps.diff.outputs.changed == 'true' && startsWith(github.ref, 'refs/heads/claude/')
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/forever
+          git commit -m "Regenerate Forever data (build ${{ steps.diff.outputs.build }})"
+          git push
+      - name: Open and merge data pull request
+        if: steps.diff.outputs.changed == 'true' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch="data/forever-$(date -u +%Y%m%d-%H%M)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add data/forever
+          git commit -m "Update Forever data (build ${{ steps.diff.outputs.build }})"
+          git push -u origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "Daten-Update: WoW Forever Build ${{ steps.diff.outputs.build }}" \
+            --body "Automatisches Update von \`data/forever/\` aus wago.tools und QuestieDB. Importer-Prüfungen und TypeScript-Check waren grün; dieser PR wird automatisch gemergt."
+          gh pr merge "$branch" --squash --delete-branch

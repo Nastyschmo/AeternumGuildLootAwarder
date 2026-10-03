@@ -12,7 +12,8 @@
 //  - `dz`: for world drops with many droppers, the zones most of those
 //    mobs live in;
 //  - `sk`: 1 when the name says it is skinned (leather, hides, scales,
-//    chitin) and it isn't crafted — QuestieDB has no skinning tables;
+//    chitin; not cured / enchanted leather) — QuestieDB has no skinning
+//    tables. Rugged Leather can also be crafted, but is mostly skinned;
 //  - `de`: 1 for enchanting materials (essences, shards, dusts), which come
 //    from disenchanting.
 
@@ -77,7 +78,7 @@ export function buildMaterials({ reagentIds, craftFor, sources, qItems, qNpcs, q
         const dz = topZones(npcZones, zoneName);
         if (dz.length) src.dz = dz;
       }
-      if (!src.craft && /(leather|hide|scales?|chitin|carapace)\b/i.test(name)) src.sk = 1;
+      if (/(leather|hide|scales?|chitin|carapace)\b/i.test(name) && !/^(Cured|Enchanted|Refined)\b/.test(name)) src.sk = 1;
       if (DISENCHANT.test(name)) src.de = 1;
       out[id] = src;
     }

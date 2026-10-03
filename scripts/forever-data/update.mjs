@@ -18,6 +18,7 @@ import { parseCsv } from './csv.mjs';
 import { parseLuaRecords } from './lua-records.mjs';
 import { buildClassStats } from './class-stats.mjs';
 import { buildCrafting } from './crafting.mjs';
+import { buildJournalLoot } from './journal.mjs';
 
 const OUT_DIR = new URL('../../data/forever/', import.meta.url);
 const WAGO = 'https://wago.tools';
@@ -328,6 +329,9 @@ const { craftOf, professions, reagents } = await buildCrafting({
   gearIds: new Set(t.Item.filter(it => I(it.ClassID) === 2 || I(it.ClassID) === 4).map(it => I(it.ID)))
 });
 
+// Encounter Journal loot (new Forever instances QuestieDB doesn't know yet).
+const journal = await buildJournalLoot({ build, table, maps });
+
 const setOf = new Map();
 for (const s of t.ItemSet) for (let i = 0; i < 17; i++) { const id = I(s[`ItemID_${i}`]); if (id) setOf.set(id, I(s.ID)); }
 const sets = {};
@@ -352,7 +356,12 @@ for (const it of t.Item) {
   const set = I(sp.ItemSet) || setOf.get(id);
   if (set) { rec.set = set; const row = t.ItemSet.find(s => I(s.ID) === set); if (row) sets[set] = row.Name_lang; }
   const craft = craftOf.get(id);
-  const src = craft ? { ...sources.get(id), craft } : sources.get(id);
+  let src = craft ? { ...sources.get(id), craft } : sources.get(id);
+  const jDrops = journal.dropsOf.get(id);
+  if (jDrops && !src?.drops && !src?.dropCount) {
+    src = { ...src, drops: jDrops.slice(0, MAX_LISTED_DROPPERS) };
+    for (const d of jDrops) if (!instances[d.z]) instances[d.z] = journal.kinds[d.z];
+  }
   if (src) rec.src = src;
   // Faction: the item's own race mask if it names one faction (rare in
   // Forever — even PvP rank gear says "all races"), else the sources: an
@@ -365,6 +374,7 @@ for (const it of t.Item) {
 items.sort((a, b) => a.id - b.id);
 
 // ---------------------------------------------------------------- sanity
+console.log(`  journal drops used: ${items.filter(r => journal.dropsOf.has(r.id) && r.src?.drops?.some(d => journal.dropsOf.get(r.id).includes(d))).length}`);
 console.log(`  crafted: ${items.filter(r => r.src?.craft).length}, with materials ${items.filter(r => r.src?.craft?.m).length} (with recipe item ${items.filter(r => r.src?.craft?.rec).length}, estimated skill ${items.filter(r => r.src?.craft?.e).length})`);
 console.log(`  faction items: ${items.filter(r => r.fa === 'A').length} Alliance, ${items.filter(r => r.fa === 'H').length} Horde`);
 // Keep only instance zones that items actually drop in.

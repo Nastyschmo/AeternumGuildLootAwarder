@@ -600,6 +600,7 @@ const els = {
   bisPickerCloseBtn: /** @type {HTMLButtonElement} */ (document.getElementById('bisPickerCloseBtn')),
   bisPickerSearch: /** @type {HTMLInputElement} */ (document.getElementById('bisPickerSearch')),
   bisPickerQuality: /** @type {HTMLSelectElement} */ (document.getElementById('bisPickerQuality')),
+  bisPickerContent: /** @type {HTMLSelectElement} */ (document.getElementById('bisPickerContent')),
   bisPickerSourcedOnly: /** @type {HTMLInputElement} */ (document.getElementById('bisPickerSourcedOnly')),
   bisPickerHigherLevel: /** @type {HTMLInputElement} */ (document.getElementById('bisPickerHigherLevel')),
   bisPickerCount: document.getElementById('bisPickerCount'),

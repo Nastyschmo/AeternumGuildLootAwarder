@@ -1163,7 +1163,10 @@ other-faction vendors/quests are left out of the sources. Crafted items show
 the profession and skill and where the recipe drops/is sold; the card
 *Benötigte Berufe* sums up which professions the open slots need — BoP
 crafts you must make yourself, BoE ones can be bought. *Materialliste*
-adds up the materials of all open crafted slots. The selection is stored only in the browser
+adds up the materials of all open crafted slots. The item picker can be narrowed by
+*Herkunft*: open world, quests, vendors, professions or a single
+dungeon/raid/battleground (zone types from the client's `Map` table,
+`instances` in items.json). The selection is stored only in the browser
 (`localStorage` key `rude-bis-draft-v1`) — saving builds to the database,
 admin-recommended builds and talents come in later steps. No Firebase rules
 are needed for it.

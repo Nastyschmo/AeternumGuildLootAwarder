@@ -218,7 +218,7 @@ const NEED = {
   ItemSparse: ['Display_lang', 'ItemLevel', 'OverallQualityID', 'RequiredLevel', 'StatModifier_bonusStat_0', 'StatPercentEditor_0', 'ItemDelay', 'DmgVariance', 'ItemSet', 'AllowableClass', 'Bonding'],
   Item: ['ClassID', 'SubclassID', 'InventoryType', 'IconFileDataID'],
   RandPropPoints: [], ItemArmorTotal: ['Cloth', 'Leather', 'Mail', 'Plate'], ItemArmorQuality: ['Qualitymod_4'],
-  ArmorLocation: ['Clothmodifier'], ItemSet: ['Name_lang', 'ItemID_0'], AreaTable: ['AreaName_lang']
+  ArmorLocation: ['Clothmodifier'], ItemSet: ['Name_lang', 'ItemID_0'], AreaTable: ['AreaName_lang', 'ContinentID'], Map: ['InstanceType']
 };
 const t = {};
 for (const name of [...Object.keys(NEED), ...DMG_TABLES]) {
@@ -245,8 +245,21 @@ const eraSparseRows = await table('ItemSparse', eraBuild, ['Display_lang', 'Item
 console.log(`  ItemSparse (Era ${eraBuild}): ${eraSparseRows.length} rows`);
 const eraSparse = byId(eraSparseRows);
 
-const area = byId(t.AreaTable);
+// Zones: Forever's AreaTable export lacks unchanged Classic zones (e.g.
+// Molten Core), so Era rows fill the gaps; Map gives each zone's instance
+// type (1 dungeon, 2 raid, 3 battleground).
+const area = byId(await table('AreaTable', eraBuild, NEED.AreaTable));
+for (const [id, row] of byId(t.AreaTable)) area.set(id, row);
+const maps = byId(await table('Map', eraBuild, NEED.Map));
+for (const [id, row] of byId(t.Map)) maps.set(id, row);
 const zoneName = id => (id && area.get(id) ? area.get(id).AreaName_lang : '');
+const INSTANCE_KIND = { 1: 'd', 2: 'r', 3: 'b' };
+/** zone name -> 'd' dungeon / 'r' raid / 'b' battleground, for zones items drop in. */
+const instances = {};
+for (const row of area.values()) {
+  const kind = INSTANCE_KIND[I((maps.get(I(row.ContinentID)) || {}).InstanceType)];
+  if (kind && row.AreaName_lang) instances[row.AreaName_lang] = kind;
+}
 const sparse = byId(t.ItemSparse);
 const itemName = id => ((sparse.get(id) || eraSparse.get(id) || {}).Display_lang || (qItems.get(id) || [])[0]);
 const sources = buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName);
@@ -296,6 +309,10 @@ items.sort((a, b) => a.id - b.id);
 // ---------------------------------------------------------------- sanity
 console.log(`  crafted: ${items.filter(r => r.src?.craft).length}, with materials ${items.filter(r => r.src?.craft?.m).length} (with recipe item ${items.filter(r => r.src?.craft?.rec).length}, estimated skill ${items.filter(r => r.src?.craft?.e).length})`);
 console.log(`  faction items: ${items.filter(r => r.fa === 'A').length} Alliance, ${items.filter(r => r.fa === 'H').length} Horde`);
+// Keep only instance zones that items actually drop in.
+const dropZones = new Set(items.flatMap(r => (r.src?.drops || []).map(d => d.z)));
+for (const z of Object.keys(instances)) if (!dropZones.has(z)) delete instances[z];
+console.log(`  instances: ${Object.entries(instances).map(([z, k]) => z + ':' + k).join(', ')}`);
 const withStats = items.filter(r => r.s).length, withSrc = items.filter(r => r.src).length, withIcon = items.filter(r => r.ic).length;
 console.log(`Items: ${items.length} (stats ${withStats}, sources ${withSrc}, icons ${withIcon}, sets ${Object.keys(sets).length})`);
 for (const id of [12640, 15063, 13340, 16707, 19019]) console.log('  sample', JSON.stringify(items.find(r => r.id === id)));
@@ -305,6 +322,8 @@ if (withStats < items.length * 0.5) fail.push(`only ${withStats} items with stat
 if (withIcon < items.length * 0.8) fail.push(`only ${withIcon} items with icons`);
 const reaper = (items.find(r => r.id === 12784) || { src: {} }).src?.craft;
 if (!reaper || reaper.p !== 164 || reaper.r !== 300 || !reaper.rec || !reaper.m?.some(([id]) => id === 12360)) fail.push(`crafting check: Arcanite Reaper ${JSON.stringify(reaper)}`);
+if (instances['Naxxramas'] !== 'r' || instances['The Deadmines'] !== 'd' || instances['Molten Core'] !== 'r')
+  fail.push(`instance check: Naxxramas ${instances['Naxxramas']}, The Deadmines ${instances['The Deadmines']}, Molten Core ${instances['Molten Core']}`);
 // Warsong Gulch necklaces: sold only by Horde / Alliance supply officers.
 const factionOf = id => (items.find(r => r.id === id) || {}).fa;
 if (factionOf(19534) !== 'H' || factionOf(19538) !== 'A') fail.push(`faction check: Scout's Medallion ${factionOf(19534)}, Sentinel's Medallion ${factionOf(19538)}`);
@@ -325,7 +344,7 @@ async function writeIfChanged(name, json) {
   console.log(`Wrote data/forever/${name} (${Math.round(json.length / 1024)} KB).`);
   return true;
 }
-const itemsChanged = await writeIfChanged('items.json', JSON.stringify({ build, eraBuild, sets, professions, reagents, items }) + '\n');
+const itemsChanged = await writeIfChanged('items.json', JSON.stringify({ build, eraBuild, sets, professions, reagents, instances, items }) + '\n');
 const statsChanged = await writeIfChanged('class-stats.json', JSON.stringify({ build, ...classStats }) + '\n');
 if (itemsChanged || statsChanged) {
   await writeFile(new URL('meta.json', OUT_DIR), JSON.stringify({

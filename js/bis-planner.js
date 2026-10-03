@@ -572,11 +572,48 @@ function bisWirePlanner(root){
 }
 
 // ---------------------------------------------------------------- item picker
+const BIS_INSTANCE_GROUPS = [['d', 'Dungeons'], ['r', 'Raids'], ['b', 'Schlachtfelder']];
+/** Fill the "Herkunft" dropdown (once per data load), keeping the current choice. */
+function bisFillContentSelect(){
+  const sel = els.bisPickerContent;
+  if (sel.options.length) return;
+  const inst = bisData.items.instances || {};
+  const profs = Object.keys(bisData.items.professions || {}).map(Number).sort((a, z) => bisProfessionName(a).localeCompare(bisProfessionName(z), 'de'));
+  const opt = (v, l) => `<option value="${escapeHtml(v)}">${escapeHtml(l)}</option>`;
+  sel.innerHTML = opt('', 'Alle Herkünfte') + opt('world', 'Open World (Drops)') + opt('quest', 'Quests') + opt('vendor', 'Händler')
+    + `<optgroup label="Berufe">${opt('craft', 'Alle Berufe')}${profs.map(p => opt('craft:' + p, bisProfessionName(p))).join('')}</optgroup>`
+    + BIS_INSTANCE_GROUPS.map(([k, label]) => {
+      const zones = Object.keys(inst).filter(z => inst[z] === k).sort((a, z) => a.localeCompare(z, 'de'));
+      return zones.length ? `<optgroup label="${label}">${zones.map(z => opt('z:' + z, z)).join('')}</optgroup>` : '';
+    }).join('');
+}
+/**
+ * Does the item come from the chosen content ('' = any)? Uses the sources
+ * the character's faction can use.
+ * @param {ForeverItem} item @param {string} content
+ */
+function bisMatchesContent(item, content){
+  if (!content) return true;
+  const s = bisSources(item);
+  if (!s || bisWrongFaction(item)) return false;
+  if (content.startsWith('z:')) return (s.drops || []).some(d => d.z === content.slice(2));
+  if (content === 'world'){
+    const inst = bisData.items.instances || {};
+    return Boolean(s.dropCount || (s.objects && s.objects.length) || (s.drops || []).some(d => d.z && !inst[d.z]));
+  }
+  if (content === 'quest') return Boolean(s.quests && s.quests.length);
+  if (content === 'vendor') return Boolean(s.vendors && s.vendors.length);
+  if (content === 'craft') return Boolean(s.craft);
+  if (content.startsWith('craft:')) return Boolean(s.craft && String(s.craft.p) === content.slice(6));
+  return true;
+}
+
 function openBisPicker(slotKey){
   bisPickerSlot = slotKey;
   const slot = BIS_SLOTS.find(s => s.key === slotKey);
   els.bisPickerTitle.textContent = slot ? slot.label + ' wählen' : 'Item wählen';
   els.bisPickerSearch.value = '';
+  bisFillContentSelect();
   els.bisPickerModal.classList.remove('hidden');
   renderBisPickerList();
   els.bisPickerSearch.focus();
@@ -595,11 +632,13 @@ function renderBisPickerList(){
   const showHigher = els.bisPickerHigherLevel.checked;
   const minQuality = Number(els.bisPickerQuality.value) || 2;
   const faction = bisFaction();
+  const content = els.bisPickerContent.value;
   const matches = bisData.items.items.filter(i => inv.includes(i.it)
     && i.q >= minQuality
     && (showHigher || bisItemLevel(i) <= b.level)
     && (!onlySourced || i.src)
     && (!faction || !i.fa || i.fa === faction)
+    && bisMatchesContent(i, content)
     && bisCanUse(i, b)
     && (!q || i.n.toLowerCase().includes(q)))
     .sort((a, z) => z.il - a.il || z.q - a.q || a.n.localeCompare(z.n));
@@ -635,6 +674,7 @@ els.bisPickerSearch.addEventListener('input', renderBisPickerList);
 els.bisPickerSourcedOnly.addEventListener('change', renderBisPickerList);
 els.bisPickerHigherLevel.addEventListener('change', renderBisPickerList);
 els.bisPickerQuality.addEventListener('change', renderBisPickerList);
+els.bisPickerContent.addEventListener('change', renderBisPickerList);
 els.bisPickerCloseBtn.addEventListener('click', closeBisPicker);
 els.bisPickerModal.addEventListener('click', (e) => { if (e.target === els.bisPickerModal) closeBisPicker(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && bisPickerSlot) closeBisPicker(); });

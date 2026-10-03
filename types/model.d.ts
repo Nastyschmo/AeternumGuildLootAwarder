@@ -242,6 +242,8 @@ interface ForeverItemsFile {
   professions?: Record<string, string>;
   /** Material item id -> name. */
   reagents?: Record<string, string>;
+  /** Zone name -> 'd' dungeon / 'r' raid / 'b' battleground (zones items drop in). */
+  instances?: Record<string, 'd' | 'r' | 'b'>;
   items: ForeverItem[];
 }
 

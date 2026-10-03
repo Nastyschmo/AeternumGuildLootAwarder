@@ -458,7 +458,7 @@ function startPublicRecruitingSync(){
 const SYNCED_KEYS = [
   'discordRoles', 'foreverSurvey', 'votingStatus', 'announcements', 'polls',
   'recruitingNeeds', 'classDeepDives', 'classDiveUpdateHistory',
-  'classDiveSources', 'characterProfiles', 'seenState'
+  'classDiveSources', 'characterProfiles', 'seenState', 'bisRecommended'
 ];
 // Raw snapshot values per key, merged and run through normalizeState()
 // as one object — so everything downstream sees exactly the same shape

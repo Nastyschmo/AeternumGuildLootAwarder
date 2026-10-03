@@ -557,8 +557,8 @@ function bisWirePlanner(root){
   // opens the newest saved set of the new spec, if there is one).
 
   const openNewestSet = () => {
-    const sets = bisSetsForCurrentSpec();
-    if (sets.length) bisLoadSet(sets[0][0]); else changed();
+    const id = bisDefaultSetForSpec();
+    if (id) bisLoadSet(id); else changed();
   };
   root.querySelectorAll('[data-bis-class]').forEach(btn => btn.addEventListener('click', async () => {
     const c = btn.getAttribute('data-bis-class');

@@ -1130,6 +1130,12 @@ these by hand:
   → % conversion isn't in the client anymore; the TBC curve is assumed
   (rating per 1% × max(level − 8, 2) / 52) and should be shown as an
   estimate.
+- Zones: names from the client's `AreaTable` (Forever, gaps from Classic
+  Era); which zone ids are dungeons/raids/battlegrounds from QuestieDB's
+  zone enum (`src/corrections/enum/zones.lua`), dungeon vs. raid from the
+  `Map` table. QuestieDB's Forever data lacks loot for some raid bosses
+  (Molten Core), so for items without drops the droppers come from its
+  Wotlk data — only NPCs Forever has, in a dungeon/raid zone.
 - Crafting (`scripts/forever-data/crafting.mjs`): which profession makes
   an item and at what skill, from the client's `SpellEffect` (create
   item), `SkillLineAbility` and the recipe items' `ItemEffect`; the
@@ -1165,8 +1171,7 @@ the profession and skill and where the recipe drops/is sold; the card
 crafts you must make yourself, BoE ones can be bought. *Materialliste*
 adds up the materials of all open crafted slots. The item picker can be narrowed by
 *Herkunft*: open world, quests, vendors, professions or a single
-dungeon/raid/battleground (zone types from the client's `Map` table,
-`instances` in items.json). The selection is stored only in the browser
+dungeon/raid/battleground (`instances` in items.json). The selection is stored only in the browser
 (`localStorage` key `rude-bis-draft-v1`) — saving builds to the database,
 admin-recommended builds and talents come in later steps. No Firebase rules
 are needed for it.

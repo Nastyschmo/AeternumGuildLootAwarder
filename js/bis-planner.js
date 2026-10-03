@@ -573,25 +573,92 @@ function bisWirePlanner(root){
 
 // ---------------------------------------------------------------- item picker
 const BIS_INSTANCE_GROUPS = [['d', 'Dungeons'], ['r', 'Raids'], ['b', 'Schlachtfelder']];
-/** Fill the "Herkunft" dropdown (once per data load), keeping the current choice. */
-function bisFillContentSelect(){
-  const sel = els.bisPickerContent;
-  if (sel.options.length) return;
+const BIS_CONTENT_KEY = 'rude-bis-content-v1';
+/** Chosen "Herkunft" values (empty = everything); kept per browser across slots. */
+let bisContentSel = bisLoadContentSel();
+/** @type {{ v: string, label: string, group: string }[] | null} */
+let bisContentOptions = null;
+/** @returns {string[]} */
+function bisLoadContentSel(){
+  try {
+    const v = JSON.parse(localStorage.getItem(BIS_CONTENT_KEY) || '[]');
+    return Array.isArray(v) ? v.filter(x => typeof x === 'string') : [];
+  } catch (e){ return []; }
+}
+function bisSaveContentSel(){
+  try { localStorage.setItem(BIS_CONTENT_KEY, JSON.stringify(bisContentSel)); } catch (e){ /* private mode */ }
+}
+/** All "Herkunft" choices: kinds, professions, then every dungeon/raid/battleground. */
+function bisGetContentOptions(){
+  if (bisContentOptions) return bisContentOptions;
   const inst = bisData.items.instances || {};
   const profs = Object.keys(bisData.items.professions || {}).map(Number).sort((a, z) => bisProfessionName(a).localeCompare(bisProfessionName(z), 'de'));
-  const opt = (v, l) => `<option value="${escapeHtml(v)}">${escapeHtml(l)}</option>`;
-  sel.innerHTML = opt('', 'Alle Herkünfte') + opt('world', 'Open World (Drops)') + opt('quest', 'Quests') + opt('vendor', 'Händler')
-    + `<optgroup label="Berufe">${opt('craft', 'Alle Berufe')}${profs.map(p => opt('craft:' + p, bisProfessionName(p))).join('')}</optgroup>`
-    + BIS_INSTANCE_GROUPS.map(([k, label]) => {
-      const zones = Object.keys(inst).filter(z => inst[z] === k).sort((a, z) => a.localeCompare(z, 'de'));
-      return zones.length ? `<optgroup label="${label}">${zones.map(z => opt('z:' + z, z)).join('')}</optgroup>` : '';
-    }).join('');
+  const opts = [
+    { v: 'world', label: 'Open World (Drops)', group: 'Allgemein' },
+    { v: 'quest', label: 'Quests', group: 'Allgemein' },
+    { v: 'vendor', label: 'Händler', group: 'Allgemein' },
+    { v: 'craft', label: 'Alle Berufe', group: 'Berufe' },
+    ...profs.map(p => ({ v: 'craft:' + p, label: bisProfessionName(p), group: 'Berufe' }))
+  ];
+  for (const [k, group] of BIS_INSTANCE_GROUPS){
+    Object.keys(inst).filter(z => inst[z] === k).sort((a, z) => a.localeCompare(z, 'de'))
+      .forEach(z => opts.push({ v: 'z:' + z, label: z, group }));
+  }
+  // Drop choices that no longer exist (e.g. after a data update).
+  bisContentSel = bisContentSel.filter(v => opts.some(o => o.v === v));
+  return (bisContentOptions = opts);
+}
+function bisRenderContentChips(){
+  const opts = bisGetContentOptions();
+  els.bisPickerContentChips.innerHTML = bisContentSel.map(v => {
+    const o = opts.find(x => x.v === v);
+    return `<span class="bis-chip">${escapeHtml(o ? o.label : v)}<button type="button" data-bis-content-remove="${escapeHtml(v)}" aria-label="Entfernen">×</button></span>`;
+  }).join('');
+  els.bisPickerContentInput.placeholder = bisContentSel.length ? 'weitere hinzufügen …' : 'Herkunft: alle — tippen zum Filtern, z. B. „ra“ …';
+  els.bisPickerContentChips.querySelectorAll('[data-bis-content-remove]').forEach(btn => btn.addEventListener('click', () => {
+    bisToggleContent(btn.getAttribute('data-bis-content-remove'));
+  }));
+}
+/** Options matching the typed text, as rows grouped under headings. */
+function bisRenderContentList(){
+  const q = els.bisPickerContentInput.value.trim().toLowerCase();
+  const matches = bisGetContentOptions().filter(o => !q || o.label.toLowerCase().includes(q));
+  let html = '', group = '';
+  for (const o of matches){
+    if (o.group !== group){ group = o.group; html += `<div class="bis-combo-group">${escapeHtml(group)}</div>`; }
+    const on = bisContentSel.includes(o.v);
+    html += `<div class="bis-combo-opt${on ? ' active' : ''}" role="option" aria-selected="${on}" data-bis-content="${escapeHtml(o.v)}"><span class="bis-combo-check">${on ? '✓' : ''}</span>${escapeHtml(o.label)}</div>`;
+  }
+  els.bisPickerContentList.innerHTML = html || '<div class="bis-combo-group">Nichts gefunden</div>';
+  els.bisPickerContentList.querySelectorAll('[data-bis-content]').forEach(row => {
+    // mousedown: keep the input focused so the list stays open for more picks
+    row.addEventListener('mousedown', (e) => { e.preventDefault(); bisToggleContent(row.getAttribute('data-bis-content')); });
+  });
+}
+/** @param {string} v */
+function bisToggleContent(v){
+  bisContentSel = bisContentSel.includes(v) ? bisContentSel.filter(x => x !== v) : bisContentSel.concat(v);
+  bisSaveContentSel();
+  bisRenderContentChips();
+  if (!els.bisPickerContentList.classList.contains('hidden')) bisRenderContentList();
+  renderBisPickerList();
+}
+function bisOpenContentList(){
+  els.bisPickerContentList.classList.remove('hidden');
+  bisRenderContentList();
+}
+function bisCloseContentList(){
+  els.bisPickerContentList.classList.add('hidden');
 }
 /**
- * Does the item come from the chosen content ('' = any)? Uses the sources
- * the character's faction can use.
- * @param {ForeverItem} item @param {string} content
+ * Does the item come from any of the chosen contents (none = any)? Uses
+ * the sources the character's faction can use.
+ * @param {ForeverItem} item @param {string[]} contents
  */
+function bisMatchesAnyContent(item, contents){
+  return !contents.length || contents.some(c => bisMatchesContent(item, c));
+}
+/** @param {ForeverItem} item @param {string} content */
 function bisMatchesContent(item, content){
   if (!content) return true;
   const s = bisSources(item);
@@ -613,7 +680,9 @@ function openBisPicker(slotKey){
   const slot = BIS_SLOTS.find(s => s.key === slotKey);
   els.bisPickerTitle.textContent = slot ? slot.label + ' wählen' : 'Item wählen';
   els.bisPickerSearch.value = '';
-  bisFillContentSelect();
+  els.bisPickerContentInput.value = '';
+  bisCloseContentList();
+  bisRenderContentChips();
   els.bisPickerModal.classList.remove('hidden');
   renderBisPickerList();
   els.bisPickerSearch.focus();
@@ -632,13 +701,13 @@ function renderBisPickerList(){
   const showHigher = els.bisPickerHigherLevel.checked;
   const minQuality = Number(els.bisPickerQuality.value) || 2;
   const faction = bisFaction();
-  const content = els.bisPickerContent.value;
+  const contents = bisContentSel;
   const matches = bisData.items.items.filter(i => inv.includes(i.it)
     && i.q >= minQuality
     && (showHigher || bisItemLevel(i) <= b.level)
     && (!onlySourced || i.src)
     && (!faction || !i.fa || i.fa === faction)
-    && bisMatchesContent(i, content)
+    && bisMatchesAnyContent(i, contents)
     && bisCanUse(i, b)
     && (!q || i.n.toLowerCase().includes(q)))
     .sort((a, z) => z.il - a.il || z.q - a.q || a.n.localeCompare(z.n));
@@ -674,7 +743,21 @@ els.bisPickerSearch.addEventListener('input', renderBisPickerList);
 els.bisPickerSourcedOnly.addEventListener('change', renderBisPickerList);
 els.bisPickerHigherLevel.addEventListener('change', renderBisPickerList);
 els.bisPickerQuality.addEventListener('change', renderBisPickerList);
-els.bisPickerContent.addEventListener('change', renderBisPickerList);
+els.bisPickerContentInput.addEventListener('focus', bisOpenContentList);
+els.bisPickerContentInput.addEventListener('input', bisOpenContentList);
+els.bisPickerContentInput.addEventListener('blur', bisCloseContentList);
+els.bisPickerContentInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter'){
+    e.preventDefault();
+    const first = els.bisPickerContentList.querySelector('[data-bis-content]');
+    if (first){ bisToggleContent(first.getAttribute('data-bis-content')); els.bisPickerContentInput.value = ''; bisRenderContentList(); }
+  } else if (e.key === 'Backspace' && !els.bisPickerContentInput.value && bisContentSel.length){
+    bisToggleContent(bisContentSel[bisContentSel.length - 1]);
+  } else if (e.key === 'Escape' && !els.bisPickerContentList.classList.contains('hidden')){
+    e.stopPropagation(); // close the list, not the whole picker
+    bisCloseContentList();
+  }
+});
 els.bisPickerCloseBtn.addEventListener('click', closeBisPicker);
 els.bisPickerModal.addEventListener('click', (e) => { if (e.target === els.bisPickerModal) closeBisPicker(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && bisPickerSlot) closeBisPicker(); });

@@ -553,9 +553,15 @@
         <h2 id="bisPickerTitle">Item wählen</h2>
         <button type="button" class="btn btn-ghost btn-sm" id="bisPickerCloseBtn">Schließen</button>
       </div>
+      <div class="bis-combo" id="bisPickerContentCombo">
+        <div class="bis-combo-box apply-text-input">
+          <span id="bisPickerContentChips" class="bis-combo-chips"></span>
+          <input type="text" id="bisPickerContentInput" placeholder="Herkunft: alle — tippen zum Filtern, z. B. „ra“ …" autocomplete="off" aria-label="Herkunft filtern">
+        </div>
+        <div id="bisPickerContentList" class="bis-combo-list hidden" role="listbox" aria-multiselectable="true"></div>
+      </div>
       <div class="bis-picker-filters">
         <input type="search" id="bisPickerSearch" class="apply-text-input" placeholder="Item suchen …" autocomplete="off">
-        <select id="bisPickerContent" class="apply-text-input" aria-label="Herkunft"></select>
         <select id="bisPickerQuality" class="apply-text-input">
           <option value="2">ab Selten (grün)</option>
           <option value="3" selected>ab Rar (blau)</option>

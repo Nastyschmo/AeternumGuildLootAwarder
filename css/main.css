@@ -1976,3 +1976,12 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 .bis-tal-icon{ cursor: help; }
 .bis-tal-icon:focus{ outline: 1px solid var(--gold-bright); outline-offset: 1px; }
 .bis-tal-tip-next{ margin-top: 6px; }
+
+/* BiS-Planer: enchant per slot (js/bis-enchants.js) */
+.bis-slot{ flex-wrap: wrap; }
+.bis-ench{ flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 0 6px 4px 58px; font-size: 12px; }
+.bis-ench-label{ color: var(--text-faint); text-transform: uppercase; letter-spacing: .5px; font-size: 11px; }
+.bis-ench select{ width: 0; min-width: 160px; flex: 1 1 200px; font-size: 12.5px; padding: 5px 8px; }
+.bis-ench-src{ flex-basis: 100%; color: var(--teal-bright); font-size: 12px; }
+.bis-ench-done .bis-ench-src{ opacity: .55; text-decoration: line-through; }
+@media (max-width: 600px){ .bis-ench{ padding-left: 6px; } }

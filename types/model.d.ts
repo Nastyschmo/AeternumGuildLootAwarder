@@ -271,6 +271,26 @@ interface ForeverTalentTrees {
   classes: Record<string, { trees: { name: string; talents: ForeverTalent[] }[] }>;
 }
 
+// data/forever/enchants.json (generated, scripts/forever-data/enchants.mjs).
+interface ForeverEnchant {
+  /** Enchant spell id. */
+  id: number;
+  /** Spell or item name ("Enchant Chest - Major Health", "Rugged Armor Kit"). */
+  n: string;
+  /** Effect text ("+100 Health"). */
+  e: string;
+  /** Item class it goes on: 2 weapon, 4 armor. */
+  ic: number;
+  /** Inventory-type bitmask (armor), else subclass bitmask. */
+  inv?: number;
+  sub?: number;
+  /** From a profession (skill, recipe) … */
+  craft?: { p: number; r: number; e?: 1; rec?: { id: number; n: string; src?: ForeverItemSource } };
+  /** … or an item you use. */
+  item?: { id: number; n: string; src?: ForeverItemSource };
+  icon?: string;
+}
+
 /** The BiS planner's working copy (localStorage `rude-bis-draft-v1`). */
 interface BisBuild {
   classId: ClassId;
@@ -278,8 +298,8 @@ interface BisBuild {
   /** ChrRaces id as string. */
   raceId: string;
   level: number;
-  /** Slot key -> chosen item ("Habe ich" lives in the owned-items set, not here). */
-  slots: Record<string, { itemId: number }>;
+  /** Slot key -> chosen item and enchant ("Habe ich" / "verzaubert" live in the owned set, not here). */
+  slots: Record<string, { itemId: number; enchantId?: number }>;
   /** Saved set this draft was loaded from / saved to ('' = none). */
   setId?: string;
   /** Talent points per tree (0..2): talent name -> rank. */
@@ -296,6 +316,8 @@ interface BisSavedSet {
   slots: Record<string, number>;
   /** Talent points per tree (stored in Firebase as { t0, t1, t2 }). */
   talents: Record<string, number>[];
+  /** Slot key -> enchant spell id. */
+  enchants: Record<string, number>;
   /** True when it lives under bisPublic (not stored, derived from the path). */
   public: boolean;
   ownerId: DiscordId;

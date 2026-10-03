@@ -83,7 +83,7 @@ const BIS_STAT_LABELS = {
 
 /** @type {Promise<{ items: ForeverItemsFile, stats: ForeverClassStats }> | null} */
 let bisDataPromise = null;
-/** @type {{ items: ForeverItemsFile, stats: ForeverClassStats, byId: Map<number, ForeverItem> } | null} */
+/** @type {{ items: ForeverItemsFile, stats: ForeverClassStats, byId: Map<number, ForeverItem>, enchants: ForeverEnchant[] } | null} */
 let bisData = null;
 /** @type {BisBuild | null} */
 let bisDraft = null;
@@ -93,9 +93,12 @@ function bisLoadData(){
   if (!bisDataPromise){
     bisDataPromise = Promise.all([
       fetch('data/forever/items.json').then(r => { if (!r.ok) throw new Error('items ' + r.status); return r.json(); }),
-      fetch('data/forever/class-stats.json').then(r => { if (!r.ok) throw new Error('class-stats ' + r.status); return r.json(); })
-    ]).then(([items, stats]) => {
-      bisData = { items, stats, byId: new Map(items.items.map(i => [i.id, i])) };
+      fetch('data/forever/class-stats.json').then(r => { if (!r.ok) throw new Error('class-stats ' + r.status); return r.json(); }),
+      // Optional: the planner works without enchants if the file is missing.
+      fetch('data/forever/enchants.json').then(r => (r.ok ? r.json() : null)).catch(() => null)
+    ]).then(([items, stats, ench]) => {
+      bisData = { items, stats, byId: new Map(items.items.map(i => [i.id, i])), enchants: (ench && ench.enchants) || [] };
+      bisEnchantIndex = null;
       return { items, stats };
     });
     bisDataPromise.catch(() => { bisDataPromise = null; });
@@ -124,6 +127,7 @@ function bisLoadDraft(){
           const v = raw.slots[s.key];
           if (!v || !(Number(v.itemId) > 0)) continue;
           d.slots[s.key] = { itemId: Number(v.itemId) };
+          if (Number(v.enchantId) > 0) d.slots[s.key].enchantId = Number(v.enchantId);
           // Old drafts ticked slots; ticks now belong to the item (bis-sets.js).
           if (v.done && !bisOwned.has(Number(v.itemId))){ bisOwned.add(Number(v.itemId)); bisSaveLocalOwned(); }
         }
@@ -415,6 +419,7 @@ function renderBisPlanner(){
       </button>
       ${item ? `<label class="bis-done" title="Gilt für dieses Item in all Deinen Sets"><input type="checkbox" data-bis-owned="${item.id}" ${owned ? 'checked' : ''}> Habe ich</label>
                 <button type="button" class="btn btn-ghost btn-sm" data-bis-clear="${s.key}" title="Slot leeren">✕</button>` : ''}
+      ${item && !blocked ? bisEnchantRowHtml(s.key, item) : ''}
     </div>`;
   }).join('');
 
@@ -483,7 +488,8 @@ function renderBisPlanner(){
     ? '<p class="bis-hint">Noch keine Items gewählt. Klick links auf einen Slot.</p>'
     : `<p class="bis-progress"><strong>${done}/${total}</strong> Slots erledigt</p>
        <div class="bis-progress-bar"><span style="width:${Math.round(done / total * 100)}%"></span></div>
-       ${groupNames.length ? groupNames.map(g => `<h4 class="bis-farm-group">${escapeHtml(g)}</h4><ul class="bis-farm-list">${groups[g].join('')}</ul>`).join('') : '<p class="bis-hint">Alles erledigt — Glückwunsch! 🎉</p>'}`;
+       ${groupNames.length ? groupNames.map(g => `<h4 class="bis-farm-group">${escapeHtml(g)}</h4><ul class="bis-farm-list">${groups[g].join('')}</ul>`).join('') : '<p class="bis-hint">Alle Items erledigt — Glückwunsch! 🎉</p>'}
+       ${bisEnchantFarm().html}`;
 
   const gearExtras = [[45, 'Zaubermacht'], [42, 'Zauberschaden'], [41, 'Heilung'], [43, 'Mana alle 5 Sek.'], [36, 'Tempowertung'], [37, 'Waffenkundewertung'],
     [12, 'Verteidigungswertung'], [13, 'Ausweichwertung'], [14, 'Parierwertung'], [15, 'Blockwertung'], [48, 'Blockwert'], [39, 'Distanzangriffskraft'],
@@ -552,6 +558,7 @@ function renderBisPlanner(){
   bisWirePlanner(root);
   bisWireSetBar(root);
   bisWireTalentCard(root);
+  bisWireEnchants(root);
 }
 
 /** @param {HTMLElement} root */
@@ -766,7 +773,10 @@ function renderBisPickerList(){
     </button>`;
   }).join('') || '<p class="bis-hint">Keine passenden Items. Filter lockern?</p>';
   els.bisPickerList.querySelectorAll('[data-bis-item]').forEach(btn => btn.addEventListener('click', () => {
+    const prevEnchant = b.slots[bisPickerSlot] && b.slots[bisPickerSlot].enchantId;
     b.slots[bisPickerSlot] = { itemId: Number(btn.getAttribute('data-bis-item')) };
+    // Keep the enchant if it fits the new item too.
+    if (prevEnchant){ b.slots[bisPickerSlot].enchantId = prevEnchant; bisValidateEnchant(bisPickerSlot); }
     if (bisPickerSlot === 'mainhand'){
       const item = bisData.byId.get(b.slots.mainhand.itemId);
       if (item && item.it === 17) delete b.slots.offhand;

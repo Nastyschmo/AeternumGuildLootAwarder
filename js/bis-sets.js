@@ -77,6 +77,7 @@ function bisSyncListeners(){
   bisSyncUid = uid;
   if (!uid){
     bisOwned = bisLoadLocalOwned();
+    bisEnchanted = bisLoadLocalEnchanted();
     return;
   }
   const listen = (ref, onValue) => {
@@ -89,16 +90,22 @@ function bisSyncListeners(){
   listen(db.ref(`${DB_PATH}/bisPublic`), (v) => { bisPublicRaw = v; bisMergeSets(); });
   let firstOwned = true;
   listen(db.ref(`${DB_PATH}/bisOwned/${uid}`), (v) => {
-    const remote = new Set(Object.keys(v).filter(k => v[k]).map(Number));
+    // Item ids = "Habe ich"; "e<itemId>_<enchantId>" = "verzaubert" (js/bis-enchants.js).
+    const keys = Object.keys(v).filter(k => v[k]);
+    const remote = new Set(keys.filter(k => /^\d+$/.test(k)).map(Number));
+    const remoteEnch = new Set(keys.filter(k => /^e\d+_\d+$/.test(k)).map(k => k.slice(1)));
     if (firstOwned){
       // Ticks made while logged out join the account once.
       firstOwned = false;
       const updates = {};
       for (const id of bisOwned) if (!remote.has(id)){ updates[id] = true; remote.add(id); }
+      for (const k of bisEnchanted) if (!remoteEnch.has(k)){ updates['e' + k] = true; remoteEnch.add(k); }
       if (Object.keys(updates).length) db.ref(`${DB_PATH}/bisOwned/${uid}`).update(updates).catch(() => {});
     }
     bisOwned = remote;
     bisSaveLocalOwned();
+    bisEnchanted = remoteEnch;
+    bisSaveLocalEnchanted();
   });
 }
 
@@ -133,6 +140,8 @@ function bisNormalizeSet(raw, isPublic){
     level: Math.min(BIS_MAX_LEVEL, Math.max(1, Number(raw.level) || BIS_DEFAULT_LEVEL)),
     slots,
     talents: bisNormalizeTalents(raw.talents, raw.classId),
+    enchants: Object.fromEntries(Object.entries((raw.enchants && typeof raw.enchants === 'object') ? raw.enchants : {})
+      .filter(([k, v]) => slots[k] && Number(v) > 0).map(([k, v]) => [k, Number(v)])),
     public: isPublic,
     ownerId: String(raw.ownerId || ''),
     ownerName: String(raw.ownerName || ''),
@@ -218,6 +227,7 @@ function bisDraftDirty(){
   if (!bisTalentsEqual(set.talents, bisDraft.talents)) return true;
   const keys = new Set([...Object.keys(set.slots), ...Object.keys(bisDraft.slots)]);
   for (const k of keys) if ((set.slots[k] || 0) !== ((bisDraft.slots[k] && bisDraft.slots[k].itemId) || 0)) return true;
+  for (const k of keys) if ((set.enchants[k] || 0) !== ((bisDraft.slots[k] && bisDraft.slots[k].enchantId) || 0)) return true;
   return false;
 }
 
@@ -228,7 +238,7 @@ function bisLoadSet(id){
   if (!set) return;
   bisDraft = {
     classId: set.classId, specId: set.specId, raceId: set.raceId, level: set.level, setId: id,
-    slots: Object.fromEntries(Object.entries(set.slots).map(([k, itemId]) => [k, { itemId }])),
+    slots: Object.fromEntries(Object.entries(set.slots).map(([k, itemId]) => [k, set.enchants[k] ? { itemId, enchantId: set.enchants[k] } : { itemId }])),
     talents: set.talents.map(t => ({ ...t }))
   };
   bisSetNameDraft = null;
@@ -244,6 +254,7 @@ function bisSetPayload(name, prev){
   return {
     name, classId: b.classId, specId: b.specId, raceId: b.raceId, level: b.level,
     slots: Object.fromEntries(Object.entries(b.slots).map(([k, v]) => [k, v.itemId])),
+    enchants: Object.fromEntries(Object.entries(b.slots).filter(([, v]) => v.enchantId).map(([k, v]) => [k, v.enchantId])),
     talents: bisTalentsPayload(b.talents),
     ownerId: discordIdentity.id,
     ownerName: (state.characterProfiles[discordIdentity.id] && state.characterProfiles[discordIdentity.id].nickname) || discordIdentity.username || '',
@@ -307,6 +318,7 @@ async function bisSetPublic(makePublic){
   const payload = bisSetPayload(set.name, set);
   payload.slots = set.slots; // move the saved version, not unsaved draft edits
   payload.talents = bisTalentsPayload(set.talents);
+  payload.enchants = set.enchants;
   payload.raceId = set.raceId;
   payload.level = set.level;
   try {

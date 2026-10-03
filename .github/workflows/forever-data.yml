@@ -1,0 +1,20 @@
+# Forever game-data pipeline (work in progress). For now this only runs
+# the discovery script on pushes to Claude's feature branches, so the
+# importer can be written against the real wago.tools / QuestieDB data.
+name: Forever data
+
+on:
+  push:
+    branches: ['claude/**']
+    paths: ['scripts/forever-data/**', '.github/workflows/forever-data.yml']
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/forever-data/inspect.mjs

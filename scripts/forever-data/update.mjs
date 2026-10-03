@@ -293,11 +293,15 @@ console.log(`  zones: ${area.size} (Era + Forever), maps: ${maps.size}`);
 // areas called "Westfall"), and some instance NPCs sit in outdoor areas.
 // The Map table then tells dungeon from raid.
 const INSTANCE_KIND = { 1: 'd', 2: 'r', 3: 'b' };
+// Classic raids (Onyxia, ZG, MC, BWL, AQ20, AQ40, Naxx): fixed, the Map
+// lookup doesn't classify all of them.
+const CLASSIC_RAIDS = new Set([2159, 1977, 2717, 2677, 3429, 3428, 3456]);
 const instanceZones = parseInstanceZones(zonesEnumTxt); // zone id -> { parent, battleground }
 const zoneKind = id => {
   const z = instanceZones.get(id);
   if (!z) return undefined;
   if (z.battleground) return 'b';
+  if (CLASSIC_RAIDS.has(z.parent)) return 'r';
   const row = area.get(z.parent) || area.get(id);
   return (row && INSTANCE_KIND[I((maps.get(I(row.ContinentID)) || {}).InstanceType)]) || 'd';
 };
@@ -376,7 +380,7 @@ if (withStats < items.length * 0.5) fail.push(`only ${withStats} items with stat
 if (withIcon < items.length * 0.8) fail.push(`only ${withIcon} items with icons`);
 const reaper = (items.find(r => r.id === 12784) || { src: {} }).src?.craft;
 if (!reaper || reaper.p !== 164 || reaper.r !== 300 || !reaper.rec || !reaper.m?.some(([id]) => id === 12360)) fail.push(`crafting check: Arcanite Reaper ${JSON.stringify(reaper)}`);
-const expectKind = { Naxxramas: 'r', 'Molten Core': 'r', 'The Deadmines': 'd', 'Blackrock Spire': 'd' };
+const expectKind = { Naxxramas: 'r', 'Molten Core': 'r', "Onyxia's Lair": 'r', 'The Deadmines': 'd', 'Blackrock Spire': 'd', 'Blackrock Depths': 'd' };
 for (const [z, k] of Object.entries(expectKind)) if (instances[z] !== k) fail.push(`instance check: ${z} is ${instances[z]}, expected ${k}`);
 for (const z of ['Westfall', 'Elwynn Forest', 'The Barrens']) if (instances[z]) fail.push(`instance check: open-world zone ${z} marked ${instances[z]}`);
 // Warsong Gulch necklaces: sold only by Horde / Alliance supply officers.

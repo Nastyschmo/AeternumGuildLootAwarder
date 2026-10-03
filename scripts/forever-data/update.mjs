@@ -25,6 +25,7 @@ const PRODUCT = 'wow_classic_beta';
 const QUESTIE = 'https://raw.githubusercontent.com/Questie/QuestieDB/master/data/Forever';
 // QuestieDB's Forever (and Classic) data has no loot for some raid bosses
 // (e.g. Molten Core); its Wotlk data does, for the same NPC and item ids.
+const QUESTIE_ZONES = 'https://raw.githubusercontent.com/Questie/QuestieDB/master/src/corrections/enum/zones.lua';
 const QUESTIE_WOTLK = 'https://raw.githubusercontent.com/Questie/QuestieDB/master/data/Wotlk';
 const LISTFILE = 'https://github.com/wowdev/wow-listfile/releases/latest/download/community-listfile.csv';
 const UA = { 'User-Agent': 'rude-guild-page data importer (github.com/Nastyschmo/AeternumGuildLootAwarder)' };
@@ -213,6 +214,30 @@ function sourceFaction(src) {
   return fs.length && fs.every(f => f && f === fs[0]) ? fs[0] : undefined;
 }
 
+/**
+ * Instance zone ids from QuestieDB's zone enum: the "Classic battlegrounds",
+ * "Classic dungeons and raids" and "Forever: instance areas" sections.
+ * A sub-area (NAME_SOMETHING) points to its instance (NAME).
+ */
+function parseInstanceZones(text) {
+  const SECTIONS = { 'classic battlegrounds': 'b', 'classic dungeons and raids': 'i', 'forever: instance areas': 'i' };
+  const out = new Map();
+  let section = null;
+  const names = [];
+  for (const line of text.split('\n')) {
+    const head = /^\s*--\s*(.+?)\s*(?:,.*)?$/.exec(line);
+    if (head) { section = SECTIONS[head[1].toLowerCase()] || null; continue; }
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*(\d+)\s*,/.exec(line);
+    if (m && section) names.push({ name: m[1], id: Number(m[2]), battleground: section === 'b' });
+  }
+  for (const z of names) {
+    const parent = names.filter(p => z.name.startsWith(p.name + '_')).sort((a, b) => b.name.length - a.name.length)[0];
+    out.set(z.id, { parent: parent ? parent.id : z.id, battleground: z.battleground });
+  }
+  if (!out.has(2717) || !out.has(1583)) throw new Error('QuestieDB zone enum: instance sections not found — format changed?');
+  return out;
+}
+
 // ---------------------------------------------------------------- main
 const builds = JSON.parse(await getText(`${WAGO}/api/builds`));
 const build = await newestBuild(builds, PRODUCT, '1.60.');
@@ -234,10 +259,10 @@ for (const name of [...Object.keys(NEED), ...DMG_TABLES]) {
   console.log(`  ${name}: ${t[name].length} rows`);
 }
 
-const [qItemsTxt, qNpcsTxt, qQuestsTxt, qObjectsTxt, listfileTxt, wItemsTxt, wNpcsTxt] = await Promise.all([
+const [qItemsTxt, qNpcsTxt, qQuestsTxt, qObjectsTxt, listfileTxt, wItemsTxt, wNpcsTxt, zonesEnumTxt] = await Promise.all([
   getText(`${QUESTIE}/foreverItemDB.lua`), getText(`${QUESTIE}/foreverNpcDB.lua`),
   getText(`${QUESTIE}/foreverQuestDB.lua`), getText(`${QUESTIE}/foreverObjectDB.lua`), getText(LISTFILE),
-  getText(`${QUESTIE_WOTLK}/wotlkItemDB.lua`), getText(`${QUESTIE_WOTLK}/wotlkNpcDB.lua`)
+  getText(`${QUESTIE_WOTLK}/wotlkItemDB.lua`), getText(`${QUESTIE_WOTLK}/wotlkNpcDB.lua`), getText(QUESTIE_ZONES)
 ]);
 const qItems = parseLuaRecords(qItemsTxt), qNpcs = parseLuaRecords(qNpcsTxt);
 const qQuests = parseLuaRecords(qQuestsTxt), qObjects = parseLuaRecords(qObjectsTxt);
@@ -255,46 +280,41 @@ console.log(`  ItemSparse (Era ${eraBuild}): ${eraSparseRows.length} rows`);
 const eraSparse = byId(eraSparseRows);
 
 // Zones: Forever's AreaTable export lacks unchanged Classic zones (e.g.
-// Molten Core), so Era rows fill the gaps; Map gives each zone's instance
-// type (1 dungeon, 2 raid, 3 battleground).
-const eraArea = byId(await table('AreaTable', eraBuild, NEED.AreaTable));
-const eraMaps = byId(await table('Map', eraBuild, NEED.Map));
-const area = new Map(eraArea), maps = new Map(eraMaps);
+// Molten Core), so Era rows fill the gaps.
+const area = byId(await table('AreaTable', eraBuild, NEED.AreaTable));
 for (const [id, row] of byId(t.AreaTable)) area.set(id, row);
+const maps = byId(await table('Map', eraBuild, NEED.Map));
 for (const [id, row] of byId(t.Map)) maps.set(id, row);
 console.log(`  zones: ${area.size} (Era + Forever), maps: ${maps.size}`);
+
+// Which zone ids are dungeons/raids/battlegrounds: QuestieDB's zone enum
+// lists them by id (with sub-areas like BLACKROCK_SPIRE_HORDEMAR_CITY).
+// Matching AreaTable names doesn't work — names repeat (instances with
+// areas called "Westfall"), and some instance NPCs sit in outdoor areas.
+// The Map table then tells dungeon from raid.
 const INSTANCE_KIND = { 1: 'd', 2: 'r', 3: 'b' };
-/**
- * zone name -> 'd' dungeon / 'r' raid / 'b' battleground. Filled by zone id
- * as NPC zones are named (names aren't unique: Forever has instances with
- * subzones called e.g. "Westfall").
- */
+const instanceZones = parseInstanceZones(zonesEnumTxt); // zone id -> { parent, battleground }
+const zoneKind = id => {
+  const z = instanceZones.get(id);
+  if (!z) return undefined;
+  if (z.battleground) return 'b';
+  const row = area.get(z.parent) || area.get(id);
+  return (row && INSTANCE_KIND[I((maps.get(I(row.ContinentID)) || {}).InstanceType)]) || 'd';
+};
+/** zone name -> 'd' dungeon / 'r' raid / 'b' battleground, filled as NPC zones get named. */
 const instances = {};
 const zoneName = id => {
-  const row = id && area.get(id);
-  if (!row) return '';
+  const z = instanceZones.get(id);
+  const row = area.get(z ? z.parent : id) || area.get(id); // instance sub-areas show the instance
+  if (!row || !row.AreaName_lang) return '';
   const kind = zoneKind(id);
-  if (kind && row.AreaName_lang && !instances[row.AreaName_lang]) instances[row.AreaName_lang] = kind;
+  if (kind && !instances[row.AreaName_lang]) instances[row.AreaName_lang] = kind;
   return row.AreaName_lang;
 };
 
 const sparse = byId(t.ItemSparse);
 const itemName = id => ((sparse.get(id) || eraSparse.get(id) || {}).Display_lang || (qItems.get(id) || [])[0]);
 const wotlk = { items: parseLuaRecords(wItemsTxt), npcs: parseLuaRecords(wNpcsTxt) };
-const mapKind = (row, mapTable = maps) => INSTANCE_KIND[I((mapTable.get(I(row.ContinentID)) || {}).InstanceType)];
-// Some instances' NPCs sit in an outdoor zone of the same name (e.g.
-// Blackrock Spire): fall back to a Classic Era instance with that name.
-// Era only — Forever adds instances with zones named like open-world ones
-// (Westfall, Elwynn Forest).
-const eraInstanceKind = new Map();
-for (const row of eraArea.values()) {
-  const kind = mapKind(row, eraMaps);
-  if (kind && row.AreaName_lang && !eraInstanceKind.has(row.AreaName_lang)) eraInstanceKind.set(row.AreaName_lang, kind);
-}
-const zoneKind = id => {
-  const row = id && area.get(id);
-  return row ? mapKind(row) || eraInstanceKind.get(row.AreaName_lang) : undefined;
-};
 const sources = buildSources(qItems, qNpcs, qQuests, qObjects, zoneName, itemName, wotlk,
   id => zoneKind(id) === 'd' || zoneKind(id) === 'r');
 

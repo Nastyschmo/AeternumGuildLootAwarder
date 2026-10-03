@@ -1167,6 +1167,11 @@ these by hand:
   sources from [QuestieDB](https://github.com/Questie/QuestieDB)
   (`data/Forever`), and icon names from the
   [wowdev listfile](https://github.com/wowdev/wow-listfile).
+- Enchantments (`scripts/forever-data/enchants.mjs` →
+  `data/forever/enchants.json`): ENCHANT_ITEM spells (SpellEffect 53) →
+  SpellItemEnchantment effect text, SpellEquippedItems slot masks, source
+  = profession (SkillLineAbility, recipe item) or on-use item (ItemEffect
+  TriggerType 0) with QuestieDB sources.
 - Talent trees (`scripts/forever-data/talents.mjs` → `data/forever/talents.js`,
   `window.FOREVER_TALENT_TREES`): Forever keeps its trees in the client's
   retail-style Trait tables (not the Classic Talent/TalentTab ones). Names,
@@ -1270,7 +1275,20 @@ state for that class is backed up), a banner there offers "Übernehmen &
 zurück" / "Abbrechen" and restores the backup; "Aus Talent Builder
 übernehmen" copies the current builder state. Saved with the set as
 `talents: { t0, t1, t2 }` (talent name -> rank); switching class clears
-them. No rules change. Rules: README § 6f.
+them. No rules change.
+
+**Verzauberung pro Slot** (`js/bis-enchants.js`, data from
+`scripts/forever-data/enchants.mjs` → `data/forever/enchants.json`):
+every slot with an item gets an enchant dropdown with the enchants that
+fit that item (grouped Berufe / Items, with effect and skill), its
+source line (profession + skill + recipe source, or the item and where
+it comes from) and a "verzaubert" tick. The tick belongs to item +
+enchant and counts in every set (stored next to the owned items as
+`bisOwned/<uid>/e<itemId>_<enchantId>`); the farm list gets a
+"Verzauberungen" section. Saved with the set as `enchants: { slot:
+spellId }`; picking another item keeps the enchant only if it still
+fits. Enchants are not added to the stat totals (most work through
+spell auras). No rules change. Rules: README § 6f.
 
 ## Type checking (development only)
 

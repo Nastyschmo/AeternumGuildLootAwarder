@@ -117,10 +117,14 @@ function bisLoadDraft(){
       d.specId = foreverSpecsForClass(raw.classId).some(s => s.id === raw.specId) ? raw.specId : foreverSpecsForClass(raw.classId)[0].id;
       d.raceId = typeof raw.raceId === 'string' ? raw.raceId : '1';
       d.level = Math.min(BIS_MAX_LEVEL, Math.max(1, Number(raw.level) || BIS_DEFAULT_LEVEL));
+      if (typeof raw.setId === 'string') d.setId = raw.setId;
       if (raw.slots && typeof raw.slots === 'object'){
         for (const s of BIS_SLOTS){
           const v = raw.slots[s.key];
-          if (v && Number(v.itemId) > 0) d.slots[s.key] = { itemId: Number(v.itemId), done: !!v.done };
+          if (!v || !(Number(v.itemId) > 0)) continue;
+          d.slots[s.key] = { itemId: Number(v.itemId) };
+          // Old drafts ticked slots; ticks now belong to the item (bis-sets.js).
+          if (v.done && !bisOwned.has(Number(v.itemId))){ bisOwned.add(Number(v.itemId)); bisSaveLocalOwned(); }
         }
       }
       return d;
@@ -380,6 +384,7 @@ function renderBisPlanner(){
     return;
   }
   if (!bisDraft) bisDraft = bisLoadDraft();
+  bisSyncListeners();
   const b = bisDraft;
   const races = bisRacesForClass(b.classId);
   if (!races.includes(b.raceId)) b.raceId = races[0];
@@ -393,7 +398,8 @@ function renderBisPlanner(){
     const sel = b.slots[s.key];
     const item = sel && bisData.byId.get(sel.itemId);
     const src = item ? bisSourceLines(item) : [];
-    return `<div class="bis-slot${blocked ? ' bis-slot-blocked' : ''}${sel && sel.done ? ' bis-slot-done' : ''}">
+    const owned = Boolean(item && bisIsOwned(item.id));
+    return `<div class="bis-slot${blocked ? ' bis-slot-blocked' : ''}${owned ? ' bis-slot-done' : ''}">
       <button type="button" class="bis-slot-main" data-bis-pick="${s.key}" ${blocked ? 'disabled' : ''}>
         ${bisIconHtml(item, 36)}
         <span class="bis-slot-text">
@@ -405,7 +411,7 @@ function renderBisPlanner(){
                  : `<span class="bis-slot-empty">${blocked ? 'Zweihandwaffe ausgerüstet' : 'Item wählen…'}</span>`}
         </span>
       </button>
-      ${item ? `<label class="bis-done"><input type="checkbox" data-bis-done="${s.key}" ${sel.done ? 'checked' : ''}> Habe ich</label>
+      ${item ? `<label class="bis-done" title="Gilt für dieses Item in all Deinen Sets"><input type="checkbox" data-bis-owned="${item.id}" ${owned ? 'checked' : ''}> Habe ich</label>
                 <button type="button" class="btn btn-ghost btn-sm" data-bis-clear="${s.key}" title="Slot leeren">✕</button>` : ''}
     </div>`;
   }).join('');
@@ -419,17 +425,17 @@ function renderBisPlanner(){
     const item = sel && bisData.byId.get(sel.itemId);
     if (!item || (s.key === 'offhand' && bisOffhandBlocked(b))) continue;
     total++;
-    if (sel.done){ done++; continue; }
+    if (bisIsOwned(item.id)){ done++; continue; }
     const g = bisSourceGroup(item);
     const lines = bisSourceLines(item);
-    (groups[g] = groups[g] || []).push(`<li><label><input type="checkbox" data-bis-done="${s.key}"> <strong>${escapeHtml(s.label)}:</strong> <span style="color:${bisQualityColor(item)}">${escapeHtml(item.n)}</span></label>${lines.length ? `<div class="bis-farm-src">${lines.map(escapeHtml).join('<br>')}</div>` : ''}</li>`);
+    (groups[g] = groups[g] || []).push(`<li><label><input type="checkbox" data-bis-owned="${item.id}"> <strong>${escapeHtml(s.label)}:</strong> <span style="color:${bisQualityColor(item)}">${escapeHtml(item.n)}</span></label>${lines.length ? `<div class="bis-farm-src">${lines.map(escapeHtml).join('<br>')}</div>` : ''}</li>`);
   }
   // Professions the open slots need: BoP crafts must be made yourself.
   /** @type {Record<string, { need: number, est: boolean, own: string[], buy: string[] }>} */
   const profs = {};
   for (const s of BIS_SLOTS){
     const sel = b.slots[s.key];
-    const item = sel && !sel.done && bisData.byId.get(sel.itemId);
+    const item = sel && !bisIsOwned(sel.itemId) && bisData.byId.get(sel.itemId);
     const c = item && item.src && item.src.craft;
     if (!c || (s.key === 'offhand' && bisOffhandBlocked(b))) continue;
     const pr = profs[c.p] = profs[c.p] || { need: 0, est: false, own: [], buy: [] };
@@ -445,7 +451,7 @@ function renderBisPlanner(){
   const matTotals = new Map();
   for (const s of BIS_SLOTS){
     const sel = b.slots[s.key];
-    const item = sel && !sel.done && bisData.byId.get(sel.itemId);
+    const item = sel && !bisIsOwned(sel.itemId) && bisData.byId.get(sel.itemId);
     const c = item && item.src && item.src.craft;
     if (!c || !c.m || (s.key === 'offhand' && bisOffhandBlocked(b))) continue;
     for (const [id, n] of c.m) matTotals.set(id, (matTotals.get(id) || 0) + n);
@@ -504,6 +510,7 @@ function renderBisPlanner(){
         <button type="button" class="btn btn-ghost btn-sm" id="bisResetBtn">Alle Slots leeren</button>
       </div>
     </div>
+    ${bisSetBarHtml()}
     <div class="bis-layout">
       <div class="tac-card bis-slots">
         <h3 class="bis-card-title" style="color:${cls.color}">${escapeHtml(cls.label)} · ${escapeHtml(foreverSpecLabel(b.classId, b.specId))}</h3>
@@ -539,22 +546,42 @@ function renderBisPlanner(){
     </div>
     <p class="bis-hint bis-footnote">Daten: WoW Forever Build ${escapeHtml(bisData.items.build)} (täglich automatisch aktualisiert). Deine Auswahl wird vorerst nur in diesem Browser gespeichert.</p>`;
   bisWirePlanner(root);
+  bisWireSetBar(root);
 }
 
 /** @param {HTMLElement} root */
 function bisWirePlanner(root){
   const b = bisDraft;
   const changed = () => { bisSaveDraft(); renderBisPlanner(); };
+  // Sets belong to a class + spec: switching leaves the active set (and
+  // opens the newest saved set of the new spec, if there is one).
+  const leaveSet = () => !(b.setId && bisDraftDirty()) || confirm('Ungespeicherte Änderungen am Set verwerfen?');
+  const openNewestSet = () => {
+    const sets = bisSetsForCurrentSpec();
+    if (sets.length) bisLoadSet(sets[0][0]); else changed();
+  };
   root.querySelectorAll('[data-bis-class]').forEach(btn => btn.addEventListener('click', () => {
     const c = btn.getAttribute('data-bis-class');
-    if (c === b.classId) return;
+    if (c === b.classId || !leaveSet()) return;
     b.classId = c;
     b.specId = foreverSpecsForClass(c)[0].id;
     b.slots = {};
-    changed();
+    b.setId = '';
+    bisSetNameDraft = null;
+    bisSetStatus = '';
+    openNewestSet();
   }));
   const spec = /** @type {HTMLSelectElement} */ (root.querySelector('#bisSpecSelect'));
-  spec.addEventListener('change', () => { b.specId = spec.value; changed(); });
+  spec.addEventListener('change', () => {
+    if (!leaveSet()){ spec.value = b.specId; return; }
+    b.specId = spec.value;
+    const hadSet = Boolean(b.setId);
+    b.setId = '';
+    bisSetNameDraft = null;
+    bisSetStatus = '';
+    // Coming from a saved set: show the new spec's own set; a plain draft keeps its items.
+    if (hadSet || !Object.keys(b.slots).length) openNewestSet(); else changed();
+  });
   const race = /** @type {HTMLSelectElement} */ (root.querySelector('#bisRaceSelect'));
   race.addEventListener('change', () => { b.raceId = race.value; changed(); });
   const lvl = /** @type {HTMLInputElement} */ (root.querySelector('#bisLevelInput'));
@@ -565,9 +592,9 @@ function bisWirePlanner(root){
   });
   root.querySelectorAll('[data-bis-pick]').forEach(btn => btn.addEventListener('click', () => openBisPicker(btn.getAttribute('data-bis-pick'))));
   root.querySelectorAll('[data-bis-clear]').forEach(btn => btn.addEventListener('click', () => { delete b.slots[btn.getAttribute('data-bis-clear')]; changed(); }));
-  root.querySelectorAll('[data-bis-done]').forEach((/** @type {HTMLInputElement} */ cb) => cb.addEventListener('change', () => {
-    const sel = b.slots[cb.getAttribute('data-bis-done')];
-    if (sel){ sel.done = cb.checked; changed(); }
+  root.querySelectorAll('[data-bis-owned]').forEach((/** @type {HTMLInputElement} */ cb) => cb.addEventListener('change', () => {
+    bisSetOwned(Number(cb.getAttribute('data-bis-owned')), cb.checked);
+    renderBisPlanner();
   }));
 }
 
@@ -728,7 +755,7 @@ function renderBisPickerList(){
     </button>`;
   }).join('') || '<p class="bis-hint">Keine passenden Items. Filter lockern?</p>';
   els.bisPickerList.querySelectorAll('[data-bis-item]').forEach(btn => btn.addEventListener('click', () => {
-    b.slots[bisPickerSlot] = { itemId: Number(btn.getAttribute('data-bis-item')), done: false };
+    b.slots[bisPickerSlot] = { itemId: Number(btn.getAttribute('data-bis-item')) };
     if (bisPickerSlot === 'mainhand'){
       const item = bisData.byId.get(b.slots.mainhand.itemId);
       if (item && item.it === 17) delete b.slots.offhand;

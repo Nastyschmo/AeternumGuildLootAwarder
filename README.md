@@ -369,6 +369,32 @@ Go to **Build → Realtime Database → Rules** and replace them with:
         "$sourceId": {
           ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer')"
         }
+      },
+      "bisSets": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          "$setId": {
+            ".write": "auth != null && auth.uid === $uid && (!newData.exists() || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'member' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin'))",
+            ".validate": "newData.hasChildren(['name', 'classId', 'specId', 'raceId', 'level', 'ownerId']) && newData.child('ownerId').val() === auth.uid && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 60 && newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 60"
+          }
+        }
+      },
+      "bisPublic": {
+        ".read": "auth != null",
+        ".indexOn": ["ownerId"],
+        "$setId": {
+          ".write": "auth != null && (!data.exists() || data.child('ownerId').val() === auth.uid || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin') && (!newData.exists() || (newData.child('ownerId').val() === auth.uid && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'member' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')))",
+          ".validate": "newData.hasChildren(['name', 'classId', 'specId', 'raceId', 'level', 'ownerId']) && newData.child('ownerId').val() === auth.uid && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 60 && newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 60"
+        }
+      },
+      "bisOwned": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          "$itemId": {
+            ".validate": "newData.val() === true"
+          }
+        }
       }
     }
   }
@@ -391,6 +417,16 @@ Click **Publish**. What this enforces at the database level (not just in the UI)
   query `orderByChild('applicantId').equalTo(<own uid>)` (that's what the
   Bewerbung page uses to show an applicant their own status). The
   `.indexOn: ["applicantId"]` entry is required for that query.
+- **BiS-Planer:** `bisSets/<uid>` (private item sets) and
+  `bisOwned/<uid>` ("Habe ich" items) are readable only by their owner;
+  the page listens to the own path directly (not via `SYNCED_KEYS`).
+  `bisPublic` holds the sets an owner marked "öffentlich" and is readable
+  by every logged-in account (Community included); the page reads its own
+  ones with `orderByChild('ownerId').equalTo(<own uid>)`, which needs the
+  `.indexOn: ["ownerId"]`. Saving a set needs the role Gildenmitglied,
+  Officer or Admin, and only into one's own name (`ownerId`); deleting
+  one's own sets always works, and Admins may delete any public set.
+  Owned items can be written by any logged-in account for itself.
 - Apart from `applications`, any logged-in account — including a
   Community login — can still technically read the remaining keys
   (announcements, polls, …) directly from Firebase, even though the page's
@@ -1174,10 +1210,20 @@ adds up the materials of all open crafted slots. The item picker can be narrowed
 Razorfen …) where several entries can be picked at once — open world,
 quests, vendors, professions, dungeons, raids, battlegrounds
 (`instances` in items.json). The choice is remembered per browser
-(`rude-bis-content-v1`) so it stays while you go through the slots. The selection is stored only in the browser
-(`localStorage` key `rude-bis-draft-v1`) — saving builds to the database,
-admin-recommended builds and talents come in later steps. No Firebase rules
-are needed for it.
+(`rude-bis-content-v1`) so it stays while you go through the slots. The working copy lives in the
+browser (`localStorage` key `rude-bis-draft-v1`).
+
+**Item-Sets** (`js/bis-sets.js`): Gildenmitglieder and up can save the
+current selection as a named set per class + spec (free text, e.g. "Raid:
+Ragnaros", "AoE-Farm", "PvP"), several per spec; the set bar above the
+slots loads, saves, saves as new, deletes and toggles *öffentlich*.
+Private sets live in `bisSets/<uid>`, public ones in `bisPublic` (moved
+there with one multi-path update; readable by every logged-in account as
+the basis for a later public build list). *Habe ich* belongs to the item,
+not the set: `bisOwned/<uid>/<itemId>` — one tick counts in every set;
+logged out it stays in `localStorage` (`rude-bis-owned-v1`) and joins the
+account at the next login. Community and logged-out visitors use the
+planner locally. Rules: README § 6f.
 
 ## Type checking (development only)
 

@@ -247,13 +247,31 @@ interface ForeverItemsFile {
   items: ForeverItem[];
 }
 
-/** A BiS planner build (stored locally for now). */
+/** The BiS planner's working copy (localStorage `rude-bis-draft-v1`). */
 interface BisBuild {
   classId: ClassId;
   specId: SpecId;
   /** ChrRaces id as string. */
   raceId: string;
   level: number;
-  /** Slot key -> chosen item and whether it's already obtained. */
-  slots: Record<string, { itemId: number; done?: boolean }>;
+  /** Slot key -> chosen item ("Habe ich" lives in the owned-items set, not here). */
+  slots: Record<string, { itemId: number }>;
+  /** Saved set this draft was loaded from / saved to ('' = none). */
+  setId?: string;
+}
+/** A saved item set: bisSets/<uid>/<id> (private) or bisPublic/<id>. */
+interface BisSavedSet {
+  name: string;
+  classId: ClassId;
+  specId: SpecId;
+  raceId: string;
+  level: number;
+  /** Slot key -> item id. */
+  slots: Record<string, number>;
+  /** True when it lives under bisPublic (not stored, derived from the path). */
+  public: boolean;
+  ownerId: DiscordId;
+  ownerName: string;
+  createdAt: Millis;
+  updatedAt: Millis;
 }

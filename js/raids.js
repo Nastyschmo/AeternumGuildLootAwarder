@@ -2,7 +2,8 @@
 //
 // Firebase (own listeners, started when the page opens — not SYNCED_KEYS):
 //  - raidEvents/<id> = { title, instance, start (ms), note, createdBy,
-//    createdAt, updatedAt } — Officers / Admins create, edit, delete.
+//    createdAt, updatedAt, srMax, srLocked } — Officers / Admins create,
+//    edit, delete. srMax > 0 turns on soft-reserves (js/raid-reserves.js).
 //  - raidSignups/<eventId>/<uid> = { status: 'yes' | 'maybe' | 'no', name,
 //    charName, classId, specId, note, updatedAt } — every member writes
 //    their own; Officers / Admins may clear a whole event's sign-ups.
@@ -10,7 +11,9 @@
 // damage) comes from the chosen spec (foreverSpecRole). The last sign-up
 // choice (character, class, spec) is remembered in localStorage.
 
-const RAID_INSTANCES = ['Molten Core', "Onyxia's Lair", 'Blackwing Lair', "Zul'Gurub", 'Ruins of Ahn\'Qiraj', "Ahn'Qiraj", 'Naxxramas'];
+// Forever's announced raids (unlock 9 Dec 2026), name -> raid size. Add
+// new raids here when Blizzard announces them (spring / summer 2027).
+const RAID_INSTANCES = { 'Barrow Deeps': 10, 'Hyjal Summit': 20, "Onyxia's Lair": 40 };
 const RAID_LAST_SIGNUP_KEY = 'rude-raid-last-signup-v1';
 const RAID_STATUS_LABELS = { yes: 'Dabei', maybe: 'Vielleicht', no: 'Absage' };
 /** Show events up to this long after their start in "Kommende" (a raid evening). */
@@ -49,6 +52,7 @@ function raidSync(){
     raidSignups = out;
     rerender();
   }, () => { raidLoadError = 'Keine Leserechte für Raid-Anmeldungen — Firebase-Regeln aktualisiert?'; rerender(); });
+  raidReserveSync();
 }
 
 /** @param {any} raw @returns {RaidEvent | null} */
@@ -61,7 +65,9 @@ function raidNormalizeEvent(raw){
     note: String(raw.note || '').slice(0, 500),
     createdBy: String(raw.createdBy || ''),
     createdAt: Number(raw.createdAt) || 0,
-    updatedAt: Number(raw.updatedAt) || 0
+    updatedAt: Number(raw.updatedAt) || 0,
+    srMax: Math.min(RAID_SR_MAX, Math.max(0, Math.trunc(Number(raw.srMax)) || 0)),
+    srLocked: raw.srLocked === true
   };
 }
 /** @param {any} raw @returns {RaidSignup | null} */
@@ -183,7 +189,9 @@ function raidEventCardHtml(id, e, past){
       ${r.maybe.length ? `<div><span class="raid-col-head">Vielleicht</span> ${r.maybe.map(raidChipHtml).join('')}</div>` : ''}
       ${r.no.length ? `<div><span class="raid-col-head">Absagen</span> ${r.no.map(raidChipHtml).join('')}</div>` : ''}
     </div>` : ''}
+    ${raidSrSectionHtml(id, e, past)}
     ${canManage ? `<div class="raid-admin">
+      ${raidSrAdminHtml(id, e, past)}
       <button type="button" class="btn btn-ghost btn-sm" data-raid-edit="${escapeHtml(id)}">Bearbeiten</button>
       <button type="button" class="btn btn-ghost btn-sm" data-raid-delete="${escapeHtml(id)}">Löschen</button>
     </div>` : ''}
@@ -198,14 +206,17 @@ function raidEventFormHtml(){
   const pad = n => String(n).padStart(2, '0');
   const date = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
   const time = `${pad(start.getHours())}:${pad(start.getMinutes())}`;
+  // An older event may name an instance that's no longer listed: keep it.
+  const instances = Object.keys(RAID_INSTANCES);
+  if (e && e.instance && !instances.includes(e.instance)) instances.push(e.instance);
   return `<div class="tac-card raid-form">
     <h3 class="bis-card-title">${e ? 'Raid bearbeiten' : 'Raid anlegen'}</h3>
     <div class="raid-form-grid">
-      <label>Instanz<input type="text" id="raidFormInstance" class="apply-text-input" maxlength="60" list="raidInstances" value="${escapeHtml(e ? e.instance : RAID_INSTANCES[0])}"></label>
-      <datalist id="raidInstances">${RAID_INSTANCES.map(n => `<option value="${escapeHtml(n)}">`).join('')}</datalist>
+      <label>Instanz<select id="raidFormInstance">${instances.map(n => `<option value="${escapeHtml(n)}" ${e && e.instance === n ? 'selected' : ''}>${escapeHtml(n)}${RAID_INSTANCES[n] ? ` (${RAID_INSTANCES[n]} Spieler)` : ''}</option>`).join('')}</select></label>
       <label>Titel (optional)<input type="text" id="raidFormTitle" class="apply-text-input" maxlength="80" placeholder="z. B. „MC Clear #3“" value="${escapeHtml(e && e.title !== e.instance ? e.title : '')}"></label>
       <label>Datum<input type="date" id="raidFormDate" value="${date}"></label>
       <label>Uhrzeit<input type="time" id="raidFormTime" value="${time}"></label>
+      <label>Soft-Reserve<select id="raidFormSr">${[0, 1, 2, 3].map(n => `<option value="${n}" ${(e ? e.srMax : 0) === n ? 'selected' : ''}>${n ? `${n} ${n === 1 ? 'Item' : 'Items'} pro Spieler` : 'Aus'}</option>`).join('')}</select></label>
     </div>
     <label class="raid-form-note">Notiz (optional)<textarea id="raidFormNote" class="apply-text-input" maxlength="500" rows="2" placeholder="Treffpunkt, Buffs, Consumables …">${escapeHtml(e ? e.note : '')}</textarea></label>
     <div class="forever-actions">
@@ -226,6 +237,9 @@ function renderRaidsPage(){
   const now = Date.now();
   const all = Object.entries(raidEvents);
   const upcoming = all.filter(([, e]) => e.start >= now - RAID_RUNNING_MS).sort((a, z) => a[1].start - z[1].start);
+  // Keep the focus in a soft-reserve search box across live re-renders.
+  const active = /** @type {HTMLInputElement | null} */ (document.activeElement);
+  const focusSr = active && root.contains(active) ? active.getAttribute('data-raid-sr-search') : null;
   const past = all.filter(([, e]) => e.start < now - RAID_RUNNING_MS).sort((a, z) => z[1].start - a[1].start).slice(0, 10);
   root.innerHTML = `
     ${raidLoadError ? `<p class="bis-hint raid-error">${escapeHtml(raidLoadError)}</p>` : ''}
@@ -235,6 +249,11 @@ function renderRaidsPage(){
     ${upcoming.length ? upcoming.map(([id, e]) => raidEventCardHtml(id, e, false)).join('') : '<div class="tac-card"><p class="bis-hint">Noch keine Raids geplant.</p></div>'}
     ${past.length ? `<details class="raid-past-list"><summary>Vergangene Raids (${past.length})</summary>${past.map(([id, e]) => raidEventCardHtml(id, e, true)).join('')}</details>` : ''}`;
   raidWire(root);
+  raidSrWire(root);
+  if (focusSr){
+    const box = /** @type {HTMLInputElement | null} */ (root.querySelector(`[data-raid-sr-search="${CSS.escape(focusSr)}"]`));
+    if (box){ box.focus(); box.setSelectionRange(box.value.length, box.value.length); }
+  }
 }
 
 /** Read one sign-up form. @param {HTMLElement} form */
@@ -281,8 +300,12 @@ function raidWire(root){
     } catch (e){ raidStatusMsg = 'Anmeldung konnte nicht gespeichert werden — Firebase-Regeln aktualisiert?'; renderRaidsPage(); }
   }));
   root.querySelectorAll('[data-raid-withdraw]').forEach(btn => btn.addEventListener('click', async () => {
-    try { await db.ref(`${DB_PATH}/raidSignups/${btn.getAttribute('data-raid-withdraw')}/${uid}`).remove(); }
-    catch (e){ raidStatusMsg = 'Abmelden fehlgeschlagen.'; renderRaidsPage(); }
+    const id = btn.getAttribute('data-raid-withdraw');
+    try { await db.ref(`${DB_PATH}/raidSignups/${id}/${uid}`).remove(); }
+    catch (e){ raidStatusMsg = 'Abmelden fehlgeschlagen.'; renderRaidsPage(); return; }
+    // Withdrawing frees the own reserves too (unless they are locked).
+    const ev = raidEvents[id];
+    if ((raidReserves[id] || {})[uid] && ev && !ev.srLocked) raidSrSave(id, {});
   }));
   const on = (sel, fn) => { const el = root.querySelector(sel); if (el) el.addEventListener('click', fn); };
   on('#raidNewBtn', () => { raidEditId = ''; renderRaidsPage(); });
@@ -298,6 +321,7 @@ function raidWire(root){
     const payload = {
       title: (get('#raidFormTitle') || instance).slice(0, 80), instance, start,
       note: get('#raidFormNote').slice(0, 500),
+      srMax: Number(get('#raidFormSr')) || 0, srLocked: prev ? prev.srLocked : false,
       createdBy: prev ? prev.createdBy : uid, createdAt: prev ? prev.createdAt : Date.now(), updatedAt: Date.now()
     };
     try {
@@ -316,10 +340,10 @@ function raidWire(root){
     const id = btn.getAttribute('data-raid-delete');
     const e = raidEvents[id];
     if (!e) return;
-    const answer = await bisDialog('Raid löschen?', `„${e.title}“ am ${raidDateLabel(e.start)} wird mit allen Anmeldungen gelöscht.`,
+    const answer = await bisDialog('Raid löschen?', `„${e.title}“ am ${raidDateLabel(e.start)} wird mit allen Anmeldungen und Reserves gelöscht.`,
       [{ id: 'delete', label: 'Löschen', primary: true }, { id: 'cancel', label: 'Abbrechen' }]);
     if (answer !== 'delete') return;
-    try { await db.ref(DB_PATH).update({ [`raidEvents/${id}`]: null, [`raidSignups/${id}`]: null }); }
+    try { await db.ref(DB_PATH).update({ [`raidEvents/${id}`]: null, [`raidSignups/${id}`]: null, [`raidReserves/${id}`]: null }); }
     catch (err){ raidStatusMsg = 'Löschen fehlgeschlagen.'; renderRaidsPage(); }
   }));
 }

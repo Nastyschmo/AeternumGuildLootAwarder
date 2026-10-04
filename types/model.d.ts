@@ -371,6 +371,21 @@ interface RaidEvent {
   createdBy: DiscordId;
   createdAt: Millis;
   updatedAt: Millis;
+  /** Soft-reserves per player, 0 = off. */
+  srMax: number;
+  /** Reserves can't be changed any more. */
+  srLocked: boolean;
+}
+interface RaidReserve {
+  /** Reserved item ids, slot order. */
+  items: number[];
+  /** Stored form: slot (s1..s3) -> item id. */
+  slots: Record<string, number>;
+  /** Display name of the member. */
+  name: string;
+  charName: string;
+  classId: ClassId | '';
+  updatedAt: Millis;
 }
 interface RaidSignup {
   status: 'yes' | 'maybe' | 'no';

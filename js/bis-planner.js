@@ -411,7 +411,7 @@ function renderBisPlanner(){
     const src = item ? bisSourceLines(item) : [];
     const owned = Boolean(item && bisIsOwned(item.id));
     return `<div class="bis-slot${blocked ? ' bis-slot-blocked' : ''}${owned ? ' bis-slot-done' : ''}">
-      <button type="button" class="bis-slot-main" data-bis-pick="${s.key}" ${blocked ? 'disabled' : ''}>
+      <button type="button" class="bis-slot-main" data-bis-pick="${s.key}"${item ? ` data-item-id="${item.id}"` : ''} ${blocked ? 'disabled' : ''}>
         ${bisIconHtml(item, 36)}
         <span class="bis-slot-text">
           <span class="bis-slot-label">${escapeHtml(s.label)}</span>
@@ -767,7 +767,7 @@ function renderBisPickerList(){
     : `${matches.length} Treffer`;
   els.bisPickerList.innerHTML = matches.slice(0, BIS_PICKER_LIMIT).map(i => {
     const src = bisSourceLines(i);
-    return `<button type="button" class="bis-pick-item${i.id === current ? ' active' : ''}" data-bis-item="${i.id}">
+    return `<button type="button" class="bis-pick-item${i.id === current ? ' active' : ''}" data-bis-item="${i.id}" data-item-id="${i.id}">
       ${bisIconHtml(i, 36)}
       <span class="bis-slot-text">
         <span class="bis-item-name" style="color:${bisQualityColor(i)}">${escapeHtml(i.n)}</span>

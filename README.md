@@ -414,6 +414,19 @@ Go to **Build → Realtime Database → Rules** and replace them with:
           }
         }
       },
+      "raidReserves": {
+        ".read": "auth != null",
+        "$eventId": {
+          ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && root.child('guild-loot-data/raidEvents').child($eventId).exists() && root.child('guild-loot-data/raidEvents').child($eventId).child('srLocked').val() !== true && (!newData.exists() || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'member' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin'))",
+            ".validate": "newData.hasChildren(['items'])",
+            "items": {
+              "$slot": { ".validate": "newData.isNumber() && (newData.val() === data.val() || ($slot === 's1' && root.child('guild-loot-data/raidEvents').child($eventId).child('srMax').val() >= 1) || ($slot === 's2' && root.child('guild-loot-data/raidEvents').child($eventId).child('srMax').val() >= 2) || ($slot === 's3' && root.child('guild-loot-data/raidEvents').child($eventId).child('srMax').val() >= 3))" }
+            }
+          }
+        }
+      },
       "bisRecommended": {
         ".read": "auth != null",
         "$setId": {
@@ -1309,13 +1322,45 @@ zurück" / "Abbrechen" and restores the backup; "Aus Talent Builder
 them. No rules change.
 
 **Raids** (`js/raids.js`, page "Raids"): raid calendar with sign-ups.
-Officers / Admins create, edit and delete events (`raidEvents/<id>`:
+Officers / Admins create, edit and delete events (instance from a dropdown
+of Forever's announced raids, `RAID_INSTANCES` in js/raids.js; `raidEvents/<id>`:
 title, instance, start, note); members sign up as Dabei / Vielleicht /
 Absage with character, class, spec and an optional note
 (`raidSignups/<eventId>/<uid>`); the roster splits tanks / healers / damage
 by the spec's role. Everyone logged in can read both; deleting an event
 also clears its sign-ups. **Rules:** `raidEvents` and `raidSignups`
 (README § 6f). Own listeners, not in `SYNCED_KEYS`.
+
+**Soft-Reserve** (`js/raid-reserves.js`): Officers turn it on per event
+(`srMax` 1–3 items per player, "Aus" = off) and can lock it (`srLocked`,
+"Reserves sperren" on the card). Members signed up as Dabei / Vielleicht search an
+item and reserve it (`raidReserves/<eventId>/<uid>/items/s1..s3` = item id; fixed slots because rules can't count children — slot sN needs `srMax` >= N); the
+card lists all reserves by item, contested items first, players who
+aren't signed up any more struck through, plus "Reserves kopieren" (plain
+text) for the loot master. Forever has many items twice (Classic id and
+a new id, same stats), so the search shows one result per name and
+stats (versions with other stats stay apart, with their stat line) and
+the list groups by name. Withdrawing frees the own reserves (unless locked). The search shows only items
+for the signed-up class and spec by default ("Nur Items für …", can be
+switched off): usable at 60, the class's own armor type (cloaks
+excepted), and only stats the spec wants (`RAID_SR_SPEC_STATS`: core
+stats, one needed, plus allowed extras — e.g. str on paladin healing
+plate, int on hunter mail); casters / healers don't get melee weapons
+without caster stats. Non-gear items always show. Our
+raid-loot data is incomplete (QuestieDB lacks many boss drops), so the
+search covers every rare+ item and lists known drops of the event's
+instance first. **Rules:** `raidReserves` (README § 6f) enforce the
+limit and the lock; lowering the limit later still lets players remove
+items. Deleting an event also clears its reserves.
+
+**Item-Tooltips** (`js/item-tooltip.js`): hovering any element with
+`data-item-id` (BiS planner slots and picker, public builds, Gildenbedarf,
+soft-reserves) shows a tooltip laid out like the German game client —
+binding, slot / type, damage, armor, base stats, classes, required level,
+green "Anlegen:" lines, set pieces (owned ones highlighted), item level
+and the source. Equip effects that aren't plain stats (procs, "Benutzen:")
+aren't in items.json and don't show. Colors: `--tip-*` tokens (the game's
+own, same in both themes).
 
 **Gildenbedarf** (`js/bis-need.js`, third tab on the BiS page): who in
 the guild still needs which item, per raid / dungeon and boss. Built from

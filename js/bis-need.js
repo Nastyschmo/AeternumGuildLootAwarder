@@ -127,7 +127,7 @@ function bisNeedListHtml(){
     ${c.bosses.map(b => `<div class="bis-need-boss">
       <div class="bis-need-boss-name">${escapeHtml(b.boss)} <span class="bis-item-meta">${b.open} offen</span></div>
       ${b.rows.map(r => `<div class="bis-need-item">
-        <span class="bis-need-item-name">${bisIconHtml(r.item, 24)}<span style="color:${bisQualityColor(r.item)}">${escapeHtml(r.item.n)}</span></span>
+        <span class="bis-need-item-name" data-item-id="${r.item.id}">${bisIconHtml(r.item, 24)}<span style="color:${bisQualityColor(r.item)}">${escapeHtml(r.item.n)}</span></span>
         <span class="bis-need-players">${r.shown.map(chip).join('')}</span>
       </div>`).join('')}
     </div>`).join('')}

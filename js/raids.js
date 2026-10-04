@@ -132,8 +132,14 @@ function raidSignupFormHtml(id){
   const mine = (raidSignups[id] || {})[discordIdentity.id];
   const v = mine || raidLastChoice();
   const chars = raidMyCharacters();
-  const known = chars.some(c => c.name === v.charName);
-  const specs = foreverSpecsForClass(v.classId);
+  const knownChar = chars.find(c => c.name === v.charName);
+  const known = Boolean(knownChar);
+  // A character from "Meine Charaktere" with a class set fixes the class;
+  // only the spec stays free (e.g. tank or damage for this raid).
+  const lockedClass = knownChar && knownChar.classId;
+  const classId = lockedClass || v.classId;
+  const specs = foreverSpecsForClass(classId);
+  const specId = specs.some(s => s.id === v.specId) ? v.specId : ((knownChar && knownChar.specId) || specs[0].id);
   const btn = st => `<button type="button" class="btn btn-sm ${mine && mine.status === st ? 'btn-teal' : 'btn-ghost'}" data-raid-status="${st}" data-raid-id="${escapeHtml(id)}">${RAID_STATUS_LABELS[st]}</button>`;
   return `<div class="raid-signup" data-raid-form="${escapeHtml(id)}">
     <div class="raid-signup-fields">
@@ -142,10 +148,11 @@ function raidSignupFormHtml(id){
         <option value="other" ${known ? '' : 'selected'}>Anderer Charakter …</option>
       </select>` : ''}
       <input type="text" class="apply-text-input${known ? ' hidden' : ''}" data-raid-field="charName" maxlength="40" placeholder="Charaktername" value="${escapeHtml(v.charName || '')}">
-      <select data-raid-field="classId">${CLASSES.map(c => `<option value="${c.id}" ${c.id === v.classId ? 'selected' : ''}>${escapeHtml(c.label)}</option>`).join('')}</select>
-      <select data-raid-field="specId">${specs.map(s => `<option value="${s.id}" ${s.id === v.specId ? 'selected' : ''}>${escapeHtml(s.label)} (${escapeHtml(FOREVER_ROLE_LABELS[s.role])})</option>`).join('')}</select>
+      <select data-raid-field="classId" ${lockedClass ? 'disabled title="Klasse aus Deinen Charakter-Einstellungen"' : ''}>${CLASSES.map(c => `<option value="${c.id}" ${c.id === classId ? 'selected' : ''}>${escapeHtml(c.label)}</option>`).join('')}</select>
+      <select data-raid-field="specId">${specs.map(s => `<option value="${s.id}" ${s.id === specId ? 'selected' : ''}>${escapeHtml(s.label)} (${escapeHtml(FOREVER_ROLE_LABELS[s.role])})</option>`).join('')}</select>
       <input type="text" class="apply-text-input" data-raid-field="note" maxlength="120" placeholder="Notiz (optional), z. B. „komme 20:15“" value="${escapeHtml((mine && mine.note) || '')}">
     </div>
+    <p class="bis-hint raid-class-hint${known && !lockedClass ? '' : ' hidden'}">Tipp: Hinterleg die Klasse des Charakters in Deinen Charakter-Einstellungen (oben rechts auf Deinen Namen) — dann wird sie hier fest übernommen.</p>
     <div class="raid-signup-buttons">${btn('yes')}${btn('maybe')}${btn('no')}${mine ? `<button type="button" class="btn btn-ghost btn-sm" data-raid-withdraw="${escapeHtml(id)}">Abmelden</button>` : ''}</div>
   </div>`;
 }
@@ -252,6 +259,11 @@ function raidWire(root){
     if (pick) pick.addEventListener('change', () => {
       const c = raidMyCharacters()[Number(pick.value)];
       nameInput.classList.toggle('hidden', Boolean(c));
+      // Class is fixed for a character with a known class, free otherwise.
+      cls.disabled = Boolean(c && c.classId);
+      cls.title = cls.disabled ? 'Klasse aus Deinen Charakter-Einstellungen' : '';
+      const hint = form.querySelector('.raid-class-hint');
+      if (hint) hint.classList.toggle('hidden', !(c && !c.classId));
       if (!c){ nameInput.value = ''; nameInput.focus(); return; }
       nameInput.value = c.name;
       if (c.classId){ cls.value = c.classId; fillSpecs(c.specId || ''); }

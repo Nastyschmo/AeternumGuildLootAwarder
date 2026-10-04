@@ -2096,3 +2096,5 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 }
 .character-composer-class, .character-composer-spec{ flex: 1 1 110px; min-width: 0; background: var(--field-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 13px; }
 .character-composer-spec:disabled{ opacity: .5; }
+.raid-signup-fields select:disabled{ opacity: .75; cursor: not-allowed; }
+.raid-class-hint{ margin: 0 0 8px; }

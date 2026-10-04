@@ -200,12 +200,16 @@ function bisComputeStats(b){
     const ench = sel.enchantId ? bisEnchantById(sel.enchantId) : null;
     if (ench && ench.st) for (const [stat, val] of ench.st) gear[stat] = (gear[stat] || 0) + val;
   }
+  // Talents with fixed effects (js/bis-talent-stats.js); % values.
+  const tal = bisTalentEffects(b);
+  const tp = k => tal.pct[k] || 0;
+  const pctOf = (v, k) => Math.round(v * (1 + tp(k) / 100));
   const attr = k => base[k] + race[k];
-  const str = attr('str') + (gear[4] || 0), agi = attr('agi') + (gear[3] || 0), sta = attr('sta') + (gear[7] || 0);
-  const int = attr('int') + (gear[5] || 0), spi = attr('spi') + (gear[6] || 0);
-  const hp = base.hp + Math.min(sta, 20) + Math.max(sta - 20, 0) * 10 + (gear[1] || 0);
-  const mana = base.mana > 0 ? base.mana + Math.min(int, 20) + Math.max(int - 20, 0) * 15 + (gear[0] || 0) : 0;
-  armor += agi * 2 + (gear[50] || 0);
+  const str = pctOf(attr('str') + (gear[4] || 0), 'str'), agi = pctOf(attr('agi') + (gear[3] || 0), 'agi'), sta = pctOf(attr('sta') + (gear[7] || 0), 'sta');
+  const int = pctOf(attr('int') + (gear[5] || 0), 'int'), spi = pctOf(attr('spi') + (gear[6] || 0), 'spi');
+  const hp = pctOf(base.hp + Math.min(sta, 20) + Math.max(sta - 20, 0) * 10 + (gear[1] || 0), 'hp');
+  const mana = base.mana > 0 ? pctOf(base.mana + Math.min(int, 20) + Math.max(int - 20, 0) * 15 + (gear[0] || 0), 'mana') : 0;
+  armor = pctOf(armor, 'armorItems') + agi * 2 + (gear[50] || 0) + Math.round(int * tp('armorFromInt') / 100);
   // Classic attack power formulas (base + per-point).
   const L = b.level, c = b.classId;
   let ap;
@@ -213,13 +217,17 @@ function bisComputeStats(b){
   else if (c === 'rogue' || c === 'hunter') ap = L * 2 - 20 + str + agi;
   else if (c === 'druid') ap = str * 2 - 20;
   else ap = str - 10;
-  ap += gear[38] || 0;
+  ap += (gear[38] || 0) + Math.round(int * tp('apFromInt') / 100);
   const estimated = L < 60;
-  const hitPct = (gear[31] || 0) / bisRatingPerPercent('hit', L);
+  const hitPct = (gear[31] || 0) / bisRatingPerPercent('hit', L) + tp('hit');
   const critRatingPct = (gear[32] || 0) / bisRatingPerPercent('crit', L);
-  const meleeCrit = agi * (base.critPerAgi || 0) + critRatingPct;
-  const spellCrit = int * (base.critPerInt || 0) + critRatingPct;
-  return { base, race, gear, str, agi, sta, int, spi, hp, mana, armor, ap: Math.max(ap, 0), hitPct, meleeCrit, spellCrit, estimated };
+  const meleeCrit = agi * (base.critPerAgi || 0) + critRatingPct + tp('meleeCrit');
+  const spellCrit = int * (base.critPerInt || 0) + critRatingPct + tp('spellCrit');
+  // Spell damage / healing from Intellect or Spirit (on top of gear).
+  const talDmg = Math.round(int * tp('dmgFromInt') / 100 + spi * tp('dmgFromSpi') / 100);
+  const talHeal = Math.round(int * tp('healFromInt') / 100 + spi * tp('healFromSpi') / 100);
+  return { base, race, gear, str, agi, sta, int, spi, hp, mana, armor, ap: Math.max(ap, 0), hitPct, meleeCrit, spellCrit, estimated,
+    talDmg, talHeal, dodgePct: tp('dodge'), parryPct: tp('parry'), blockPct: tp('block'), talents: tal.applied };
 }
 
 // ---------------------------------------------------------------- render helpers
@@ -483,16 +491,23 @@ function renderBisPlanner(){
   // healing (41) are the one-sided bonuses of older items. Shown as two
   // totals, with the breakdown under the label when both sources add up.
   const g = id => st.gear[id] || 0;
-  const spellRow = (label, own, ownLabel) => {
-    const total = g(45) + g(own);
+  const spellRow = (label, own, ownLabel, fromTalents) => {
+    const total = g(45) + g(own) + fromTalents;
     if (!total) return '';
-    const parts = [g(45) ? `${g(45)} Zaubermacht` : '', g(own) ? `${g(own)} ${ownLabel}` : ''].filter(Boolean).join(' + ');
-    // Only both sources together need explaining; then the split shows under the label.
-    const split = g(45) && g(own);
+    const sources = [g(45) ? `${g(45)} Zaubermacht` : '', g(own) ? `${g(own)} ${ownLabel}` : '', fromTalents ? `${fromTalents} Talente` : ''].filter(Boolean);
+    const parts = sources.join(' + ');
+    // Several sources, or talents, need explaining; then the split shows under the label.
+    const split = sources.length > 1 || fromTalents > 0;
     return `<div class="bis-stat${split ? ' bis-stat-split' : ''}"><span>${label}${split ? `<small>${escapeHtml(parts)}</small>` : ''}</span><strong>${total}</strong></div>`;
   };
-  const spellHtml = spellRow('Zauberschaden', 42, 'Schaden') + spellRow('Heilung', 41, 'Heilung');
-  const gearExtras = spellHtml + [[43, 'Mana alle 5 Sek.'], [36, 'Tempowertung'], [37, 'Waffenkundewertung'],
+  const spellHtml = spellRow('Zauberschaden', 42, 'Schaden', st.talDmg) + spellRow('Heilung', 41, 'Heilung', st.talHeal);
+  // Avoidance from talents (gear ratings are listed separately below).
+  const talentChance = [['Ausweichen', st.dodgePct], ['Parieren', st.parryPct], ['Blocken', st.blockPct]]
+    .filter(([, v]) => v).map(([label, v]) => `<div class="bis-stat bis-stat-split"><span>${label}<small>aus Talenten</small></span><strong>+${fmt1(v)} %</strong></div>`).join('');
+  const talentList = st.talents.length
+    ? `<div class="bis-talent-stats"><span class="bis-item-meta">Eingerechnete Talente:</span> ${st.talents.map(t => `<span class="bis-talent-stat"><b>${escapeHtml(t.name)}</b> ${escapeHtml(t.text)}</span>`).join('')}</div>`
+    : '';
+  const gearExtras = spellHtml + talentChance + [[43, 'Mana alle 5 Sek.'], [36, 'Tempowertung'], [37, 'Waffenkundewertung'],
     [12, 'Verteidigungswertung'], [13, 'Ausweichwertung'], [14, 'Parierwertung'], [15, 'Blockwertung'], [48, 'Blockwert'], [39, 'Distanzangriffskraft'],
     [51, 'Feuerwiderstand'], [52, 'Frostwiderstand'], [55, 'Naturwiderstand'], [54, 'Schattenwiderstand'], [56, 'Arkanwiderstand']]
     .filter(([id]) => st.gear[id]).map(([id, label]) => `<div class="bis-stat"><span>${label}</span><strong>${st.gear[id]}</strong></div>`).join('');
@@ -545,7 +560,8 @@ function renderBisPlanner(){
             ${st.base.critPerInt ? `<div class="bis-stat"><span>Krit (Zauber)</span><strong>${est}${fmt1(st.spellCrit)} %</strong></div>` : ''}
             ${gearExtras}
           </div>
-          <p class="bis-hint">Grundwerte von Klasse, Rasse und Stufe plus Ausrüstung. Verzauberungen mit festen Werten (Werte, Rüstung, Angriffskraft, Zauberschaden …) sind eingerechnet, Procs und %-Effekte nicht. Ohne Talente, Buffs und Rassen-Multiplikatoren; Krit ohne klassenspezifischen Grund-Krit.${st.estimated ? ' „ca.“: Unter Stufe 60 ist die Umrechnung Wertung → % geschätzt.' : ''}</p>
+          ${talentList}
+          <p class="bis-hint">Grundwerte von Klasse, Rasse und Stufe plus Ausrüstung. Verzauberungen mit festen Werten (Werte, Rüstung, Angriffskraft, Zauberschaden …) sind eingerechnet, Procs und %-Effekte nicht. Talente des Sets zählen mit, wenn sie immer wirken (ohne Gestalt-, Waffen-, Schulen- oder Fähigkeits-Bedingung). Ohne Buffs und Rassen-Multiplikatoren; Krit ohne klassenspezifischen Grund-Krit.${st.estimated ? ' „ca.“: Unter Stufe 60 ist die Umrechnung Wertung → % geschätzt.' : ''}</p>
         </div>
         ${profHtml}
         ${matHtml}

@@ -1362,6 +1362,17 @@ and the source. Equip effects that aren't plain stats (procs, "Benutzen:")
 aren't in items.json and don't show. Colors: `--tip-*` tokens (the game's
 own, same in both themes).
 
+**Talente in den Werten** (`js/bis-talent-stats.js`): the set's talents
+count in the stat totals when their effect is fixed and always on —
+% to a stat / health / mana / armor from items, crit, hit, dodge, parry,
+block, and "% of Intellect / Spirit as attack power, spell damage,
+healing or armor". Curated per talent in `BIS_TALENT_STATS`
+('Class|Talent' -> kind + which "%" number of the rank's text); the
+value is read from the text at the set's rank, so Forever's tuning
+changes come in with the talent data. Talents tied to a form, weapon,
+spell school, single ability or proc are left out. The applied talents
+are listed under the stats.
+
 **Gildenbedarf** (`js/bis-need.js`, third tab on the BiS page): who in
 the guild still needs which item, per raid / dungeon and boss. Built from
 every public set (own public sets included) and everybody's "Habe ich"

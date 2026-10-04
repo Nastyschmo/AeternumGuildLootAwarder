@@ -357,3 +357,25 @@ interface HowToPlayClass {
   specs: Record<string, HowToPlaySpec>;
   sources: { label: string; url: string }[];
 }
+
+// Raids page (js/raids.js): raidEvents/<id>, raidSignups/<eventId>/<uid>.
+interface RaidEvent {
+  title: string;
+  instance: string;
+  /** Start time, ms since epoch. */
+  start: Millis;
+  note: string;
+  createdBy: DiscordId;
+  createdAt: Millis;
+  updatedAt: Millis;
+}
+interface RaidSignup {
+  status: 'yes' | 'maybe' | 'no';
+  /** Display name of the member. */
+  name: string;
+  charName: string;
+  classId: ClassId;
+  specId: SpecId;
+  note: string;
+  updatedAt: Millis;
+}

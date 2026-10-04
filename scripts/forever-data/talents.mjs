@@ -65,6 +65,18 @@ export async function buildTalents({ build, table, icons, snapshot }) {
   let auraRows = [];
   try { auraRows = await table('SpellAuraOptions', build, ['SpellID', 'ProcChance', 'ProcCharges', 'CumulativeAura']); }
   catch (e){ console.log(`  talents: SpellAuraOptions skipped (${e.message})`); }
+  // Optional: $<name> description variables (spell -> { name: formula }).
+  const descVars = new Map();
+  try {
+    const vars = new Map((await table('SpellDescriptionVariables', build, ['Variables'])).map(r => [r.ID, r.Variables]));
+    for (const r of await table('SpellXDescriptionVariables', build, ['SpellID', 'SpellDescriptionVariablesID'])) {
+      const text = vars.get(r.SpellDescriptionVariablesID);
+      if (!text) continue;
+      const map = {};
+      for (const m of String(text).matchAll(/\$(\w+)\s*=\s*([^\n\r]+)/g)) map[m[1].toLowerCase()] = m[2].trim().replace(/^\$\{|\}$/g, '');
+      descVars.set(r.SpellID, map);
+    }
+  } catch (e){ console.log(`  talents: description variables skipped (${e.message})`); }
   const aura = new Map();
   for (const r of auraRows) if (!aura.has(r.SpellID)) aura.set(r.SpellID, r);
 
@@ -129,6 +141,18 @@ export async function buildTalents({ build, table, icons, snapshot }) {
     const d = definition.get(defId);
     let raw = d.OverrideDescription_lang || description.get(spell) || '';
     raw = raw.replace(/\|[cC][0-9A-Fa-f]{8}|\|[rR]/g, '').replace(/\s+/g, ' ').trim();
+    // $?a123|a456[if][else] (aura / spell conditions): the else text, which
+    // is what a character without those auras sees. $@spelltooltip123 /
+    // $@spelldesc123 (another spell's whole tooltip): dropped.
+    raw = raw.replace(/\$\?[^\[\s]*\[([^\]]*)\]\[([^\]]*)\]/g, (m, _a, b) => (/[.!?:]\s*$/.test(b) || !b.trim() ? b : b + '.'))
+      .replace(/\$\?[^\[\s]*\[[^\]]*\]/g, '')
+      .replace(/\$@spell(tooltip|desc)\d+/g, '').replace(/\s+/g, ' ').trim();
+    // $<name> description variables ($minDam=$m1*…): substituted by their
+    // formula, then resolved like any ${…} below.
+    raw = raw.replace(/\$<(\w+)>/g, (m, name) => {
+      const expr = (descVars.get(String(spell)) || {})[name.toLowerCase()];
+      return expr ? '${' + expr + '}' : m;
+    });
     let partial = false;
     const desc = [];
     for (let rank = 1; rank <= maxRank; rank++){
@@ -139,6 +163,11 @@ export async function buildTalents({ build, table, icons, snapshot }) {
         try { const v = Function(`"use strict"; return (${e});`)(); return Number.isFinite(v) ? String(num(v)) : '\u0000'; } catch (err){ return '\u0000'; }
       });
       txt = txt.replace(/\$\/(-?\d+);([smSM])(\d)/g, (_, div, _l, i) => String(num(val(i) / I(div))));
+      // Another spell's value with a divisor: $/10;12536s1
+      txt = txt.replace(/\$\/(-?\d+);(\d+)([smSM])(\d)/g, (m, div, other, _l, i) => {
+        const v = base.get(other) && base.get(other).get(I(i) - 1);
+        return v ? String(num(v / I(div))) : '\u0000';
+      });
       // Another spell's effect value: $12345s1
       txt = txt.replace(/\$(\d+)([smSM])(\d)/g, (m, other, _l, i) => {
         const v = base.get(other) && base.get(other).get(I(i) - 1);

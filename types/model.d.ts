@@ -133,8 +133,10 @@ interface Character {
   /** Optional, set in "Meine Charaktere" (used by raid sign-ups). */
   classId?: ClassId;
   specId?: SpecId;
-  /** Optional, set on the Berufe page (js/professions.js). */
+  /** Optional, edited on Meine Charaktere, listed on the Berufe page. */
   professions?: CharacterProfession[];
+  /** Optional BiS set per spec: specId -> own saved set id (bisSets / bisPublic). */
+  bisSets?: Record<string, string>;
 }
 interface CharacterProfession {
   /** PROFESSIONS id ('blacksmithing' …). */

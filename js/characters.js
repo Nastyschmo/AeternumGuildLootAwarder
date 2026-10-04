@@ -1,5 +1,6 @@
 // Characters: Armory/WarcraftLogs lookups, character chips, the User
-// Settings composer and the Meine Charaktere page.
+// Settings nickname and the Armory part of the Meine Charaktere cards
+// (the page itself, with editing, lives in js/mychar-page.js).
 //
 // Classic (non-module) script — shares the global scope with the other
 // js/*.js files; load order is set in index.html. Code that runs at load
@@ -129,95 +130,25 @@ async function refreshMemberArmoryData(uid){
 }
 
 // ---------------------------------------------------------------------
-// "User Settings" (formerly "Meine Charaktere verwalten") — the composer a member uses to set a
-// nickname and add/remove their own characters (one marked
-// Hauptcharakter). In-progress edits live only in characterComposerDraft
-// until "Speichern" writes them to characterProfiles/<uid>.
+// "User Settings" — only the nickname now; characters are added and
+// edited on the Meine Charaktere page (js/mychar-page.js).
 // ---------------------------------------------------------------------
-let characterComposerDraft = null;
-
 function openCharacterModal(){
   if (!discordIdentity) return;
   const existing = (state.characterProfiles || {})[discordIdentity.id];
-  characterComposerDraft = existing
-    ? { nickname: existing.nickname, characters: existing.characters.map(c => Object.assign({}, c)) }
-    : { nickname: '', characters: [] };
-  if (!characterComposerDraft.characters.length){
-    characterComposerDraft.characters.push({ id: nextCharacterProfileId(), name: '', realmSlug: DEFAULT_REALM_SLUG, isMain: true });
-  }
-  els.characterNicknameInput.value = characterComposerDraft.nickname || '';
+  els.characterNicknameInput.value = (existing && existing.nickname) || '';
   els.characterSaveStatus.textContent = '';
   els.characterSaveStatus.className = 'armory-status';
-  renderCharacterComposer();
   els.accessPopover.classList.add('hidden');
   els.characterModal.classList.remove('hidden');
 }
 
-function renderCharacterComposer(){
-  if (!characterComposerDraft) return;
-  els.characterComposerList.innerHTML = characterComposerDraft.characters.map(c => `
-    <div class="character-composer-row" data-character-row="${c.id}">
-      <input type="text" class="apply-text-input character-composer-name" data-character-field="name" data-character-id="${c.id}" maxlength="24" placeholder="Charaktername" value="${escapeHtml(c.name)}">
-      <input type="text" class="apply-text-input character-composer-realm" data-character-field="realmSlug" data-character-id="${c.id}" maxlength="40" placeholder="Realm" value="${escapeHtml(c.realmSlug)}">
-      <select class="character-composer-class" data-character-field="classId" data-character-id="${c.id}" aria-label="Klasse">
-        <option value="">Klasse …</option>
-        ${CLASSES.map(k => `<option value="${k.id}" ${c.classId === k.id ? 'selected' : ''}>${escapeHtml(k.label)}</option>`).join('')}
-      </select>
-      <select class="character-composer-spec" data-character-field="specId" data-character-id="${c.id}" aria-label="Spec" ${c.classId ? '' : 'disabled'}>
-        <option value="">Spec …</option>
-        ${(c.classId ? foreverSpecsForClass(c.classId) : []).map(sp => `<option value="${sp.id}" ${c.specId === sp.id ? 'selected' : ''}>${escapeHtml(sp.label)}</option>`).join('')}
-      </select>
-      <label class="character-composer-main-label">
-        <input type="radio" name="characterComposerMain" data-character-id="${c.id}" ${c.isMain ? 'checked' : ''}> Hauptcharakter
-      </label>
-      <button type="button" class="btn btn-ghost btn-sm" data-remove-character="${c.id}" ${characterComposerDraft.characters.length <= 1 ? 'disabled' : ''}>Entfernen</button>
-    </div>`).join('');
-  els.characterComposerList.querySelectorAll('[data-character-field]').forEach((/** @type {HTMLInputElement} */ input) => {
-    const field = input.getAttribute('data-character-field');
-    input.addEventListener(input.tagName === 'SELECT' ? 'change' : 'input', () => {
-      const row = characterComposerDraft.characters.find(c => c.id === input.getAttribute('data-character-id'));
-      if (!row) return;
-      row[field] = input.value;
-      // A new class empties the spec list; re-render to fill it.
-      if (field === 'classId'){ row.specId = ''; renderCharacterComposer(); }
-    });
-  });
-  els.characterComposerList.querySelectorAll('input[name="characterComposerMain"]').forEach(radio => {
-    radio.addEventListener('change', () => {
-      const targetId = radio.getAttribute('data-character-id');
-      characterComposerDraft.characters.forEach(c => { c.isMain = (c.id === targetId); });
-    });
-  });
-  els.characterComposerList.querySelectorAll('[data-remove-character]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (characterComposerDraft.characters.length <= 1) return;
-      const id = btn.getAttribute('data-remove-character');
-      const removed = characterComposerDraft.characters.find(c => c.id === id);
-      characterComposerDraft.characters = characterComposerDraft.characters.filter(c => c.id !== id);
-      if (removed && removed.isMain && characterComposerDraft.characters.length) characterComposerDraft.characters[0].isMain = true;
-      renderCharacterComposer();
-    });
-  });
-  els.characterAddBtn.disabled = characterComposerDraft.characters.length >= CHARACTER_PROFILE_MAX_CHARACTERS;
-}
-
-els.characterAddBtn.addEventListener('click', () => {
-  if (!characterComposerDraft || characterComposerDraft.characters.length >= CHARACTER_PROFILE_MAX_CHARACTERS) return;
-  characterComposerDraft.characters.push({ id: nextCharacterProfileId(), name: '', realmSlug: DEFAULT_REALM_SLUG, isMain: false });
-  renderCharacterComposer();
-});
-
 async function saveCharacterProfile(){
-  if (!discordIdentity || !characterComposerDraft) return;
-  const cleanedCharacters = characterComposerDraft.characters
-    .map(c => ({ id: c.id, name: (c.name || '').trim(), realmSlug: (c.realmSlug || DEFAULT_REALM_SLUG).trim().toLowerCase() || DEFAULT_REALM_SLUG, isMain: !!c.isMain,
-      ...(c.classId ? { classId: c.classId } : {}), ...(c.classId && c.specId ? { specId: c.specId } : {}),
-      ...(c.professions && c.professions.length ? { professions: c.professions } : {}) }))
-    .filter(c => c.name);
+  if (!discordIdentity) return;
   const previous = state.characterProfiles[discordIdentity.id];
   state.characterProfiles[discordIdentity.id] = normalizeCharacterProfile({
     nickname: els.characterNicknameInput.value,
-    characters: cleanedCharacters
+    characters: previous ? previous.characters : []
   });
   els.characterSaveStatus.textContent = 'Saving…';
   els.characterSaveStatus.className = 'armory-status';
@@ -226,7 +157,6 @@ async function saveCharacterProfile(){
     els.characterSaveStatus.textContent = 'Gespeichert!';
     els.characterSaveStatus.className = 'armory-status armory-status-ok';
     applyAccessControl();
-    if (currentPage === 'mychar') renderMyCharactersPage();
     setTimeout(() => {
       if (els.characterSaveStatus.textContent === 'Gespeichert!'){
         els.characterSaveStatus.textContent = '';
@@ -395,7 +325,8 @@ function mycharWarcraftLogsHtml(c){
   </div>`;
 }
 
-function mycharCardHtml(c){
+/** Live Armory / WarcraftLogs part of a character card. @param {Character} c */
+function mycharArmoryHtml(c){
   const cached = armoryCache[characterProfileCacheKey(c.realmSlug, c.name)];
   const armoryLink = armoryWebUrl(c.realmSlug, c.name);
   const found = cached && cached.result && cached.result.found;
@@ -428,15 +359,9 @@ function mycharCardHtml(c){
     <button type="button" class="btn btn-ghost btn-sm mychar-refresh-btn" data-mychar-refresh="${c.id}">Aktualisieren</button>`;
   }
 
-  return `<div class="mychar-card" style="border-top-color:${accentColor}" data-mychar-card="${c.id}">
-    <div class="mychar-card-head">
-      <div class="mychar-card-name">${escapeHtml(c.name)}${c.isMain ? ' <span class="mychar-main-badge">★ Hauptcharakter</span>' : ''}</div>
-      <div class="mychar-card-realm">${escapeHtml(c.realmSlug)}</div>
-    </div>
-    ${bodyHtml}
+  return { accentColor, html: `${bodyHtml}
     <a class="mychar-armory-link" href="${armoryLink}" target="_blank" rel="noopener noreferrer">Im Armory ansehen ↗</a>
-    ${mycharWarcraftLogsHtml(c)}
-  </div>`;
+    ${mycharWarcraftLogsHtml(c)}` };
 }
 
 function wireMycharCardButtons(){
@@ -466,40 +391,7 @@ function wireMycharCardButtons(){
   });
 }
 
-async function renderMyCharactersPage(){
-  const loggedOut = !discordIdentity;
-  els.mycharLoggedOut.classList.toggle('hidden', !loggedOut);
-  els.mycharLoggedIn.classList.toggle('hidden', loggedOut);
-  if (loggedOut) return;
-  const profile = (state.characterProfiles || {})[discordIdentity.id];
-  const characters = (profile && profile.characters) || [];
-  if (!characters.length){
-    els.mycharList.innerHTML = `<div class="lootlib-note">Du hast noch keine Charaktere hinterlegt. Über "User Settings" oben kannst du welche hinzufügen.</div>`;
-    return;
-  }
-  els.mycharList.innerHTML = characters.map(mycharCardHtml).join('');
-  wireMycharCardButtons();
-  // Auto-fetch anything not already cached — a member's own character
-  // list is small, so fetching all of it on page-open is cheap, and
-  // means they see live data without an extra click. Armory and
-  // WarcraftLogs are fetched together but tracked independently, so one
-  // loading slowly (or failing) never blocks the other from showing up.
-  const toFetchArmory = characters.filter(c => !armoryCache[characterProfileCacheKey(c.realmSlug, c.name)]);
-  const toFetchWcl = characters.filter(c => !wclCache[characterProfileCacheKey(c.realmSlug, c.name)]);
-  if (toFetchArmory.length || toFetchWcl.length){
-    await Promise.all([
-      ...toFetchArmory.map(c => fetchArmoryCharacter(c.realmSlug, c.name)),
-      ...toFetchWcl.map(c => fetchWarcraftLogsCharacter(c.realmSlug, c.name))
-    ]);
-    if (currentPage === 'mychar'){
-      els.mycharList.innerHTML = characters.map(mycharCardHtml).join('');
-      wireMycharCardButtons();
-    }
-  }
-}
-
 els.mycharLoginBtn.addEventListener('click', () => startDiscordLogin());
-els.mycharManageBtn.addEventListener('click', () => openCharacterModal());
 els.mycharRefreshAllBtn.addEventListener('click', async () => {
   if (!discordIdentity) return;
   const profile = (state.characterProfiles || {})[discordIdentity.id];

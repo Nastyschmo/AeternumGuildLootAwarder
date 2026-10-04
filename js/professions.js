@@ -3,8 +3,9 @@
 // Every member keeps professions per character — profession, skill and
 // optionally special recipes — in their own character profile
 // (characterProfiles/<uid>/characters[i].professions, written like the
-// rest of the profile, no extra rules). The page shows:
-//  - "Meine Berufe": an editor for the own characters (draft until saved);
+// rest of the profile, no extra rules). They are edited per character on
+// "Meine Charaktere" (profCharEditorHtml / profWireEditor below, used by
+// js/mychar-page.js). This page shows:
 //  - the directory: per profession who has it, with skill and recipes;
 //    a search by player or item answers "who can make X?" — crafters who
 //    listed the recipe, then crafters whose skill would be enough.
@@ -22,10 +23,6 @@ const PROF_MAX_PRIMARY = 2;
 const PROF_MAX_RECIPES = 40;
 const PROF_RESULTS = 10;
 
-/** Own characters being edited (null = not started). @type {Character[] | null} */
-let profDraft = null;
-let profDirty = false;
-let profStatusMsg = '';
 let profFilter = '';
 let profQuery = '';
 /** Recipe search text per "charId|profId". @type {Record<string, string>} */
@@ -94,69 +91,40 @@ function profGuildCraftersLine(item){
   return names.length ? `Gilde: ${names.slice(0, 6).join(', ')}${names.length > 6 ? ' …' : ''}` : '';
 }
 
-// ---------------------------------------------------------------- my professions
-function profStartDraft(){
-  const uid = discordIdentity && discordIdentity.id;
-  const prof = uid && state.characterProfiles[uid];
-  profDraft = prof ? prof.characters.map(c => ({ ...c, professions: (c.professions || []).map(p => ({ ...p, recipes: [...(p.recipes || [])] })) })) : [];
-  profDirty = false;
-}
-
-function profMyHtml(){
-  if (!discordIdentity) return '';
-  // Unsaved edits stay; otherwise follow the live profile.
-  if (!profDraft || !profDirty) profStartDraft();
-  if (!profDraft.length) {
-    return `<div class="tac-card prof-my"><h3 class="bis-card-title">Meine Berufe</h3><p class="bis-hint">Leg zuerst Deine Charaktere an (oben rechts auf Deinen Namen → Charaktere), dann kannst Du hier ihre Berufe eintragen.</p></div>`;
-  }
-  const charHtml = c => {
-    const cls = c.classId && CLASS_MAP[c.classId];
-    const profs = c.professions || [];
-    const primary = profs.filter(p => PROFESSION_MAP[p.id].primary).length;
-    const free = PROFESSIONS.filter(p => !profs.some(x => x.id === p.id) && (!p.primary || primary < PROF_MAX_PRIMARY));
-    const rows = profs.map(p => {
-      const key = `${c.id}|${p.id}`;
-      const hasRecipes = PROF_SKILL_LINE[p.id] && profRecipeCandidates(p.id).length > 0;
-      return `<div class="prof-edit-row">
-        <div class="prof-edit-head">
-          <strong>${escapeHtml(PROFESSION_MAP[p.id].label)}</strong>
-          <label class="prof-skill">Skill <input type="number" min="1" max="${PROF_MAX_SKILL}" value="${p.skill || ''}" data-prof-skill="${escapeHtml(key)}"></label>
-          <button type="button" class="btn btn-ghost btn-sm" data-prof-remove="${escapeHtml(key)}">Entfernen</button>
-        </div>
-        ${hasRecipes ? `<div class="prof-recipes">
-          ${(p.recipes || []).map(id => profRecipeChip(p.id, id, `<button type="button" data-prof-recipe-remove="${escapeHtml(key)}|${id}" aria-label="Entfernen">×</button>`)).join('')}
-          ${(p.recipes || []).length < PROF_MAX_RECIPES ? `<div class="prof-recipe-search">
-            <input type="search" class="apply-text-input" data-prof-recipe-search="${escapeHtml(key)}" placeholder="Besonderes Rezept hinzufügen …" value="${escapeHtml(profRecipeQuery[key] || '')}" autocomplete="off">
-            <div class="raid-sr-results" data-prof-recipe-results="${escapeHtml(key)}">${profRecipeResultsHtml(c.id, p.id)}</div>
-          </div>` : ''}
+// ---------------------------------------------------------------- editor (Meine Charaktere)
+/** Profession rows + "add" select for one character of the draft. @param {Character} c */
+function profCharEditorHtml(c){
+  const profs = c.professions || [];
+  const primary = profs.filter(p => PROFESSION_MAP[p.id].primary).length;
+  const free = PROFESSIONS.filter(p => !profs.some(x => x.id === p.id) && (!p.primary || primary < PROF_MAX_PRIMARY));
+  const rows = profs.map(p => {
+    const key = `${c.id}|${p.id}`;
+    const hasRecipes = profRecipeCandidates(p.id).length > 0;
+    return `<div class="prof-edit-row">
+      <div class="prof-edit-head">
+        <strong>${escapeHtml(PROFESSION_MAP[p.id].label)}</strong>
+        <label class="prof-skill">Skill <input type="number" min="1" max="${PROF_MAX_SKILL}" value="${p.skill || ''}" data-prof-skill="${escapeHtml(key)}"></label>
+        <button type="button" class="btn btn-ghost btn-sm" data-prof-remove="${escapeHtml(key)}">Entfernen</button>
+      </div>
+      ${hasRecipes ? `<div class="prof-recipes">
+        ${(p.recipes || []).map(id => profRecipeChip(p.id, id, `<button type="button" data-prof-recipe-remove="${escapeHtml(key)}|${id}" aria-label="Entfernen">×</button>`)).join('')}
+        ${(p.recipes || []).length < PROF_MAX_RECIPES ? `<div class="prof-recipe-search">
+          <input type="search" class="apply-text-input" data-prof-recipe-search="${escapeHtml(key)}" placeholder="Besonderes Rezept hinzufügen …" value="${escapeHtml(profRecipeQuery[key] || '')}" autocomplete="off">
+          <div class="raid-sr-results" data-prof-recipe-results="${escapeHtml(key)}">${profRecipeResultsHtml(c, p.id)}</div>
         </div>` : ''}
-      </div>`;
-    }).join('');
-    return `<div class="prof-char">
-      <div class="prof-char-name" style="color:${cls ? cls.color : 'var(--text)'}">${c.isMain ? '★ ' : ''}${escapeHtml(c.name)}</div>
-      ${rows || '<p class="bis-hint">Noch keine Berufe.</p>'}
-      ${free.length ? `<select data-prof-add="${escapeHtml(c.id)}"><option value="">+ Beruf hinzufügen …</option>${free.map(p => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join('')}</select>` : ''}
+      </div>` : ''}
     </div>`;
-  };
-  return `<div class="tac-card prof-my">
-    <h3 class="bis-card-title">Meine Berufe</h3>
-    <p class="bis-hint">Pro Charakter bis zu zwei Hauptberufe plus Erste Hilfe, Kochkunst und Angeln. Trag besondere Rezepte ein (seltene Drops, Ruf-Rezepte, Raid-Verzauberungen), damit die Gilde weiß, wer was bauen kann.</p>
-    ${profDraft.map(charHtml).join('')}
-    <div class="forever-actions">
-      <button type="button" class="btn btn-teal btn-sm" id="profSaveBtn" ${profDirty ? '' : 'disabled'}>Speichern</button>
-      ${profDirty ? '<button type="button" class="btn btn-ghost btn-sm" id="profResetBtn">Verwerfen</button>' : ''}
-      ${profStatusMsg ? `<span class="bis-hint">${escapeHtml(profStatusMsg)}</span>` : ''}
-    </div>
-  </div>`;
+  }).join('');
+  return `${rows || '<p class="bis-hint">Noch keine Berufe.</p>'}
+    ${free.length ? `<select class="prof-add" data-prof-add="${escapeHtml(c.id)}"><option value="">+ Beruf hinzufügen …</option>${free.map(p => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join('')}</select>` : ''}`;
 }
 
-/** Recipe search results for one character's profession. @param {string} charId @param {string} profId */
-function profRecipeResultsHtml(charId, profId){
-  const key = `${charId}|${profId}`;
+/** Recipe search results for one character's profession. @param {Character} c @param {string} profId */
+function profRecipeResultsHtml(c, profId){
+  const key = `${c.id}|${profId}`;
   const q = (profRecipeQuery[key] || '').trim().toLowerCase();
   if (q.length < 2) return '';
-  const c = profDraft && profDraft.find(x => x.id === charId);
-  const p = c && (c.professions || []).find(x => x.id === profId);
+  const p = (c.professions || []).find(x => x.id === profId);
   const have = new Set((p && p.recipes) || []);
   const seen = new Set();
   const hits = profRecipeCandidates(profId)
@@ -169,6 +137,65 @@ function profRecipeResultsHtml(charId, profId){
     ${r.item ? bisIconHtml(r.item, 22) : ''}<span style="color:${r.item ? bisQualityColor(r.item) : 'var(--text)'}">${escapeHtml(r.name)}</span>
     <span class="bis-item-meta">${r.r ? `Skill ${r.r}` : ''}</span>
   </button>`).join('');
+}
+
+/**
+ * Wire the profession editors inside root. `chars` is the draft list,
+ * `changed` re-renders after an edit.
+ * @param {HTMLElement} root @param {Character[]} chars @param {() => void} changed
+ */
+function profWireEditor(root, chars, changed){
+  const find = key => {
+    const [charId, profId] = key.split('|');
+    const c = chars.find(x => x.id === charId);
+    return { c, p: c && (c.professions || []).find(x => x.id === profId) };
+  };
+  root.querySelectorAll('[data-prof-add]').forEach((/** @type {HTMLSelectElement} */ sel) => sel.addEventListener('change', () => {
+    const c = chars.find(x => x.id === sel.getAttribute('data-prof-add'));
+    if (!c || !PROFESSION_MAP[sel.value]) return;
+    c.professions = (c.professions || []).concat({ id: sel.value, skill: 1, recipes: [] });
+    changed();
+  }));
+  root.querySelectorAll('[data-prof-remove]').forEach(btn => btn.addEventListener('click', () => {
+    const { c } = find(btn.getAttribute('data-prof-remove'));
+    const profId = btn.getAttribute('data-prof-remove').split('|')[1];
+    if (c) c.professions = (c.professions || []).filter(p => p.id !== profId);
+    changed();
+  }));
+  root.querySelectorAll('[data-prof-skill]').forEach((/** @type {HTMLInputElement} */ input) => input.addEventListener('change', () => {
+    const { p } = find(input.getAttribute('data-prof-skill'));
+    if (!p) return;
+    p.skill = Math.max(1, Math.min(PROF_MAX_SKILL, Math.trunc(Number(input.value)) || 1));
+    changed();
+  }));
+  root.querySelectorAll('[data-prof-recipe-search]').forEach((/** @type {HTMLInputElement} */ input) => {
+    const key = input.getAttribute('data-prof-recipe-search');
+    input.addEventListener('input', () => {
+      profRecipeQuery[key] = input.value;
+      const box = root.querySelector(`[data-prof-recipe-results="${CSS.escape(key)}"]`);
+      const { c } = find(key);
+      if (box && c) box.innerHTML = profRecipeResultsHtml(c, key.split('|')[1]);
+    });
+  });
+  root.querySelectorAll('[data-prof-recipe-remove]').forEach(btn => btn.addEventListener('click', () => {
+    const parts = btn.getAttribute('data-prof-recipe-remove').split('|');
+    const { p } = find(`${parts[0]}|${parts[1]}`);
+    if (p) p.recipes = (p.recipes || []).filter(id => id !== Number(parts[2]));
+    changed();
+  }));
+  // Delegated (results are replaced while typing); root outlives re-renders.
+  if (!root.dataset.profWired) root.addEventListener('click', ev => {
+    const btn = /** @type {HTMLElement} */ (ev.target).closest('[data-prof-recipe-add]');
+    if (!btn || !root.contains(btn)) return;
+    const parts = btn.getAttribute('data-prof-recipe-add').split('|');
+    const { p } = find(`${parts[0]}|${parts[1]}`);
+    const id = Number(parts[2]);
+    if (!p || (p.recipes || []).includes(id) || (p.recipes || []).length >= PROF_MAX_RECIPES) return;
+    p.recipes = (p.recipes || []).concat(id);
+    profRecipeQuery[`${parts[0]}|${parts[1]}`] = '';
+    changed();
+  });
+  root.dataset.profWired = '1';
 }
 
 // ---------------------------------------------------------------- directory
@@ -253,107 +280,20 @@ function renderProfessionsPage(){
       .catch(() => { root.innerHTML = '<div class="tac-card"><p class="bis-hint">Item-Daten konnten nicht geladen werden.</p></div>'; });
     return;
   }
-  // Keep the focus in a search box across live re-renders.
-  const active = /** @type {HTMLInputElement | null} */ (document.activeElement);
-  const focusSel = active && root.contains(active) && active.id === 'profSearch' ? '#profSearch'
-    : active && root.contains(active) && active.hasAttribute('data-prof-recipe-search') ? `[data-prof-recipe-search="${CSS.escape(active.getAttribute('data-prof-recipe-search'))}"]` : '';
-  root.innerHTML = profMyHtml() + profDirectoryHtml();
-  profWire(root);
-  if (focusSel){
-    const box = /** @type {HTMLInputElement | null} */ (root.querySelector(focusSel));
-    if (box){ box.focus(); box.setSelectionRange(box.value.length, box.value.length); }
-  }
-}
-
-/** @param {string} key "charId|profId" */
-function profFind(key){
-  const [charId, profId] = key.split('|');
-  const c = profDraft.find(x => x.id === charId);
-  const p = c && (c.professions || []).find(x => x.id === profId);
-  return { c, p };
-}
-
-/** @param {HTMLElement} root */
-function profWire(root){
-  const changed = () => { profDirty = true; profStatusMsg = ''; renderProfessionsPage(); };
-  root.querySelectorAll('[data-prof-add]').forEach((/** @type {HTMLSelectElement} */ sel) => sel.addEventListener('change', () => {
-    const c = profDraft.find(x => x.id === sel.getAttribute('data-prof-add'));
-    if (!c || !PROFESSION_MAP[sel.value]) return;
-    c.professions = (c.professions || []).concat({ id: sel.value, skill: 1, recipes: [] });
-    changed();
-  }));
-  root.querySelectorAll('[data-prof-remove]').forEach(btn => btn.addEventListener('click', () => {
-    const [charId, profId] = btn.getAttribute('data-prof-remove').split('|');
-    const c = profDraft.find(x => x.id === charId);
-    if (c) c.professions = (c.professions || []).filter(p => p.id !== profId);
-    changed();
-  }));
-  root.querySelectorAll('[data-prof-skill]').forEach((/** @type {HTMLInputElement} */ input) => input.addEventListener('change', () => {
-    const { p } = profFind(input.getAttribute('data-prof-skill'));
-    if (!p) return;
-    p.skill = Math.max(1, Math.min(PROF_MAX_SKILL, Math.trunc(Number(input.value)) || 1));
-    changed();
-  }));
-  root.querySelectorAll('[data-prof-recipe-search]').forEach((/** @type {HTMLInputElement} */ input) => {
-    const key = input.getAttribute('data-prof-recipe-search');
-    input.addEventListener('input', () => {
-      profRecipeQuery[key] = input.value;
-      const box = root.querySelector(`[data-prof-recipe-results="${CSS.escape(key)}"]`);
-      const [charId, profId] = key.split('|');
-      if (box) box.innerHTML = profRecipeResultsHtml(charId, profId);
-    });
-  });
-  // Delegated (results are replaced while typing); root outlives re-renders.
-  if (!root.dataset.profWired) root.addEventListener('click', ev => {
-    const btn = /** @type {HTMLElement} */ (ev.target).closest('[data-prof-recipe-add]');
-    if (!btn || !root.contains(btn)) return;
-    const parts = btn.getAttribute('data-prof-recipe-add').split('|');
-    const { p } = profFind(`${parts[0]}|${parts[1]}`);
-    const id = Number(parts[2]);
-    if (!p || (p.recipes || []).includes(id) || (p.recipes || []).length >= PROF_MAX_RECIPES) return;
-    p.recipes = (p.recipes || []).concat(id);
-    profRecipeQuery[`${parts[0]}|${parts[1]}`] = '';
-    changed();
-  });
-  root.dataset.profWired = '1';
-  root.querySelectorAll('[data-prof-recipe-remove]').forEach(btn => btn.addEventListener('click', () => {
-    const parts = btn.getAttribute('data-prof-recipe-remove').split('|');
-    const { p } = profFind(`${parts[0]}|${parts[1]}`);
-    if (p) p.recipes = (p.recipes || []).filter(id => id !== Number(parts[2]));
-    changed();
-  }));
-  const save = root.querySelector('#profSaveBtn');
-  if (save) save.addEventListener('click', profSave);
-  const reset = root.querySelector('#profResetBtn');
-  if (reset) reset.addEventListener('click', () => { profStartDraft(); profStatusMsg = ''; renderProfessionsPage(); });
+  const focused = document.activeElement && document.activeElement.id === 'profSearch';
+  root.innerHTML = `<p class="bis-hint prof-own-hint">Deine eigenen Berufe trägst Du auf <a href="#mychar" data-prof-goto-mychar>Meine Charaktere</a> ein.</p>` + profDirectoryHtml();
+  root.querySelectorAll('[data-prof-goto-mychar]').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); showPage('mychar'); }));
   root.querySelectorAll('[data-prof-filter]').forEach(btn => btn.addEventListener('click', () => {
     profFilter = btn.getAttribute('data-prof-filter');
     renderProfessionsPage();
   }));
   const search = /** @type {HTMLInputElement | null} */ (root.querySelector('#profSearch'));
-  if (search) search.addEventListener('input', () => {
-    profQuery = search.value;
-    const list = root.querySelector('#profList');
-    if (list) list.innerHTML = profListHtml(profAllEntries(), profQuery.trim().toLowerCase());
-  });
-}
-
-/** Write the own professions into the character profile. */
-async function profSave(){
-  const uid = discordIdentity && discordIdentity.id;
-  const prof = uid && state.characterProfiles[uid];
-  if (!prof || !profDraft) return;
-  const previous = prof;
-  // Professions only: other profile fields stay as they are.
-  const byId = new Map(profDraft.map(c => [c.id, c.professions || []]));
-  state.characterProfiles[uid] = normalizeCharacterProfile({
-    nickname: prof.nickname,
-    characters: prof.characters.map(c => ({ ...c, professions: byId.has(c.id) ? byId.get(c.id) : (c.professions || []) }))
-  });
-  profStatusMsg = 'Speichere …';
-  renderProfessionsPage();
-  const ok = await saveData('characterProfiles/' + uid);
-  if (ok){ profDirty = false; profStatusMsg = 'Gespeichert!'; profStartDraft(); }
-  else { state.characterProfiles[uid] = previous; profStatusMsg = 'Konnte nicht speichern.'; }
-  renderProfessionsPage();
+  if (search){
+    search.addEventListener('input', () => {
+      profQuery = search.value;
+      const list = root.querySelector('#profList');
+      if (list) list.innerHTML = profListHtml(profAllEntries(), profQuery.trim().toLowerCase());
+    });
+    if (focused){ search.focus(); search.setSelectionRange(search.value.length, search.value.length); }
+  }
 }

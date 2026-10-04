@@ -490,7 +490,7 @@
             <div class="hero-content">
               <p class="hero-eyebrow">Dein Charakter-Profil</p>
               <h1 class="hero-title hero-title-sm">MEINE CHARAKTERE</h1>
-              <p class="hero-desc">Live-Daten aus dem Armory für alle Charaktere, die du unter "User Settings" hinterlegt hast.</p>
+              <p class="hero-desc">Deine Charaktere an einem Ort: anlegen und bearbeiten, Berufe und BiS-Listen pro Spec zuweisen, dazu Live-Daten aus dem Armory.</p>
             </div>
           </header>
 
@@ -502,10 +502,9 @@
 
             <div id="mycharLoggedIn" class="hidden">
               <div class="mychar-page-actions">
-                <button type="button" class="btn btn-sm btn-outline-gold" id="mycharManageBtn">User Settings</button>
                 <button type="button" class="btn btn-sm btn-ghost" id="mycharRefreshAllBtn">Alle aktualisieren</button>
               </div>
-              <div id="mycharList" class="mychar-grid"></div>
+              <div id="mycharList"></div>
             </div>
           </section>
         </section>
@@ -635,11 +634,9 @@
         <h2>User Settings</h2>
         <button type="button" class="btn btn-ghost btn-sm" id="characterModalCloseBtn">Close</button>
       </div>
-      <p class="access-modal-note">Ein Nickname und deine Charakternamen helfen uns, dich im Spiel und am Discord wiederzuerkennen. Charakterdaten (Klasse, Level, Itemlevel) werden live aus dem Armory geladen.</p>
+      <p class="access-modal-note">Ein Nickname hilft uns, dich am Discord wiederzuerkennen. Deine Charaktere und ihre Berufe verwaltest du auf der Seite <strong>Meine Charaktere</strong>; dort ordnest du ihnen auch deine BiS-Sets zu.</p>
       <label class="apply-field-label" for="characterNicknameInput">Nickname (optional)</label>
       <input type="text" id="characterNicknameInput" class="apply-text-input" maxlength="30" placeholder="z.B. Nasty">
-      <div class="character-composer-list" id="characterComposerList"></div>
-      <button type="button" class="btn btn-sm btn-outline-gold btn-block" id="characterAddBtn">+ Charakter hinzufügen</button>
       <div class="forever-actions" style="margin-top:14px;">
         <button type="button" class="btn btn-teal btn-sm" id="characterSaveBtn">Speichern</button>
         <span id="characterSaveStatus" class="armory-status"></span>
@@ -759,6 +756,7 @@
 <script src="js/bis-need.js"></script>
 <script src="js/raids.js"></script>
 <script src="js/professions.js"></script>
+<script src="js/mychar-page.js"></script>
   <script src="js/raid-reserves.js"></script>
 <script src="js/app.js"></script>
 </body>

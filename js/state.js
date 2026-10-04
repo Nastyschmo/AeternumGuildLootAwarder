@@ -46,7 +46,13 @@ function normalizeCharacterProfile(entry){
         classId: c.classId,
         ...(foreverSpecsForClass(c.classId).some(s => s.id === c.specId) ? { specId: c.specId } : {})
       } : {}),
-      // Optional professions (Berufe page, js/professions.js).
+      // Optional BiS set per spec (Meine Charaktere, js/mychar-page.js).
+      ...(CLASS_MAP[c.classId] && c.bisSets && typeof c.bisSets === 'object' ? (() => {
+        const sets = Object.fromEntries(Object.entries(c.bisSets)
+          .filter(([spec, id]) => foreverSpecsForClass(c.classId).some(s => s.id === spec) && typeof id === 'string' && /^[-\w]{1,40}$/.test(id)));
+        return Object.keys(sets).length ? { bisSets: sets } : {};
+      })() : {}),
+      // Optional professions (edited on Meine Charaktere, listed on Berufe).
       ...(normalizeCharacterProfessions(c.professions).length ? { professions: normalizeCharacterProfessions(c.professions) } : {})
     });
   }

@@ -159,15 +159,27 @@ function renderCharacterComposer(){
     <div class="character-composer-row" data-character-row="${c.id}">
       <input type="text" class="apply-text-input character-composer-name" data-character-field="name" data-character-id="${c.id}" maxlength="24" placeholder="Charaktername" value="${escapeHtml(c.name)}">
       <input type="text" class="apply-text-input character-composer-realm" data-character-field="realmSlug" data-character-id="${c.id}" maxlength="40" placeholder="Realm" value="${escapeHtml(c.realmSlug)}">
+      <select class="character-composer-class" data-character-field="classId" data-character-id="${c.id}" aria-label="Klasse">
+        <option value="">Klasse …</option>
+        ${CLASSES.map(k => `<option value="${k.id}" ${c.classId === k.id ? 'selected' : ''}>${escapeHtml(k.label)}</option>`).join('')}
+      </select>
+      <select class="character-composer-spec" data-character-field="specId" data-character-id="${c.id}" aria-label="Spec" ${c.classId ? '' : 'disabled'}>
+        <option value="">Spec …</option>
+        ${(c.classId ? foreverSpecsForClass(c.classId) : []).map(sp => `<option value="${sp.id}" ${c.specId === sp.id ? 'selected' : ''}>${escapeHtml(sp.label)}</option>`).join('')}
+      </select>
       <label class="character-composer-main-label">
         <input type="radio" name="characterComposerMain" data-character-id="${c.id}" ${c.isMain ? 'checked' : ''}> Hauptcharakter
       </label>
       <button type="button" class="btn btn-ghost btn-sm" data-remove-character="${c.id}" ${characterComposerDraft.characters.length <= 1 ? 'disabled' : ''}>Entfernen</button>
     </div>`).join('');
   els.characterComposerList.querySelectorAll('[data-character-field]').forEach((/** @type {HTMLInputElement} */ input) => {
-    input.addEventListener('input', () => {
+    const field = input.getAttribute('data-character-field');
+    input.addEventListener(input.tagName === 'SELECT' ? 'change' : 'input', () => {
       const row = characterComposerDraft.characters.find(c => c.id === input.getAttribute('data-character-id'));
-      if (row) row[input.getAttribute('data-character-field')] = input.value;
+      if (!row) return;
+      row[field] = input.value;
+      // A new class empties the spec list; re-render to fill it.
+      if (field === 'classId'){ row.specId = ''; renderCharacterComposer(); }
     });
   });
   els.characterComposerList.querySelectorAll('input[name="characterComposerMain"]').forEach(radio => {
@@ -198,7 +210,8 @@ els.characterAddBtn.addEventListener('click', () => {
 async function saveCharacterProfile(){
   if (!discordIdentity || !characterComposerDraft) return;
   const cleanedCharacters = characterComposerDraft.characters
-    .map(c => ({ id: c.id, name: (c.name || '').trim(), realmSlug: (c.realmSlug || DEFAULT_REALM_SLUG).trim().toLowerCase() || DEFAULT_REALM_SLUG, isMain: !!c.isMain }))
+    .map(c => ({ id: c.id, name: (c.name || '').trim(), realmSlug: (c.realmSlug || DEFAULT_REALM_SLUG).trim().toLowerCase() || DEFAULT_REALM_SLUG, isMain: !!c.isMain,
+      ...(c.classId ? { classId: c.classId } : {}), ...(c.classId && c.specId ? { specId: c.specId } : {}) }))
     .filter(c => c.name);
   const previous = state.characterProfiles[discordIdentity.id];
   state.characterProfiles[discordIdentity.id] = normalizeCharacterProfile({

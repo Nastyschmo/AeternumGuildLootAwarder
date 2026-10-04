@@ -85,11 +85,11 @@ function raidMyName(){
   const role = uid && state.discordRoles[uid];
   return (prof && prof.nickname) || (role && role.username) || (discordIdentity && discordIdentity.username) || '';
 }
-/** Characters from "Meine Charaktere", main first. */
+/** Characters from "Meine Charaktere" (with their class / spec if set), main first. @returns {Character[]} */
 function raidMyCharacters(){
   const uid = discordIdentity && discordIdentity.id;
   const prof = uid && state.characterProfiles[uid];
-  return prof ? [...prof.characters].sort((a, z) => Number(z.isMain) - Number(a.isMain)).map(c => c.name) : [];
+  return prof ? [...prof.characters].sort((a, z) => Number(z.isMain) - Number(a.isMain)) : [];
 }
 /** Last sign-up choice (character, class, spec), for the next form. */
 function raidLastChoice(){
@@ -97,7 +97,9 @@ function raidLastChoice(){
     const v = JSON.parse(localStorage.getItem(RAID_LAST_SIGNUP_KEY) || 'null');
     if (v && CLASS_MAP[v.classId]) return v;
   } catch (e){ /* ignore */ }
-  return { charName: raidMyCharacters()[0] || '', classId: 'warrior', specId: foreverSpecsForClass('warrior')[0].id };
+  const main = raidMyCharacters()[0];
+  const classId = (main && main.classId) || 'warrior';
+  return { charName: main ? main.name : '', classId, specId: (main && main.specId) || foreverSpecsForClass(classId)[0].id };
 }
 
 /** "Fr., 10.10. · 20:00" @param {number} ms */
@@ -130,12 +132,16 @@ function raidSignupFormHtml(id){
   const mine = (raidSignups[id] || {})[discordIdentity.id];
   const v = mine || raidLastChoice();
   const chars = raidMyCharacters();
+  const known = chars.some(c => c.name === v.charName);
   const specs = foreverSpecsForClass(v.classId);
   const btn = st => `<button type="button" class="btn btn-sm ${mine && mine.status === st ? 'btn-teal' : 'btn-ghost'}" data-raid-status="${st}" data-raid-id="${escapeHtml(id)}">${RAID_STATUS_LABELS[st]}</button>`;
   return `<div class="raid-signup" data-raid-form="${escapeHtml(id)}">
     <div class="raid-signup-fields">
-      <input type="text" class="apply-text-input" data-raid-field="charName" maxlength="40" placeholder="Charakter" value="${escapeHtml(v.charName || '')}" list="raidChars-${escapeHtml(id)}">
-      <datalist id="raidChars-${escapeHtml(id)}">${chars.map(c => `<option value="${escapeHtml(c)}">`).join('')}</datalist>
+      ${chars.length ? `<select data-raid-char aria-label="Charakter">
+        ${chars.map((c, i) => `<option value="${i}" ${c.name === v.charName ? 'selected' : ''}>${c.isMain ? '★ ' : ''}${escapeHtml(c.name)}${c.classId ? ` (${escapeHtml(CLASS_MAP[c.classId].label)})` : ''}</option>`).join('')}
+        <option value="other" ${known ? '' : 'selected'}>Anderer Charakter …</option>
+      </select>` : ''}
+      <input type="text" class="apply-text-input${known ? ' hidden' : ''}" data-raid-field="charName" maxlength="40" placeholder="Charaktername" value="${escapeHtml(v.charName || '')}">
       <select data-raid-field="classId">${CLASSES.map(c => `<option value="${c.id}" ${c.id === v.classId ? 'selected' : ''}>${escapeHtml(c.label)}</option>`).join('')}</select>
       <select data-raid-field="specId">${specs.map(s => `<option value="${s.id}" ${s.id === v.specId ? 'selected' : ''}>${escapeHtml(s.label)} (${escapeHtml(FOREVER_ROLE_LABELS[s.role])})</option>`).join('')}</select>
       <input type="text" class="apply-text-input" data-raid-field="note" maxlength="120" placeholder="Notiz (optional), z. B. „komme 20:15“" value="${escapeHtml((mine && mine.note) || '')}">
@@ -236,8 +242,19 @@ function raidWire(root){
   root.querySelectorAll('[data-raid-form]').forEach((/** @type {HTMLElement} */ form) => {
     const cls = /** @type {HTMLSelectElement} */ (form.querySelector('[data-raid-field="classId"]'));
     const spec = /** @type {HTMLSelectElement} */ (form.querySelector('[data-raid-field="specId"]'));
-    cls.addEventListener('change', () => {
-      spec.innerHTML = foreverSpecsForClass(cls.value).map(s => `<option value="${s.id}">${escapeHtml(s.label)} (${escapeHtml(FOREVER_ROLE_LABELS[s.role])})</option>`).join('');
+    const fillSpecs = (specId) => {
+      spec.innerHTML = foreverSpecsForClass(cls.value).map(s => `<option value="${s.id}" ${s.id === specId ? 'selected' : ''}>${escapeHtml(s.label)} (${escapeHtml(FOREVER_ROLE_LABELS[s.role])})</option>`).join('');
+    };
+    cls.addEventListener('change', () => fillSpecs(''));
+    // Picking one of "Meine Charaktere" fills name, class and spec.
+    const pick = /** @type {HTMLSelectElement} */ (form.querySelector('[data-raid-char]'));
+    const nameInput = /** @type {HTMLInputElement} */ (form.querySelector('[data-raid-field="charName"]'));
+    if (pick) pick.addEventListener('change', () => {
+      const c = raidMyCharacters()[Number(pick.value)];
+      nameInput.classList.toggle('hidden', Boolean(c));
+      if (!c){ nameInput.value = ''; nameInput.focus(); return; }
+      nameInput.value = c.name;
+      if (c.classId){ cls.value = c.classId; fillSpecs(c.specId || ''); }
     });
   });
   root.querySelectorAll('[data-raid-status]').forEach(btn => btn.addEventListener('click', async () => {

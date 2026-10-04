@@ -40,7 +40,12 @@ function normalizeCharacterProfile(entry){
       id: (typeof c.id === 'string' && c.id) ? c.id : nextCharacterProfileId(),
       name: c.name.trim().slice(0, 24),
       realmSlug: (typeof c.realmSlug === 'string' && c.realmSlug.trim()) ? c.realmSlug.trim().toLowerCase().slice(0, 40) : DEFAULT_REALM_SLUG,
-      isMain
+      isMain,
+      // Optional class + spec (raid sign-ups, js/raids.js); dropped if unknown.
+      ...(CLASS_MAP[c.classId] ? {
+        classId: c.classId,
+        ...(foreverSpecsForClass(c.classId).some(s => s.id === c.specId) ? { specId: c.specId } : {})
+      } : {})
     });
   }
   // If nothing was explicitly marked Main, the first character quietly

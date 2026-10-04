@@ -2094,3 +2094,5 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
   .raid-roster{ grid-template-columns: 1fr; }
   .raid-counts{ align-items: flex-start; }
 }
+.character-composer-class, .character-composer-spec{ flex: 1 1 110px; min-width: 0; background: var(--field-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 13px; }
+.character-composer-spec:disabled{ opacity: .5; }

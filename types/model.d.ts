@@ -130,6 +130,9 @@ interface Character {
   name: string;
   realmSlug: string;
   isMain: boolean;
+  /** Optional, set in "Meine Charaktere" (used by raid sign-ups). */
+  classId?: ClassId;
+  specId?: SpecId;
 }
 interface CharacterProfile {
   nickname: string;

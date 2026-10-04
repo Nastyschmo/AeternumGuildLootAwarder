@@ -1365,12 +1365,13 @@ own, same in both themes).
 **Talente in den Werten** (`js/bis-talent-stats.js`): the set's talents
 count in the stat totals when their effect is fixed and always on —
 % to a stat / health / mana / armor from items, crit, hit, dodge, parry,
-block, and "% of Intellect / Spirit as attack power, spell damage,
-healing or armor". Curated per talent in `BIS_TALENT_STATS`
+block, "% of Intellect / Spirit as attack power, spell damage,
+healing or armor", and hit / crit for one spell school (`hit:Shadow`
+etc., own rows like "Treffer (Schattenzauber)"). Curated per talent in `BIS_TALENT_STATS`
 ('Class|Talent' -> kind + which "%" number of the rank's text); the
 value is read from the text at the set's rank, so Forever's tuning
 changes come in with the talent data. Talents tied to a form, weapon,
-spell school, single ability or proc are left out. The applied talents
+single ability or proc are left out. The applied talents
 are listed under the stats.
 
 **Gildenbedarf** (`js/bis-need.js`, third tab on the BiS page): who in

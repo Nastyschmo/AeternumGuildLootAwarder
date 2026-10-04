@@ -2,9 +2,10 @@
 //
 // Only talents with a fixed, always-on effect on the shown stats count:
 // % to a stat, health, mana or armor from items, crit / hit / dodge /
-// parry / block chance, and "X% of your Intellect / Spirit as attack power /
-// spell damage / armor". Talents that depend on a form, weapon type, spell
-// school, single ability or a proc are left out. The value is read from
+// parry / block chance, "X% of your Intellect / Spirit as attack power /
+// spell damage / armor", and hit / crit for one spell school (shown as their
+// own rows, e.g. "Treffer (Schattenzauber)"). Talents that depend on a form,
+// weapon type, single ability or a proc are left out. The value is read from
 // the talent's text at the set's rank (the n-th "%" number), so it follows
 // Forever's tuning without a second table of numbers.
 
@@ -27,6 +28,7 @@ const BIS_TALENT_STATS = {
   'Paladin|Deflection': [['parry', 0]],
   'Paladin|Conviction': [['meleeCrit', 0]],
   'Paladin|Champion of the Light': [['dmgFromInt', 0]],
+  'Paladin|Divine Precision': [['hit:Holy', 0]],
   'Hunter|Lethal Attacks': [['meleeCrit', 0]],
   'Hunter|Careful Aim': [['apFromInt', 0]],
   'Hunter|Deflection': [['parry', 0]],
@@ -39,6 +41,9 @@ const BIS_TALENT_STATS = {
   'Rogue|Precision': [['hit', 0]],
   'Priest|Mental Strength': [['int', 0]],
   'Priest|Spiritual Guidance': [['healFromSpi', 0], ['dmgFromSpi', 1]],
+  'Priest|Holy Precision': [['hit:Holy', 0]],
+  'Priest|Holy Specialization': [['crit:Holy', 0]],
+  'Priest|Shadow Focus': [['hit:Shadow', 0]],
   'Shaman|Thundering Strikes': [['meleeCrit', 0], ['spellCrit', 0]],
   'Shaman|Ancestral Knowledge': [['int', 0]],
   'Shaman|Mental Dexterity': [['apFromInt', 0]],
@@ -47,11 +52,16 @@ const BIS_TALENT_STATS = {
   'Shaman|Mental Quickness': [['dmgFromInt', 0], ['healFromInt', 0]],
   'Shaman|Tidal Focus': [['hit', 1]],
   'Shaman|Improved Reincarnation': [['hp', 0]],
+  'Mage|Arcane Focus': [['hit:Arcane', 0]],
+  'Mage|Arcane Impact': [['crit:Arcane', 0]],
+  'Mage|Elemental Precision': [['hit:Fire', 0], ['hit:Frost', 0]],
+  'Mage|Critical Mass': [['crit:Fire', 0]],
   'Mage|Arcane Resilience': [['armorFromInt', 0]],
   'Mage|Arcane Mind': [['int', 0]],
   'Mage|Arcane Instability': [['spellCrit', 1]],
   'Warlock|Suppression': [['hit', 0]],
   'Warlock|Demonic Embrace': [['sta', 0]],
+  'Warlock|Malevolence': [['crit:Shadow', 0]],
   'Warlock|Fel Vitality': [['mana', 1]],
   'Druid|Nature\'s Majesty': [['meleeCrit', 0], ['spellCrit', 0]],
   'Druid|Nature\'s Reach': [['hit', 1]],
@@ -70,6 +80,14 @@ const BIS_TALENT_KIND_LABELS = {
   dmgFromSpi: '% der Willenskraft als Zauberschaden', healFromSpi: '% der Willenskraft als Heilung',
   armorFromInt: '% der Int als Rüstung'
 };
+/** Spell schools for the "hit:School" / "crit:School" kinds. */
+const BIS_SPELL_SCHOOLS = { Holy: 'Heilig', Shadow: 'Schatten', Arcane: 'Arkan', Fire: 'Feuer', Frost: 'Frost', Nature: 'Natur' };
+/** @param {string} kind */
+function bisTalentKindLabel(kind){
+  const [k, school] = kind.split(':');
+  if (school) return `% ${k === 'hit' ? 'Treffer' : 'Krit'} (${BIS_SPELL_SCHOOLS[school]}zauber)`;
+  return BIS_TALENT_KIND_LABELS[kind];
+}
 
 /**
  * Summed talent effects of a build (percent values), plus the talents that
@@ -96,7 +114,7 @@ function bisTalentEffects(b){
         const v = nums[idx];
         if (!v) continue;
         pct[kind] = (pct[kind] || 0) + v;
-        parts.push(`+${v.toLocaleString('de-DE')} ${BIS_TALENT_KIND_LABELS[kind]}`);
+        parts.push(`+${v.toLocaleString('de-DE')} ${bisTalentKindLabel(kind)}`);
       }
       if (parts.length) applied.push({ name, rank, text: parts.join(', ') });
     }

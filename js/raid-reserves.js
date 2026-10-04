@@ -15,6 +15,40 @@
 
 const RAID_SR_MAX = 3;
 const RAID_SR_RESULTS = 12;
+// Item stat ids (BIS_STAT_LABELS) that say who an item is for. Per spec:
+// `core` stats (at least one needed) and `extra` stats that are fine on top
+// (int on hunter mail, str on paladin healing plate …). An item fits when
+// all its typed stats are core or extra and one is core; items with only
+// neutral stats (stamina, spirit, hit, crit, resistances …) fit everyone —
+// except melee weapons for casters / healers.
+const RAID_SR_PHYS = [3, 4, 37, 38];                   // agi, str, expertise, AP
+const RAID_SR_TANK = [12, 13, 14, 15, 48];             // defense, dodge, parry, block, block value
+const RAID_SR_HEAL = [5, 41, 43, 45];                  // int, healing, mp5, spell power
+const RAID_SR_SPELL = [5, 42, 43, 45, 47];             // int, spell damage, mp5, spell power, penetration
+const RAID_SR_TYPED = [...new Set([...RAID_SR_PHYS, ...RAID_SR_TANK, ...RAID_SR_HEAL, ...RAID_SR_SPELL, 39])];
+/** @param {number[]} core @param {number[]} [extra] */
+const raidSrSpec = (core, extra) => ({ core, extra: extra || [] });
+const RAID_SR_MELEE = raidSrSpec(RAID_SR_PHYS);
+const RAID_SR_HUNTER = raidSrSpec([3, 38, 39], [4, 5, 43]);
+const RAID_SR_HEALER = raidSrSpec(RAID_SR_HEAL);
+const RAID_SR_CASTER = raidSrSpec(RAID_SR_SPELL);
+/** classId -> specId -> wanted stats. @type {Record<string, Record<string, { core: number[], extra: number[] }>>} */
+const RAID_SR_SPEC_STATS = {
+  warrior: { arms: RAID_SR_MELEE, fury: RAID_SR_MELEE, protection: raidSrSpec([...RAID_SR_PHYS, ...RAID_SR_TANK]) },
+  // Classic paladin healing plate (Lawbringer, Judgement) carries strength.
+  paladin: { holy: raidSrSpec(RAID_SR_HEAL, [4]), protection: raidSrSpec([...RAID_SR_PHYS, ...RAID_SR_TANK], [5, 42, 45]), retribution: raidSrSpec(RAID_SR_PHYS, [5]) },
+  hunter: { beast_mastery: RAID_SR_HUNTER, marksmanship: RAID_SR_HUNTER, survival: RAID_SR_HUNTER },
+  rogue: { assassination: RAID_SR_MELEE, combat: RAID_SR_MELEE, subtlety: RAID_SR_MELEE },
+  priest: { discipline: RAID_SR_HEALER, holy: RAID_SR_HEALER, shadow: RAID_SR_CASTER },
+  shaman: { elemental: RAID_SR_CASTER, enhancement: raidSrSpec(RAID_SR_PHYS, [5]), restoration: RAID_SR_HEALER },
+  mage: { arcane: RAID_SR_CASTER, fire: RAID_SR_CASTER, frost: RAID_SR_CASTER },
+  warlock: { affliction: RAID_SR_CASTER, demonology: RAID_SR_CASTER, destruction: RAID_SR_CASTER },
+  druid: { balance: RAID_SR_CASTER, feral: RAID_SR_MELEE, feral_tank: raidSrSpec([...RAID_SR_PHYS, 12, 13]), restoration: RAID_SR_HEALER }
+};
+/** The armor type a class wears at 60 (1 cloth, 2 leather, 3 mail, 4 plate). */
+const RAID_SR_ARMOR = { warrior: 4, paladin: 4, hunter: 3, shaman: 3, rogue: 2, druid: 2, priest: 1, mage: 1, warlock: 1 };
+/** Events where the search shows every item ("Alle Items zeigen"). @type {Record<string, boolean>} */
+const raidSrShowAll = {};
 /** eventId -> uid -> reserve. @type {Record<string, Record<string, RaidReserve>>} */
 let raidReserves = {};
 /** Search text per event, kept across re-renders. @type {Record<string, string>} */
@@ -55,23 +89,46 @@ function raidSrDropsIn(item, instance){
   return Boolean(instance && item.src && (item.src.drops || []).some(d => d.z === instance));
 }
 
+/**
+ * Does the item suit this class and spec? Gear: usable at 60, the class's
+ * own armor type (cloaks excepted) and only stats the spec wants. Non-gear
+ * (tier tokens, recipes, quest items) always fits.
+ * @param {ForeverItem} item @param {string} classId @param {string} specId
+ */
+function raidSrFits(item, classId, specId){
+  if (item.c !== 2 && item.c !== 4) return true;
+  if (!bisCanUse(item, /** @type {any} */ ({ classId, level: 60 }))) return false;
+  if (item.c === 4 && item.sc >= 1 && item.sc <= 4 && item.it !== 16 && item.sc !== RAID_SR_ARMOR[classId]) return false;
+  const want = (RAID_SR_SPEC_STATS[classId] || {})[specId];
+  if (!want) return true;
+  const typed = (item.s || []).map(([stat]) => stat).filter(st => RAID_SR_TYPED.includes(st));
+  if (typed.length) return typed.every(st => want.core.includes(st) || want.extra.includes(st)) && typed.some(st => want.core.includes(st));
+  // No typed stats: fine, except a melee weapon for a caster / healer.
+  const caster = !want.core.some(st => RAID_SR_PHYS.includes(st));
+  return !(caster && item.c === 2 && item.sc !== 19);
+}
+
 /** Search results for an event's reserve box. @param {string} id */
 function raidSrResultsHtml(id){
   const q = (raidSrQuery[id] || '').trim().toLowerCase();
   if (q.length < 2 || !bisData) return '';
   const e = raidEvents[id];
   const mine = new Set(((raidReserves[id] || {})[discordIdentity.id] || { items: [] }).items.map(raidSrItemName));
-  // Forever has many items twice (Classic id and a new one, same stats):
-  // one result per name — the one dropping here, else one with a known
-  // source, else the Classic id.
+  const me = (raidSignups[id] || {})[discordIdentity.id];
+  const filter = me && !raidSrShowAll[id] ? (/** @param {ForeverItem} it */ it => raidSrFits(it, me.classId, me.specId)) : () => true;
+  // Forever has many items twice or more (Classic id and new ids); same
+  // name and stats = one result — the one dropping here, else one with a
+  // known source, else the Classic id. Versions with other stats stay
+  // separate (the stat line tells them apart).
   /** @type {Map<string, { it: ForeverItem, here: boolean }>} */
   const byName = new Map();
   for (const it of bisData.items.items) {
-    if (it.q < 3 || mine.has(it.n) || !it.n.toLowerCase().includes(q)) continue;
+    if (it.q < 3 || mine.has(it.n) || !it.n.toLowerCase().includes(q) || !filter(it)) continue;
     const cand = { it, here: raidSrDropsIn(it, e.instance) };
-    const prev = byName.get(it.n);
+    const key = it.n + '|' + JSON.stringify(it.s || []);
+    const prev = byName.get(key);
     const rank = c => Number(c.here) * 2 + Number(Boolean(c.it.src));
-    if (!prev || rank(cand) > rank(prev) || (rank(cand) === rank(prev) && it.id < prev.it.id)) byName.set(it.n, cand);
+    if (!prev || rank(cand) > rank(prev) || (rank(cand) === rank(prev) && it.id < prev.it.id)) byName.set(key, cand);
   }
   const hits = [...byName.values()]
     .sort((a, z) => Number(z.here) - Number(a.here) || z.it.q - a.it.q || (z.it.il || 0) - (a.it.il || 0) || a.it.n.localeCompare(z.it.n))
@@ -79,7 +136,7 @@ function raidSrResultsHtml(id){
   if (!hits.length) return '<div class="raid-sr-result-empty">Nichts gefunden.</div>';
   return hits.map(({ it, here }) => `<button type="button" class="raid-sr-result" data-raid-sr-add="${it.id}" data-raid-id="${escapeHtml(id)}">
     ${bisIconHtml(it, 22)}<span style="color:${bisQualityColor(it)}">${escapeHtml(it.n)}</span>
-    <span class="bis-item-meta">${here ? escapeHtml(e.instance) : escapeHtml(bisTypeLabel(it))}</span>
+    <span class="bis-item-meta">${escapeHtml([here ? e.instance : bisTypeLabel(it), bisStatLine(it)].filter(Boolean).join(' · '))}</span>
   </button>`).join('');
 }
 
@@ -124,6 +181,7 @@ function raidSrSectionHtml(id, e, past){
     else if (!signedUp) add = '<p class="bis-hint">Zum Reservieren melde Dich erst als „Dabei“ oder „Vielleicht“ an.</p>';
     else if (mine.length < e.srMax) add = `<div class="raid-sr-search">
         <input type="search" class="apply-text-input" data-raid-sr-search="${escapeHtml(id)}" placeholder="Item suchen (${mine.length + 1}. von ${e.srMax}) …" value="${escapeHtml(raidSrQuery[id] || '')}" autocomplete="off">
+        <label class="raid-sr-filter"><input type="checkbox" data-raid-sr-all="${escapeHtml(id)}" ${raidSrShowAll[id] ? '' : 'checked'}> Nur Items für ${escapeHtml(CLASS_MAP[signups[uid].classId].label)} · ${escapeHtml(foreverSpecLabel(signups[uid].classId, signups[uid].specId))} (Rüstungstyp, Waffen, Werte)</label>
         <div class="raid-sr-results" data-raid-sr-results="${escapeHtml(id)}">${raidSrResultsHtml(id)}</div>
       </div>`;
     own = `<div class="raid-sr-own">${chips ? `<div class="raid-sr-mine-list">${chips}</div>` : ''}${add}</div>`;
@@ -217,6 +275,12 @@ function raidSrWire(root){
       if (box) box.innerHTML = raidSrResultsHtml(id);
     });
   });
+  root.querySelectorAll('[data-raid-sr-all]').forEach((/** @type {HTMLInputElement} */ box) => box.addEventListener('change', () => {
+    const id = box.getAttribute('data-raid-sr-all');
+    raidSrShowAll[id] = !box.checked;
+    const list = root.querySelector(`[data-raid-sr-results="${CSS.escape(id)}"]`);
+    if (list) list.innerHTML = raidSrResultsHtml(id);
+  }));
   // Delegated (result buttons are replaced while typing); root outlives
   // re-renders, so wire it once.
   if (!root.dataset.raidSrWired) root.addEventListener('click', ev => {

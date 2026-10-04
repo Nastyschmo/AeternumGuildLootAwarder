@@ -1337,8 +1337,15 @@ item and reserve it (`raidReserves/<eventId>/<uid>/items/s1..s3` = item id; fixe
 card lists all reserves by item, contested items first, players who
 aren't signed up any more struck through, plus "Reserves kopieren" (plain
 text) for the loot master. Forever has many items twice (Classic id and
-a new id, same stats), so the search shows one result per name and the
-list groups by name. Withdrawing frees the own reserves (unless locked). Our
+a new id, same stats), so the search shows one result per name and
+stats (versions with other stats stay apart, with their stat line) and
+the list groups by name. Withdrawing frees the own reserves (unless locked). The search shows only items
+for the signed-up class and spec by default ("Nur Items für …", can be
+switched off): usable at 60, the class's own armor type (cloaks
+excepted), and only stats the spec wants (`RAID_SR_SPEC_STATS`: core
+stats, one needed, plus allowed extras — e.g. str on paladin healing
+plate, int on hunter mail); casters / healers don't get melee weapons
+without caster stats. Non-gear items always show. Our
 raid-loot data is incomplete (QuestieDB lacks many boss drops), so the
 search covers every rare+ item and lists known drops of the event's
 instance first. **Rules:** `raidReserves` (README § 6f) enforce the

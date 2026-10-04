@@ -2105,11 +2105,12 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 .raid-sr-mine button{ background: none; border: 0; color: var(--text-muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; }
 .raid-sr-mine button:hover{ color: var(--danger-bright); }
 .raid-sr-search{ max-width: 460px; }
+.raid-sr-filter{ display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); margin-top: 4px; cursor: pointer; }
 .raid-sr-results{ display: flex; flex-direction: column; margin-top: 4px; }
 .raid-sr-results:empty{ display: none; }
-.raid-sr-result{ display: flex; align-items: center; gap: 8px; text-align: left; font: inherit; font-size: 13px; padding: 4px 6px; border: 0; border-bottom: 1px solid var(--border-soft); background: var(--field-bg); color: var(--text); cursor: pointer; }
+.raid-sr-result{ display: flex; flex-wrap: wrap; align-items: center; gap: 8px; text-align: left; font: inherit; font-size: 13px; padding: 4px 6px; border: 0; border-bottom: 1px solid var(--border-soft); background: var(--field-bg); color: var(--text); cursor: pointer; }
 .raid-sr-result:hover{ background: var(--fold-body-bg); }
-.raid-sr-result .bis-item-meta{ margin-left: auto; }
+.raid-sr-result .bis-item-meta{ margin-left: auto; text-align: right; }
 .raid-sr-result-empty{ font-size: 13px; color: var(--text-muted); padding: 4px 6px; }
 .raid-sr-all > summary{ cursor: pointer; font-size: 13px; color: var(--text-muted); font-weight: 600; margin: 4px 0; }
 .raid-sr-row{ display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 4px 0; border-bottom: 1px solid var(--border-soft); }

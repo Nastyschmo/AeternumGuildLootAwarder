@@ -85,7 +85,7 @@ const BIS_SPELL_SCHOOLS = { Holy: 'Heilig', Shadow: 'Schatten', Arcane: 'Arkan',
 /** @param {string} kind */
 function bisTalentKindLabel(kind){
   const [k, school] = kind.split(':');
-  if (school) return `% ${k === 'hit' ? 'Treffer' : 'Krit'} (${BIS_SPELL_SCHOOLS[school]}zauber)`;
+  if (school) return `% ${k === 'hit' ? 'Treffer' : 'Krit'} (${BIS_SPELL_SCHOOLS[school]})`;
   return BIS_TALENT_KIND_LABELS[kind];
 }
 

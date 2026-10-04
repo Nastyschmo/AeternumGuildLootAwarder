@@ -214,6 +214,8 @@ function bisComputeStats(b){
   let armor = 0;
   /** % chances from enchants (hit, crit, dodge, block). @type {Record<string, number>} */
   const enchPct = {};
+  /** Enchants with a % bonus, for the sources list. @type {{ name: string, slot: string, text: string }[]} */
+  const enchSources = [];
   for (const s of BIS_SLOTS){
     if (s.key === 'offhand' && bisOffhandBlocked(b)) continue;
     const sel = b.slots[s.key];
@@ -224,7 +226,11 @@ function bisComputeStats(b){
     // Flat stats of the chosen enchant (js/bis-enchants.js); procs and % effects aren't modelled.
     const ench = sel.enchantId ? bisEnchantById(sel.enchantId) : null;
     if (ench && ench.st) for (const [stat, val] of ench.st) gear[stat] = (gear[stat] || 0) + val;
-    if (ench) for (const [k, v] of Object.entries(bisEnchantChances(ench))) enchPct[k] = (enchPct[k] || 0) + v;
+    if (ench){
+      const ch = Object.entries(bisEnchantChances(ench));
+      for (const [k, v] of ch) enchPct[k] = (enchPct[k] || 0) + v;
+      if (ch.length) enchSources.push({ name: ench.n, slot: s.label, text: ch.map(([k, v]) => `+${v.toLocaleString('de-DE')} ${BIS_TALENT_KIND_LABELS[k]}`).join(', ') });
+    }
   }
   // Talents with fixed effects (js/bis-talent-stats.js); % values.
   const tal = bisTalentEffects(b);
@@ -246,7 +252,8 @@ function bisComputeStats(b){
   else ap = str - 10;
   ap += (gear[38] || 0) + Math.round(int * tp('apFromInt') / 100);
   const estimated = L < 60;
-  const hitPct = (gear[31] || 0) / bisRatingPerPercent('hit', L) + tp('hit') + ep('hit');
+  const hitGearPct = (gear[31] || 0) / bisRatingPerPercent('hit', L);
+  const hitPct = hitGearPct + tp('hit') + ep('hit');
   const critRatingPct = (gear[32] || 0) / bisRatingPerPercent('crit', L);
   const meleeCrit = agi * (base.critPerAgi || 0) + critRatingPct + tp('meleeCrit') + ep('meleeCrit');
   const spellCrit = int * (base.critPerInt || 0) + critRatingPct + tp('spellCrit') + ep('spellCrit');
@@ -255,6 +262,7 @@ function bisComputeStats(b){
   const talHeal = Math.round(int * tp('healFromInt') / 100 + spi * tp('healFromSpi') / 100);
   return { base, race, gear, str, agi, sta, int, spi, hp, mana, armor, ap: Math.max(ap, 0), hitPct, meleeCrit, spellCrit, estimated,
     talDmg, talHeal, dodgePct: tp('dodge') + ep('dodge'), parryPct: tp('parry'), blockPct: tp('block') + ep('block'), talents: tal.applied,
+    enchSources, hitGearPct, critGearPct: critRatingPct,
     schoolPct: Object.fromEntries(Object.entries(tal.pct).filter(([k]) => k.includes(':'))) };
 }
 
@@ -524,24 +532,35 @@ function renderBisPlanner(){
     if (!total) return '';
     const sources = [g(45) ? `${g(45)} Zaubermacht` : '', g(own) ? `${g(own)} ${ownLabel}` : '', fromTalents ? `${fromTalents} Talente` : ''].filter(Boolean);
     const parts = sources.join(' + ');
-    // Several sources, or talents, need explaining; then the split shows under the label.
-    const split = sources.length > 1 || fromTalents > 0;
+    // Several sources need explaining; then the split shows under the label.
+    const split = sources.length > 1;
     return `<div class="bis-stat${split ? ' bis-stat-split' : ''}"><span>${label}${split ? `<small>${escapeHtml(parts)}</small>` : ''}</span><strong>${total}</strong></div>`;
   };
   const spellHtml = spellRow('Zauberschaden', 42, 'Schaden', st.talDmg) + spellRow('Heilung', 41, 'Heilung', st.talHeal);
-  // Spell hit / crit for one school from talents: overall value + the bonus.
-  /** @type {[string, string, number][]} */
-  const schoolKinds = [['hit', 'Treffer', st.hitPct], ['crit', 'Krit', st.spellCrit]];
-  const schoolRows = Object.keys(BIS_SPELL_SCHOOLS).flatMap(sc => schoolKinds
-    .filter(([k]) => st.schoolPct[`${k}:${sc}`])
-    .map(([k, label, overall]) => `<div class="bis-stat bis-stat-split"><span>${label} (${BIS_SPELL_SCHOOLS[sc]}zauber)<small>inkl. +${fmt1(st.schoolPct[`${k}:${sc}`])} % aus Talenten</small></span><strong>${est}${fmt1(overall + st.schoolPct[`${k}:${sc}`])} %</strong></div>`)).join('');
-  // Avoidance from talents (gear ratings are listed separately below).
-  const talentChance = [['Ausweichen', st.dodgePct], ['Parieren', st.parryPct], ['Blocken', st.blockPct]]
-    .filter(([, v]) => v).map(([label, v]) => `<div class="bis-stat bis-stat-split"><span>${label}<small>aus Talenten / Verzauberungen</small></span><strong>+${fmt1(v)} %</strong></div>`).join('');
-  const talentList = st.talents.length
-    ? `<div class="bis-talent-stats"><span class="bis-item-meta">Eingerechnete Talente:</span> ${st.talents.map(t => `<span class="bis-talent-stat"><b>${escapeHtml(t.name)}</b> ${escapeHtml(t.text)}</span>`).join('')}</div>`
+  // Hit / crit as columns: the overall value, then per spell school with a
+  // talent bonus (overall + bonus); avoidance bonuses next to them. Where
+  // each bonus comes from is listed below the grid.
+  const row = (label, v, plus) => `<div class="bis-stat"><span>${label}</span><strong>${plus ? '+' : est}${fmt1(v)} %</strong></div>`;
+  const schoolCol = (k, overall) => Object.keys(BIS_SPELL_SCHOOLS).filter(sc => st.schoolPct[`${k}:${sc}`])
+    .map(sc => row(`${k === 'hit' ? 'Treffer' : 'Krit'} (${BIS_SPELL_SCHOOLS[sc]})`, overall + st.schoolPct[`${k}:${sc}`], false)).join('');
+  const avoid = [['Ausweichen', st.dodgePct], ['Parieren', st.parryPct], ['Blocken', st.blockPct]].filter(([, v]) => v)
+    .map(([label, v]) => row(`${label} (Bonus)`, v, true)).join('');
+  const chanceHtml = `<div class="bis-chance-groups">
+      <div class="bis-chance-col">${row('Treffer', st.hitPct, false)}${schoolCol('hit', st.hitPct)}</div>
+      <div class="bis-chance-col">${row('Krit (Nahkampf)', st.meleeCrit, false)}${st.base.critPerInt ? row('Krit (Zauber)', st.spellCrit, false) : ''}${schoolCol('crit', st.spellCrit)}</div>
+      ${avoid ? `<div class="bis-chance-col">${avoid}</div>` : ''}
+    </div>`;
+  const de = v => (Math.round(v * 100) / 100).toLocaleString('de-DE');
+  const sourceItems = [
+    st.hitGearPct ? `<span class="bis-talent-stat"><b>Ausrüstung</b> +${de(st.hitGearPct)} % Treffer (${st.gear[31]} Trefferwertung)</span>` : '',
+    st.critGearPct ? `<span class="bis-talent-stat"><b>Ausrüstung</b> +${de(st.critGearPct)} % Krit (${st.gear[32]} Kritische Trefferwertung)</span>` : '',
+    ...st.enchSources.map(e => `<span class="bis-talent-stat"><b>${escapeHtml(e.name)}</b> (${escapeHtml(e.slot)}) ${escapeHtml(e.text)}</span>`),
+    ...st.talents.map(t => `<span class="bis-talent-stat"><b>${escapeHtml(t.name)}</b> ${escapeHtml(t.text)}</span>`)
+  ].filter(Boolean);
+  const talentList = sourceItems.length
+    ? `<div class="bis-talent-stats"><span class="bis-item-meta">Herkunft der Boni:</span> ${sourceItems.join('')}</div>`
     : '';
-  const gearExtras = schoolRows + spellHtml + talentChance + [[43, 'Mana alle 5 Sek.'], [36, 'Tempowertung'], [37, 'Waffenkundewertung'],
+  const gearExtras = spellHtml + [[43, 'Mana alle 5 Sek.'], [36, 'Tempowertung'], [37, 'Waffenkundewertung'],
     [12, 'Verteidigungswertung'], [13, 'Ausweichwertung'], [14, 'Parierwertung'], [15, 'Blockwertung'], [48, 'Blockwert'], [39, 'Distanzangriffskraft'],
     [51, 'Feuerwiderstand'], [52, 'Frostwiderstand'], [55, 'Naturwiderstand'], [54, 'Schattenwiderstand'], [56, 'Arkanwiderstand']]
     .filter(([id]) => st.gear[id]).map(([id, label]) => `<div class="bis-stat"><span>${label}</span><strong>${st.gear[id]}</strong></div>`).join('');
@@ -589,13 +608,11 @@ function renderBisPlanner(){
             <div class="bis-stat"><span>Willenskraft</span><strong>${st.spi}</strong></div>
             <div class="bis-stat"><span>Rüstung</span><strong>${st.armor}</strong></div>
             <div class="bis-stat"><span>Angriffskraft</span><strong>${st.ap}</strong></div>
-            <div class="bis-stat"><span>Treffer</span><strong>${est}${fmt1(st.hitPct)} %</strong></div>
-            <div class="bis-stat"><span>Krit (Nahkampf)</span><strong>${est}${fmt1(st.meleeCrit)} %</strong></div>
-            ${st.base.critPerInt ? `<div class="bis-stat"><span>Krit (Zauber)</span><strong>${est}${fmt1(st.spellCrit)} %</strong></div>` : ''}
             ${gearExtras}
           </div>
+          ${chanceHtml}
           ${talentList}
-          <p class="bis-hint">Grundwerte von Klasse, Rasse und Stufe plus Ausrüstung. Verzauberungen sind eingerechnet (Werte, Rüstung, Angriffskraft, Zauberschaden, Treffer-/Krit-/Ausweichen-/Block-%), Procs und Tempo nicht. Talente des Sets zählen mit, wenn sie immer wirken (ohne Gestalt-, Waffen- oder Fähigkeits-Bedingung); Treffer/Krit für eine Zauberschule steht als eigene Zeile. Ohne Buffs und Rassen-Multiplikatoren; Krit ohne klassenspezifischen Grund-Krit.${st.estimated ? ' „ca.“: Unter Stufe 60 ist die Umrechnung Wertung → % geschätzt.' : ''}</p>
+          <p class="bis-hint">Grundwerte von Klasse, Rasse und Stufe plus Ausrüstung. Verzauberungen sind eingerechnet (Werte, Rüstung, Angriffskraft, Zauberschaden, Treffer-/Krit-/Ausweichen-/Block-%), Procs und Tempo nicht. Talente des Sets zählen mit, wenn sie immer wirken (ohne Gestalt-, Waffen- oder Fähigkeits-Bedingung). Ohne Buffs und Rassen-Multiplikatoren; Krit ohne klassenspezifischen Grund-Krit.${st.estimated ? ' „ca.“: Unter Stufe 60 ist die Umrechnung Wertung → % geschätzt.' : ''}</p>
         </div>
         ${profHtml}
         ${matHtml}

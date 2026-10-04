@@ -155,7 +155,7 @@
    },
    "Seal of Command": {
     "max": 1,
-    "desc": "Gives the Paladin a chance to deal additional Holy damage equal to 70% of normal weapon damage. Only one Seal can be active on the Paladin at any one time. Lasts 30 sec. Unleashing this Seal's energy will judge an enemy, instantly causing $/2;20467s1 Holy damage, 97 if the target is stunned or incapacitated."
+    "desc": "Gives the Paladin a chance to deal additional Holy damage equal to 70% of normal weapon damage. Only one Seal can be active on the Paladin at any one time. Lasts 30 sec. Unleashing this Seal's energy will judge an enemy, instantly causing 48.5 Holy damage, 97 if the target is stunned or incapacitated."
    },
    "Shield Specialization": {
     "max": 3,
@@ -773,7 +773,7 @@
   "druid": {
    "Berserk": {
     "max": 1,
-    "desc": "$?a5487|a9634|a3025[Reuires Cat Form, Bear Form, Dire Bear Form][Requires Cat Form, Bear Form, Dire Bear Form] Causes your Primal Bite ability to strike up to 3 targets, removes its cooldown, and increases the critical strike chance of your Combo Point-generating abilities by 100%. Clears and grants immunity to Fear effects for the duration. Lasts 15 sec."
+    "desc": "Requires Cat Form, Bear Form, Dire Bear Form. Causes your Primal Bite ability to strike up to 3 targets, removes its cooldown, and increases the critical strike chance of your Combo Point-generating abilities by 100%. Clears and grants immunity to Fear effects for the duration. Lasts 15 sec."
    },
    "Eclipse": {
     "max": 3,
@@ -781,7 +781,7 @@
    },
    "Feral Charge": {
     "max": 1,
-    "desc": "$?a5487|a9634[Requires Bear Form, Dire Bear Form][Requires Bear Form, Dire Bear Form] Charge an enemy, immobilizing them and interrupting any spell they are casting for 4 sec. $@spelltooltip414924"
+    "desc": "Requires Bear Form, Dire Bear Form. Charge an enemy, immobilizing them and interrupting any spell they are casting for 4 sec."
    },
    "Feral Swiftness": {
     "max": 2,

@@ -478,7 +478,18 @@ function renderBisPlanner(){
        ${groupNames.length ? groupNames.map(g => `<h4 class="bis-farm-group">${escapeHtml(g)}</h4><ul class="bis-farm-list">${groups[g].join('')}</ul>`).join('') : '<p class="bis-hint">Alle Items erledigt — Glückwunsch! 🎉</p>'}
        ${bisEnchantFarm().html}`;
 
-  const gearExtras = [[45, 'Zaubermacht'], [42, 'Zauberschaden'], [41, 'Heilung'], [43, 'Mana alle 5 Sek.'], [36, 'Tempowertung'], [37, 'Waffenkundewertung'],
+  // Spell power (45) works for damage and healing; spell damage (42) and
+  // healing (41) are the one-sided bonuses of older items. Shown as two
+  // totals, with the breakdown in the tooltip.
+  const g = id => st.gear[id] || 0;
+  const spellRow = (label, own, ownLabel) => {
+    const total = g(45) + g(own);
+    if (!total) return '';
+    const parts = [g(45) ? `${g(45)} Zaubermacht` : '', g(own) ? `${g(own)} ${ownLabel}` : ''].filter(Boolean).join(' + ');
+    return `<div class="bis-stat" title="${escapeHtml(parts)}"><span>${label}</span><strong>${total}</strong></div>`;
+  };
+  const spellHtml = spellRow('Zauberschaden', 42, 'nur Schaden') + spellRow('Heilung', 41, 'nur Heilung');
+  const gearExtras = spellHtml + [[43, 'Mana alle 5 Sek.'], [36, 'Tempowertung'], [37, 'Waffenkundewertung'],
     [12, 'Verteidigungswertung'], [13, 'Ausweichwertung'], [14, 'Parierwertung'], [15, 'Blockwertung'], [48, 'Blockwert'], [39, 'Distanzangriffskraft'],
     [51, 'Feuerwiderstand'], [52, 'Frostwiderstand'], [55, 'Naturwiderstand'], [54, 'Schattenwiderstand'], [56, 'Arkanwiderstand']]
     .filter(([id]) => st.gear[id]).map(([id, label]) => `<div class="bis-stat"><span>${label}</span><strong>${st.gear[id]}</strong></div>`).join('');

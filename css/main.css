@@ -2044,3 +2044,17 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 .bis-mat-raw{ display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; cursor: pointer; }
 .bis-stat-split{ align-items: flex-start; }
 .bis-stat-split small{ display: block; font-size: 11px; color: var(--text-faint); margin-top: 1px; }
+
+/* ---- Gildenbedarf (js/bis-need.js) ---- */
+.bis-need-kind{ width: auto; padding: 4px 12px; font-size: 13px; }
+.bis-need-zone{ border: 1px solid var(--fold-border); border-radius: 8px; margin-bottom: 10px; background: var(--fold-body-bg); }
+.bis-need-zone > summary{ display: flex; align-items: baseline; gap: 10px; padding: 10px 12px; cursor: pointer; background: var(--fold-head-bg); border-radius: 8px; }
+.bis-need-zone[open] > summary{ border-radius: 8px 8px 0 0; }
+.bis-need-zone-name{ font-weight: 700; color: var(--gold-bright); }
+.bis-need-boss{ padding: 8px 12px; border-top: 1px solid var(--border-soft); }
+.bis-need-boss-name{ font-weight: 600; margin-bottom: 4px; }
+.bis-need-item{ display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 3px 0; font-size: 13px; }
+.bis-need-item-name{ display: inline-flex; align-items: center; gap: 6px; min-width: 220px; flex: 0 1 280px; }
+.bis-need-players{ display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 200px; }
+.bis-need-player{ font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--class-color); color: var(--class-color); }
+.bis-need-player.has{ opacity: .55; }

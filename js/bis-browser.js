@@ -7,7 +7,7 @@
 // someone else's public set for moderation. No comments, as agreed —
 // the point is to find the people behind good builds.
 
-/** 'planner' | 'browse' — which tab of the BiS page is shown. */
+/** 'planner' | 'browse' | 'need' — which tab of the BiS page is shown (need: js/bis-need.js). */
 let bisView = 'planner';
 let bisBrowseClass = '';
 let bisBrowseSpec = '';
@@ -16,7 +16,7 @@ let bisBrowseQuery = '';
 /** The two tabs at the top of the BiS page. */
 function bisViewTabsHtml(){
   const tab = (id, label) => `<button type="button" class="bis-tab${bisView === id ? ' active' : ''}" data-bis-view="${id}">${label}</button>`;
-  return `<div class="bis-tabs" role="tablist">${tab('planner', 'Mein Planer')}${tab('browse', 'Öffentliche Builds')}</div>`;
+  return `<div class="bis-tabs" role="tablist">${tab('planner', 'Mein Planer')}${tab('browse', 'Öffentliche Builds')}${tab('need', 'Gildenbedarf')}</div>`;
 }
 /** @param {HTMLElement} root */
 function bisWireViewTabs(root){

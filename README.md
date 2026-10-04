@@ -1362,6 +1362,18 @@ and the source. Equip effects that aren't plain stats (procs, "Benutzen:")
 aren't in items.json and don't show. Colors: `--tip-*` tokens (the game's
 own, same in both themes).
 
+**Talente in den Werten** (`js/bis-talent-stats.js`): the set's talents
+count in the stat totals when their effect is fixed and always on —
+% to a stat / health / mana / armor from items, crit, hit, dodge, parry,
+block, "% of Intellect / Spirit as attack power, spell damage,
+healing or armor", and hit / crit for one spell school (`hit:Shadow`
+etc., own rows like "Treffer (Schattenzauber)"). Curated per talent in `BIS_TALENT_STATS`
+('Class|Talent' -> kind + which "%" number of the rank's text); the
+value is read from the text at the set's rank, so Forever's tuning
+changes come in with the talent data. Talents tied to a form, weapon,
+single ability or proc are left out. The applied talents
+are listed under the stats.
+
 **Gildenbedarf** (`js/bis-need.js`, third tab on the BiS page): who in
 the guild still needs which item, per raid / dungeon and boss. Built from
 every public set (own public sets included) and everybody's "Habe ich"
@@ -1383,8 +1395,10 @@ enchant and counts in every set (stored next to the owned items as
 `bisOwned/<uid>/e<itemId>_<enchantId>`); the farm list gets a
 "Verzauberungen" section. Saved with the set as `enchants: { slot:
 spellId }`; picking another item keeps the enchant only if it still
-fits. Flat enchant stats (`st`) are added to the stat totals; procs
-and % effects (Crusader, +1% dodge …) are not. No rules change. Rules: README § 6f.
+fits. Flat enchant stats (`st`) are added to the stat totals, and so
+are hit / crit / dodge / block % read from the enchant text
+(`bisEnchantChances`, e.g. "Hit +1%"); procs (Crusader) and haste are
+not. No rules change. Rules: README § 6f.
 
 ## How to play (Class Overview)
 

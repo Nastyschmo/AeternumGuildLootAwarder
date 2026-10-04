@@ -388,6 +388,7 @@ Go to **Build → Realtime Database → Rules** and replace them with:
         }
       },
       "bisOwned": {
+        ".read": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'member' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null && auth.uid === $uid",
@@ -1289,6 +1290,17 @@ zurück" / "Abbrechen" and restores the backup; "Aus Talent Builder
 übernehmen" copies the current builder state. Saved with the set as
 `talents: { t0, t1, t2 }` (talent name -> rank); switching class clears
 them. No rules change.
+
+**Gildenbedarf** (`js/bis-need.js`, third tab on the BiS page): who in
+the guild still needs which item, per raid / dungeon and boss. Built from
+every public set (own public sets included) and everybody's "Habe ich"
+ticks; a player needs an item when one of their public sets has it and
+they haven't ticked it. Bosses and zones come from the items' drop
+sources (`instances` decides raid / dungeon); droppers without a zone go
+under "Instanz unbekannt". Filters: Raids / Dungeons / Alle, search
+(player, item, boss, instance), "Auch wer es schon hat". **Rules:**
+members, officers and admins may read all of `bisOwned` (README § 6f);
+without that the tab still works but can't tell who already has an item.
 
 **Verzauberung pro Slot** (`js/bis-enchants.js`, data from
 `scripts/forever-data/enchants.mjs` → `data/forever/enchants.json`):

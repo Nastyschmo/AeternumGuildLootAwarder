@@ -395,6 +395,7 @@ function renderBisPlanner(){
   if (!bisDraft) bisDraft = bisLoadDraft();
   bisSyncListeners();
   if (bisView === 'browse'){ renderBisBrowser(root); return; }
+  if (bisView === 'need'){ renderBisNeed(root); return; }
   const b = bisDraft;
   const races = bisRacesForClass(b.classId);
   if (!races.includes(b.raceId)) b.raceId = races[0];

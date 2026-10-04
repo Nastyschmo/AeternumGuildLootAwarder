@@ -87,6 +87,7 @@ function htpLinksHtml(classId, specId){
         <span class="bis-rec-badge" title="Von der Gildenleitung empfohlen">★</span>
         <span class="htp-rec-name">${escapeHtml(s.name)}</span>
         <span class="htp-rec-meta">von ${escapeHtml(bisOwnerLabel(s))}${bisTalentSummary(s.talents) ? ' · Talente ' + bisTalentSummary(s.talents) : ''}</span>
+        ${bisTalentSummary(s.talents) ? `<button type="button" class="btn btn-ghost btn-sm" data-htp-talents-of="${escapeHtml(id)}">Talente ansehen</button>` : ''}
         <button type="button" class="btn btn-teal btn-sm" data-htp-open-set="${escapeHtml(id)}">Im Planer öffnen</button>
       </li>`).join('')}</ul>`
     : `<p class="htp-hint">${loggedIn ? `Noch kein empfohlenes ${escapeHtml(specLabel)}-Set.` : 'Empfohlene Sets siehst Du nach dem Discord-Login.'}</p>`;
@@ -127,6 +128,7 @@ function howToPlayCardHtml(classId){
       <div class="htp-facts">
         <div><span class="htp-fact-label">Leveln</span>${escapeHtml(guide.leveling)}</div>
         <div><span class="htp-fact-label">Völker</span>${escapeHtml(guide.races)}</div>
+        ${guide.professions ? `<div><span class="htp-fact-label">Berufe</span>${escapeHtml(guide.professions)}</div>` : ''}
       </div>
     </div>
     <div class="htp-tabs" role="tablist">${tabs}</div>
@@ -180,6 +182,7 @@ function htpWireLinks(card, classId){
   });
   on('[data-htp-bis]', () => htpOpenBis(classId, specId, ''));
   on('[data-htp-open-set]', el => htpOpenBis(classId, specId, el.getAttribute('data-htp-open-set')));
+  on('[data-htp-talents-of]', el => htpPreviewTalents(el.getAttribute('data-htp-talents-of')));
   on('[data-htp-browse]', () => {
     bisView = 'browse';
     bisBrowseClass = classId;
@@ -234,4 +237,73 @@ function htpShow(classId, specId){
   renderClassDeepDivesView();
   const card = document.getElementById('howToPlayCard');
   if (card) card.scrollIntoView({ block: 'start' });
+}
+
+/**
+ * Showing a recommended set's talents in the Talent Builder: the class
+ * and the user's own builder state for it, restored on "Zurück" unless
+ * they take the build over. Same banner slot as the BiS planner's
+ * talent editing (bisRenderTalentBanner).
+ * @type {{ cls: string, classId: string, setName: string, backup: { level: number, points: Record<string, number>[] } } | null}
+ */
+let htpTalentPreview = null;
+const HTP_TALENT_BACKUP_KEY = 'rude-htp-talent-backup-v1';
+// A preview left open across a reload: give the user their own build back.
+(function htpRestoreTalentBackup(){
+  try {
+    const raw = localStorage.getItem(HTP_TALENT_BACKUP_KEY);
+    if (!raw) return;
+    const b = JSON.parse(raw);
+    ensureTalentBuildLoaded();
+    if (b && b.cls && talentBuild[b.cls] && b.backup) { talentBuild[b.cls] = b.backup; saveTalentBuild(talentBuild); }
+    localStorage.removeItem(HTP_TALENT_BACKUP_KEY);
+  } catch (e){ /* private mode / bad data */ }
+})();
+
+/** Open a recommended set's talents in the Talent Builder. @param {string} setId */
+function htpPreviewTalents(setId){
+  const set = bisAnySet(setId);
+  if (!set) return;
+  const cls = bisTalentClass(set.classId);
+  ensureTalentBuildLoaded();
+  if (htpTalentPreview && htpTalentPreview.cls === cls) talentBuild[cls] = htpTalentPreview.backup; // switching previews
+  else if (htpTalentPreview) htpEndTalentPreview(false, false);
+  const own = talentBuild[cls];
+  htpTalentPreview = { cls, classId: set.classId, setName: set.name, backup: { level: own.level, points: own.points.map(t => ({ ...t })) } };
+  try { localStorage.setItem(HTP_TALENT_BACKUP_KEY, JSON.stringify({ cls, backup: htpTalentPreview.backup })); } catch (e){ /* private mode */ }
+  talentBuild[cls] = {
+    level: Math.max(TALENT_MIN_LEVEL, Math.min(TALENT_MAX_LEVEL, set.level)),
+    points: set.talents.map(t => ({ ...t }))
+  };
+  saveTalentBuild(talentBuild);
+  talentBuilderClass = cls;
+  showPage('talentbuilder');
+}
+
+/** @param {boolean} keep take the previewed build over @param {boolean} back return to the guide */
+function htpEndTalentPreview(keep, back){
+  const p = htpTalentPreview;
+  if (!p) return;
+  if (!keep) talentBuild[p.cls] = p.backup;
+  saveTalentBuild(talentBuild);
+  htpTalentPreview = null;
+  try { localStorage.removeItem(HTP_TALENT_BACKUP_KEY); } catch (e){ /* private mode */ }
+  if (back) htpShow(/** @type {ClassId} */ (p.classId), htpSelectedSpec(p.classId));
+  else if (currentPage === 'talentbuilder') renderTalentBuilderPage();
+}
+
+/** Banner above the Talent Builder while previewing; true if shown. */
+function htpRenderTalentBanner(){
+  const el = document.getElementById('talentBisBanner');
+  if (!el || !htpTalentPreview) return false;
+  if (talentBuilderClass !== htpTalentPreview.cls){ htpEndTalentPreview(false, false); return false; }
+  el.classList.remove('hidden');
+  el.innerHTML = `<span>Du siehst die Talente des empfohlenen Builds „${escapeHtml(htpTalentPreview.setName)}“ — ${escapeHtml(htpTalentPreview.cls)}. Dein eigener Stand ist gesichert.</span>
+    <span class="bis-tal-actions">
+      <button type="button" class="btn btn-teal btn-sm" id="htpTalentKeepBtn">In meinen Talent Builder übernehmen</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="htpTalentBackBtn">Zurück zum Guide</button>
+    </span>`;
+  document.getElementById('htpTalentKeepBtn').addEventListener('click', () => htpEndTalentPreview(true, false));
+  document.getElementById('htpTalentBackBtn').addEventListener('click', () => htpEndTalentPreview(false, true));
+  return true;
 }

@@ -178,6 +178,7 @@ function bisWireTalentCard(root){
 function bisRenderTalentBanner(){
   const el = document.getElementById('talentBisBanner');
   if (!el) return;
+  if (!bisTalentEdit && htpRenderTalentBanner()) return; // previewing a recommended build (js/how-to-play.js)
   if (!bisTalentEdit || !bisDraft){ el.classList.add('hidden'); el.innerHTML = ''; return; }
   const set = bisAnySet(bisDraft.setId);
   el.classList.remove('hidden');

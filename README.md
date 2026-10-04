@@ -1317,7 +1317,12 @@ the Deep Dive hover tooltips automatically.
 The "Unsere Builds & Tools" box links each spec to the Talent Builder, the
 BiS planner (opens the newest own / ★ recommended set of that spec), its
 ★ recommended sets and the spec's public builds; the BiS planner links back
-("How to play <Spec> →" under the spec select). No new Firebase paths – it
+("How to play <Spec> →" under the spec select). Each class also has a
+"Berufe" note, and every recommended set with talents gets "Talente
+ansehen": it opens the set's talents in the Talent Builder with a banner
+("In meinen Talent Builder übernehmen" / "Zurück zum Guide"); the user's
+own builder state is backed up (also in localStorage, restored on the
+next page load if the preview was left open). No new Firebase paths – it
 reads `bisPublic` and `bisRecommended`, which already have their rules.
 
 **Staying current.** The talent data under `data/forever/` refreshes daily

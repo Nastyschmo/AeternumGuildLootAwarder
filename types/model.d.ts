@@ -351,6 +351,8 @@ interface HowToPlayClass {
   intro: string;
   leveling: string;
   races: string;
+  /** Profession recommendations (optional). */
+  professions?: string;
   /** Keyed by FOREVER_SPECS spec id. */
   specs: Record<string, HowToPlaySpec>;
   sources: { label: string; url: string }[];

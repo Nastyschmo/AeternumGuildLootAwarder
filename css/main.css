@@ -36,6 +36,13 @@
      below can retint them too — see the "Design reveal" comment further
      down for what triggers that theme and how. */
   --gold-bright-rgb: 240,207,107;
+  /* WoW item tooltip (js/item-tooltip.js) — the game's own colors, same in both themes. */
+  --tip-bg: rgba(8, 10, 24, 0.94);
+  --tip-border: #8f8f99;
+  --tip-text: #ffffff;
+  --tip-green: #1eff00;
+  --tip-yellow: #ffd100;
+  --tip-grey: #9d9d9d;
   --badge-hi: #fff6c8;
   --badge-edge: #b8860b;
   --badge-text: #3a2600;
@@ -1107,6 +1114,23 @@ html.theme-horde .voting-card-title{ color: var(--gold-bright); }
   padding: 10px 12px; font-size: 12.5px; line-height: 1.5; color: var(--text);
   pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,0.45);
 }
+.item-tooltip{
+  position: fixed; z-index: 210; max-width: 320px; min-width: 200px;
+  background: var(--tip-bg); border: 1px solid var(--tip-border); border-radius: 5px;
+  padding: 8px 10px; font-size: 12.5px; line-height: 1.4; color: var(--tip-text);
+  pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  font-family: Verdana, Arial, sans-serif;
+}
+.item-tip-name{ font-size: 14px; font-weight: 600; margin-bottom: 1px; }
+.item-tip-row{ display: flex; justify-content: space-between; gap: 18px; }
+.item-tip-green{ color: var(--tip-green); }
+.item-tip-yellow{ color: var(--tip-yellow); }
+.item-tip-grey{ color: var(--tip-grey); }
+.item-tip-set{ margin-top: 8px; }
+.item-tip-piece{ color: var(--tip-grey); padding-left: 10px; }
+.item-tip-piece.owned{ color: var(--tip-yellow); opacity: .85; }
+.item-tip-set + .item-tip-line{ margin-top: 6px; }
+.item-tip-src{ margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--tip-border); color: var(--tip-grey); font-size: 11.5px; }
 .talent-tip-title{ color: var(--gold-bright); font-weight: 700; margin-bottom: 3px; }
 .talent-tip-rank{ color: var(--text-muted); font-size: 11.5px; margin-bottom: 5px; }
 .talent-tip-desc{ color: var(--text); }
@@ -2114,6 +2138,7 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 .raid-sr-result-empty{ font-size: 13px; color: var(--text-muted); padding: 4px 6px; }
 .raid-sr-all > summary{ cursor: pointer; font-size: 13px; color: var(--text-muted); font-weight: 600; margin: 4px 0; }
 .raid-sr-row{ display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 4px 0; border-bottom: 1px solid var(--border-soft); }
+.raid-sr-item-label{ display: inline-flex; align-items: center; gap: 6px; }
 .raid-sr-item{ display: inline-flex; align-items: center; gap: 6px; font-size: 13px; flex: 0 1 280px; min-width: 0; }
 .raid-sr-count{ font-size: 11px; font-weight: 700; color: var(--gold-bright); }
 .raid-sr-players{ display: flex; flex-wrap: wrap; gap: 4px; }

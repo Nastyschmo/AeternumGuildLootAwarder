@@ -56,7 +56,7 @@ function bisBrowseCardHtml(id, s){
       </div>
     </div>
     <div class="bis-build-items">${items.length
-      ? items.map(i => `<span title="${escapeHtml(i.n)}${bisIsOwned(i.id) ? ' — hast Du' : ''}" class="${bisIsOwned(i.id) ? 'bis-build-owned' : ''}">${bisIconHtml(i, 28)}</span>`).join('')
+      ? items.map(i => `<span data-item-id="${i.id}" class="${bisIsOwned(i.id) ? 'bis-build-owned' : ''}">${bisIconHtml(i, 28)}</span>`).join('')
       : '<span class="bis-hint">Noch keine Items gewählt.</span>'}</div>
     <div class="bis-build-foot">
       <span class="bis-build-count">${items.length} Items${items.length ? ` · ${owned}/${items.length} hast Du` : ''}</span>

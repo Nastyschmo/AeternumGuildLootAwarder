@@ -1353,6 +1353,15 @@ instance first. **Rules:** `raidReserves` (README § 6f) enforce the
 limit and the lock; lowering the limit later still lets players remove
 items. Deleting an event also clears its reserves.
 
+**Item-Tooltips** (`js/item-tooltip.js`): hovering any element with
+`data-item-id` (BiS planner slots and picker, public builds, Gildenbedarf,
+soft-reserves) shows a tooltip laid out like the German game client —
+binding, slot / type, damage, armor, base stats, classes, required level,
+green "Anlegen:" lines, set pieces (owned ones highlighted), item level
+and the source. Equip effects that aren't plain stats (procs, "Benutzen:")
+aren't in items.json and don't show. Colors: `--tip-*` tokens (the game's
+own, same in both themes).
+
 **Gildenbedarf** (`js/bis-need.js`, third tab on the BiS page): who in
 the guild still needs which item, per raid / dungeon and boss. Built from
 every public set (own public sets included) and everybody's "Habe ich"

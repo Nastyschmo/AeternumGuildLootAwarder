@@ -134,7 +134,7 @@ function raidSrResultsHtml(id){
     .sort((a, z) => Number(z.here) - Number(a.here) || z.it.q - a.it.q || (z.it.il || 0) - (a.it.il || 0) || a.it.n.localeCompare(z.it.n))
     .slice(0, RAID_SR_RESULTS);
   if (!hits.length) return '<div class="raid-sr-result-empty">Nichts gefunden.</div>';
-  return hits.map(({ it, here }) => `<button type="button" class="raid-sr-result" data-raid-sr-add="${it.id}" data-raid-id="${escapeHtml(id)}">
+  return hits.map(({ it, here }) => `<button type="button" class="raid-sr-result" data-raid-sr-add="${it.id}" data-item-id="${it.id}" data-raid-id="${escapeHtml(id)}">
     ${bisIconHtml(it, 22)}<span style="color:${bisQualityColor(it)}">${escapeHtml(it.n)}</span>
     <span class="bis-item-meta">${escapeHtml([here ? e.instance : bisTypeLabel(it), bisStatLine(it)].filter(Boolean).join(' · '))}</span>
   </button>`).join('');
@@ -169,7 +169,7 @@ function raidSrSectionHtml(id, e, past){
   const itemName = raidSrItemName;
   const itemHtml = itemId => {
     const it = bisData.byId.get(itemId);
-    return `${bisIconHtml(it, 22)}<span style="color:${it ? bisQualityColor(it) : 'var(--text)'}">${escapeHtml(itemName(itemId))}</span>`;
+    return `<span class="raid-sr-item-label" data-item-id="${itemId}">${bisIconHtml(it, 22)}<span style="color:${it ? bisQualityColor(it) : 'var(--text)'}">${escapeHtml(itemName(itemId))}</span></span>`;
   };
 
   // Own reserves and the search box.

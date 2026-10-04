@@ -11,7 +11,10 @@
 // damage) comes from the chosen spec (foreverSpecRole). The last sign-up
 // choice (character, class, spec) is remembered in localStorage.
 
-const RAID_INSTANCES = ['Molten Core', "Onyxia's Lair", 'Blackwing Lair', "Zul'Gurub", 'Ruins of Ahn\'Qiraj', "Ahn'Qiraj", 'Naxxramas'];
+// Forever's raids first (unlock 9 Dec 2026: Barrow Deeps 10, Hyjal Summit
+// 20, Onyxia's Lair 40 players), then the legacy Classic raids. The
+// instance field is free text, so later raids can be typed in.
+const RAID_INSTANCES = ['Barrow Deeps', 'Hyjal Summit', "Onyxia's Lair", 'Molten Core', 'Blackwing Lair', "Zul'Gurub", 'Ruins of Ahn\'Qiraj', "Ahn'Qiraj", 'Naxxramas'];
 const RAID_LAST_SIGNUP_KEY = 'rude-raid-last-signup-v1';
 const RAID_STATUS_LABELS = { yes: 'Dabei', maybe: 'Vielleicht', no: 'Absage' };
 /** Show events up to this long after their start in "Kommende" (a raid evening). */

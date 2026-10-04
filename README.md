@@ -397,6 +397,23 @@ Go to **Build → Realtime Database → Rules** and replace them with:
           }
         }
       },
+      "raidEvents": {
+        ".read": "auth != null",
+        "$eventId": {
+          ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
+          ".validate": "newData.hasChildren(['title', 'start', 'createdBy']) && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 80 && newData.child('start').isNumber()"
+        }
+      },
+      "raidSignups": {
+        ".read": "auth != null",
+        "$eventId": {
+          ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && (!newData.exists() || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'member' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin'))",
+            ".validate": "newData.hasChildren(['status', 'classId', 'specId']) && newData.child('status').isString() && newData.child('status').val().matches(/^(yes|maybe|no)$/)"
+          }
+        }
+      },
       "bisRecommended": {
         ".read": "auth != null",
         "$setId": {
@@ -1290,6 +1307,15 @@ zurück" / "Abbrechen" and restores the backup; "Aus Talent Builder
 übernehmen" copies the current builder state. Saved with the set as
 `talents: { t0, t1, t2 }` (talent name -> rank); switching class clears
 them. No rules change.
+
+**Raids** (`js/raids.js`, page "Raids"): raid calendar with sign-ups.
+Officers / Admins create, edit and delete events (`raidEvents/<id>`:
+title, instance, start, note); members sign up as Dabei / Vielleicht /
+Absage with character, class, spec and an optional note
+(`raidSignups/<eventId>/<uid>`); the roster splits tanks / healers / damage
+by the spec's role. Everyone logged in can read both; deleting an event
+also clears its sign-ups. **Rules:** `raidEvents` and `raidSignups`
+(README § 6f). Own listeners, not in `SYNCED_KEYS`.
 
 **Gildenbedarf** (`js/bis-need.js`, third tab on the BiS page): who in
 the guild still needs which item, per raid / dungeon and boss. Built from

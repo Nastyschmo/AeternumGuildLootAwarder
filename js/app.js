@@ -159,6 +159,10 @@ const PAGES = [
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="m8 12 3 3 5-6"/></svg>'
   },
   {
+    id: 'raids', label: 'Raids',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><path d="m9 15 2 2 4-4"/></svg>'
+  },
+  {
     id: 'talentbuilder', label: 'Talent Builder',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="9" cy="19" r="2"/><circle cx="15" cy="19" r="2"/><path d="M12 7v3M8 11l-1 0M16 11l1 0M10.5 13 9 17M13.5 13 15 17"/></svg>'
   },
@@ -276,6 +280,7 @@ function showPage(pageId, opts){
   // about it ever changes at runtime).
   if (pageId === 'forevertools') renderForeverToolsPage();
   if (pageId === 'bis') renderBisPlanner();
+  if (pageId === 'raids') renderRaidsPage();
   // Opening Ankündigungen is what clears its quest "!" — mark up to the
   // newest post that exists right now as seen (no-op if already caught up).
   if (pageId === 'announcements') markAnnouncementsSeen();
@@ -423,6 +428,7 @@ function renderAll(){
   if (currentPage === 'mychar') renderMyCharactersPage();
   // BiS-Planer: login / role changes decide whether sets can be saved.
   if (currentPage === 'bis') renderBisPlanner();
+  if (currentPage === 'raids') renderRaidsPage();
 }
 
 // Public, always-on: keeps state.recruitingNeeds up to date for

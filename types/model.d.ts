@@ -130,6 +130,9 @@ interface Character {
   name: string;
   realmSlug: string;
   isMain: boolean;
+  /** Optional, set in "Meine Charaktere" (used by raid sign-ups). */
+  classId?: ClassId;
+  specId?: SpecId;
 }
 interface CharacterProfile {
   nickname: string;
@@ -356,4 +359,26 @@ interface HowToPlayClass {
   /** Keyed by FOREVER_SPECS spec id. */
   specs: Record<string, HowToPlaySpec>;
   sources: { label: string; url: string }[];
+}
+
+// Raids page (js/raids.js): raidEvents/<id>, raidSignups/<eventId>/<uid>.
+interface RaidEvent {
+  title: string;
+  instance: string;
+  /** Start time, ms since epoch. */
+  start: Millis;
+  note: string;
+  createdBy: DiscordId;
+  createdAt: Millis;
+  updatedAt: Millis;
+}
+interface RaidSignup {
+  status: 'yes' | 'maybe' | 'no';
+  /** Display name of the member. */
+  name: string;
+  charName: string;
+  classId: ClassId;
+  specId: SpecId;
+  note: string;
+  updatedAt: Millis;
 }

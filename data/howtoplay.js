@@ -16,6 +16,7 @@ const HOW_TO_PLAY = {
     intro: 'Plattenträger mit Wut als Ressource: Wut entsteht, wenn Du Schaden austeilst oder einsteckst. Forever gibt jedem Baum neue Werkzeuge – Arms spielt um Rend und Overpower (Bloodthrill), Fury lässt Whirlwind mit beiden Waffen zuschlagen (Raging Blows), Protection macht mit Bastion auch Schaden.',
     leveling: 'Arms mit Zweihänder ist der bequemste Weg: hoher Einzelschaden, Sweeping Strikes gegen Gruppen und viele Overpower-Procs über Bloodthrill. Fury lohnt sich erst mit zwei guten Waffen, meist ab Dungeon-Ausrüstung. Einen Schild für Dungeons mitnehmen – Tanks werden immer gesucht.',
     races: 'Alle Völker können Warrior spielen. Für Schaden sind Völker mit Angriffs- oder Waffen-Racials beliebt, für Tanks solche mit Stamina- bzw. Verteidigungs-Boni. Die Racials im Detail: Talent Builder → Völker.',
+    professions: 'Bergbau + Schmiedekunst für eigene Waffen und Rüstung, oder Ingenieurskunst für Bomben, Zielfernrohre und Gadgets (stark im PvP und Raid). Zum Goldmachen beim Leveln: Bergbau + Kräuterkunde oder Kürschnerei.',
     specs: {
       arms: {
         summary: 'Zweihand-Nahkämpfer mit dem stärksten Dauerschaden beim Questen; Mortal Strike halbiert zusätzlich die Heilung auf dem Ziel (PvP).',
@@ -85,6 +86,7 @@ const HOW_TO_PLAY = {
     intro: 'Plattenträger mit Heilung und Siegeln. Neu in Forever: Holy Strike (ab Stufe 6) für alle Specs, Seal of Fury für Tanks, Templar\'s Bulwark – und die Horde bekommt mit den Untoten ihre ersten Paladine.',
     leveling: 'Retribution mit Zweihänder ist der natürliche Leveling-Spec. Holy Strike macht die ersten Stufen deutlich aktiver als im alten Classic. Siegel-Wechsel mit Twist of Light lohnt sich erst später.',
     races: 'Mensch, Zwerg und – neu – Untote.',
+    professions: 'Bergbau + Schmiedekunst für Plattenrüstung; als Heiler auch Kräuterkunde + Alchemie für Tränke und Fläschchen. Zum Goldmachen beim Leveln: zwei Sammelberufe.',
     specs: {
       holy: {
         summary: 'Mana-effizienter Heiler mit starker Einzelziel-Heilung.',
@@ -153,6 +155,7 @@ const HOW_TO_PLAY = {
     intro: 'Fernkämpfer mit Begleiter – und in Forever mit drei echt unterschiedlichen Spielweisen: Pet plus Falken (Beast Mastery), ohne Pet mit Lone Wolf (Marksmanship) oder richtiger Nahkampf mit Fallen und Tritten (Survival). Neu: Menschen können Jäger werden.',
     leveling: 'Beast Mastery ist der stärkste Leveling-Spec: Das Pet tankt, Du schießt. Zähme früh ein gutes Pet und halte es mit Mend Pet am Leben.',
     races: 'Mensch (neu), Zwerg, Nachtelf, Orc, Taure, Troll und Skyborne – alle außer Gnom und Untoten.',
+    professions: 'Kürschnerei + Lederverarbeitung für eigene Lederrüstung und Rüstungssets, oder Ingenieurskunst für Zielfernrohre und Munition. Zum Goldmachen beim Leveln: Kürschnerei + Bergbau.',
     specs: {
       beast_mastery: {
         summary: 'Pet-Spec: Das Tier tankt beim Questen und macht einen großen Teil des Schadens.',
@@ -221,6 +224,7 @@ const HOW_TO_PLAY = {
     intro: 'Energie-Nahkämpfer mit Combo-Punkten, Giften und Stealth. Neu: Mutilate und Venom (Assassination), Thousand Cuts rund um Rupture (Subtlety).',
     leveling: 'Combat ist der einfachste Leveling-Weg: wenig Vorbereitung, Sinister Strike und Eviscerate, jede Waffe geht. Ab Stufe 20 Gifte nicht vergessen.',
     races: 'Alle Völker außer Tauren.',
+    professions: 'Kürschnerei + Lederverarbeitung für eigene Lederrüstung, oder Ingenieurskunst für PvP-Gadgets. Gifte stellst Du als Schurke ohnehin selbst her.',
     specs: {
       assassination: {
         summary: 'Gift-Spec mit Dolchen – laut aktuellen Sims der stärkste Rogue-Schaden auf Stufe 60.',
@@ -287,6 +291,7 @@ const HOW_TO_PLAY = {
     intro: 'Stoffträger mit Heilung, Schilden und Schattenmagie. Neu: Penance (Discipline), Prayer of Mending (Holy), Shadow Word: Death für alle und ein überarbeitetes Shadowform. Gnome können jetzt Priester werden.',
     leveling: 'Shadow ist der Leveling-Spec: DoTs, Mind Blast und Mind Flay; Spirit Tap füllt nach jedem Kill das Mana schnell wieder auf. Mit Wand Specialization überbrückt der Zauberstab leere Mana-Phasen.',
     races: 'Mensch, Zwerg, Nachtelf, Gnom (neu), Untote und Troll. Priester haben in Forever zusätzlich volksspezifische Zauber.',
+    professions: 'Schneiderei + Verzauberkunst für eigene Stoffrüstung und Verzauberungen, oder Kräuterkunde + Alchemie für Tränke. Zum Goldmachen beim Leveln: Kräuterkunde + Bergbau.',
     specs: {
       discipline: {
         summary: 'Schild- und Penance-Heiler: verhindert Schaden, bevor er entsteht.',
@@ -352,6 +357,7 @@ const HOW_TO_PLAY = {
     intro: 'Hybrid aus Totems, Elementarmagie und Nahkampf. Neu: Lava Burst, Maelstrom Weapon, Riptide und Water Shield – und Zwerge können Schamanen werden, damit gibt es sie erstmals auch bei der Allianz.',
     leveling: 'Enhancement ist der klassische Leveling-Weg: Nahkampf plus Shocks, wenig Pausen. Elemental funktioniert mit Lava Burst deutlich besser als früher, braucht aber mehr Mana.',
     races: 'Zwerg (neu), Orc, Taure, Troll und Skyborne.',
+    professions: 'Kürschnerei + Lederverarbeitung (Leder und Schwere Rüstung), oder Kräuterkunde + Alchemie für Tränke und Fläschchen. Bergbau + Schmiedekunst lohnt für Waffen.',
     specs: {
       elemental: {
         summary: 'Caster mit Feuer und Blitzen – Lava Burst ist das neue Herzstück.',
@@ -416,6 +422,7 @@ const HOW_TO_PLAY = {
     intro: 'Fernkampf-Caster mit viel Kontrolle. Neu: Arcane Blast (Talent), Frostfire Bolt (Lehrer ab Stufe 40), Ice Lance und Fingers of Frost – und Orcs können jetzt Magier werden.',
     leveling: 'Frost ist der bequemste Leveling-Spec: Frost Nova plus Ice Lance (300 % Schaden gegen eingefrorene Ziele) beendet Kämpfe schnell. Gruppen farmst Du mit Blizzard und Cone of Cold.',
     races: 'Mensch, Gnom, Orc (neu), Untote, Troll und Skyborne.',
+    professions: 'Schneiderei + Verzauberkunst für eigene Stoffrüstung und Verzauberungen, oder Ingenieurskunst für PvP-Gadgets. Zum Goldmachen beim Leveln: Kräuterkunde + Bergbau.',
     specs: {
       arcane: {
         summary: 'Burst-Spec, bei dem sich alles um Mana-Planung dreht.',
@@ -480,6 +487,7 @@ const HOW_TO_PLAY = {
     intro: 'Caster mit DoTs, Dämonen und Seelensplittern. Neu: Curse of Agony und Curse of Doom heißen jetzt Bane of Agony und Bane of Doom – ein Bane und ein Curse dürfen gleichzeitig auf einem Ziel liegen. Trolle können Hexenmeister werden.',
     leveling: 'Affliction mit Voidwalker oder Demonology mit Soul Link sind die sichersten Leveling-Wege: DoTs drauf, das Pet tankt, mit Life Tap und Drain Life kommst Du fast ohne Pausen aus.',
     races: 'Mensch, Gnom, Orc, Untote und Troll (neu).',
+    professions: 'Schneiderei + Verzauberkunst für eigene Stoffrüstung (inkl. Seelenbeutel) und Verzauberungen, oder Kräuterkunde + Alchemie. Zum Goldmachen beim Leveln: Kräuterkunde + Bergbau.',
     specs: {
       affliction: {
         summary: 'DoT-Spec – stark in langen Kämpfen und gegen mehrere Ziele.',
@@ -543,6 +551,7 @@ const HOW_TO_PLAY = {
     intro: 'Gestaltwandler für jede Rolle: Bär (Tank), Katze (Nahkampf), Moonkin (Caster) und Heiler. Neu: Primal Bite, Lacerate, Berserk, Eclipse, Wild Growth und Shifting Power.',
     leveling: 'Feral (Katze) levelt am schnellsten – Travel Form, Prowl und Selbstheilung zwischen den Kämpfen. Für Dungeons die Bärform als Tank mitnehmen.',
     races: 'Nachtelf, Taure und Skyborne.',
+    professions: 'Kräuterkunde + Alchemie (passt zu Reisegestalt und Sammeln), oder Kürschnerei + Lederverarbeitung für Feral-Ausrüstung.',
     specs: {
       balance: {
         summary: 'Caster mit Natur- und Arkanschaden in Moonkin Form.',

@@ -196,6 +196,9 @@ function bisComputeStats(b){
     if (!item) continue;
     armor += item.ar || 0;
     for (const [stat, val] of item.s || []) gear[stat] = (gear[stat] || 0) + val;
+    // Flat stats of the chosen enchant (js/bis-enchants.js); procs and % effects aren't modelled.
+    const ench = sel.enchantId ? bisEnchantById(sel.enchantId) : null;
+    if (ench && ench.st) for (const [stat, val] of ench.st) gear[stat] = (gear[stat] || 0) + val;
   }
   const attr = k => base[k] + race[k];
   const str = attr('str') + (gear[4] || 0), agi = attr('agi') + (gear[3] || 0), sta = attr('sta') + (gear[7] || 0);
@@ -528,7 +531,7 @@ function renderBisPlanner(){
             ${st.base.critPerInt ? `<div class="bis-stat"><span>Krit (Zauber)</span><strong>${est}${fmt1(st.spellCrit)} %</strong></div>` : ''}
             ${gearExtras}
           </div>
-          <p class="bis-hint">Grundwerte von Klasse, Rasse und Stufe plus Ausrüstung. Ohne Talente, Buffs, Verzauberungen und Rassen-Multiplikatoren; Krit ohne klassenspezifischen Grund-Krit.${st.estimated ? ' „ca.“: Unter Stufe 60 ist die Umrechnung Wertung → % geschätzt.' : ''}</p>
+          <p class="bis-hint">Grundwerte von Klasse, Rasse und Stufe plus Ausrüstung. Verzauberungen mit festen Werten (Werte, Rüstung, Angriffskraft, Zauberschaden …) sind eingerechnet, Procs und %-Effekte nicht. Ohne Talente, Buffs und Rassen-Multiplikatoren; Krit ohne klassenspezifischen Grund-Krit.${st.estimated ? ' „ca.“: Unter Stufe 60 ist die Umrechnung Wertung → % geschätzt.' : ''}</p>
         </div>
         ${profHtml}
         ${matHtml}

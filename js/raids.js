@@ -154,11 +154,11 @@ function raidSignupFormHtml(id){
         <option value="other" ${known ? '' : 'selected'}>Anderer Charakter …</option>
       </select>` : ''}
       <input type="text" class="apply-text-input${known ? ' hidden' : ''}" data-raid-field="charName" maxlength="40" placeholder="Charaktername" value="${escapeHtml(v.charName || '')}">
-      <select data-raid-field="classId" ${lockedClass ? 'disabled title="Klasse aus Deinen Charakter-Einstellungen"' : ''}>${CLASSES.map(c => `<option value="${c.id}" ${c.id === classId ? 'selected' : ''}>${escapeHtml(c.label)}</option>`).join('')}</select>
+      <select data-raid-field="classId" ${lockedClass ? 'disabled title="Klasse aus Meine Charaktere"' : ''}>${CLASSES.map(c => `<option value="${c.id}" ${c.id === classId ? 'selected' : ''}>${escapeHtml(c.label)}</option>`).join('')}</select>
       <select data-raid-field="specId">${specs.map(s => `<option value="${s.id}" ${s.id === specId ? 'selected' : ''}>${escapeHtml(s.label)} (${escapeHtml(FOREVER_ROLE_LABELS[s.role])})</option>`).join('')}</select>
       <input type="text" class="apply-text-input" data-raid-field="note" maxlength="120" placeholder="Notiz (optional), z. B. „komme 20:15“" value="${escapeHtml((mine && mine.note) || '')}">
     </div>
-    <p class="bis-hint raid-class-hint${known && !lockedClass ? '' : ' hidden'}">Tipp: Hinterleg die Klasse des Charakters in Deinen Charakter-Einstellungen (oben rechts auf Deinen Namen) — dann wird sie hier fest übernommen.</p>
+    <p class="bis-hint raid-class-hint${known && !lockedClass ? '' : ' hidden'}">Tipp: Hinterleg die Klasse des Charakters auf der Seite „Meine Charaktere“ — dann wird sie hier fest übernommen.</p>
     <div class="raid-signup-buttons">${btn('yes')}${btn('maybe')}${btn('no')}${mine ? `<button type="button" class="btn btn-ghost btn-sm" data-raid-withdraw="${escapeHtml(id)}">Abmelden</button>` : ''}</div>
   </div>`;
 }
@@ -280,7 +280,7 @@ function raidWire(root){
       nameInput.classList.toggle('hidden', Boolean(c));
       // Class is fixed for a character with a known class, free otherwise.
       cls.disabled = Boolean(c && c.classId);
-      cls.title = cls.disabled ? 'Klasse aus Deinen Charakter-Einstellungen' : '';
+      cls.title = cls.disabled ? 'Klasse aus Meine Charaktere' : '';
       const hint = form.querySelector('.raid-class-hint');
       if (hint) hint.classList.toggle('hidden', !(c && !c.classId));
       if (!c){ nameInput.value = ''; nameInput.focus(); return; }

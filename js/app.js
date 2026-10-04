@@ -163,6 +163,10 @@ const PAGES = [
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><path d="m9 15 2 2 4-4"/></svg>'
   },
   {
+    id: 'professions', label: 'Berufe',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 4 6 6-3 3-6-6z"/><path d="m11 7-7 7 3 3 7-7"/><path d="M4 20h7"/></svg>'
+  },
+  {
     id: 'talentbuilder', label: 'Talent Builder',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="9" cy="19" r="2"/><circle cx="15" cy="19" r="2"/><path d="M12 7v3M8 11l-1 0M16 11l1 0M10.5 13 9 17M13.5 13 15 17"/></svg>'
   },
@@ -281,6 +285,7 @@ function showPage(pageId, opts){
   if (pageId === 'forevertools') renderForeverToolsPage();
   if (pageId === 'bis') renderBisPlanner();
   if (pageId === 'raids') renderRaidsPage();
+  if (pageId === 'professions') renderProfessionsPage();
   // Opening Ankündigungen is what clears its quest "!" — mark up to the
   // newest post that exists right now as seen (no-op if already caught up).
   if (pageId === 'announcements') markAnnouncementsSeen();
@@ -429,6 +434,7 @@ function renderAll(){
   // BiS-Planer: login / role changes decide whether sets can be saved.
   if (currentPage === 'bis') renderBisPlanner();
   if (currentPage === 'raids') renderRaidsPage();
+  if (currentPage === 'professions') renderProfessionsPage();
 }
 
 // Public, always-on: keeps state.recruitingNeeds up to date for

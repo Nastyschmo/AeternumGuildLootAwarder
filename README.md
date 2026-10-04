@@ -1374,6 +1374,29 @@ changes come in with the talent data. Talents tied to a form, weapon,
 single ability or proc are left out. The applied talents
 are listed under the stats.
 
+**Meine Charaktere** (`js/mychar-page.js`): the member's characters in
+one place — add, edit (name, realm, class, spec, main), remove; per
+character the professions and one BiS set per spec (an own saved set,
+chosen from a dropdown, with "Habe ich" progress and a link into the
+planner — sets are still created in the BiS planner). Assignments are
+stored as `characters[i].bisSets = { specId: setId }` for the planned
+loot distribution. Everything is a draft until "Speichern" writes the
+own `characterProfiles/<uid>` (no rules change). User Settings keeps
+only the nickname.
+
+**Berufe** (`js/professions.js`, page "Berufe"): every member enters
+professions per character — profession, skill (1–300) and special
+recipes — on Meine Charaktere. Stored in the
+own character profile (`characterProfiles/<uid>/characters[i].professions`
+= `[{ id, skill, recipes? }]`, at most two primary professions, 40
+recipes), so **no rules change**. Recipes are crafted items from
+items.json (`craft.p`) and, for Enchanting, enchants (spell ids);
+alchemy / cooking / first aid have no recipe data yet. The directory
+lists crafters per profession (filter chips, search by player or item);
+an item search shows "Wer kann das herstellen?" — who listed the recipe,
+then who has enough skill. The BiS planner's source lines name guild
+crafters for BoE crafted items ("Gilde: Hammerfaust (Rezept), …").
+
 **Gildenbedarf** (`js/bis-need.js`, third tab on the BiS page): who in
 the guild still needs which item, per raid / dungeon and boss. Built from
 every public set (own public sets included) and everybody's "Habe ich"

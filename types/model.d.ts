@@ -133,6 +133,17 @@ interface Character {
   /** Optional, set in "Meine Charaktere" (used by raid sign-ups). */
   classId?: ClassId;
   specId?: SpecId;
+  /** Optional, edited on Meine Charaktere, listed on the Berufe page. */
+  professions?: CharacterProfession[];
+  /** Optional BiS set per spec: specId -> own saved set id (bisSets / bisPublic). */
+  bisSets?: Record<string, string>;
+}
+interface CharacterProfession {
+  /** PROFESSIONS id ('blacksmithing' …). */
+  id: string;
+  skill: number;
+  /** Special recipes: crafted item ids, for Enchanting enchant spell ids. */
+  recipes?: number[];
 }
 interface CharacterProfile {
   nickname: string;

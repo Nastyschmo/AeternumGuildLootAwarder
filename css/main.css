@@ -2147,3 +2147,46 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 .raid-sr-count{ font-size: 11px; font-weight: 700; color: var(--gold-bright); }
 .raid-sr-players{ display: flex; flex-wrap: wrap; gap: 4px; }
 .raid-chip-out{ opacity: .5; text-decoration: line-through; }
+
+/* Berufe page (js/professions.js) */
+.prof-my{ margin-bottom: 14px; }
+.prof-char{ padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
+.prof-char-name{ font-weight: 700; margin-bottom: 6px; }
+.prof-char select{ background: var(--field-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; font: inherit; font-size: 13px; margin-top: 6px; }
+.prof-edit-row{ margin: 4px 0 8px; padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--fold-body-bg); }
+.prof-edit-head{ display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.prof-skill{ font-size: 12px; color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px; }
+.prof-skill input{ width: 70px; background: var(--field-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; font: inherit; }
+.prof-edit-head .btn{ margin-left: auto; }
+.prof-recipes{ display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 6px; align-items: center; }
+.prof-recipe{ display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--fold-body-bg); }
+.prof-recipe button{ background: none; border: 0; color: var(--text-muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
+.prof-recipe button:hover{ color: var(--danger-bright); }
+.prof-recipe-search{ flex-basis: 100%; max-width: 460px; }
+.prof-filter-row{ flex-wrap: wrap; }
+.prof-card{ margin-bottom: 12px; }
+.prof-row{ padding: 6px 0; border-bottom: 1px solid var(--border-soft); }
+.prof-row-head{ display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.prof-person{ margin-right: 10px; font-size: 13.5px; }
+.prof-skill-val{ font-weight: 700; color: var(--gold-bright); }
+.prof-who{ padding: 6px 0; border-bottom: 1px solid var(--border-soft); }
+.prof-who-line{ font-size: 13px; margin-top: 3px; }
+
+/* Meine Charaktere page (js/mychar-page.js) */
+.mychar-savebar{ display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; padding: 10px 12px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--bg-panel); position: sticky; top: 64px; z-index: 5; }
+.mychar-savebar.dirty{ border-color: var(--gold); }
+.mychar-card-head{ display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.mychar-form{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 12px; margin: 10px 0; padding: 10px 12px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--fold-body-bg); align-items: end; }
+.mychar-form label{ display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted); }
+.mychar-form select, .prof-add, .mychar-bis-row select{ background: var(--field-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 13px; }
+.mychar-form .mychar-form-main{ flex-direction: row; align-items: center; gap: 6px; color: var(--text); }
+.mychar-section{ margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-soft); }
+.mychar-section-title{ font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--gold-bright); margin-bottom: 6px; }
+.prof-add{ margin-top: 6px; }
+.mychar-bis-hint{ margin: 0 0 6px; }
+.mychar-bis-row{ display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 4px 0; }
+.mychar-bis-spec{ min-width: 110px; font-size: 13px; font-weight: 600; }
+.mychar-bis-progress{ display: inline-block; width: 70px; height: 6px; border-radius: 3px; background: var(--border-soft); overflow: hidden; }
+.mychar-bis-progress span{ display: block; height: 100%; background: var(--teal-bright); }
+.prof-own-hint{ margin-bottom: 12px; }
+.prof-own-hint a{ color: var(--gold-bright); }

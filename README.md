@@ -414,6 +414,19 @@ Go to **Build → Realtime Database → Rules** and replace them with:
           }
         }
       },
+      "raidReserves": {
+        ".read": "auth != null",
+        "$eventId": {
+          ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && root.child('guild-loot-data/raidEvents').child($eventId).exists() && root.child('guild-loot-data/raidEvents').child($eventId).child('srLocked').val() !== true && (!newData.exists() || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'member' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin'))",
+            ".validate": "newData.hasChildren(['items']) && (newData.child('items').numChildren() <= root.child('guild-loot-data/raidEvents').child($eventId).child('srMax').val() || newData.child('items').numChildren() < data.child('items').numChildren())",
+            "items": {
+              "$itemId": { ".validate": "$itemId.matches(/^[0-9]+$/) && newData.val() === true" }
+            }
+          }
+        }
+      },
       "bisRecommended": {
         ".read": "auth != null",
         "$setId": {
@@ -1316,6 +1329,21 @@ Absage with character, class, spec and an optional note
 by the spec's role. Everyone logged in can read both; deleting an event
 also clears its sign-ups. **Rules:** `raidEvents` and `raidSignups`
 (README § 6f). Own listeners, not in `SYNCED_KEYS`.
+
+**Soft-Reserve** (`js/raid-reserves.js`): Officers turn it on per event
+(`srMax` 1–3 items per player, "Aus" = off) and can lock it (`srLocked`,
+"Reserves sperren" on the card). Members signed up as Dabei / Vielleicht search an
+item and reserve it (`raidReserves/<eventId>/<uid>/items/<itemId>`); the
+card lists all reserves by item, contested items first, players who
+aren't signed up any more struck through, plus "Reserves kopieren" (plain
+text) for the loot master. Forever has many items twice (Classic id and
+a new id, same stats), so the search shows one result per name and the
+list groups by name. Withdrawing frees the own reserves (unless locked). Our
+raid-loot data is incomplete (QuestieDB lacks many boss drops), so the
+search covers every rare+ item and lists known drops of the event's
+instance first. **Rules:** `raidReserves` (README § 6f) enforce the
+limit and the lock; lowering the limit later still lets players remove
+items. Deleting an event also clears its reserves.
 
 **Gildenbedarf** (`js/bis-need.js`, third tab on the BiS page): who in
 the guild still needs which item, per raid / dungeon and boss. Built from

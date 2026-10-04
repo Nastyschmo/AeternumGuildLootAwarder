@@ -181,6 +181,29 @@ function bisRatingPerPercent(kind, level){
   return at60 * Math.max(level - 8, 2) / 52;
 }
 
+/**
+ * Chance bonuses of an enchant, read from its text ("Hit +1%", "+1% Spell
+ * Critical Strike", "Dodge +1%", "Block Chance +2%"); the data's `st` only
+ * holds flat stats. Spell hit counts as hit — Forever has one hit rating.
+ * @param {ForeverEnchant} ench @returns {Record<string, number>}
+ */
+function bisEnchantChances(ench){
+  /** @type {Record<string, number>} */
+  const out = {};
+  for (const part of String(ench.e || '').split(/\/| and /)) {
+    const m = part.match(/\+?(\d+(?:\.\d+)?)%/);
+    if (!m) continue;
+    const v = Number(m[1]);
+    const kind = /\bHit\b/i.test(part) ? 'hit'
+      : /Spell Crit/i.test(part) ? 'spellCrit'
+      : /\bCrit/i.test(part) ? 'meleeCrit'
+      : /\bDodge\b/i.test(part) ? 'dodge'
+      : /\bBlock/i.test(part) ? 'block' : '';
+    if (kind) out[kind] = (out[kind] || 0) + v;
+  }
+  return out;
+}
+
 /** @param {BisBuild} b */
 function bisComputeStats(b){
   const cls = bisData.stats.classes[String(BIS_CHR_CLASS_ID[b.classId])];
@@ -189,6 +212,8 @@ function bisComputeStats(b){
   /** @type {Record<number, number>} */
   const gear = {};
   let armor = 0;
+  /** % chances from enchants (hit, crit, dodge, block). @type {Record<string, number>} */
+  const enchPct = {};
   for (const s of BIS_SLOTS){
     if (s.key === 'offhand' && bisOffhandBlocked(b)) continue;
     const sel = b.slots[s.key];
@@ -199,10 +224,12 @@ function bisComputeStats(b){
     // Flat stats of the chosen enchant (js/bis-enchants.js); procs and % effects aren't modelled.
     const ench = sel.enchantId ? bisEnchantById(sel.enchantId) : null;
     if (ench && ench.st) for (const [stat, val] of ench.st) gear[stat] = (gear[stat] || 0) + val;
+    if (ench) for (const [k, v] of Object.entries(bisEnchantChances(ench))) enchPct[k] = (enchPct[k] || 0) + v;
   }
   // Talents with fixed effects (js/bis-talent-stats.js); % values.
   const tal = bisTalentEffects(b);
   const tp = k => tal.pct[k] || 0;
+  const ep = k => enchPct[k] || 0;
   const pctOf = (v, k) => Math.round(v * (1 + tp(k) / 100));
   const attr = k => base[k] + race[k];
   const str = pctOf(attr('str') + (gear[4] || 0), 'str'), agi = pctOf(attr('agi') + (gear[3] || 0), 'agi'), sta = pctOf(attr('sta') + (gear[7] || 0), 'sta');
@@ -219,15 +246,15 @@ function bisComputeStats(b){
   else ap = str - 10;
   ap += (gear[38] || 0) + Math.round(int * tp('apFromInt') / 100);
   const estimated = L < 60;
-  const hitPct = (gear[31] || 0) / bisRatingPerPercent('hit', L) + tp('hit');
+  const hitPct = (gear[31] || 0) / bisRatingPerPercent('hit', L) + tp('hit') + ep('hit');
   const critRatingPct = (gear[32] || 0) / bisRatingPerPercent('crit', L);
-  const meleeCrit = agi * (base.critPerAgi || 0) + critRatingPct + tp('meleeCrit');
-  const spellCrit = int * (base.critPerInt || 0) + critRatingPct + tp('spellCrit');
+  const meleeCrit = agi * (base.critPerAgi || 0) + critRatingPct + tp('meleeCrit') + ep('meleeCrit');
+  const spellCrit = int * (base.critPerInt || 0) + critRatingPct + tp('spellCrit') + ep('spellCrit');
   // Spell damage / healing from Intellect or Spirit (on top of gear).
   const talDmg = Math.round(int * tp('dmgFromInt') / 100 + spi * tp('dmgFromSpi') / 100);
   const talHeal = Math.round(int * tp('healFromInt') / 100 + spi * tp('healFromSpi') / 100);
   return { base, race, gear, str, agi, sta, int, spi, hp, mana, armor, ap: Math.max(ap, 0), hitPct, meleeCrit, spellCrit, estimated,
-    talDmg, talHeal, dodgePct: tp('dodge'), parryPct: tp('parry'), blockPct: tp('block'), talents: tal.applied,
+    talDmg, talHeal, dodgePct: tp('dodge') + ep('dodge'), parryPct: tp('parry'), blockPct: tp('block') + ep('block'), talents: tal.applied,
     schoolPct: Object.fromEntries(Object.entries(tal.pct).filter(([k]) => k.includes(':'))) };
 }
 
@@ -510,7 +537,7 @@ function renderBisPlanner(){
     .map(([k, label, overall]) => `<div class="bis-stat bis-stat-split"><span>${label} (${BIS_SPELL_SCHOOLS[sc]}zauber)<small>inkl. +${fmt1(st.schoolPct[`${k}:${sc}`])} % aus Talenten</small></span><strong>${est}${fmt1(overall + st.schoolPct[`${k}:${sc}`])} %</strong></div>`)).join('');
   // Avoidance from talents (gear ratings are listed separately below).
   const talentChance = [['Ausweichen', st.dodgePct], ['Parieren', st.parryPct], ['Blocken', st.blockPct]]
-    .filter(([, v]) => v).map(([label, v]) => `<div class="bis-stat bis-stat-split"><span>${label}<small>aus Talenten</small></span><strong>+${fmt1(v)} %</strong></div>`).join('');
+    .filter(([, v]) => v).map(([label, v]) => `<div class="bis-stat bis-stat-split"><span>${label}<small>aus Talenten / Verzauberungen</small></span><strong>+${fmt1(v)} %</strong></div>`).join('');
   const talentList = st.talents.length
     ? `<div class="bis-talent-stats"><span class="bis-item-meta">Eingerechnete Talente:</span> ${st.talents.map(t => `<span class="bis-talent-stat"><b>${escapeHtml(t.name)}</b> ${escapeHtml(t.text)}</span>`).join('')}</div>`
     : '';
@@ -568,7 +595,7 @@ function renderBisPlanner(){
             ${gearExtras}
           </div>
           ${talentList}
-          <p class="bis-hint">Grundwerte von Klasse, Rasse und Stufe plus Ausrüstung. Verzauberungen mit festen Werten (Werte, Rüstung, Angriffskraft, Zauberschaden …) sind eingerechnet, Procs und %-Effekte nicht. Talente des Sets zählen mit, wenn sie immer wirken (ohne Gestalt-, Waffen- oder Fähigkeits-Bedingung); Treffer/Krit für eine Zauberschule steht als eigene Zeile. Ohne Buffs und Rassen-Multiplikatoren; Krit ohne klassenspezifischen Grund-Krit.${st.estimated ? ' „ca.“: Unter Stufe 60 ist die Umrechnung Wertung → % geschätzt.' : ''}</p>
+          <p class="bis-hint">Grundwerte von Klasse, Rasse und Stufe plus Ausrüstung. Verzauberungen sind eingerechnet (Werte, Rüstung, Angriffskraft, Zauberschaden, Treffer-/Krit-/Ausweichen-/Block-%), Procs und Tempo nicht. Talente des Sets zählen mit, wenn sie immer wirken (ohne Gestalt-, Waffen- oder Fähigkeits-Bedingung); Treffer/Krit für eine Zauberschule steht als eigene Zeile. Ohne Buffs und Rassen-Multiplikatoren; Krit ohne klassenspezifischen Grund-Krit.${st.estimated ? ' „ca.“: Unter Stufe 60 ist die Umrechnung Wertung → % geschätzt.' : ''}</p>
         </div>
         ${profHtml}
         ${matHtml}

@@ -1395,8 +1395,10 @@ enchant and counts in every set (stored next to the owned items as
 `bisOwned/<uid>/e<itemId>_<enchantId>`); the farm list gets a
 "Verzauberungen" section. Saved with the set as `enchants: { slot:
 spellId }`; picking another item keeps the enchant only if it still
-fits. Flat enchant stats (`st`) are added to the stat totals; procs
-and % effects (Crusader, +1% dodge …) are not. No rules change. Rules: README § 6f.
+fits. Flat enchant stats (`st`) are added to the stat totals, and so
+are hit / crit / dodge / block % read from the enchant text
+(`bisEnchantChances`, e.g. "Hit +1%"); procs (Crusader) and haste are
+not. No rules change. Rules: README § 6f.
 
 ## How to play (Class Overview)
 

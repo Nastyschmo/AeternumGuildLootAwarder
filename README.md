@@ -1322,7 +1322,8 @@ zurück" / "Abbrechen" and restores the backup; "Aus Talent Builder
 them. No rules change.
 
 **Raids** (`js/raids.js`, page "Raids"): raid calendar with sign-ups.
-Officers / Admins create, edit and delete events (`raidEvents/<id>`:
+Officers / Admins create, edit and delete events (instance from a dropdown
+of Forever's announced raids, `RAID_INSTANCES` in js/raids.js; `raidEvents/<id>`:
 title, instance, start, note); members sign up as Dabei / Vielleicht /
 Absage with character, class, spec and an optional note
 (`raidSignups/<eventId>/<uid>`); the roster splits tanks / healers / damage

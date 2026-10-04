@@ -11,10 +11,9 @@
 // damage) comes from the chosen spec (foreverSpecRole). The last sign-up
 // choice (character, class, spec) is remembered in localStorage.
 
-// Forever's raids first (unlock 9 Dec 2026: Barrow Deeps 10, Hyjal Summit
-// 20, Onyxia's Lair 40 players), then the legacy Classic raids. The
-// instance field is free text, so later raids can be typed in.
-const RAID_INSTANCES = ['Barrow Deeps', 'Hyjal Summit', "Onyxia's Lair", 'Molten Core', 'Blackwing Lair', "Zul'Gurub", 'Ruins of Ahn\'Qiraj', "Ahn'Qiraj", 'Naxxramas'];
+// Forever's announced raids (unlock 9 Dec 2026), name -> raid size. Add
+// new raids here when Blizzard announces them (spring / summer 2027).
+const RAID_INSTANCES = { 'Barrow Deeps': 10, 'Hyjal Summit': 20, "Onyxia's Lair": 40 };
 const RAID_LAST_SIGNUP_KEY = 'rude-raid-last-signup-v1';
 const RAID_STATUS_LABELS = { yes: 'Dabei', maybe: 'Vielleicht', no: 'Absage' };
 /** Show events up to this long after their start in "Kommende" (a raid evening). */
@@ -207,11 +206,13 @@ function raidEventFormHtml(){
   const pad = n => String(n).padStart(2, '0');
   const date = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
   const time = `${pad(start.getHours())}:${pad(start.getMinutes())}`;
+  // An older event may name an instance that's no longer listed: keep it.
+  const instances = Object.keys(RAID_INSTANCES);
+  if (e && e.instance && !instances.includes(e.instance)) instances.push(e.instance);
   return `<div class="tac-card raid-form">
     <h3 class="bis-card-title">${e ? 'Raid bearbeiten' : 'Raid anlegen'}</h3>
     <div class="raid-form-grid">
-      <label>Instanz<input type="text" id="raidFormInstance" class="apply-text-input" maxlength="60" list="raidInstances" value="${escapeHtml(e ? e.instance : RAID_INSTANCES[0])}"></label>
-      <datalist id="raidInstances">${RAID_INSTANCES.map(n => `<option value="${escapeHtml(n)}">`).join('')}</datalist>
+      <label>Instanz<select id="raidFormInstance">${instances.map(n => `<option value="${escapeHtml(n)}" ${e && e.instance === n ? 'selected' : ''}>${escapeHtml(n)}${RAID_INSTANCES[n] ? ` (${RAID_INSTANCES[n]} Spieler)` : ''}</option>`).join('')}</select></label>
       <label>Titel (optional)<input type="text" id="raidFormTitle" class="apply-text-input" maxlength="80" placeholder="z. B. „MC Clear #3“" value="${escapeHtml(e && e.title !== e.instance ? e.title : '')}"></label>
       <label>Datum<input type="date" id="raidFormDate" value="${date}"></label>
       <label>Uhrzeit<input type="time" id="raidFormTime" value="${time}"></label>

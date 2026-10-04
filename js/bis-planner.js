@@ -399,6 +399,8 @@ function bisSourceLines(item){
   const out = [];
   if (s.craft && item.id){ // item.id: not for a recipe's own sources
     out.push(bisCraftLine(item));
+    const guild = profGuildCraftersLine(item);
+    if (guild) out.push(guild);
     const mats = bisMaterialsLine(s.craft);
     if (mats) out.push(mats);
   }

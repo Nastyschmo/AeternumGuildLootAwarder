@@ -211,7 +211,8 @@ async function saveCharacterProfile(){
   if (!discordIdentity || !characterComposerDraft) return;
   const cleanedCharacters = characterComposerDraft.characters
     .map(c => ({ id: c.id, name: (c.name || '').trim(), realmSlug: (c.realmSlug || DEFAULT_REALM_SLUG).trim().toLowerCase() || DEFAULT_REALM_SLUG, isMain: !!c.isMain,
-      ...(c.classId ? { classId: c.classId } : {}), ...(c.classId && c.specId ? { specId: c.specId } : {}) }))
+      ...(c.classId ? { classId: c.classId } : {}), ...(c.classId && c.specId ? { specId: c.specId } : {}),
+      ...(c.professions && c.professions.length ? { professions: c.professions } : {}) }))
     .filter(c => c.name);
   const previous = state.characterProfiles[discordIdentity.id];
   state.characterProfiles[discordIdentity.id] = normalizeCharacterProfile({

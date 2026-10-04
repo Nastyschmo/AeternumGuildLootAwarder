@@ -45,7 +45,9 @@ function normalizeCharacterProfile(entry){
       ...(CLASS_MAP[c.classId] ? {
         classId: c.classId,
         ...(foreverSpecsForClass(c.classId).some(s => s.id === c.specId) ? { specId: c.specId } : {})
-      } : {})
+      } : {}),
+      // Optional professions (Berufe page, js/professions.js).
+      ...(normalizeCharacterProfessions(c.professions).length ? { professions: normalizeCharacterProfessions(c.professions) } : {})
     });
   }
   // If nothing was explicitly marked Main, the first character quietly
@@ -56,6 +58,23 @@ function normalizeCharacterProfile(entry){
     nickname: (typeof entry.nickname === 'string') ? entry.nickname.trim().slice(0, 30) : '',
     characters
   };
+}
+/**
+ * Professions of a character: known ids only, each once, at most two
+ * primary ones; skill 1..300; recipes = item / enchant ids (max 40).
+ * @param {any} raw @returns {CharacterProfession[]}
+ */
+function normalizeCharacterProfessions(raw){
+  if (!Array.isArray(raw)) return [];
+  /** @type {CharacterProfession[]} */
+  const out = [];
+  for (const p of raw) {
+    if (!p || !PROFESSION_MAP[p.id] || out.some(x => x.id === p.id)) continue;
+    if (PROFESSION_MAP[p.id].primary && out.filter(x => PROFESSION_MAP[x.id].primary).length >= 2) continue;
+    const recipes = Array.isArray(p.recipes) ? [...new Set(p.recipes.map(Number).filter(n => Number.isInteger(n) && n > 0))].slice(0, 40) : [];
+    out.push({ id: p.id, skill: Math.max(1, Math.min(300, Math.trunc(Number(p.skill)) || 1)), ...(recipes.length ? { recipes } : {}) });
+  }
+  return out;
 }
 function mainCharacterOf(profile){
   if (!profile || !Array.isArray(profile.characters)) return null;

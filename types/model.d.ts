@@ -133,6 +133,15 @@ interface Character {
   /** Optional, set in "Meine Charaktere" (used by raid sign-ups). */
   classId?: ClassId;
   specId?: SpecId;
+  /** Optional, set on the Berufe page (js/professions.js). */
+  professions?: CharacterProfession[];
+}
+interface CharacterProfession {
+  /** PROFESSIONS id ('blacksmithing' …). */
+  id: string;
+  skill: number;
+  /** Special recipes: crafted item ids, for Enchanting enchant spell ids. */
+  recipes?: number[];
 }
 interface CharacterProfile {
   nickname: string;

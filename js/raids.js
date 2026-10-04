@@ -301,7 +301,7 @@ function raidWire(root){
     catch (e){ raidStatusMsg = 'Abmelden fehlgeschlagen.'; renderRaidsPage(); return; }
     // Withdrawing frees the own reserves too (unless they are locked).
     const ev = raidEvents[id];
-    if ((raidReserves[id] || {})[uid] && ev && !ev.srLocked) raidSrSave(id, []);
+    if ((raidReserves[id] || {})[uid] && ev && !ev.srLocked) raidSrSave(id, {});
   }));
   const on = (sel, fn) => { const el = root.querySelector(sel); if (el) el.addEventListener('click', fn); };
   on('#raidNewBtn', () => { raidEditId = ''; renderRaidsPage(); });

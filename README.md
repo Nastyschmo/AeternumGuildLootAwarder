@@ -420,9 +420,9 @@ Go to **Build → Realtime Database → Rules** and replace them with:
           ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
           "$uid": {
             ".write": "auth != null && auth.uid === $uid && root.child('guild-loot-data/raidEvents').child($eventId).exists() && root.child('guild-loot-data/raidEvents').child($eventId).child('srLocked').val() !== true && (!newData.exists() || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'member' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin'))",
-            ".validate": "newData.hasChildren(['items']) && (newData.child('items').numChildren() <= root.child('guild-loot-data/raidEvents').child($eventId).child('srMax').val() || newData.child('items').numChildren() < data.child('items').numChildren())",
+            ".validate": "newData.hasChildren(['items'])",
             "items": {
-              "$itemId": { ".validate": "$itemId.matches(/^[0-9]+$/) && newData.val() === true" }
+              "$slot": { ".validate": "newData.isNumber() && (newData.val() === data.val() || ($slot === 's1' && root.child('guild-loot-data/raidEvents').child($eventId).child('srMax').val() >= 1) || ($slot === 's2' && root.child('guild-loot-data/raidEvents').child($eventId).child('srMax').val() >= 2) || ($slot === 's3' && root.child('guild-loot-data/raidEvents').child($eventId).child('srMax').val() >= 3))" }
             }
           }
         }
@@ -1333,7 +1333,7 @@ also clears its sign-ups. **Rules:** `raidEvents` and `raidSignups`
 **Soft-Reserve** (`js/raid-reserves.js`): Officers turn it on per event
 (`srMax` 1–3 items per player, "Aus" = off) and can lock it (`srLocked`,
 "Reserves sperren" on the card). Members signed up as Dabei / Vielleicht search an
-item and reserve it (`raidReserves/<eventId>/<uid>/items/<itemId>`); the
+item and reserve it (`raidReserves/<eventId>/<uid>/items/s1..s3` = item id; fixed slots because rules can't count children — slot sN needs `srMax` >= N); the
 card lists all reserves by item, contested items first, players who
 aren't signed up any more struck through, plus "Reserves kopieren" (plain
 text) for the loot master. Forever has many items twice (Classic id and

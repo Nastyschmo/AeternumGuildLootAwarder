@@ -377,7 +377,10 @@ interface RaidEvent {
   srLocked: boolean;
 }
 interface RaidReserve {
+  /** Reserved item ids, slot order. */
   items: number[];
+  /** Stored form: slot (s1..s3) -> item id. */
+  slots: Record<string, number>;
   /** Display name of the member. */
   name: string;
   charName: string;

@@ -1,9 +1,11 @@
 // Raids page: soft-reserves per raid event.
 //
 // Firebase (own listener, started together with the raid listeners):
-//  - raidReserves/<eventId>/<uid> = { items: { <itemId>: true }, name,
-//    charName, classId, updatedAt } — every member writes their own;
-//    Officers / Admins may clear a whole event's reserves.
+//  - raidReserves/<eventId>/<uid> = { items: { s1: itemId, s2: …, s3: … },
+//    name, charName, classId, updatedAt } — every member writes their own;
+//    Officers / Admins may clear a whole event's reserves. Fixed slots
+//    (s1..s3) because the rules can't count children: a slot sN may only
+//    be filled while srMax >= N.
 // The event decides the limit (`srMax`, 0 = no soft-reserve) and can lock
 // the reserves (`srLocked`); the rules enforce both (README § 6f). Item
 // names and icons come from data/forever/items.json (bisLoadData). Our raid
@@ -34,10 +36,13 @@ function raidReserveSync(){
 /** @param {any} raw @returns {RaidReserve | null} */
 function raidNormalizeReserve(raw){
   if (!raw || typeof raw !== 'object' || !raw.items || typeof raw.items !== 'object') return null;
-  const items = Object.keys(raw.items).filter(k => /^\d+$/.test(k) && raw.items[k]).map(Number);
+  /** @type {Record<string, number>} */
+  const slots = {};
+  for (const [k, v] of Object.entries(raw.items)) if (/^s[1-3]$/.test(k) && Number(v) > 0) slots[k] = Math.trunc(Number(v));
+  const items = Object.keys(slots).sort().map(k => slots[k]);
   if (!items.length) return null;
   return {
-    items,
+    items, slots,
     name: String(raw.name || '').slice(0, 60),
     charName: String(raw.charName || '').slice(0, 40),
     classId: CLASS_MAP[raw.classId] ? raw.classId : '',
@@ -178,16 +183,16 @@ function raidSrText(id){
   return [`Soft-Reserves ${e ? `${e.title} · ${raidDateLabel(e.start)}` : ''}`, ...lines].join('\n');
 }
 
-/** Write the own reserve of an event (no items = remove). @param {string} id @param {number[]} items */
-async function raidSrSave(id, items){
+/** Write the own reserve of an event (no slots = remove). @param {string} id @param {Record<string, number>} slots */
+async function raidSrSave(id, slots){
   const uid = discordIdentity.id;
   const ref = db.ref(`${DB_PATH}/raidReserves/${id}/${uid}`);
   try {
-    if (!items.length) await ref.remove();
+    if (!Object.keys(slots).length) await ref.remove();
     else {
       const s = (raidSignups[id] || {})[uid];
       await ref.set({
-        items: Object.fromEntries(items.map(i => [String(i), true])),
+        items: slots,
         name: raidMyName(), charName: (s && s.charName) || '', classId: (s && s.classId) || '', updatedAt: Date.now()
       });
     }
@@ -201,7 +206,8 @@ async function raidSrSave(id, items){
 /** @param {HTMLElement} root */
 function raidSrWire(root){
   const uid = discordIdentity.id;
-  const mineOf = id => ((raidReserves[id] || {})[uid] || { items: [] }).items;
+  /** @param {string} id @returns {Record<string, number>} */
+  const slotsOf = id => ({ ...(((raidReserves[id] || {})[uid] || { slots: {} }).slots) });
   root.querySelectorAll('[data-raid-sr-search]').forEach((/** @type {HTMLInputElement} */ input) => {
     const id = input.getAttribute('data-raid-sr-search');
     // Only the result list re-renders while typing, so the field keeps its focus.
@@ -218,16 +224,22 @@ function raidSrWire(root){
     if (!btn || !root.contains(btn)) return;
     const id = btn.getAttribute('data-raid-id');
     const e = raidEvents[id];
-    const mine = mineOf(id);
-    if (!e || mine.length >= e.srMax) return;
+    if (!e) return;
+    // First free slot within the limit; filled slots keep their place.
+    const slots = slotsOf(id);
+    const free = [1, 2, 3].slice(0, e.srMax).map(n => 's' + n).find(k => !slots[k]);
+    if (!free) return;
+    slots[free] = Number(btn.getAttribute('data-raid-sr-add'));
     raidSrQuery[id] = '';
-    raidSrSave(id, mine.concat(Number(btn.getAttribute('data-raid-sr-add'))));
+    raidSrSave(id, slots);
   });
   root.dataset.raidSrWired = '1';
   root.querySelectorAll('[data-raid-sr-remove]').forEach(btn => btn.addEventListener('click', () => {
     const id = btn.getAttribute('data-raid-id');
     const itemId = Number(btn.getAttribute('data-raid-sr-remove'));
-    raidSrSave(id, mineOf(id).filter(i => i !== itemId));
+    const slots = slotsOf(id);
+    for (const k of Object.keys(slots)) if (slots[k] === itemId) delete slots[k];
+    raidSrSave(id, slots);
   }));
   root.querySelectorAll('[data-raid-sr-lock]').forEach(btn => btn.addEventListener('click', async () => {
     const id = btn.getAttribute('data-raid-sr-lock');

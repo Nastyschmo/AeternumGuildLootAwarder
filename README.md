@@ -1209,13 +1209,17 @@ to merging.
 **Was ist neu? (changelog):** after regenerating, the workflow runs
 `scripts/forever-data/changelog.mjs`, which compares the new data with the
 last commit and — only when the client build changed — adds an entry to
-`data/forever/changelog.json`: items added / removed / changed (name,
-quality, item level, required level, stats, damage, armor, slot, binding,
-set) and talents whose text or ranks changed. Same build = importer
-change, not recorded. The Klassen page shows it under "Allgemein" (with
-the hand-written Update-Historie below it) and each class its own talent
-changes; Home shows a news tile for 14 days after a new build
-(`js/forever-changes.js`). `--backfill` rebuilds the log from git history.
+`data/forever/changelog.json`: items added / removed / changed with their
+old and new values (name, quality, item level, required level, stats,
+damage, armor, slot, binding, set) and talents whose text or ranks
+changed. Same build = importer change, not recorded. On the Klassen page
+every build shows up as a Patch-Update in the same list and style as the
+hand-written ones (`js/forever-changes.js`): "Allgemein" lists the items
+(old → new) and which talents changed per class, each class its talents
+with the changed words marked. When officers already wrote a Patch-Update
+on that day (± 1 day), the automatic part is added to that post
+("Automatisch erkannt") and leaves out items / talents the post already
+names. Home shows a news tile for 14 days after a new build. `--backfill` rebuilds the log from git history.
 
 `data/forever/items.json` holds every equippable WoW Forever item of
 uncommon quality or better — name, slot, item level, required level,

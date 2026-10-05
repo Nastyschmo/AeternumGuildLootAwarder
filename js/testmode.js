@@ -183,11 +183,20 @@ function testSeed(now){
     tapp3: app('test_apply3', 'Tom', 24, [{ classId: 'rogue', specs: ['combat'] }], { rogue: 'Tom Schattenfuß' },
       { rogue: [{ professionId: 'engineering' }, { professionId: 'mining' }] }, ['https://www.warcraftlogs.com/character/eu/x/tom'], 'accepted', 9)
   };
+  // Hand-written Patch-Updates on the day of the newest test build — the
+  // automatic changes get merged into them without repeating what they say.
+  const yesterday = new Date(now - day).toISOString().slice(0, 10);
+  const classDeepDives = {
+    general: { summary: '', updates: [{ id: 'tdd1', date: yesterday, title: '', createdAt: now - day,
+      text: '<p>WoW: Forever – Update vom Vortag</p><p>Blizzard hat die Beta aktualisiert. ⚙️ Allgemein</p><h2>Items</h2><p>Destiny wurde verbessert (mehr Itemlevel und Schaden).</p>' }] },
+    druid: { summary: '', updates: [{ id: 'tdd2', date: yesterday, title: '', createdAt: now - day,
+      text: '<p>Druiden-Änderungen</p><p>Moonkin Form: Reichweite der Aura 30 → 40 Meter, Krit-Bonus 3 % → 5 %.</p>' }] }
+  };
   const announcements = {
     tan1: { title: 'Raidzeiten ab Dezember', text: '<p>Ab dem Raid-Release am 9. Dezember raiden wir <b>Donnerstag und Sonntag ab 20:00</b>. Meldet euch bitte immer bis 24 h vorher im Raid-Kalender an.</p>',
       authorName: 'Offi Olaf', authorId: 'test_offi', createdAt: now - 2 * 3600000, editedAt: 0 }
   };
-  return { 'guild-loot-data': { announcements, discordRoles, characterProfiles, bisPublic, bisOwned, raidEvents, raidSignups, raidReserves, lootAwards, lootSessions, applications } };
+  return { 'guild-loot-data': { announcements, classDeepDives, discordRoles, characterProfiles, bisPublic, bisOwned, raidEvents, raidSignups, raidReserves, lootAwards, lootSessions, applications } };
 }
 
 // ---------------------------------------------------------------- in-memory Firebase
@@ -255,21 +264,32 @@ if (RUDE_TESTMODE) (function(){
  * Real item ids / talent names, invented changes.
  */
 function testModeChangelog(){
-  const d = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  return { entries: [{
-    date: d, build: '1.60.2.71000 (Test)', prevBuild: '1.60.1.70205',
-    items: {
-      counts: { added: 2, removed: 1, changed: 3 },
-      added: [[19145, 'Robe of Volatile Power', 4], [18842, 'Staff of Dominance', 4]],
-      removed: [[18205, "Eskhandar's Collar", 4]],
-      changed: [[17064, 'Shard of the Scale', 4, ['Werte']], [647, 'Destiny', 4, ['Itemlevel', 'Schaden']], [16921, 'Halo of Transcendence', 4, ['Werte']]]
+  const iso = days => new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  return { entries: [
+    {
+      date: iso(1), build: '1.60.2.71000', prevBuild: '1.60.1.70800',
+      items: {
+        counts: { added: 2, removed: 1, changed: 3 },
+        added: [[19145, 'Robe of Volatile Power', 4], [18842, 'Staff of Dominance', 4]],
+        removed: [[18205, "Eskhandar's Collar", 4]],
+        changed: [
+          [17064, 'Shard of the Scale', 4, { s: [[[43, 16]], [[43, 18], [5, 8]]] }],
+          [647, 'Destiny', 4, { il: [57, 60], dm: [{ min: 112, max: 168, dps: 53.8 }, { min: 118, max: 177, dps: 56.7 }] }],
+          [16921, 'Halo of Transcendence', 4, { s: [[[5, 27], [7, 22]], [[5, 30], [7, 22]]], ar: [137, 145] }]
+        ]
+      },
+      talents: [
+        { c: 'Druid', n: 'Moonkin Form', k: 'changed', from: 'Shapeshift into Moonkin Form, increasing Armor contribution from items by 360%, and all party members within 30 yards have their Critical Strike chance increased by 3%.', to: 'Shapeshift into Moonkin Form, increasing Armor contribution from items by 360%, and all party members within 40 yards have their Critical Strike chance increased by 5%.' },
+        { c: 'Druid', n: 'Furor', k: 'changed', ranks: [5, 3], from: 'Gives you a 100% chance to gain 10 Rage when you shapeshift into Bear Form or Dire Bear Form.', to: 'Gives you a 100% chance to gain 15 Rage when you shapeshift into Bear Form or Dire Bear Form.' },
+        { c: 'Mage', n: 'Arcane Power', k: 'changed', from: 'For the next 15 sec, your spells deal 30% more damage while costing 30% more mana to cast.', to: 'For the next 20 sec, your spells deal 25% more damage while costing 25% more mana to cast.' }
+      ]
     },
-    talents: [
-      { c: 'Druid', n: 'Moonkin Form', k: 'changed', from: 'Transforms the Druid into Moonkin Form. While in this form the armor contribution from items is increased by 360%, and all party members within 30 yards have their spell critical chance increased by 3%.', to: 'Transforms the Druid into Moonkin Form. While in this form the armor contribution from items is increased by 360%, and all party members within 40 yards have their spell critical chance increased by 5%.' },
-      { c: 'Mage', n: 'Arcane Power', k: 'changed', from: 'When activated, your spells deal 30% more damage while costing 30% more mana to cast. This effect lasts 15 sec.', to: 'When activated, your spells deal 25% more damage while costing 25% more mana to cast. This effect lasts 20 sec.' },
-      { c: 'Warrior', n: 'Improved Heroic Strike', k: 'changed', ranks: [3, 2], from: 'Reduces the cost of your Heroic Strike ability by 3 Rage.', to: 'Reduces the cost of your Heroic Strike ability by 3 Rage.' }
-    ]
-  }] };
+    {
+      date: iso(8), build: '1.60.1.70800', prevBuild: '1.60.1.70205',
+      items: { counts: { added: 0, removed: 0, changed: 1 }, added: [], removed: [], changed: [[17068, 'Deathbringer', 4, { rl: [60, 58] }]] },
+      talents: [{ c: 'Warrior', n: 'Improved Heroic Strike', k: 'changed', from: 'Reduces the cost of your Heroic Strike ability by 3 Rage.', to: 'Reduces the cost of your Heroic Strike ability by 4 Rage.' }]
+    }
+  ] };
 }
 
 /** Start: remember the real login, become the test admin. */
@@ -314,7 +334,7 @@ function testModeBar(){
         <li><b>Hyjal</b>: Soft-Reserve-Raid mit Hard-Reserve (Staff of Dominance, nicht reservierbar). Als Officer im Tab „Anmeldung“ weitere HR setzen, „Anmeldung schließen → Aufstellung“ ausprobieren.</li>
         <li><b>Ansicht als Mitglied</b> (z. B. Feuerfee): Liste zeigt „Angemeldet“ / „In der Aufstellung“; bei Hyjal einen zweiten Charakter anmelden, Soft-Reserve setzen; Loot-Tab zeigt nur die Vergaben.</li>
         <li><b>Loot-Seite</b>: Historie nach Raid / pro Spieler.</li>
-        <li><b>Klassen → Allgemein</b>: „Änderungen im Spiel“ zeigt einen erfundenen neuen Build (Items + Talente); Druide / Magier / Krieger zeigen ihre Talent-Änderungen. Auf Home gibt's dazu eine Neuigkeits-Kachel.</li>
+        <li><b>Klassen → Allgemein / Druid / Mage / Warrior</b>: Patch-Updates mit automatisch erkannten Änderungen aus zwei erfundenen Builds. Gestern gibt es schon einen handgeschriebenen Beitrag — der automatische Teil hängt dort an und wiederholt nicht, was der Beitrag schon nennt (Destiny, Moonkin Form). Auf Home gibt's dazu eine Neuigkeits-Kachel.</li>
         <li><b>Bewerbung</b>: als „Neuling Nils“ sieht man den Status der eigenen Bewerbung; als Officer die Liste (offen hervorgehoben, Lena in Bearbeitung, Tom angenommen).</li>
         <li><b>Meine Charaktere / Berufe / BiS-Planer</b>: Charaktere bearbeiten (Main/Twink, Berufe, BiS-Set je Spec), Berufe-Verzeichnis durchsuchen („Lionheart“).</li>
       </ol>

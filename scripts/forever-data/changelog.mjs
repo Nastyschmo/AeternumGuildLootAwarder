@@ -29,7 +29,6 @@ const OUT = path.join(ROOT, 'data/forever/changelog.json');
 const MAX_ENTRIES = 60;
 const MAX_LIST = 80;
 const ITEM_FIELDS = ['n', 'q', 'il', 'rl', 's', 'dm', 'ar', 'it', 'b', 'set'];
-const FIELD_LABELS = { n: 'Name', q: 'Qualität', il: 'Itemlevel', rl: 'Stufe', s: 'Werte', dm: 'Schaden', ar: 'Rüstung', it: 'Slot', b: 'Bindung', set: 'Set' };
 
 const git = (...args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
 const gitShow = (rev, file) => { try { return execFileSync('git', ['show', `${rev}:${file}`], { cwd: ROOT, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return null; } };
@@ -75,8 +74,9 @@ function diff(oldItems, newItems, oldTalents, newTalents, date){
     for (const [id, it] of newItems.items) {
       const old = oldItems.items.get(id);
       if (!old){ added.push([id, it.n, it.q || 0]); continue; }
+      // Changed fields with their old and new value: { il: [57, 60], s: [[[4, 8]], [[4, 10]]] }.
       const what = fields.filter(f => !same(old[f], it[f]));
-      if (what.length) changed.push([id, it.n, it.q || 0, what.map(f => FIELD_LABELS[f])]);
+      if (what.length) changed.push([id, it.n, it.q || 0, Object.fromEntries(what.map(f => [f, [old[f] ?? null, it[f] ?? null]]))]);
     }
     for (const [id, it] of oldItems.items) if (!newItems.items.has(id)) removed.push([id, it.n, it.q || 0]);
     // Best quality first, so the interesting ones survive the cap.

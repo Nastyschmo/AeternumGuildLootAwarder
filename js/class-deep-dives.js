@@ -336,8 +336,8 @@ const CLASSDIVE_CLOCK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="var(-
 const CLASSDIVE_LINK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l2.5-2.5a5 5 0 0 0-7.07-7.07L11 4.88"/><path d="M14 11a5 5 0 0 0-7.07 0l-2.5 2.5a5 5 0 0 0 7.07 7.07L13 19.12"/></svg>';
 
 // Update-Historie (hand-written) — always expanded (no toggle), in the
-// "Allgemein" category below the automatic "Änderungen im Spiel"
-// (js/forever-changes.js). Rows are the hard-coded CLASSDIVE_HISTORY_SEED
+// "Allgemein" category below the Patch-Updates (which include the
+// automatic ones from js/forever-changes.js). Rows are the hard-coded CLASSDIVE_HISTORY_SEED
 // (oldest first, not deletable) followed by whatever Officers/Admins
 // have added since (Firebase-backed, in push-key/insertion order, so
 // newly added rows land at the bottom — a forward-reading changelog).
@@ -425,10 +425,13 @@ function classDiveSourcesCardHtml(canManage){
 // plain-text preview (collapsed) or the full rich content (expanded).
 // Both the header and the preview are click targets for expanding —
 // `data-toggle-classdive-post` appears on each so either one opens it.
+/** @param {ClassDeepDiveUpdate & { auto?: boolean, build?: string }} u */
 function classDiveUpdatePostHtml(c, u, canManage){
   const expanded = expandedClassDiveUpdates.has(u.id);
   const title = classDiveUpdateTitle(u);
   const dateLabel = formatClassDiveDate(u.date);
+  // Automatic posts (game data) aren't stored — nothing to delete.
+  if (u.auto) canManage = false;
   const deleteBtnHtml = canManage
     ? `<button type="button" class="btn btn-ghost btn-sm classdive-update-delete" data-delete-update="${c.id}" data-delete-update-id="${u.id}" title="Eintrag löschen">✕</button>`
     : '';
@@ -444,6 +447,7 @@ function classDiveUpdatePostHtml(c, u, canManage){
   return `<div class="classdive-post${expanded ? ' expanded' : ''}" data-classdive-post="${u.id}">
     <div class="classdive-post-head" data-toggle-classdive-post="${u.id}">
       <span class="classdive-post-title">${escapeHtml(title)}</span>
+      ${u.auto ? `<span class="fc-auto-tag" title="Automatisch aus den Forever-Spieldaten (Build ${escapeHtml(u.build || '')})">automatisch</span>` : ''}
       ${dateLabel ? `<span class="classdive-post-date">${escapeHtml(dateLabel)}</span>` : ''}
       <span class="classdive-post-arrow" aria-hidden="true">${expanded ? '▲' : '▼'}</span>
     </div>
@@ -541,7 +545,7 @@ function renderClassDeepDivesView(){
     const dive = dives[c.id] || { summary: '', summaryUpdatedAt: 0, updates: [] };
     const iconUrl = c.isGeneral ? '' : foreverClassIconUrl(c.id);
     const active = c.id === selectedClassDiveId;
-    const count = dive.updates.length;
+    const count = foreverChangePosts(dive.updates, c.isGeneral ? '' : c.label).length;
     return `<button type="button" class="classdive-filter-btn${active ? ' active' : ''}" data-select-classdive="${c.id}" style="--classdive-color:${c.color}">
       ${c.isGeneral ? `<span class="classdive-general-icon" aria-hidden="true">${c.icon}</span>` : (iconUrl ? `<img class="classdive-filter-icon wow-icon-frame" src="${iconUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : '')}
       <span class="classdive-filter-label">${escapeHtml(c.label)}</span>
@@ -559,8 +563,12 @@ function renderClassDeepDivesView(){
   const iconUrl = c.isGeneral ? '' : foreverClassIconUrl(c.id);
   const summaryCardHtml = classDiveSummaryCardHtml(c, dive, canManage);
 
-  const updatesListHtml = dive.updates.length
-    ? dive.updates.map(u => classDiveUpdatePostHtml(c, u, canManage)).join('')
+  // Hand-written posts plus the automatic ones from the game data
+  // (js/forever-changes.js), one list, newest first.
+  const posts = foreverChangePosts(dive.updates, c.isGeneral ? '' : c.label);
+  if (posts.some(u => u.auto) && !bisData && currentPage === 'classdeepdives') bisLoadData().then(renderClassDeepDivesView).catch(() => {});
+  const updatesListHtml = posts.length
+    ? posts.map(u => classDiveUpdatePostHtml(c, u, canManage)).join('')
     : `<p class="classdive-empty">Noch keine Patch-Updates erfasst.</p>`;
   const addUpdateFormHtml = canManage
     ? `<div class="classdive-add-update">
@@ -582,8 +590,7 @@ function renderClassDeepDivesView(){
       <h2 class="classdive-main-title" style="color:${c.color}">${escapeHtml(c.label)}</h2>
     </div>
     ${summaryCardHtml}
-    ${c.isGeneral ? foreverChangesGeneralHtml() : howToPlayCardHtml(c.id)}
-    ${c.isGeneral ? '' : foreverChangesClassHtml(c.label)}
+    ${c.isGeneral ? '' : howToPlayCardHtml(c.id)}
     <div class="classdive-updates-section">
       <div class="classdive-section-title">Patch-Updates</div>
       <div class="classdive-updates" data-classdive-updates="${c.id}">${updatesListHtml}</div>

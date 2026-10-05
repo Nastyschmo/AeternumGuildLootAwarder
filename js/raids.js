@@ -69,7 +69,7 @@ function raidSync(){
   const uid = (db && discordIdentity) ? discordIdentity.id : '';
   if (!uid || uid === raidSyncUid) return;
   raidSyncUid = uid;
-  const rerender = () => { if (currentPage === 'raids') renderRaidsPage(); if (currentPage === 'loot') renderLootPage(); };
+  const rerender = () => { if (currentPage === 'raids') renderRaidsPage(); if (currentPage === 'loot') renderLootPage(); if (currentPage === 'home') renderHomeDashboard(); };
   db.ref(`${DB_PATH}/raidEvents`).on('value', snap => {
     /** @type {Record<string, RaidEvent>} */
     const out = {};

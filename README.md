@@ -1456,6 +1456,18 @@ officer, members, an applicant) and has a "Was testen?" checklist.
 Discord DMs and Armory / WarcraftLogs lookups are skipped. "Testmodus
 beenden" restores the real login.
 
+**Home-Dashboard** (`js/home-dashboard.js`, below the hero on Home):
+guests / applicants see who we are, who we're looking for
+(recruitingNeeds), "So bewirbst du dich" in three steps and links to the
+open pages; members see the next raid with their sign-up / line-up
+status ("Jetzt anmelden"), open votes, the newest announcement, their
+recent loot and hints for Meine Charaktere (no characters, no class, no
+BiS list on a main); officers / admins get "Zu tun" on top (untouched
+applications, closed sign-ups without a line-up, unpublished line-ups
+within 48 h, a running raid without a Loot-Runde, open Loot-Runden). The
+hero button changes with it (Jetzt bewerben / Zur Abstimmung / Zum
+Raid-Kalender). Reads existing data only — no rules change.
+
 **Loot-Runden** (`js/loot-session.js`, raid window → tab "Loot",
 officers / admins = the Loot Council): items are tradeable for 2 hours
 after the drop, so a raid hands out loot in several Runden. "Loot-Runde

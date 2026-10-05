@@ -141,3 +141,61 @@ function annotateClassMentions(rootEl){
 function roleCountsHtml(r){
   return `${r.players} Spieler dabei <span class="role-counts">${['tank', 'healer', 'damage'].map(role => `<span class="role-count">${roleIconHtml(role, 16)}${r[role].length}</span>`).join('')}</span>`;
 }
+
+// ---------------------------------------------------------------- emojis -> game icons
+/**
+ * Emojis in hand-written texts (Patch-Updates, Deep Dives) are shown as
+ * game icons instead — only on display, the stored text stays as it is.
+ * Mapped emojis become the icon; an emoji right before a class / spec
+ * mention is dropped (the mention has its own icon); any other emoji is
+ * removed. ✅ / ❌ become plain ✓ / ✗.
+ */
+const GAME_EMOJI_ICONS = {
+  '⚙': 'inv_misc_gear_01', '🔧': 'inv_misc_wrench_01', '🛠': 'inv_misc_wrench_01',
+  '📅': 'todo', '🗓': 'todo', '⏰': 'todo', '⏳': 'todo', '🕒': 'todo',
+  '🗡': 'inv_weapon_shortblade_05', '⚔': 'inv_sword_04', '🛡': 'inv_shield_06',
+  '✨': 'talents', '📖': 'spells', '📚': 'spells', '📜': 'patch', '📝': 'patch', '📰': 'patch', '📣': 'announce', '📢': 'announce',
+  '💰': 'inv_misc_coin_01', '🪙': 'inv_misc_coin_01', '🎁': 'loot', '🎒': 'loot', '💎': 'inv_misc_gem_pearl_04',
+  '🐉': 'raid', '🏰': 'raid', '🗺': 'explore', '🧭': 'explore',
+  '❤': 'healer', '💚': 'healer', '🩹': 'healer', '🎯': 'talents', '🏆': 'inv_misc_gem_pearl_04'
+};
+const GAME_EMOJI_RE = /\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}️?)*/gu;
+/** @param {HTMLElement} rootEl */
+function replaceEmojis(rootEl){
+  if (!rootEl) return;
+  const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+  const nodes = [];
+  let node;
+  while ((node = walker.nextNode())) { GAME_EMOJI_RE.lastIndex = 0; if (GAME_EMOJI_RE.test(node.nodeValue)) nodes.push(node); }
+  for (const textNode of nodes) {
+    const text = textNode.nodeValue;
+    const frag = document.createDocumentFragment();
+    let last = 0;
+    GAME_EMOJI_RE.lastIndex = 0;
+    let m;
+    while ((m = GAME_EMOJI_RE.exec(text))) {
+      frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      last = m.index + m[0].length;
+      const base = m[0].replace(/[️‍]/g, '');
+      const rest = text.slice(last);
+      // Right before a class / spec mention: that one brings its icon.
+      const beforeMention = !rest.trim() && textNode.nextSibling && /** @type {HTMLElement} */ (textNode.nextSibling).classList
+        && /** @type {HTMLElement} */ (textNode.nextSibling).classList.contains('game-mention');
+      if (beforeMention){ if (rest.startsWith(' ')) last++; continue; }
+      if (base === '✅' || base === '✔'){ frag.appendChild(document.createTextNode('✓')); continue; }
+      if (base === '❌' || base === '✖'){ frag.appendChild(document.createTextNode('✗')); continue; }
+      const icon = GAME_EMOJI_ICONS[base] || GAME_EMOJI_ICONS[[...base][0]];
+      if (icon){
+        const holder = document.createElement('span');
+        holder.innerHTML = gameIconHtml(icon, 18);
+        if (holder.firstChild) frag.appendChild(holder.firstChild);
+      } else if (rest.startsWith(' ')) last++; // dropped: no double space
+    }
+    frag.appendChild(document.createTextNode(text.slice(last)));
+    textNode.parentNode.replaceChild(frag, textNode);
+  }
+}
+/** Plain text without emojis (collapsed previews). @param {string} text */
+function stripEmojis(text){
+  return text.replace(GAME_EMOJI_RE, e => (/^[✅✔]/.test(e) ? '✓' : /^[❌✖]/.test(e) ? '✗' : '')).replace(/\s{2,}/g, ' ').trim();
+}

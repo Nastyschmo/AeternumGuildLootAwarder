@@ -1488,7 +1488,11 @@ heads), raid role columns / counts and the Home card titles. Class and
 spec mentions in Patch-Updates and the Deep Dive / Allgemeine Infos text
 ("Druiden", "Schutz-Paladine", "Holy Priest", English and German) get the
 class or spec icon in front (`annotateClassMentions`, before the spell
-auto-links).
+auto-links) Emojis in those hand-written texts are shown as game
+icons (`replaceEmojis`, `GAME_EMOJI_ICONS`: ⚙️ gear, 📅 pocket watch, ⚔️
+sword, 🐉 dragon head …); an emoji right before a class / spec mention is
+dropped (the mention has its icon), other emojis are removed, ✅ / ❌
+become ✓ / ✗ — on display only, the stored text is unchanged.
 
 **Home-Dashboard** (`js/home-dashboard.js`, below the hero on Home):
 guests / applicants see who we are, who we're looking for

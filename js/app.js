@@ -147,53 +147,60 @@ function renderQuestBell(){
 // ---------------------------------------------------------------------
 const PAGES = [
   {
-    id: 'home', label: 'Home',
+    id: 'home', label: 'Home', group: 'guild',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9"/></svg>'
   },
   {
-    id: 'announcements', label: 'Ankündigungen',
+    id: 'announcements', label: 'Ankündigungen', group: 'guild',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a2 2 0 0 0 2 2h1l3 5V4L6 9H5a2 2 0 0 0-2 2Z"/><path d="M14 8a4 4 0 0 1 0 8"/><path d="M17 5a8 8 0 0 1 0 14"/></svg>'
   },
   {
-    id: 'forever', label: 'Abstimmungen',
+    id: 'forever', label: 'Abstimmungen', group: 'guild',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="m8 12 3 3 5-6"/></svg>'
   },
   {
-    id: 'raids', label: 'Raids',
-    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><path d="m9 15 2 2 4-4"/></svg>'
-  },
-  {
-    id: 'loot', label: 'Loot',
-    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16v11H4z"/><path d="M4 9l2-5h12l2 5"/><path d="M12 9v11"/><path d="M9 14h6"/></svg>'
-  },
-  {
-    id: 'professions', label: 'Berufe',
-    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 4 6 6-3 3-6-6z"/><path d="m11 7-7 7 3 3 7-7"/><path d="M4 20h7"/></svg>'
-  },
-  {
-    id: 'talentbuilder', label: 'Talent Builder',
-    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="9" cy="19" r="2"/><circle cx="15" cy="19" r="2"/><path d="M12 7v3M8 11l-1 0M16 11l1 0M10.5 13 9 17M13.5 13 15 17"/></svg>'
-  },
-  {
-    id: 'classdeepdives', label: 'Class Overview',
-    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M9 7h7M9 11h7"/></svg>'
-  },
-  {
-    id: 'bis', label: 'BiS-Planer',
-    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg>'
-  },
-  {
-    id: 'recruit', label: 'Bewerbung',
+    id: 'recruit', label: 'Bewerbung', group: 'guild',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>'
   },
   {
-    id: 'mychar', label: 'Meine Charaktere',
+    id: 'raids', label: 'Raids', group: 'raid',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><path d="m9 15 2 2 4-4"/></svg>'
+  },
+  {
+    id: 'loot', label: 'Loot', group: 'raid',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16v11H4z"/><path d="M4 9l2-5h12l2 5"/><path d="M12 9v11"/><path d="M9 14h6"/></svg>'
+  },
+  {
+    id: 'mychar', label: 'Meine Charaktere', group: 'char',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>'
   },
   {
-    id: 'forevertools', label: 'Hilfreich forEVER',
+    id: 'bis', label: 'BiS-Planer', group: 'char',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg>'
+  },
+  {
+    id: 'professions', label: 'Berufe', group: 'char',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 4 6 6-3 3-6-6z"/><path d="m11 7-7 7 3 3 7-7"/><path d="M4 20h7"/></svg>'
+  },
+  {
+    id: 'classdeepdives', label: 'Class Overview', group: 'know',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M9 7h7M9 11h7"/></svg>'
+  },
+  {
+    id: 'talentbuilder', label: 'Talent Builder', group: 'know',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="9" cy="19" r="2"/><circle cx="15" cy="19" r="2"/><path d="M12 7v3M8 11l-1 0M16 11l1 0M10.5 13 9 17M13.5 13 15 17"/></svg>'
+  },
+  {
+    id: 'forevertools', label: 'Hilfreich forEVER', group: 'know',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
   }
+];
+// Sidebar sections, in this order; pages keep their PAGES order inside one.
+const NAV_GROUPS = [
+  { id: 'guild', label: 'Gilde' },
+  { id: 'raid', label: 'Raid & Loot' },
+  { id: 'char', label: 'Mein Charakter' },
+  { id: 'know', label: 'Wissen & Tools' }
 ];
 const SIDEBAR_COLLAPSED_KEY = 'rude-guild-sidebar-collapsed';
 // Honor a page hash already in the URL (e.g. a reload, or a bookmark
@@ -230,17 +237,22 @@ function maybeAutoCloseSidebarOnMobile(){
 }
 
 function renderSidebarNav(){
-  els.sidebarNav.innerHTML = PAGES.map(p => {
-    const badge = pageQuestPending(p.id) ? '<span class="nav-quest-badge" title="Hier gibt\'s was zu tun!" aria-label="Neu">!</span>' : '';
-    return `<a class="sidebar-nav-item ${p.id === currentPage ? 'active' : ''}" data-page="${p.id}"><span>${escapeHtml(p.label)}</span>${badge}</a>`;
-  }).join('');
+  const pagesOf = g => PAGES.filter(p => p.group === g.id);
+  els.sidebarNav.innerHTML = NAV_GROUPS.map(g => `<div class="sidebar-nav-group">
+      <div class="sidebar-nav-heading">${escapeHtml(g.label)}</div>
+      ${pagesOf(g).map(p => {
+        const badge = pageQuestPending(p.id) ? '<span class="nav-quest-badge" title="Hier gibt\'s was zu tun!" aria-label="Neu">!</span>' : '';
+        return `<a class="sidebar-nav-item ${p.id === currentPage ? 'active' : ''}" data-page="${p.id}"><span class="sidebar-nav-icon" aria-hidden="true">${p.icon}</span><span class="sidebar-nav-label">${escapeHtml(p.label)}</span>${badge}</a>`;
+      }).join('')}
+    </div>`).join('');
   els.sidebarNav.querySelectorAll('[data-page]').forEach(a => {
     a.addEventListener('click', () => { showPage(a.getAttribute('data-page')); maybeAutoCloseSidebarOnMobile(); });
   });
-  els.sidebarNavMini.innerHTML = PAGES.map(p => {
+  // Mini rail: same sections, separated by a thin line.
+  els.sidebarNavMini.innerHTML = NAV_GROUPS.map(g => pagesOf(g).map(p => {
     const badge = pageQuestPending(p.id) ? '<span class="nav-quest-badge-mini" aria-hidden="true"></span>' : '';
     return `<a class="sidebar-nav-item-mini ${p.id === currentPage ? 'active' : ''}" data-page="${p.id}" title="${escapeHtml(p.label)}" aria-label="${escapeHtml(p.label)}">${p.icon}${badge}</a>`;
-  }).join('');
+  }).join('')).join('<span class="sidebar-nav-mini-sep" aria-hidden="true"></span>');
   els.sidebarNavMini.querySelectorAll('[data-page]').forEach(a => {
     a.addEventListener('click', () => { showPage(a.getAttribute('data-page')); maybeAutoCloseSidebarOnMobile(); });
   });

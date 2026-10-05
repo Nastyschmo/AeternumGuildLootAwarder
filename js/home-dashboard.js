@@ -3,7 +3,8 @@
 //  - Guests / applicants (logged out or not a member yet): who we are,
 //    who we're looking for (only when recruitingNeeds names classes),
 //    "So bewirbst du dich" in three steps, and the apply button.
-//  - Members: a compact hero, the next raid with the own sign-up /
+//  - Members: a compact hero, the next 7 days as a strip (raid days from
+//    GUILD_RAID_WEEKDAYS, each raid with the own status), the next raid with the own sign-up /
 //    line-up status, open votes (only when there are any), the newest
 //    announcement, the own recent loot and shortcuts.
 //  - Officers / admins additionally get "Zu tun": untouched applications,
@@ -85,11 +86,59 @@ function homeGuestHtml(){
 }
 
 // ---------------------------------------------------------------- members
+/** Own status for a raid: in / signed / no / todo / closed. @param {string} id @param {RaidEvent} e */
+function homeRaidStatus(id, e){
+  const uid = discordIdentity.id;
+  if (e.rosterPublished && raidCompPicked(id, e).some(s => s.uid === uid)) return 'in';
+  const best = raidUserSignup(id, uid);
+  if (best) return best.status === 'no' ? 'no' : 'signed';
+  return raidPhase(e) === 'signup' ? 'todo' : 'closed';
+}
+const HOME_RAID_STATUS = {
+  in: ['✓', 'In der Aufstellung'], signed: ['●', 'Angemeldet'], no: ['✗', 'Abgesagt'],
+  todo: ['!', 'Noch nicht angemeldet'], closed: ['–', 'Anmeldung geschlossen']
+};
+/** Start of the local day of ms. @param {number} ms */
+function homeDayStart(ms){
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/** The next 7 days: raid days and each raid with the own status. */
+function homeWeekHtml(){
+  const today = homeDayStart(Date.now());
+  const officer = isOfficerOrAdmin();
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    const from = d.getTime();
+    const to = homeDayStart(from + 36 * 3600000);
+    const raids = Object.entries(raidEvents).filter(([, e]) => e.start >= from && e.start < to).sort((a, z) => a[1].start - z[1].start);
+    const raidDay = GUILD_RAID_WEEKDAYS.includes(d.getDay());
+    const label = i === 0 ? 'Heute' : i === 1 ? 'Morgen' : d.toLocaleDateString('de-DE', { weekday: 'short' });
+    days.push(`<div class="home-day${raidDay ? ' raid-day' : ''}${raids.length ? ' has-raid' : ''}">
+      <div class="home-day-head"><b>${escapeHtml(label)}</b><span>${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</span></div>
+      ${raids.map(([id, e]) => {
+        const st = homeRaidStatus(id, e);
+        return `<button type="button" class="home-day-raid st-${st}" data-home-raid="${escapeHtml(id)}" title="${escapeHtml(`${e.title} · ${HOME_RAID_STATUS[st][1]}`)}">
+          <span class="home-day-st">${HOME_RAID_STATUS[st][0]}</span><span class="home-day-title">${escapeHtml(e.instance || e.title)}</span>
+          <span class="home-day-time">${new Date(e.start).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>
+        </button>`;
+      }).join('')}
+      ${!raids.length && raidDay ? `<span class="home-day-empty">${officer ? 'Raidtag — kein Raid angelegt' : 'Raidtag'}</span>` : ''}
+    </div>`);
+  }
+  return `<div class="home-week">${days.join('')}</div>
+    <p class="home-week-legend">${Object.values(HOME_RAID_STATUS).map(([icon, text]) => `<span>${icon} ${text}</span>`).join('')}</p>`;
+}
+
 function homeNextRaidHtml(){
   const now = Date.now();
   const uid = discordIdentity.id;
   const upcoming = Object.entries(raidEvents).filter(([, e]) => now < raidDayEnd(e)).sort((a, z) => a[1].start - z[1].start);
-  if (!upcoming.length) return homeCard('Nächster Raid', `<p class="home-text">${raidLoadError ? escapeHtml(raidLoadError) : 'Noch kein Raid geplant.'}</p>${homeLink('raids', 'Zum Raid-Kalender')}`);
+  if (!upcoming.length) return homeCard('Raids · nächste 7 Tage', `${homeWeekHtml()}<p class="home-text">${raidLoadError ? escapeHtml(raidLoadError) : 'Noch kein Raid geplant.'}</p><div class="home-links">${homeLink('raids', 'Zum Raid-Kalender')}</div>`, 'home-card-raid home-card-wide');
   const [id, e] = upcoming[0];
   const phase = raidPhase(e);
   const mine = Object.entries((raidSignups[id] || {})[uid] || {});
@@ -101,7 +150,9 @@ function homeNextRaidHtml(){
   else status = '<p class="home-status">Die Anmeldung ist geschlossen.</p>';
   const more = upcoming.length - 1;
   const r = raidRoster(id);
-  return homeCard('Nächster Raid', `
+  return homeCard('Raids · nächste 7 Tage', `
+    ${homeWeekHtml()}
+    <div class="home-card-sub">Nächster Raid</div>
     <div class="raid-date">${escapeHtml(raidDateLabel(e.start))} <span class="raid-phase raid-phase-${phase}">${RAID_PHASE_LABELS[phase]}</span></div>
     <div class="home-raid-title">${escapeHtml(e.title)}${raidEventSize(e) ? ` <span class="bis-item-meta">${raidEventSize(e)}er</span>` : ''}</div>
     <p class="bis-item-meta">${r.players} Spieler dabei · ${r.tank.length} T · ${r.healer.length} H · ${r.damage.length} DD</p>
@@ -173,6 +224,16 @@ function homeTodoHtml(){
     else if (picked && !e.rosterPublished && e.start - now < 48 * 3600000) todo.push({ text: `${e.title} (${raidDateLabel(e.start)}): Aufstellung ist noch nicht veröffentlicht.`, action: open });
     if (phase === 'running' && !lootEventSessions(id).length) todo.push({ text: `${e.title} läuft heute — noch keine Loot-Runde gestartet.`, action: `<button type="button" class="btn btn-ghost btn-sm" data-home-raid="${escapeHtml(id)}" data-home-tab="loot">Loot</button>` });
   }
+  // Raid days of the next 7 days without a raid.
+  const today = homeDayStart(now);
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    if (!GUILD_RAID_WEEKDAYS.includes(d.getDay())) continue;
+    const from = d.getTime(), to = homeDayStart(from + 36 * 3600000);
+    if (Object.values(raidEvents).some(e => e.start >= from && e.start < to)) continue;
+    todo.push({ text: `${d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' })} ist Raidtag — noch kein Raid angelegt.`, action: '<button type="button" class="btn btn-ghost btn-sm" data-home-newraid>Raid anlegen</button>' });
+  }
   for (const [eventId, byId] of Object.entries(lootSessions)) {
     const e = raidEvents[eventId];
     for (const s of Object.values(byId)) {
@@ -189,6 +250,11 @@ function homeTodoHtml(){
 /** @param {HTMLElement} root */
 function homeWire(root){
   root.querySelectorAll('[data-home-page]').forEach(btn => btn.addEventListener('click', () => showPage(btn.getAttribute('data-home-page'))));
+  root.querySelectorAll('[data-home-newraid]').forEach(btn => btn.addEventListener('click', () => {
+    raidOpen('');
+    raidEditId = '';
+    showPage('raids');
+  }));
   root.querySelectorAll('[data-home-raid]').forEach(btn => btn.addEventListener('click', () => {
     const tab = /** @type {'' | 'signup' | 'comp' | 'loot'} */ (btn.getAttribute('data-home-tab') || '');
     raidOpenId = btn.getAttribute('data-home-raid');

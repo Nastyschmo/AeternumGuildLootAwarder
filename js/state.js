@@ -12,6 +12,13 @@
 // object that lacked classDeepDives, classDiveUpdateHistory and
 // classDiveSources).
 /** @returns {State} */
+/** @returns {PublicStats | null} */
+function normalizePublicStats(raw){
+  if (!raw || typeof raw !== 'object' || !Number(raw.updatedAt)) return null;
+  const n = v => Math.max(0, Math.trunc(Number(v)) || 0);
+  return { members: n(raw.members), raiders: n(raw.raiders), raidsPlanned: n(raw.raidsPlanned), itemsAwarded: n(raw.itemsAwarded), updatedAt: Number(raw.updatedAt) };
+}
+
 function defaultState(){
   return normalizeState({});
 }
@@ -685,6 +692,7 @@ function normalizeState(parsed){
       return out;
     })(),
     recruitingNeeds: normalizeRecruitingNeeds(parsed.recruitingNeeds),
+    publicStats: normalizePublicStats(parsed.publicStats),
     classDeepDives: normalizeClassDeepDives(parsed.classDeepDives),
     classDiveUpdateHistory: normalizeClassDiveHistory(parsed.classDiveUpdateHistory),
     classDiveSources: normalizeClassDiveSources(parsed.classDiveSources),

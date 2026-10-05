@@ -186,6 +186,17 @@ interface State {
   seenState: Record<DiscordId, SeenState>;
   /** BiS-Planer: ids of public sets (bisPublic/<id>) the Admins recommend. */
   bisRecommended: Record<PushId, true>;
+  /** Guild numbers for guests (Home), written by officers / admins. */
+  publicStats: PublicStats | null;
+}
+interface PublicStats {
+  members: number;
+  /** Characters marked Main (raid status) on Meine Charaktere. */
+  raiders: number;
+  /** Raids planned from now on. */
+  raidsPlanned: number;
+  itemsAwarded: number;
+  updatedAt: Millis;
 }
 
 // ---------------------------------------------------------------------

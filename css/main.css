@@ -2450,3 +2450,9 @@ button.apply-chat-edit:hover{ filter: brightness(1.12); }
   .home-day-raid{ flex: 1; }
   .home-day:not(.raid-day):not(.has-raid){ display: none; }
 }
+
+/* Home: guild numbers for guests (publicStats) */
+.home-stats{ display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 4px 0 2px; }
+.home-stats div{ display: flex; align-items: baseline; gap: 6px; }
+.home-stats b{ font-family: 'Cinzel', serif; font-size: 24px; color: var(--gold-bright); }
+.home-stats span{ font-size: 13px; color: var(--text-muted); }

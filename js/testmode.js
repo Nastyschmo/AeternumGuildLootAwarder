@@ -188,7 +188,7 @@ function testSeed(now){
   const yesterday = new Date(now - day).toISOString().slice(0, 10);
   const classDeepDives = {
     general: { summary: '', updates: [{ id: 'tdd1', date: yesterday, title: '', createdAt: now - day,
-      text: '<p>WoW: Forever – Update vom Vortag</p><p>Blizzard hat die Beta aktualisiert. ⚙️ Allgemein</p><h2>Items</h2><p>Destiny wurde verbessert (mehr Itemlevel und Schaden).</p>' }] },
+      text: '<p>WoW: Forever – Update vom Vortag</p><p>Blizzard hat die Beta aktualisiert. ⚙️ Allgemein</p><p>Besonders hart trifft es Wilder-Kampf-Druiden und Schutz-Paladine; Holy Priest und Magier bekommen kleine Buffs, Krieger bleiben unverändert.</p><h2>Items</h2><p>Destiny wurde verbessert (mehr Itemlevel und Schaden).</p>' }] },
     druid: { summary: '', updates: [{ id: 'tdd2', date: yesterday, title: '', createdAt: now - day,
       text: '<p>Druiden-Änderungen</p><p>Moonkin Form: Reichweite der Aura 30 → 40 Meter, Krit-Bonus 3 % → 5 %.</p>' }] }
   };

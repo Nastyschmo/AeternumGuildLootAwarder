@@ -108,7 +108,7 @@ function homeGuestHtml(){
   const badges = recruitingNeedsBadges(state.recruitingNeeds || {});
   const step = (n, title, text) => `<li><span class="home-step-num">${n}</span><div><b>${title}</b><p>${text}</p></div></li>`;
   return `<div class="home-dash-grid home-dash-guest">
-    ${homeCard('Wer wir sind', `
+    ${homeCard(`${gameIconHtml('guild')} Wer wir sind`, `
       <p class="home-text">${escapeHtml(GUILD_NAME)} ist eine deutschsprachige <b>${escapeHtml(GUILD_FACTION)}</b>-Gilde auf <b>${escapeHtml(GUILD_TAGLINE)}</b> und startet gemeinsam in <b>World of Warcraft: Forever</b> (Launch ${new Date(WOW_FOREVER_RELEASE_MS).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}).</p>
       <dl class="home-facts">
         <div><dt>Fraktion</dt><dd>${escapeHtml(GUILD_FACTION)}</dd></div>
@@ -117,15 +117,15 @@ function homeGuestHtml(){
       </dl>
       ${homeStatsHtml()}
       <p class="home-text">Wir raiden zusammen, planen Aufstellung und Loot transparent hier auf der Seite und helfen uns gegenseitig mit Berufen, BiS-Listen und Guides.${badges ? '' : ' Wir freuen uns über jede Bewerbung — egal welche Klasse.'}</p>`, badges ? '' : 'home-card-wide')}
-    ${badges ? homeCard('Aktuell gesucht', `<div class="recruit-need-badges">${badges}</div><p class="bis-hint">Wir freuen uns aber über jede Bewerbung.</p>`) : ''}
-    ${homeCard('So bewirbst du dich', `
+    ${badges ? homeCard(`${gameIconHtml('raid')} Aktuell gesucht`, `<div class="recruit-need-badges">${badges}</div><p class="bis-hint">Wir freuen uns aber über jede Bewerbung.</p>`) : ''}
+    ${homeCard(`${gameIconHtml('apply')} So bewirbst du dich`, `
       <ol class="home-steps">
         ${step(1, 'Mit Discord anmelden', 'Oben rechts — damit wir wissen, wer Du bist.')}
         ${step(2, 'Bewerbungs-Chat ausfüllen', 'Ein paar Fragen zu Dir, Deinen Charakteren, Berufen und Logs.')}
         ${step(3, 'Gespräch', 'Ein Offizier meldet sich bei Dir auf Discord.')}
       </ol>
       <div class="forever-actions">${homeLink('recruit', 'Jetzt bewerben', true)}</div>`, 'home-card-wide')}
-    ${homeCard('Schon mal reinschauen', `
+    ${homeCard(`${gameIconHtml('explore')} Schon mal reinschauen`, `
       <p class="home-text">Auch ohne Mitgliedschaft offen: Talentplaner, BiS-Planer und Links & Tools rund um WoW: Forever.</p>
       <div class="home-links">${homeLink('talentbuilder', 'Talentplaner')}${homeLink('bis', 'BiS-Planer')}${homeLink('forevertools', 'Links & Tools')}</div>`, 'home-card-wide')}
   </div>`;
@@ -184,7 +184,7 @@ function homeNextRaidHtml(){
   const now = Date.now();
   const uid = discordIdentity.id;
   const upcoming = Object.entries(raidEvents).filter(([, e]) => now < raidDayEnd(e)).sort((a, z) => a[1].start - z[1].start);
-  if (!upcoming.length) return homeCard('Raids · nächste 7 Tage', `${homeWeekHtml()}<p class="home-text">${raidLoadError ? escapeHtml(raidLoadError) : 'Noch kein Raid geplant.'}</p><div class="home-links">${homeLink('raids', 'Zum Raid-Kalender')}</div>`, 'home-card-raid home-card-wide');
+  if (!upcoming.length) return homeCard(`${gameIconHtml('raid')} Raids · nächste 7 Tage`, `${homeWeekHtml()}<p class="home-text">${raidLoadError ? escapeHtml(raidLoadError) : 'Noch kein Raid geplant.'}</p><div class="home-links">${homeLink('raids', 'Zum Raid-Kalender')}</div>`, 'home-card-raid home-card-wide');
   const [id, e] = upcoming[0];
   const phase = raidPhase(e);
   const mine = Object.entries((raidSignups[id] || {})[uid] || {});
@@ -196,12 +196,12 @@ function homeNextRaidHtml(){
   else status = '<p class="home-status">Die Anmeldung ist geschlossen.</p>';
   const more = upcoming.length - 1;
   const r = raidRoster(id);
-  return homeCard('Raids · nächste 7 Tage', `
+  return homeCard(`${gameIconHtml('raid')} Raids · nächste 7 Tage`, `
     ${homeWeekHtml()}
     <div class="home-card-sub">Nächster Raid</div>
     <div class="raid-date">${escapeHtml(raidDateLabel(e.start))} <span class="raid-phase raid-phase-${phase}">${RAID_PHASE_LABELS[phase]}</span></div>
     <div class="home-raid-title">${escapeHtml(e.title)}${raidEventSize(e) ? ` <span class="bis-item-meta">${raidEventSize(e)}er</span>` : ''}</div>
-    <p class="bis-item-meta">${r.players} Spieler dabei · ${r.tank.length} T · ${r.healer.length} H · ${r.damage.length} DD</p>
+    <p class="bis-item-meta">${roleCountsHtml(r)}</p>
     ${status}
     <div class="home-links">
       <button type="button" class="btn ${phase === 'signup' && !mine.length ? 'btn-teal' : 'btn-ghost'} btn-sm" data-home-raid="${escapeHtml(id)}">${phase === 'signup' && !mine.length ? 'Jetzt anmelden' : 'Raid öffnen'}</button>
@@ -213,7 +213,7 @@ function homeNextRaidHtml(){
 function homeVotesHtml(){
   const items = questPendingPollItems();
   if (!items.length) return '';
-  return homeCard(`Abstimmungen <span class="loot-tag loot-tag-hr">${items.length} offen</span>`, `
+  return homeCard(`${gameIconHtml('votes')} Abstimmungen <span class="loot-tag loot-tag-hr">${items.length} offen</span>`, `
     <p class="home-text">Deine Stimme fehlt noch bei:</p>
     <div class="home-votes">${items.map(it => `<button type="button" class="home-vote" data-home-page="${it.page}"><span class="nav-quest-badge" aria-hidden="true">!</span><span>${escapeHtml(it.title)}</span><span class="home-vote-go">Abstimmen →</span></button>`).join('')}</div>`);
 }
@@ -222,9 +222,9 @@ function homeVotesHtml(){
 function homeAnnouncementHtml(wide){
   const raw = sortedAnnouncements()[0];
   const a = raw ? normalizeAnnouncement(raw) : null;
-  if (!a) return homeCard('Neueste Ankündigung', '<p class="home-text">Noch keine Ankündigungen.</p>', wide ? 'home-card-wide' : '');
+  if (!a) return homeCard(`${gameIconHtml('announce')} Neueste Ankündigung`, '<p class="home-text">Noch keine Ankündigungen.</p>', wide ? 'home-card-wide' : '');
   const unread = questPendingAnnouncement();
-  return homeCard(`Neueste Ankündigung${unread ? ' <span class="loot-tag loot-tag-hr">neu</span>' : ''}`, `
+  return homeCard(`${gameIconHtml('announce')} Neueste Ankündigung${unread ? ' <span class="loot-tag loot-tag-hr">neu</span>' : ''}`, `
     <div class="home-raid-title">${escapeHtml(a.title || 'Ankündigung')}</div>
     <p class="bis-item-meta">${escapeHtml(new Date(a.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }))}${a.authorName ? ` · ${escapeHtml(a.authorName)}` : ''}</p>
     <p class="home-text">${escapeHtml(summarizeAnnouncementText(a.text))}</p>
@@ -233,7 +233,7 @@ function homeAnnouncementHtml(wide){
 
 function homeLootHtml(){
   const mine = Object.values(lootAwards).filter(a => a.uid === discordIdentity.id).sort((a, z) => z.at - a.at).slice(0, 4);
-  return homeCard('Mein Loot', mine.length
+  return homeCard(`${gameIconHtml('loot')} Mein Loot`, mine.length
     ? `${mine.map(a => `<div class="loot-award-row">${lootItemHtml(a.itemId, a.itemName)} → ${lootCharHtml(a)} <span class="bis-item-meta">${escapeHtml(new Date(a.at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }))}</span></div>`).join('')}
       <div class="home-links">${homeLink('loot', 'Ganze Historie')}</div>`
     : `<p class="home-text">${lootLoadError ? escapeHtml(lootLoadError) : 'Noch kein Loot bekommen — das ändert sich hoffentlich bald.'}</p>`);
@@ -248,7 +248,7 @@ function homeShortcutsHtml(){
     chars.length && chars.some(c => !c.classId) ? 'Bei einem Charakter fehlt noch die Klasse.' : '',
     noBis ? `${noBis === 1 ? 'Ein Main hat' : `${noBis} Mains haben`} noch keine BiS-Liste — die hilft bei der Loot-Vergabe.` : ''
   ].filter(Boolean);
-  return homeCard('Mein Charakter', `
+  return homeCard(`${gameIconHtml('character')} Mein Charakter`, `
     ${chars.length ? `<p class="home-text">${chars.map(c => `<span class="raid-chip${characterIsRaider(c) ? '' : ' raid-chip-twink'}" style="--class-color:${c.classId && CLASS_MAP[c.classId] ? CLASS_MAP[c.classId].color : 'var(--text-muted)'}">${escapeHtml(c.name)}</span>`).join(' ')}</p>` : ''}
     ${hints.map(h => `<p class="home-status home-status-todo">${escapeHtml(h)}</p>`).join('')}
     <div class="home-links">${homeLink('mychar', 'Meine Charaktere')}${homeLink('bis', 'BiS-Planer')}${homeLink('talentbuilder', 'Talentplaner')}</div>`);
@@ -288,7 +288,7 @@ function homeTodoHtml(){
       if (left && e) todo.push({ text: `${e.title}: Loot-Runde mit ${left} offenen ${left === 1 ? 'Item' : 'Items'}.`, action: `<button type="button" class="btn btn-ghost btn-sm" data-home-raid="${escapeHtml(eventId)}" data-home-tab="loot">Zur Runde</button>` });
     }
   }
-  return homeCard('Zu tun <span class="bis-item-meta">für Offiziere</span>', todo.length
+  return homeCard(`${gameIconHtml('todo')} Zu tun <span class="bis-item-meta">für Offiziere</span>`, todo.length
     ? `<ul class="home-todo">${todo.map(t => `<li><span>${escapeHtml(t.text)}</span>${t.action}</li>`).join('')}</ul>`
     : '<p class="home-text">✓ Nichts offen — alles erledigt.</p>', 'home-card-todo');
 }

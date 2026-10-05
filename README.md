@@ -1479,6 +1479,17 @@ officer, members, an applicant) and has a "Was testen?" checklist.
 Discord DMs and Armory / WarcraftLogs lookups are skipped. "Testmodus
 beenden" restores the real login.
 
+**Game icons** (`js/game-icons.js`): original WoW icons from Wowhead's
+icon CDN (same source as talents / items) for headings and roles —
+`GAME_ICONS` maps a purpose to an icon name (talents, spells, items,
+patch, tank, healer, damage, raid, loot, votes …); every name occurs in
+our own game data, so the CDN has it. Used in the Patch-Updates (section
+heads), raid role columns / counts and the Home card titles. Class and
+spec mentions in Patch-Updates and the Deep Dive / Allgemeine Infos text
+("Druiden", "Schutz-Paladine", "Holy Priest", English and German) get the
+class or spec icon in front (`annotateClassMentions`, before the spell
+auto-links).
+
 **Home-Dashboard** (`js/home-dashboard.js`, below the hero on Home):
 guests / applicants see who we are, who we're looking for
 (recruitingNeeds), "So bewirbst du dich" in three steps and links to the

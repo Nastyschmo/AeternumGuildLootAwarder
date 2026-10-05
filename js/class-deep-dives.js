@@ -100,7 +100,10 @@ function annotateSpellMentions(rootEl, classId){
   const pattern = index.map(e => escapeRegExp(e.name)).join('|');
   if (!pattern) return;
   const regex = new RegExp(pattern, 'g');
-  const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+  // Class / spec mentions (annotateClassMentions) stay as they are.
+  const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+    acceptNode: n => (n.parentElement && n.parentElement.closest('.game-mention') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT)
+  });
   const textNodes = [];
   let node;
   while ((node = walker.nextNode())) textNodes.push(node);
@@ -664,8 +667,8 @@ function renderClassDeepDivesView(){
   // officer's cursor while they're typing, and never the collapsed
   // plain-text previews, which have no markup to annotate anyway.
   const summaryTextEl = els.classDivesList.querySelector('.classdive-summary-card .classdive-summary-text');
-  if (summaryTextEl) annotateSpellMentions(summaryTextEl, c.id);
-  els.classDivesList.querySelectorAll('.classdive-update-text').forEach(el => annotateSpellMentions(el, c.id));
+  if (summaryTextEl){ annotateClassMentions(/** @type {HTMLElement} */ (summaryTextEl)); annotateSpellMentions(summaryTextEl, c.id); }
+  els.classDivesList.querySelectorAll('.classdive-update-text').forEach((/** @type {HTMLElement} */ el) => { annotateClassMentions(el); annotateSpellMentions(el, c.id); });
 
   // Update-Historie + Quellen — always-expanded static cards, wired
   // separately since they have no toggle/expand state of their own.

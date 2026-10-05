@@ -300,7 +300,7 @@ function raidSignupsHtml(id){
   const r = raidRoster(id);
   const col = (label, list) => `<div class="raid-col"><div class="raid-col-head">${label} <span>${list.length}</span></div>${list.length ? list.map(raidChipHtml).join('') : '<span class="bis-item-meta">—</span>'}</div>`;
   return `<div class="raid-roster">
-      ${col('Tanks', r.tank)}${col('Heiler', r.healer)}${col('Damage', r.damage)}
+      ${col(`${roleIconHtml('tank')} Tanks`, r.tank)}${col(`${roleIconHtml('healer')} Heiler`, r.healer)}${col(`${roleIconHtml('damage')} Damage`, r.damage)}
     </div>
     ${r.maybe.length || r.no.length ? `<div class="raid-roster-extra">
       ${r.maybe.length ? `<div><span class="raid-col-head">Vielleicht</span> ${r.maybe.map(raidChipHtml).join('')}</div>` : ''}
@@ -331,8 +331,8 @@ function raidListCardHtml(id, e){
     else if (mine.length) me = `<span class="raid-me">Angemeldet: ${mine.map(([k, s]) => `${raidChipHtml({ uid: discordIdentity.id, charKey: k, ...s })} <span class="bis-item-meta">${RAID_STATUS_LABELS[s.status]}</span>`).join(' ')}</span>`;
     else if (phase === 'signup') me = '<span class="raid-me raid-me-todo">Noch nicht angemeldet</span>';
   }
+  // Plain-text facts (escaped below); the role counts come first as HTML with icons.
   const facts = [
-    `${r.players} Spieler dabei · ${r.tank.length} T · ${r.healer.length} H · ${r.damage.length} DD`,
     officer || e.rosterPublished ? `Aufstellung ${picked.length}${raidEventSize(e) ? `/${raidEventSize(e)}` : ''}${e.rosterPublished ? ' · veröffentlicht' : picked.length ? ' · Entwurf' : ''}` : '',
     sessions ? `${sessions} ${sessions === 1 ? 'Loot-Runde' : 'Loot-Runden'}` : '',
     awards ? `${awards} ${awards === 1 ? 'Item' : 'Items'} vergeben` : ''
@@ -342,7 +342,7 @@ function raidListCardHtml(id, e){
       <div>${raidTitleHtml(e)}</div>
       <span class="raid-open-hint">Öffnen →</span>
     </div>
-    <div class="raid-list-facts">${facts.map(f => `<span>${escapeHtml(f)}</span>`).join('')}</div>
+    <div class="raid-list-facts"><span>${roleCountsHtml(r)}</span>${facts.map(f => `<span>${escapeHtml(f)}</span>`).join('')}</div>
     ${me}
   </div>`;
 }

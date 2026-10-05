@@ -15,8 +15,8 @@
 // DungeonEncounter (official encounter names and order per instance map,
 // used by the client for boss kills) and the journal parts are added
 // whenever the client starts shipping them. Never fails the import:
-// missing tables give a log line. Only instances we care about are
-// kept (KEEP_INSTANCES + the dungeons / raids the item data knows), so the
+// missing tables give a log line. Only instances we care about are kept
+// (classic dungeons / raids, what Forever adds, KEEP_INSTANCES), so the
 // file stays small even if the client ships the whole retail journal.
 
 const I = v => { const n = Math.trunc(Number(v)); return Number.isFinite(n) ? n : 0; };
@@ -45,22 +45,24 @@ export function journalText(text) {
 /** Instance kinds by Map.InstanceType. */
 const MAP_KIND = { 1: 'd', 2: 'r' };
 
+/** Classic dungeon / raid map ids (the Era client also carries Season of Discovery maps, world bosses and tests — left out). */
+const CLASSIC_MAPS = new Set([33, 34, 36, 43, 47, 48, 70, 90, 109, 129, 189, 209, 229, 230, 249, 289, 309, 329, 349, 389, 409, 429, 469, 509, 531, 533]);
+
 /**
- * Bosses per instance from DungeonEncounter (Era rows, Forever rows on top).
- * @param {{ build: string, eraBuild: string, table: Function, maps: Map<number, any>, keep: Set<string> }} ctx
+ * Bosses per instance from the Forever client's DungeonEncounter: classic
+ * instances (CLASSIC_MAPS) and everything Forever adds (encounters the
+ * Classic Era client doesn't have) — `new: 1` on those instances.
+ * @param {{ build: string, eraBuild: string, table: Function, maps: Map<number, any> }} ctx
  */
-async function encounterInstances({ build, eraBuild, table, maps, keep }) {
-  const rows = new Map();
-  for (const b of [eraBuild, build]) {
-    try {
-      const list = await table('DungeonEncounter', b);
-      console.log(`  encounters: DungeonEncounter ${b}: ${list.length} rows; columns ${Object.keys(list[0] || {}).join(',')}`);
-      for (const r of list) rows.set(I(r.ID), r);
-    } catch (e) { console.log(`  encounters: DungeonEncounter ${b} not available (${e.message.slice(0, 120)})`); }
-  }
+async function encounterInstances({ build, eraBuild, table, maps }) {
+  let rows = [];
+  try { rows = await table('DungeonEncounter', build); } catch (e) { console.log(`  encounters: DungeonEncounter ${build} not available (${e.message.slice(0, 120)})`); return []; }
+  const eraIds = new Set();
+  try { for (const r of await table('DungeonEncounter', eraBuild)) eraIds.add(I(r.ID)); } catch (e) { /* then nothing counts as new */ }
+  console.log(`  encounters: DungeonEncounter ${build}: ${rows.length} rows (${rows.filter(r => !eraIds.has(I(r.ID))).length} not in Classic Era ${eraBuild})`);
   /** mapId -> encounters */
   const byMap = new Map();
-  for (const r of rows.values()) {
+  for (const r of rows) {
     const m = I(r.MapID);
     if (!byMap.has(m)) byMap.set(m, []);
     byMap.get(m).push(r);
@@ -69,17 +71,20 @@ async function encounterInstances({ build, eraBuild, table, maps, keep }) {
   for (const [mapId, list] of byMap) {
     const map = maps.get(mapId) || {};
     const name = S(map.MapName_lang);
-    if (!name) continue;
-    // One row per encounter (several difficulties share a name).
+    const isNew = eraIds.size > 0 && list.some(r => !eraIds.has(I(r.ID)));
+    const kind = MAP_KIND[I(map.InstanceType)] || '';
+    if (!name || !kind || /\btest/i.test(name) || list.some(r => /^test/i.test(S(r.Name_lang)))) continue;
+    if (!CLASSIC_MAPS.has(mapId) && !isNew) continue;
+    // One entry per encounter name (difficulties repeat it), in raid order.
     const seen = new Map();
     for (const r of list.sort((a, z) => I(a.OrderIndex) - I(z.OrderIndex) || I(a.ID) - I(z.ID))) {
       const n = S(r.Name_lang);
-      if (n && !seen.has(n)) seen.set(n, { id: I(r.ID), n, o: I(r.OrderIndex) });
+      if (n && !seen.has(n)) seen.set(n, { id: I(r.ID), n });
     }
-    out.push({ map: mapId, n: name, kind: MAP_KIND[I(map.InstanceType)] || '', bosses: [...seen.values()] });
+    out.push({ map: mapId, n: name, kind, ...(isNew ? { new: 1 } : {}), bosses: [...seen.values()] });
   }
-  console.log(`  encounters: ${out.length} instance maps: ${out.map(x => `${x.n} (${x.bosses.length})`).join(' | ')}`);
-  return out.filter(x => keep.has(x.n.toLowerCase()) || x.kind === 'r' || x.kind === 'd');
+  console.log(`  encounters: kept ${out.length} instances: ${out.map(x => `${x.n}${x.new ? '*' : ''} (${x.bosses.length})`).join(' | ')}`);
+  return out;
 }
 
 /**
@@ -88,7 +93,7 @@ async function encounterInstances({ build, eraBuild, table, maps, keep }) {
  */
 export async function buildJournal({ build, eraBuild, table, icons, instanceNames, maps }) {
   const keepNames = new Set([...KEEP_INSTANCES, ...instanceNames].map(n => n.toLowerCase()));
-  const encInst = await encounterInstances({ build, eraBuild, table, maps, keep: keepNames });
+  const encInst = await encounterInstances({ build, eraBuild, table, maps });
   const load = async (name) => {
     try { return await table(name, build); } catch (e) {
       try { const rows = await table(name, eraBuild); console.log(`  journal: ${name} from Classic Era (${rows.length} rows)`); return rows; }
@@ -99,11 +104,11 @@ export async function buildJournal({ build, eraBuild, table, icons, instanceName
   const enc = inst ? await load('JournalEncounter') : null;
   const sec = enc ? await load('JournalEncounterSection') : null;
   // No journal: the DungeonEncounter boss lists alone.
-  if (!inst || !enc) return { instances: encInst.map(x => ({ n: x.n, map: x.map, kind: x.kind, bosses: x.bosses.map(b => ({ id: b.id, n: b.n })) })), note: 'no journal tables, bosses from DungeonEncounter' };
+  if (!inst || !enc) return { instances: encInst, note: 'no journal tables, bosses from DungeonEncounter' };
   console.log(`  journal: JournalInstance ${inst.length}, JournalEncounter ${enc.length}, JournalEncounterSection ${sec ? sec.length : 0} rows`);
   console.log(`  journal columns: ${Object.keys(inst[0] || {}).join(',')} | ${Object.keys(enc[0] || {}).join(',')} | ${Object.keys((sec || [])[0] || {}).join(',')}`);
 
-  const kept = inst.filter(r => keepNames.has(S(r.Name_lang).toLowerCase()));
+  const kept = inst.filter(r => encInst.some(x => x.map === I(r.MapID)) || keepNames.has(S(r.Name_lang).toLowerCase()));
   console.log(`  journal: ${inst.length} instances in the client, kept ${kept.length}: ${kept.map(r => r.Name_lang).join(', ')}`);
   console.log(`  journal: client instances (first 80): ${inst.slice(0, 80).map(r => r.Name_lang).join(' | ')}`);
 
@@ -160,8 +165,8 @@ export async function buildJournal({ build, eraBuild, table, icons, instanceName
       if (sections.length) out.sec = sections;
       return out;
     });
-    const kind = (encInst.find(x => x.map === I(r.MapID)) || {}).kind || '';
-    return { id, n: S(r.Name_lang), desc: journalText(r.Description_lang), map: I(r.MapID), kind, bosses };
+    const e = encInst.find(x => x.map === I(r.MapID)) || {};
+    return { id, n: S(r.Name_lang), desc: journalText(r.Description_lang), map: I(r.MapID), kind: e.kind || '', ...(e.new ? { new: 1 } : {}), bosses };
   }).filter(x => x.bosses.length);
   return { instances, note: '' };
 }

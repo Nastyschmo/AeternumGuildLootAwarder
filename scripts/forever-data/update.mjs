@@ -433,7 +433,7 @@ for (const name of ['Mortal Strike', 'Bloodthirst', 'Shield Slam', 'Holy Shock',
 
 // ---------------------------------------------------------------- journal
 // Optional: an empty journal never fails the import (see journal.mjs).
-const journal = await buildJournal({ build, eraBuild, table, icons, instanceNames: Object.keys(instances) });
+const journal = await buildJournal({ build, eraBuild, table, icons, instanceNames: Object.keys(instances), maps });
 console.log(`  journal: ${journal.instances.length} instances, ${journal.instances.reduce((n, x) => n + x.bosses.length, 0)} bosses${journal.note ? ` (${journal.note})` : ''}`);
 
 // ---------------------------------------------------------------- class stats

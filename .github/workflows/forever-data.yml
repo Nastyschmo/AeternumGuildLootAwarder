@@ -45,6 +45,8 @@ jobs:
       - run: npm ci
       - name: Regenerate data/forever
         run: node scripts/forever-data/update.mjs
+      - name: Changelog (what changed in the game data since the last commit)
+        run: node scripts/forever-data/changelog.mjs
       - name: Type check
         run: npm run typecheck
       - name: Detect changes

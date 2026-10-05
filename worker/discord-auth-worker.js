@@ -1435,12 +1435,14 @@ function parseWowheadFeedItems(xmlText) {
 // already relies on, since Wowhead reliably publishes its own article
 // (with its own thumbnail) whenever Blizzard ships official patch notes.
 const PATCH_NOTES_TITLE_PATTERN = /patch\s*notes|hotfixes?/i;
+const WOWHEAD_RECENT_COUNT = 8;
 
 function isPatchNotesItem(item) {
   return !!item && PATCH_NOTES_TITLE_PATTERN.test(item.title);
 }
 
-// Returns both the newest post overall (for the general news card) AND
+// Returns the newest post overall (for the general news card), the last
+// WOWHEAD_RECENT_COUNT posts (the card's "Weitere Artikel" dropdown) AND
 // the newest post that looks like an official patch-notes/hotfix write-up
 // (for the patch-notes card), searched across the whole feed rather than
 // just the first item, since a patch-notes post may not always be the
@@ -1449,6 +1451,7 @@ function getWowheadNewsAndPatchNotes(xmlText) {
   const items = parseWowheadFeedItems(xmlText);
   return {
     latest: items[0] || null,
+    recent: items.slice(0, WOWHEAD_RECENT_COUNT),
     patchNotes: items.find(isPatchNotesItem) || null
   };
 }

@@ -335,8 +335,9 @@ function classDiveHtmlPreviewLines(html, maxLines){
 const CLASSDIVE_CLOCK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>';
 const CLASSDIVE_LINK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l2.5-2.5a5 5 0 0 0-7.07-7.07L11 4.88"/><path d="M14 11a5 5 0 0 0-7.07 0l-2.5 2.5a5 5 0 0 0 7.07 7.07L13 19.12"/></svg>';
 
-// Update-Historie — always expanded (no toggle), pinned below the
-// per-class cards. Rows are the hard-coded CLASSDIVE_HISTORY_SEED
+// Update-Historie (hand-written) — always expanded (no toggle), in the
+// "Allgemein" category below the automatic "Änderungen im Spiel"
+// (js/forever-changes.js). Rows are the hard-coded CLASSDIVE_HISTORY_SEED
 // (oldest first, not deletable) followed by whatever Officers/Admins
 // have added since (Firebase-backed, in push-key/insertion order, so
 // newly added rows land at the bottom — a forward-reading changelog).
@@ -581,7 +582,8 @@ function renderClassDeepDivesView(){
       <h2 class="classdive-main-title" style="color:${c.color}">${escapeHtml(c.label)}</h2>
     </div>
     ${summaryCardHtml}
-    ${c.isGeneral ? '' : howToPlayCardHtml(c.id)}
+    ${c.isGeneral ? foreverChangesGeneralHtml() : howToPlayCardHtml(c.id)}
+    ${c.isGeneral ? '' : foreverChangesClassHtml(c.label)}
     <div class="classdive-updates-section">
       <div class="classdive-section-title">Patch-Updates</div>
       <div class="classdive-updates" data-classdive-updates="${c.id}">${updatesListHtml}</div>
@@ -591,9 +593,8 @@ function renderClassDeepDivesView(){
   els.classDivesList.innerHTML = `
     <div class="classdive-layout">
       <nav class="classdive-sidebar" aria-label="Klassen-Filter">${sidebarHtml}</nav>
-      <div class="classdive-main">${mainHtml}</div>
+      <div class="classdive-main">${mainHtml}${c.isGeneral ? classDiveHistoryCardHtml(canManage) : ''}</div>
     </div>
-    ${classDiveHistoryCardHtml(canManage)}
     ${classDiveSourcesCardHtml(canManage)}`;
 
   if (!c.isGeneral) wireHowToPlay(els.classDivesList, c.id);

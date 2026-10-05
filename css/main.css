@@ -2456,3 +2456,18 @@ button.apply-chat-edit:hover{ filter: brightness(1.12); }
 .home-stats div{ display: flex; align-items: baseline; gap: 6px; }
 .home-stats b{ font-family: 'Cinzel', serif; font-size: 24px; color: var(--gold-bright); }
 .home-stats span{ font-size: 13px; color: var(--text-muted); }
+
+/* Game-data changelog (js/forever-changes.js) and the Wowhead article dropdown */
+.forever-changes{ margin-top: 14px; }
+.forever-change{ margin: 8px 0; padding: 8px 12px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--fold-body-bg); }
+.forever-change > summary{ cursor: pointer; font-size: 14px; }
+.forever-change > summary .bis-item-meta{ margin-left: 6px; }
+.forever-change-group{ margin-top: 10px; }
+.forever-change-label{ font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--gold-bright); margin-bottom: 4px; }
+.forever-change-items{ display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
+.forever-change-item{ display: inline-flex; align-items: center; gap: 4px; }
+.forever-change-talents{ margin: 0; padding-left: 18px; font-size: 13.5px; display: flex; flex-direction: column; gap: 6px; }
+.forever-change-cls{ font-weight: 700; }
+.forever-change-from{ color: var(--text-muted); text-decoration: line-through; font-size: 12.5px; margin-top: 2px; }
+.forever-change-to{ color: var(--text); font-size: 12.5px; margin-top: 2px; }
+.news-select{ width: 100%; margin-bottom: 8px; background: var(--field-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; font: inherit; font-size: 12px; cursor: pointer; }

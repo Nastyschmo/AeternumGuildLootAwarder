@@ -167,6 +167,8 @@ interface NewsItem {
   requiresLogin?: boolean;
   /** Hidden after this moment (ms). */
   until?: Millis;
+  /** Titles for a dropdown on the card (Wowhead: the last articles). */
+  options?: string[];
 }
 
 interface SeenState { announcementsSeenAt: Millis; }

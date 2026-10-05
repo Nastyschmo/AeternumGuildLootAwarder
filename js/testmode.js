@@ -249,6 +249,29 @@ if (RUDE_TESTMODE) (function(){
   document.addEventListener('DOMContentLoaded', testModeBar);
 })();
 
+/**
+ * A made-up "new build" for the game-data changelog (js/forever-changes.js),
+ * since the real data/forever/changelog.json only fills with new builds.
+ * Real item ids / talent names, invented changes.
+ */
+function testModeChangelog(){
+  const d = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  return { entries: [{
+    date: d, build: '1.60.2.71000 (Test)', prevBuild: '1.60.1.70205',
+    items: {
+      counts: { added: 2, removed: 1, changed: 3 },
+      added: [[19145, 'Robe of Volatile Power', 4], [18842, 'Staff of Dominance', 4]],
+      removed: [[18205, "Eskhandar's Collar", 4]],
+      changed: [[17064, 'Shard of the Scale', 4, ['Werte']], [647, 'Destiny', 4, ['Itemlevel', 'Schaden']], [16921, 'Halo of Transcendence', 4, ['Werte']]]
+    },
+    talents: [
+      { c: 'Druid', n: 'Moonkin Form', k: 'changed', from: 'Transforms the Druid into Moonkin Form. While in this form the armor contribution from items is increased by 360%, and all party members within 30 yards have their spell critical chance increased by 3%.', to: 'Transforms the Druid into Moonkin Form. While in this form the armor contribution from items is increased by 360%, and all party members within 40 yards have their spell critical chance increased by 5%.' },
+      { c: 'Mage', n: 'Arcane Power', k: 'changed', from: 'When activated, your spells deal 30% more damage while costing 30% more mana to cast. This effect lasts 15 sec.', to: 'When activated, your spells deal 25% more damage while costing 25% more mana to cast. This effect lasts 20 sec.' },
+      { c: 'Warrior', n: 'Improved Heroic Strike', k: 'changed', ranks: [3, 2], from: 'Reduces the cost of your Heroic Strike ability by 3 Rage.', to: 'Reduces the cost of your Heroic Strike ability by 3 Rage.' }
+    ]
+  }] };
+}
+
 /** Start: remember the real login, become the test admin. */
 function testModeStart(){
   try {
@@ -291,6 +314,7 @@ function testModeBar(){
         <li><b>Hyjal</b>: Soft-Reserve-Raid mit Hard-Reserve (Staff of Dominance, nicht reservierbar). Als Officer im Tab „Anmeldung“ weitere HR setzen, „Anmeldung schließen → Aufstellung“ ausprobieren.</li>
         <li><b>Ansicht als Mitglied</b> (z. B. Feuerfee): Liste zeigt „Angemeldet“ / „In der Aufstellung“; bei Hyjal einen zweiten Charakter anmelden, Soft-Reserve setzen; Loot-Tab zeigt nur die Vergaben.</li>
         <li><b>Loot-Seite</b>: Historie nach Raid / pro Spieler.</li>
+        <li><b>Klassen → Allgemein</b>: „Änderungen im Spiel“ zeigt einen erfundenen neuen Build (Items + Talente); Druide / Magier / Krieger zeigen ihre Talent-Änderungen. Auf Home gibt's dazu eine Neuigkeits-Kachel.</li>
         <li><b>Bewerbung</b>: als „Neuling Nils“ sieht man den Status der eigenen Bewerbung; als Officer die Liste (offen hervorgehoben, Lena in Bearbeitung, Tom angenommen).</li>
         <li><b>Meine Charaktere / Berufe / BiS-Planer</b>: Charaktere bearbeiten (Main/Twink, Berufe, BiS-Set je Spec), Berufe-Verzeichnis durchsuchen („Lionheart“).</li>
       </ol>

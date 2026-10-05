@@ -313,6 +313,7 @@ function showPage(pageId, opts){
   if (pageId === 'forevertools') renderForeverToolsPage();
   if (pageId === 'bis') renderBisPlanner();
   if (pageId === 'home') renderHomeDashboard();
+  if (pageId === 'classdeepdives') renderClassDeepDivesView();
   if (pageId === 'raids') renderRaidsPage();
   if (pageId === 'professions') renderProfessionsPage();
   if (pageId === 'loot') renderLootPage();

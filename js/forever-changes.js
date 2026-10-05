@@ -131,7 +131,7 @@ const foreverMentioned = (plain, name) => Boolean(plain) && plain.includes(name.
 
 /**
  * The automatic part of one build for a category, as Patch-Update HTML
- * (same look as the hand-written posts: emoji section heads, "alt → neu").
+ * (same look as the hand-written posts: section heads with game icons, "alt → neu").
  * '' when nothing is left (e.g. everything already named in the post).
  * @param {ForeverChangeEntry} e @param {string} classLabel '' = Allgemein @param {string} known lower-case text of a post to not repeat
  */
@@ -144,7 +144,7 @@ function foreverChangeHtml(e, classLabel, known){
     const added = keep(it.added), changed = keep(it.changed), removed = keep(it.removed);
     const more = (shown, total) => total > shown ? `<li class="fc-more">… und ${total - shown} weitere</li>` : '';
     if (added.length || changed.length || removed.length){
-      html += '<h2>⚔️ Items</h2>';
+      html += `<h2>${gameIconHtml('items', 22)} Items</h2>`;
       if (changed.length) html += `<p><b>Geändert</b></p><ul class="fc-items">${changed.map(r => `<li>${foreverChangeItemHtml(r[0], r[1])}<span class="fc-sep">:</span> ${Object.entries(r[3] || {}).flatMap(([f, pair]) => foreverFieldChanges(f, pair)).join(' · ')}</li>`).join('')}${more(it.changed.length, it.counts.changed)}</ul>`;
       if (added.length) html += `<p><b>Neu im Spiel</b></p><ul class="fc-items">${added.map(r => `<li>${foreverChangeItemHtml(r[0], r[1])}</li>`).join('')}${more(it.added.length, it.counts.added)}</ul>`;
       if (removed.length) html += `<p><b>Entfernt</b></p><ul class="fc-items">${removed.map(r => `<li>${foreverChangeItemHtml(r[0], r[1])}</li>`).join('')}${more(it.removed.length, it.counts.removed)}</ul>`;
@@ -154,15 +154,15 @@ function foreverChangeHtml(e, classLabel, known){
   if (talents.length){
     if (classLabel){
       const rest = talents.filter(t => { const m = foreverMentioned(known, t.n); if (m) skipped++; return !m; });
-      if (rest.length) html += `<h2>✨ Talente</h2><ul>${rest.map(foreverTalentChangeHtml).join('')}</ul>`;
+      if (rest.length) html += `<h2>${gameIconHtml('talents', 22)} Talente</h2><ul>${rest.map(foreverTalentChangeHtml).join('')}</ul>`;
     } else {
       // Allgemein: only who changed — the texts are in each class.
       /** @type {Map<string, string[]>} */
       const byClass = new Map();
       for (const t of talents) { if (!byClass.has(t.c)) byClass.set(t.c, []); byClass.get(t.c).push(t.n); }
-      html += `<h2>✨ Talente</h2><ul>${[...byClass].map(([c, names]) => {
+      html += `<h2>${gameIconHtml('talents', 22)} Talente</h2><ul>${[...byClass].map(([c, names]) => {
         const cls = CLASSES.find(x => x.label === c);
-        return `<li><button type="button" class="fc-class-link" data-select-classdive="${cls ? cls.id : ''}" style="color:${cls ? cls.color : 'var(--text)'}">${escapeHtml(FOREVER_CLASS_DE[c] || c)}</button>: ${names.map(escapeHtml).join(', ')}</li>`;
+        return `<li><button type="button" class="fc-class-link" data-select-classdive="${cls ? cls.id : ''}" style="color:${cls ? cls.color : 'var(--text)'}">${cls && foreverClassIconUrl(cls.id) ? `<img class="game-icon" src="${escapeHtml(foreverClassIconUrl(cls.id))}" alt="" loading="lazy">` : ''}${escapeHtml(FOREVER_CLASS_DE[c] || c)}</button>: ${names.map(escapeHtml).join(', ')}</li>`;
       }).join('')}</ul><p class="fc-hint">Die Texte vorher / nachher stehen bei der jeweiligen Klasse.</p>`;
     }
   }
@@ -187,7 +187,7 @@ function foreverChangePosts(manual, classLabel){
     const body = foreverChangeHtml(e, classLabel, near ? stripHtmlToText(near.text).toLowerCase() : '');
     if (!body) continue;
     const intro = `<p>WoW: Forever – Build <b>${escapeHtml(e.build)}</b>${e.prevBuild ? ` (vorher ${escapeHtml(e.prevBuild)})` : ''}. Automatisch aus den Spieldaten erkannt: ${escapeHtml(foreverChangeSummary(e, classLabel || undefined))}.</p>`;
-    if (near) near.text += `<div class="fc-auto-block"><h2>🔎 Automatisch erkannt (Build ${escapeHtml(e.build)})</h2>${body}</div>`;
+    if (near) near.text += `<div class="fc-auto-block"><h2>${gameIconHtml('auto', 22)} Automatisch erkannt (Build ${escapeHtml(e.build)})</h2>${body}</div>`;
     else posts.push({ id: `auto-${e.build}-${classLabel || 'general'}`, date: e.date, title: '', text: intro + body, createdAt: day(e.date), auto: true, build: e.build });
   }
   return posts.sort((a, z) => (z.date || '').localeCompare(a.date || '') || (z.createdAt - a.createdAt));

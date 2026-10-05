@@ -78,7 +78,7 @@ function raidCompPublishedHtml(id, e){
   for (const s of bench) { if (!benchByUid.has(s.uid)) benchByUid.set(s.uid, []); benchByUid.get(s.uid).push(s); }
   const col = role => {
     const list = picked.filter(s => s.role === role);
-    return `<div class="raid-col"><div class="raid-col-head">${RAID_ROLE_LABELS[role]} <span>${list.length}</span></div>${list.length ? list.map(raidChipHtml).join('') : '<span class="bis-item-meta">—</span>'}</div>`;
+    return `<div class="raid-col"><div class="raid-col-head">${roleIconHtml(role)} ${RAID_ROLE_LABELS[role]} <span>${list.length}</span></div>${list.length ? list.map(raidChipHtml).join('') : '<span class="bis-item-meta">—</span>'}</div>`;
   };
   return `<div class="raid-comp-published">
     <div class="raid-col-head">Aufstellung <span>${picked.length}${raidEventSize(e) ? `/${raidEventSize(e)}` : ''} · von den Offizieren veröffentlicht</span></div>
@@ -112,7 +112,7 @@ function raidCompPanelHtml(id, e){
       .sort((a, z) => Number(Boolean(e.roster[z.key])) - Number(Boolean(e.roster[a.key])) || Number(a.status === 'maybe') - Number(z.status === 'maybe') || (a.charName || '').localeCompare(z.charName || '', 'de'));
     const n = count(role), goal = t[role];
     return `<div class="raid-comp-col">
-      <div class="raid-col-head">${RAID_ROLE_LABELS[role]} <span class="${n < goal ? 'raid-comp-short' : n > goal ? 'raid-comp-over' : 'raid-comp-ok'}">${n}/${goal}</span>
+      <div class="raid-col-head">${roleIconHtml(role)} ${RAID_ROLE_LABELS[role]} <span class="${n < goal ? 'raid-comp-short' : n > goal ? 'raid-comp-over' : 'raid-comp-ok'}">${n}/${goal}</span>
         <input type="number" min="0" max="40" class="raid-comp-target" data-raid-comp-target="${escapeHtml(id)}|${role}" value="${goal}" title="Ziel ${RAID_ROLE_LABELS[role]}"></div>
       ${list.length ? list.map(row).join('') : '<span class="bis-item-meta">Keine Anmeldungen.</span>'}
     </div>`;

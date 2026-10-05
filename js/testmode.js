@@ -188,9 +188,9 @@ function testSeed(now){
   const yesterday = new Date(now - day).toISOString().slice(0, 10);
   const classDeepDives = {
     general: { summary: '', updates: [{ id: 'tdd1', date: yesterday, title: '', createdAt: now - day,
-      text: '<p>WoW: Forever – Update vom Vortag</p><p>Blizzard hat die Beta aktualisiert. ⚙️ Allgemein</p><h2>Items</h2><p>Destiny wurde verbessert (mehr Itemlevel und Schaden).</p>' }] },
+      text: '<p>WoW: Forever – Update vom Vortag</p><p>Blizzard hat die Beta aktualisiert.</p><p>⚙️ Allgemein</p><p>🐉 Raids 🤷 bald</p><p>🛡️ Paladin</p><ul><li><b>Schutz</b><ul><li>Redoubt: Blockchance gesenkt.</li></ul></li><li><b>Vergeltung</b><ul><li>Champion of the Light entfernt.</li></ul></li></ul><p>🗡️ Krieger</p><ul><li><b>Waffen</b><ul><li>Spearing Strike braucht keine Zweihandwaffe mehr.</li></ul></li><li><b>Furor</b><ul><li>Bloodthirst: Angriffskraft-Anteil 35 % → 45 %.</li></ul></li></ul><p>Besonders hart trifft es Wilder-Kampf-Druiden und Schutz-Paladine; Holy Priest und Magier bekommen kleine Buffs, Krieger bleiben unverändert.</p><h2>Items</h2><p>Destiny wurde verbessert (mehr Itemlevel und Schaden).</p>' }] },
     druid: { summary: '', updates: [{ id: 'tdd2', date: yesterday, title: '', createdAt: now - day,
-      text: '<p>Druiden-Änderungen</p><p>Moonkin Form: Reichweite der Aura 30 → 40 Meter, Krit-Bonus 3 % → 5 %.</p>' }] }
+      text: '<p>📅 Wie geht es weiter? ✅ erledigt</p><p>Druiden-Änderungen</p><ul><li><b>Gleichgewicht</b><ul><li>Moonkin Form wird stärker.</li></ul></li><li><b>Wilder Kampf</b><ul><li>Furor gibt mehr Wut.</li></ul></li></ul><p>Moonkin Form: Reichweite der Aura 30 → 40 Meter, Krit-Bonus 3 % → 5 %.</p>' }] }
   };
   const announcements = {
     tan1: { title: 'Raidzeiten ab Dezember', text: '<p>Ab dem Raid-Release am 9. Dezember raiden wir <b>Donnerstag und Sonntag ab 20:00</b>. Meldet euch bitte immer bis 24 h vorher im Raid-Kalender an.</p>',

@@ -100,7 +100,10 @@ function annotateSpellMentions(rootEl, classId){
   const pattern = index.map(e => escapeRegExp(e.name)).join('|');
   if (!pattern) return;
   const regex = new RegExp(pattern, 'g');
-  const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, null);
+  // Class / spec mentions (annotateClassMentions) stay as they are.
+  const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+    acceptNode: n => (n.parentElement && n.parentElement.closest('.game-mention') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT)
+  });
   const textNodes = [];
   let node;
   while ((node = walker.nextNode())) textNodes.push(node);
@@ -330,7 +333,8 @@ function classDiveHtmlPreviewLines(html, maxLines){
     if (whole) lines.push(whole);
   }
   const truncated = lines.length > maxLines;
-  return { lines: lines.slice(0, maxLines), truncated };
+  // No emojis in the preview either (game icons only, js/game-icons.js).
+  return { lines: lines.slice(0, maxLines).map(stripEmojis).filter(Boolean), truncated };
 }
 const CLASSDIVE_CLOCK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>';
 const CLASSDIVE_LINK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l2.5-2.5a5 5 0 0 0-7.07-7.07L11 4.88"/><path d="M14 11a5 5 0 0 0-7.07 0l-2.5 2.5a5 5 0 0 0 7.07 7.07L13 19.12"/></svg>';
@@ -664,8 +668,11 @@ function renderClassDeepDivesView(){
   // officer's cursor while they're typing, and never the collapsed
   // plain-text previews, which have no markup to annotate anyway.
   const summaryTextEl = els.classDivesList.querySelector('.classdive-summary-card .classdive-summary-text');
-  if (summaryTextEl) annotateSpellMentions(summaryTextEl, c.id);
-  els.classDivesList.querySelectorAll('.classdive-update-text').forEach(el => annotateSpellMentions(el, c.id));
+  // Class / spec icons, emojis -> game icons, then the spell auto-links.
+  /** @param {HTMLElement} el */
+  const decorate = el => { annotateClassMentions(el); annotateSpecHeadings(el, c.id); replaceEmojis(el); annotateSpellMentions(el, c.id); };
+  if (summaryTextEl) decorate(/** @type {HTMLElement} */ (summaryTextEl));
+  els.classDivesList.querySelectorAll('.classdive-update-text').forEach((/** @type {HTMLElement} */ el) => decorate(el));
 
   // Update-Historie + Quellen — always-expanded static cards, wired
   // separately since they have no toggle/expand state of their own.

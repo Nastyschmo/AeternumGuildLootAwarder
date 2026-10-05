@@ -753,7 +753,9 @@ function normalizeBossGuides(raw){
         roles: { tank: String((g.roles || {}).tank || '').slice(0, 1000), healer: String((g.roles || {}).healer || '').slice(0, 1000), damage: String((g.roles || {}).damage || '').slice(0, 1000) },
         classes, mech,
         updatedAt: Number(g.updatedAt) || 0,
-        updatedBy: String(g.updatedBy || '').slice(0, 60)
+        updatedBy: String(g.updatedBy || '').slice(0, 60),
+        // Boss picture: https link only (no quotes / brackets — used in src).
+        img: /^https:\/\/[^\s'"()\\<>]+$/.test(String(g.img || '')) ? String(g.img).slice(0, 500) : ''
       };
     }
   }

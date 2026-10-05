@@ -192,6 +192,7 @@ function bossDetailHtml(inst, boss, index){
       <div><span class="bis-item-meta">${escapeHtml(inst.name)} · Boss ${index + 1} von ${inst.bosses.length}</span><h2 class="boss-title">${escapeHtml(boss.name)}</h2></div>
       ${officer ? '<button type="button" class="btn btn-ghost btn-sm" data-boss-edit>Bearbeiten</button>' : ''}
     </div>
+    ${g && g.img ? `<a class="boss-img" href="${escapeHtml(g.img)}" target="_blank" rel="noopener"><img src="${escapeHtml(g.img)}" alt="${escapeHtml(boss.name)}" loading="lazy" onerror="this.parentNode.remove()"></a>` : ''}
     ${mechs.length ? `<div class="boss-mechs">${mechs.map(m => `<span class="boss-mech" title="${journalMechs.has(m.id) ? 'aus dem Dungeon Journal' : 'von den Offizieren'}">${gameIconHtml(m.icon, 18)}${escapeHtml(m.label)}</span>`).join('')}</div>` : ''}
     <div class="tac-section">
       <div class="raid-col-head">${gameIconHtml('patch', 16)} Offizielle Infos <span>Blizzard Dungeon Journal</span></div>
@@ -221,6 +222,7 @@ function bossEditHtml(inst, boss, g, journalMechs){
       <div class="boss-mech-pick">${BOSS_MECHANICS.map(m => `<label class="boss-mech${journalMechs.has(m.id) ? ' locked' : ''}">
         <input type="checkbox" data-boss-mech="${m.id}" ${mech[m.id] || journalMechs.has(m.id) ? 'checked' : ''} ${journalMechs.has(m.id) ? 'disabled title="aus dem Dungeon Journal"' : ''}>${gameIconHtml(m.icon, 18)}${escapeHtml(m.label)}</label>`).join('')}</div>
     </div>
+    <label class="tac-bg">Bild des Bosses (Link, optional — z. B. Screenshot aus dem Spiel oder das Modellbild von Wowhead)<input type="url" class="apply-text-input" data-boss-img value="${escapeHtml(g ? g.img : '')}" placeholder="https://…"></label>
     <div class="tac-section">
       <div class="raid-col-head">Taktik</div>
       <div class="announce-toolbar" id="bossEditToolbar">${announceToolbarMarkup()}</div>
@@ -261,6 +263,7 @@ function bossWire(root, inst, boss){
       text: sanitizeRichText(editor ? editor.innerHTML : '').slice(0, 20000),
       roles: { tank: val('[data-boss-role="tank"]').slice(0, 1000), healer: val('[data-boss-role="healer"]').slice(0, 1000), damage: val('[data-boss-role="damage"]').slice(0, 1000) },
       classes, mech,
+      img: RAID_MAP_URL.test(val('[data-boss-img]')) ? val('[data-boss-img]').slice(0, 500) : '',
       updatedAt: Date.now(),
       updatedBy: (discordIdentity && discordIdentity.username) || ''
     };

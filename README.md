@@ -1458,7 +1458,9 @@ mechanics list the classes that negate or ease them and put the matching
 abilities first in the raid window's Taktik step ("empfohlen"; the
 others under "Weitere Fähigkeiten"). `bossGuides/<instanceKey>/<bossKey>`
 = `{ text, roles: { tank, healer, damage }, classes: { classId: note },
-mech: { id: true }, updatedAt, updatedBy }` (keys: `raidBossKey(name)`).
+mech: { id: true }, img, updatedAt, updatedBy }` (keys: `raidBossKey(name)`;
+`img` = picture link — the client has no boss models: its Creature table
+only holds mounts / pets and NPC → model is server-side).
 **Rules:** `bossGuides` (README § 6f; read: members, write: officers /
 admins). In `SYNCED_KEYS`.
 

@@ -90,34 +90,11 @@ async function encounterInstances({ build, eraBuild, table, maps, icons }) {
   return out;
 }
 
-/**
- * Boss models: the client's Creature table (if it has one) names each
- * creature with its display ids; a boss whose encounter name matches gets
- * `m` = CreatureDisplayInfo id (the page shows Wowhead's model render).
- * Probe first — logs what the client offers.
- */
-async function bossModels({ build, eraBuild, table, encInst }) {
-  const want = new Map();
-  for (const x of encInst) for (const b of x.bosses) want.set(b.n.toLowerCase(), b);
-  for (const name of ['Creature', 'CreatureDisplayInfo', 'JournalEncounterCreature']) {
-    for (const b of [build, eraBuild]) {
-      try {
-        const rows = await table(name, b);
-        console.log(`  models: ${name} ${b}: ${rows.length} rows; columns ${Object.keys(rows[0] || {}).join(',')}`);
-        if (name === 'Creature') {
-          let hits = 0;
-          for (const r of rows) {
-            const boss = want.get(S(r.Name_lang).toLowerCase());
-            const disp = I(r.DisplayID_0) || I(r.DisplayID);
-            if (boss && disp && !boss.m) { boss.m = disp; hits++; }
-          }
-          console.log(`  models: ${hits} of ${want.size} bosses matched by name in Creature ${b}`);
-        }
-        break;
-      } catch (e) { console.log(`  models: ${name} ${b} not available (${e.message.slice(0, 100)})`); }
-    }
-  }
-}
+// Boss models: the client can't give them. Its Creature table only has
+// ~180 rows (mounts, pets; no boss matches by name), CreatureDisplayInfo
+// has the models but which NPC uses which is server-side, and there's no
+// JournalEncounterCreature (checked 2026-10-05). The Boss-Guides take an
+// image link per boss instead (bossGuides/…/img).
 
 /**
  * @param {{ build: string, eraBuild: string, table: Function, icons: Map<number, string>, instanceNames: string[], maps: Map<number, any> }} ctx
@@ -126,7 +103,6 @@ async function bossModels({ build, eraBuild, table, encInst }) {
 export async function buildJournal({ build, eraBuild, table, icons, instanceNames, maps }) {
   const keepNames = new Set([...KEEP_INSTANCES, ...instanceNames].map(n => n.toLowerCase()));
   const encInst = await encounterInstances({ build, eraBuild, table, maps, icons });
-  await bossModels({ build, eraBuild, table, encInst });
   const load = async (name) => {
     try { return await table(name, build); } catch (e) {
       try { const rows = await table(name, eraBuild); console.log(`  journal: ${name} from Classic Era (${rows.length} rows)`); return rows; }

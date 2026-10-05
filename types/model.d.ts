@@ -205,6 +205,8 @@ interface BossGuide {
   updatedAt: Millis;
   /** Display name of the last editor. */
   updatedBy: string;
+  /** Picture of the boss (https link; the client has no boss models). */
+  img: string;
 }
 interface PublicStats {
   members: number;

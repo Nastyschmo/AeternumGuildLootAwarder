@@ -414,6 +414,10 @@ interface LootAward {
   /** Officer who awarded it. */
   by: DiscordId;
   at: Millis;
+  /** Boss, from the RCLootCouncil import. */
+  boss?: string;
+  /** RCLootCouncil row id (the import skips rows already imported). */
+  ext?: string;
 }
 interface RaidSignup {
   status: 'yes' | 'maybe' | 'no';

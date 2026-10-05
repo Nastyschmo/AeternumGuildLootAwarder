@@ -2213,3 +2213,11 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
   .loot-table th:nth-child(5), .loot-table td:nth-child(5){ display: none; }
 }
 .mychar-bis-private{ flex-basis: 100%; color: var(--danger-bright); }
+.loot-import{ margin-bottom: 12px; }
+.loot-import textarea{ width: 100%; font-family: monospace; font-size: 12px; }
+.loot-import select{ background: var(--field-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; font: inherit; font-size: 12.5px; max-width: 220px; }
+.loot-imp-map{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px 20px; margin-bottom: 10px; }
+.loot-imp-line{ display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; padding: 3px 0; }
+.loot-imp-dup td{ opacity: .45; }
+.loot-imp-missing td{ box-shadow: inset 0 -1px 0 var(--danger); }
+.loot-imp-missing td:nth-child(3){ color: var(--danger-bright); }

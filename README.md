@@ -1414,8 +1414,15 @@ raids), main-spec loot of the last 30 days and main / twink — in a
 suggested order (BiS + SR, not received yet, main before twink, less
 loot, more attendance). "MS" / "OS" writes `lootAwards/<id>`. The raid
 card lists the event's loot; the page "Loot" shows the history by raid
-or per player. **Rules:** `lootAwards` (README § 6f) — members read,
-officers / admins write. Own listener, not in `SYNCED_KEYS`.
+or per player. **Import** (`js/loot-import.js`, officers, Loot page):
+paste or pick a RCLootCouncil CSV export; the preview maps players to
+guild characters (by name, realm if ambiguous; unknown ones assignable
+or skipped), responses to Main-Spec / Off-Spec / Sonstiges (guessed:
+Need/Main → MS, Greed/Offspec → OS, Disenchant/Pass/… → Sonstiges;
+changeable) and days to raid events. Rows keep the boss and the RCLC
+row id (`ext`), so re-importing the same export adds nothing.
+**Rules:** `lootAwards` (README § 6f) — members read, officers / admins
+write. Own listener, not in `SYNCED_KEYS`.
 
 **Gildenbedarf** (`js/bis-need.js`, third tab on the BiS page): who in
 the guild still needs which item, per raid / dungeon and boss. Built from

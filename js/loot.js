@@ -3,7 +3,8 @@
 // Firebase (own listener, members+ read, Officers / Admins write —
 // README § 6f):
 //  - lootAwards/<id> = { eventId, itemId, itemName, uid, charName, classId,
-//    specId, kind: 'ms' | 'os' | 'other', note, by, at }
+//    specId, kind: 'ms' | 'os' | 'other', note, by, at, boss?, ext? }
+//    (boss / ext = RCLootCouncil row id, from js/loot-import.js)
 //
 // Officers award items on a raid event's card ("Loot vergeben"): pick the
 // item, then the decision aid lists everybody signed up (Dabei /
@@ -69,7 +70,10 @@ function lootNormalize(raw){
     kind: LOOT_KIND_LABELS[raw.kind] ? raw.kind : 'other',
     note: String(raw.note || '').slice(0, 120),
     by: String(raw.by || ''),
-    at: Number(raw.at) || 0
+    at: Number(raw.at) || 0,
+    // From the RCLootCouncil import (js/loot-import.js).
+    ...(raw.boss ? { boss: String(raw.boss).slice(0, 60) } : {}),
+    ...(raw.ext ? { ext: String(raw.ext).slice(0, 60) } : {})
   };
 }
 
@@ -199,7 +203,7 @@ function lootEventHtml(id, e){
   if (!awards.length && !officer) return '';
   const list = awards.length ? awards.map(([aid, a]) => `<div class="loot-award-row">
       ${lootItemHtml(a.itemId, a.itemName)} → ${lootCharHtml(a)} <span class="loot-tag">${LOOT_KIND_LABELS[a.kind]}</span>
-      ${a.note ? `<span class="bis-item-meta">${escapeHtml(a.note)}</span>` : ''}
+      ${a.boss ? `<span class="bis-item-meta">${escapeHtml(a.boss)}</span>` : ''}${a.note ? `<span class="bis-item-meta">${escapeHtml(a.note)}</span>` : ''}
       ${officer ? `<button type="button" class="loot-del" data-loot-delete="${escapeHtml(aid)}" aria-label="Vergabe löschen" title="Vergabe löschen">×</button>` : ''}
     </div>`).join('') : '';
   let panel = '';
@@ -310,9 +314,11 @@ function renderLootPage(){
         <input type="search" id="lootSearch" class="apply-text-input" placeholder="Spieler oder Item …" value="${escapeHtml(lootPageQuery)}" autocomplete="off">
       </div>
     </div>
+    ${lootImportHtml()}
     <div id="lootList">${lootPageListHtml()}</div>
-    <p class="bis-hint">Vergeben wird im Raid-Termin (Raids → „Loot vergeben“, nur Officer).</p>`;
+    <p class="bis-hint">Vergeben wird im Raid-Termin (Raids → „Loot vergeben“) oder per Import aus RCLootCouncil — beides nur Officer.</p>`;
   lootWire(root);
+  lootImportWire(root);
   root.querySelectorAll('[data-loot-view]').forEach(btn => btn.addEventListener('click', () => { lootPageView = btn.getAttribute('data-loot-view'); renderLootPage(); }));
   const search = /** @type {HTMLInputElement} */ (root.querySelector('#lootSearch'));
   search.addEventListener('input', () => {
@@ -362,7 +368,7 @@ function lootPageListHtml(){
       <h3 class="bis-card-title">${e ? `${escapeHtml(e.title)} <span class="bis-item-meta">${escapeHtml(raidDateLabel(e.start))}</span>` : `Ohne Raid-Termin <span class="bis-item-meta">${date(list[0][1].at)}</span>`}</h3>
       ${list.map(([aid, a]) => `<div class="loot-award-row">
         ${lootItemHtml(a.itemId, a.itemName)} → ${lootCharHtml(a)} <span class="loot-tag">${LOOT_KIND_LABELS[a.kind]}</span>
-        ${a.note ? `<span class="bis-item-meta">${escapeHtml(a.note)}</span>` : ''}
+        ${a.boss ? `<span class="bis-item-meta">${escapeHtml(a.boss)}</span>` : ''}${a.note ? `<span class="bis-item-meta">${escapeHtml(a.note)}</span>` : ''}
         ${officer ? `<button type="button" class="loot-del" data-loot-delete="${escapeHtml(aid)}" aria-label="Vergabe löschen" title="Vergabe löschen">×</button>` : ''}
       </div>`).join('')}
     </div>`;

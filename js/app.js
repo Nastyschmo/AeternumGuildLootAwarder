@@ -388,6 +388,8 @@ function applyAccessControl(){
   els.accessManageBtn.classList.toggle('hidden', currentRole !== 'admin');
   // Design switcher in User Settings — admin-only while this is being
   // tried out, see the big comment above initDesignReveal().
+  const testRow = document.getElementById('settingsTestRow');
+  if (testRow) testRow.classList.toggle('hidden', currentRole !== 'admin' || Boolean(RUDE_TESTMODE));
   const designRow = document.getElementById('settingsDesignRow');
   if (designRow){
     designRow.classList.toggle('hidden', currentRole !== 'admin');

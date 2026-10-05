@@ -23,6 +23,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<!-- Testmodus (admins): replaces window.firebase with made-up data when switched on. -->
+<script src="js/testmode.js"></script>
 <link rel="stylesheet" href="css/main.css" />
 <style>
   /* Kept inline on purpose: these reference the SVG filter
@@ -664,6 +666,11 @@
            default in markup too, not just via the "hidden" class, so it
            never flashes visible for a split second before JS resolves the
            role on a slow connection. -->
+      <div class="settings-design-row hidden" id="settingsTestRow">
+        <label class="apply-field-label">Testmodus <span class="settings-design-badge">Admin</span></label>
+        <p class="access-modal-note">Die ganze Seite mit einer erfundenen Gilde durchspielen (Raids, Aufstellung, Loot, Bewerbungen) und zwischen Personen wechseln — nur in diesem Browser, nichts geht in die echte Datenbank.</p>
+        <button type="button" class="btn btn-ghost btn-sm" id="settingsTestStartBtn">Testmodus starten</button>
+      </div>
       <div class="settings-design-row hidden" id="settingsDesignRow">
         <label class="apply-field-label">Design <span class="settings-design-badge">Admin-Test</span></label>
         <div class="design-switcher">

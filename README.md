@@ -1425,6 +1425,17 @@ an item search shows "Wer kann das herstellen?" — who listed the recipe,
 then who has enough skill. The BiS planner's source lines name guild
 crafters for BoE crafted items ("Gilde: Hammerfaust (Rezept), …").
 
+**Testmodus** (`js/testmode.js`, Admins: User Settings → "Testmodus
+starten"): the whole site on a made-up guild (17 people, 21 characters,
+public BiS sets, five raid events incl. a past one with loot, a raid-ID
+lockout case, soft-reserves, three applications), only in this browser.
+`window.firebase` is replaced by an in-memory stand-in before js/core.js
+loads; changes are kept in localStorage until "Szenario neu laden".
+The red bar on top switches the person you look through (admin,
+officer, members, an applicant) and has a "Was testen?" checklist.
+Discord DMs and Armory / WarcraftLogs lookups are skipped. "Testmodus
+beenden" restores the real login.
+
 **Loot-Vergabe** (`js/loot.js`, Loot Council with a decision aid):
 officers open "Loot vergeben" on a raid card, search the item (drops of
 the instance first) and get everybody signed up (Dabei / Vielleicht)

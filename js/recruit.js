@@ -486,6 +486,8 @@ async function applyChatSaveNicknameIfNeeded(nickname){
 // discord-auth-worker.js's handleNotifyApplication. Returns the parsed
 // Worker response on success, or null.
 async function sendDiscordNotification(applicationId, kind){
+  // Testmodus: no Discord DMs for made-up applications.
+  if (RUDE_TESTMODE) return null;
   if (!isWorkerConfigured()){
     console.warn('[notify-application] skipped: Worker URL is not configured (still has the YOUR-WORKER-SUBDOMAIN placeholder).');
     return null;

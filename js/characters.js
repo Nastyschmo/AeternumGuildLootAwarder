@@ -19,6 +19,8 @@
 async function fetchArmoryCharacter(realmSlug, name, opts){
   const force = !!(opts && opts.force);
   const key = characterProfileCacheKey(realmSlug, name);
+  // Testmodus: made-up characters, don't ask the Worker.
+  if (RUDE_TESTMODE){ armoryCache[key] = { fetchedAt: Date.now(), result: { found: false, debug: { detail: 'Testmodus' } } }; return armoryCache[key].result; }
   const cached = armoryCache[key];
   if (!force && cached && (Date.now() - cached.fetchedAt) < ARMORY_CACHE_MS){
     return cached.result;
@@ -56,6 +58,7 @@ async function fetchArmoryCharacter(realmSlug, name, opts){
 async function fetchWarcraftLogsCharacter(realmSlug, name, opts){
   const force = !!(opts && opts.force);
   const key = characterProfileCacheKey(realmSlug, name);
+  if (RUDE_TESTMODE){ wclCache[key] = { fetchedAt: Date.now(), result: { found: false, debug: { detail: 'Testmodus' } } }; return wclCache[key].result; }
   const cached = wclCache[key];
   if (!force && cached && (Date.now() - cached.fetchedAt) < WCL_CACHE_MS){
     return cached.result;
@@ -172,6 +175,8 @@ async function saveCharacterProfile(){
 }
 
 els.accessCharactersBtn.addEventListener('click', () => openCharacterModal());
+const settingsTestStartBtn = document.getElementById('settingsTestStartBtn');
+if (settingsTestStartBtn) settingsTestStartBtn.addEventListener('click', testModeStart);
 els.characterSaveBtn.addEventListener('click', () => saveCharacterProfile());
 els.characterModalCloseBtn.addEventListener('click', () => els.characterModal.classList.add('hidden'));
 els.characterModal.addEventListener('click', (e) => {

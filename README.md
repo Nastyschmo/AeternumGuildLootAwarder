@@ -427,6 +427,13 @@ Go to **Build → Realtime Database → Rules** and replace them with:
           }
         }
       },
+      "lootAwards": {
+        ".read": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'member' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
+        "$awardId": {
+          ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
+          ".validate": "newData.hasChildren(['itemId', 'uid', 'kind', 'at']) && newData.child('itemId').isNumber() && newData.child('uid').isString() && newData.child('kind').val().matches(/^(ms|os|other)$/) && newData.child('at').isNumber()"
+        }
+      },
       "bisRecommended": {
         ".read": "auth != null",
         "$setId": {
@@ -1396,6 +1403,26 @@ lists crafters per profession (filter chips, search by player or item);
 an item search shows "Wer kann das herstellen?" — who listed the recipe,
 then who has enough skill. The BiS planner's source lines name guild
 crafters for BoE crafted items ("Gilde: Hammerfaust (Rezept), …").
+
+**Loot-Vergabe** (`js/loot.js`, Loot Council with a decision aid):
+officers open "Loot vergeben" on a raid card, search the item (drops of
+the instance first) and get everybody signed up (Dabei / Vielleicht)
+with BiS (item on the BiS set the character assigned for the signed-up
+spec on Meine Charaktere, not ticked "Habe ich"; only public sets are
+readable), Soft-Reserve, attendance ("Dabei" for the last 10 earlier
+raids), main-spec loot of the last 30 days and main / twink — in a
+suggested order (BiS + SR, not received yet, main before twink, less
+loot, more attendance). "MS" / "OS" writes `lootAwards/<id>`. The raid
+card lists the event's loot; the page "Loot" shows the history by raid
+or per player. **Import** (`js/loot-import.js`, officers, Loot page):
+paste or pick a RCLootCouncil CSV export; the preview maps players to
+guild characters (by name, realm if ambiguous; unknown ones assignable
+or skipped), responses to Main-Spec / Off-Spec / Sonstiges (guessed:
+Need/Main → MS, Greed/Offspec → OS, Disenchant/Pass/… → Sonstiges;
+changeable) and days to raid events. Rows keep the boss and the RCLC
+row id (`ext`), so re-importing the same export adds nothing.
+**Rules:** `lootAwards` (README § 6f) — members read, officers / admins
+write. Own listener, not in `SYNCED_KEYS`.
 
 **Gildenbedarf** (`js/bis-need.js`, third tab on the BiS page): who in
 the guild still needs which item, per raid / dungeon and boss. Built from

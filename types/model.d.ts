@@ -398,6 +398,27 @@ interface RaidReserve {
   classId: ClassId | '';
   updatedAt: Millis;
 }
+/** lootAwards/<id> (js/loot.js). */
+interface LootAward {
+  eventId: string;
+  itemId: number;
+  /** Name at award time (the item data may lack the item). */
+  itemName: string;
+  /** Discord id of the receiving member. */
+  uid: DiscordId;
+  charName: string;
+  classId: ClassId | '';
+  specId: string;
+  kind: 'ms' | 'os' | 'other';
+  note: string;
+  /** Officer who awarded it. */
+  by: DiscordId;
+  at: Millis;
+  /** Boss, from the RCLootCouncil import. */
+  boss?: string;
+  /** RCLootCouncil row id (the import skips rows already imported). */
+  ext?: string;
+}
 interface RaidSignup {
   status: 'yes' | 'maybe' | 'no';
   /** Display name of the member. */

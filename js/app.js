@@ -163,6 +163,10 @@ const PAGES = [
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><path d="m9 15 2 2 4-4"/></svg>'
   },
   {
+    id: 'loot', label: 'Loot',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16v11H4z"/><path d="M4 9l2-5h12l2 5"/><path d="M12 9v11"/><path d="M9 14h6"/></svg>'
+  },
+  {
     id: 'professions', label: 'Berufe',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 4 6 6-3 3-6-6z"/><path d="m11 7-7 7 3 3 7-7"/><path d="M4 20h7"/></svg>'
   },
@@ -286,6 +290,7 @@ function showPage(pageId, opts){
   if (pageId === 'bis') renderBisPlanner();
   if (pageId === 'raids') renderRaidsPage();
   if (pageId === 'professions') renderProfessionsPage();
+  if (pageId === 'loot') renderLootPage();
   // Opening Ankündigungen is what clears its quest "!" — mark up to the
   // newest post that exists right now as seen (no-op if already caught up).
   if (pageId === 'announcements') markAnnouncementsSeen();
@@ -435,6 +440,7 @@ function renderAll(){
   if (currentPage === 'bis') renderBisPlanner();
   if (currentPage === 'raids') renderRaidsPage();
   if (currentPage === 'professions') renderProfessionsPage();
+  if (currentPage === 'loot') renderLootPage();
 }
 
 // Public, always-on: keeps state.recruitingNeeds up to date for

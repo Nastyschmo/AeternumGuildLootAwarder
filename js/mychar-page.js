@@ -66,13 +66,14 @@ function mycharBisHtml(c){
       const owned = ids.filter(id => bisIsOwned(id)).length;
       info = `<span class="mychar-bis-progress"><span style="width:${ids.length ? Math.round(owned / ids.length * 100) : 0}%"></span></span>
         <span class="bis-item-meta">${owned}/${ids.length} Habe ich</span>
-        <button type="button" class="btn btn-ghost btn-sm" data-mychar-open-set="${escapeHtml(chosen)}">Im BiS-Planer öffnen</button>`;
+        <button type="button" class="btn btn-ghost btn-sm" data-mychar-open-set="${escapeHtml(chosen)}">Im BiS-Planer öffnen</button>
+        ${set.public ? '' : '<span class="bis-item-meta mychar-bis-private">Privat — der Loot Council sieht es nicht. Im BiS-Planer öffentlich machen.</span>'}`;
     }
     return `<div class="mychar-bis-row">
       <span class="mychar-bis-spec">${c.specId === sp.id ? '★ ' : ''}${escapeHtml(sp.label)}</span>
       <select data-mychar-bis="${c.id}|${sp.id}">
         <option value="">— keine —</option>
-        ${ordered.map(([id, s]) => `<option value="${escapeHtml(id)}" ${id === chosen ? 'selected' : ''}>${escapeHtml(s.name)}${s.specId !== sp.id ? ` (${escapeHtml(foreverSpecLabel(s.classId, s.specId))})` : ''}</option>`).join('')}
+        ${ordered.map(([id, s]) => `<option value="${escapeHtml(id)}" ${id === chosen ? 'selected' : ''}>${escapeHtml(s.name)}${s.specId !== sp.id ? ` (${escapeHtml(foreverSpecLabel(s.classId, s.specId))})` : ''}${s.public ? '' : ' · privat'}</option>`).join('')}
         ${chosen && !set ? `<option value="${escapeHtml(chosen)}" selected>(gelöscht)</option>` : ''}
       </select>
       ${info}
@@ -104,7 +105,7 @@ function mycharCardHtml(c){
     </div>
     <div class="mychar-section">
       <div class="mychar-section-title">BiS-Liste pro Spec</div>
-      <p class="bis-hint mychar-bis-hint">Ordne dem Charakter Deine Sets aus dem BiS-Planer zu — für die spätere Loot-Vergabe. Erstellt und bearbeitet werden Sets weiter im BiS-Planer.</p>
+      <p class="bis-hint mychar-bis-hint">Ordne dem Charakter Deine Sets aus dem BiS-Planer zu — für die Loot-Vergabe; dafür muss das Set öffentlich sein. Erstellt und bearbeitet werden Sets weiter im BiS-Planer.</p>
       ${mycharBisHtml(c)}
     </div>
     ${armory ? `<div class="mychar-section"><div class="mychar-section-title">Armory</div>${armory.html}</div>` : ''}

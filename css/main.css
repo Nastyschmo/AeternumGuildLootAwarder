@@ -2190,3 +2190,26 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 .mychar-bis-progress span{ display: block; height: 100%; background: var(--teal-bright); }
 .prof-own-hint{ margin-bottom: 12px; }
 .prof-own-hint a{ color: var(--gold-bright); }
+
+/* Loot-Vergabe (js/loot.js) */
+.loot-item{ display: inline-flex; align-items: center; gap: 6px; }
+.loot-char{ font-weight: 600; }
+.loot-tag{ font-size: 11px; padding: 0 6px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-muted); white-space: nowrap; }
+.loot-tag-good{ border-color: var(--teal-bright); color: var(--teal-bright); }
+.loot-award-row{ display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 4px 0; border-bottom: 1px solid var(--border-soft); font-size: 13px; }
+.loot-del{ margin-left: auto; background: none; border: 0; color: var(--text-muted); cursor: pointer; font-size: 16px; line-height: 1; }
+.loot-del:hover{ color: var(--danger-bright); }
+.loot-panel{ margin-top: 8px; padding: 10px 12px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--fold-body-bg); }
+.loot-picked-head{ display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 14px; }
+.loot-note{ margin-bottom: 8px; }
+.loot-table{ width: 100%; border-collapse: collapse; font-size: 13px; }
+.loot-table th{ text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); font-weight: 600; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.loot-table td{ padding: 5px 6px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
+.loot-table td .bis-item-meta{ display: block; }
+.loot-row-strong td:first-child{ color: var(--gold-bright); font-weight: 700; }
+.loot-actions{ white-space: nowrap; text-align: right; }
+.loot-raid{ margin-bottom: 12px; }
+@media (max-width: 640px){
+  .loot-table th:nth-child(5), .loot-table td:nth-child(5){ display: none; }
+}
+.mychar-bis-private{ flex-basis: 100%; color: var(--danger-bright); }

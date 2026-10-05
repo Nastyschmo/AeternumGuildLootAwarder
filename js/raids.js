@@ -33,7 +33,7 @@ function raidSync(){
   const uid = (db && discordIdentity) ? discordIdentity.id : '';
   if (!uid || uid === raidSyncUid) return;
   raidSyncUid = uid;
-  const rerender = () => { if (currentPage === 'raids') renderRaidsPage(); };
+  const rerender = () => { if (currentPage === 'raids') renderRaidsPage(); if (currentPage === 'loot') renderLootPage(); };
   db.ref(`${DB_PATH}/raidEvents`).on('value', snap => {
     /** @type {Record<string, RaidEvent>} */
     const out = {};
@@ -190,6 +190,7 @@ function raidEventCardHtml(id, e, past){
       ${r.no.length ? `<div><span class="raid-col-head">Absagen</span> ${r.no.map(raidChipHtml).join('')}</div>` : ''}
     </div>` : ''}
     ${raidSrSectionHtml(id, e, past)}
+    ${lootEventHtml(id, e)}
     ${canManage ? `<div class="raid-admin">
       ${raidSrAdminHtml(id, e, past)}
       <button type="button" class="btn btn-ghost btn-sm" data-raid-edit="${escapeHtml(id)}">Bearbeiten</button>
@@ -250,6 +251,7 @@ function renderRaidsPage(){
     ${past.length ? `<details class="raid-past-list"><summary>Vergangene Raids (${past.length})</summary>${past.map(([id, e]) => raidEventCardHtml(id, e, true)).join('')}</details>` : ''}`;
   raidWire(root);
   raidSrWire(root);
+  lootWire(root);
   if (focusSr){
     const box = /** @type {HTMLInputElement | null} */ (root.querySelector(`[data-raid-sr-search="${CSS.escape(focusSr)}"]`));
     if (box){ box.focus(); box.setSelectionRange(box.value.length, box.value.length); }

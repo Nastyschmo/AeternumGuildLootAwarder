@@ -165,6 +165,8 @@ interface NewsItem {
   linkUrl?: string;
   badge?: string;
   requiresLogin?: boolean;
+  /** Hidden after this moment (ms). */
+  until?: Millis;
 }
 
 interface SeenState { announcementsSeenAt: Millis; }

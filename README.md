@@ -1466,7 +1466,11 @@ BiS list on a main); officers / admins get "Zu tun" on top (untouched
 applications, closed sign-ups without a line-up, unpublished line-ups
 within 48 h, a running raid without a Loot-Runde, open Loot-Runden). The
 hero button changes with it (Jetzt bewerben / Zur Abstimmung / Zum
-Raid-Kalender). Reads existing data only — no rules change.
+Raid-Kalender); members get a slim hero. The hero shows a countdown to
+the Forever launch (afterwards, for members, to the next raid). The news
+row shows only real items (newest announcement, Wowhead / patch notes,
+NEWS_ITEMS until their `until` date) and hides itself when empty.
+Reads existing data only — no rules change.
 
 **Loot-Runden** (`js/loot-session.js`, raid window → tab "Loot",
 officers / admins = the Loot Council): items are tradeable for 2 hours

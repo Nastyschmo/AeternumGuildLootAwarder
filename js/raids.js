@@ -1,10 +1,18 @@
-// Raids page: raid calendar with sign-ups.
+// Raids page: raid calendar. The list shows one compact card per raid;
+// a click opens the raid window with three steps as tabs —
+//  1. Anmeldung (sign-ups, Soft-/Hard-Reserves; officers close it),
+//  2. Aufstellung (js/raid-comp.js, editable until the end of the raid
+//     day),
+//  3. Loot (Loot-Runden with import and the council's voting pop-up,
+//     js/loot-session.js).
+// The open raid and tab are kept in sessionStorage (survive a reload).
 //
 // Firebase (own listeners, started when the page opens — not SYNCED_KEYS):
 //  - raidEvents/<id> = { title, instance, start (ms), note, createdBy,
-//    createdAt, updatedAt, srMax, srLocked, signupState, size, targets,
+//    createdAt, updatedAt, srMax, srLocked, hr, signupState, size, targets,
 //    roster, rosterPublished } — Officers / Admins create, edit, delete.
-//    srMax > 0 turns on soft-reserves (js/raid-reserves.js); targets /
+//    srMax > 0 turns on soft-reserves, hr { itemId: true } = Hard-Reserves
+//    (js/raid-reserves.js); targets /
 //    roster / rosterPublished are the Aufstellung (js/raid-comp.js). The
 //    raid size comes from the instance (RAID_INSTANCES); `size` is only
 //    read from older events. Sign-ups are open to everybody regardless of
@@ -39,6 +47,23 @@ let raidLoadError = '';
 /** Event being edited by an Officer ('' = new event form, null = form closed). @type {string | null} */
 let raidEditId = null;
 let raidStatusMsg = '';
+const RAID_VIEW_KEY = 'rude-raid-view-v1';
+/** The open raid window ('' = list) and its tab ('' = pick by phase). */
+let raidOpenId = '';
+/** @type {'' | 'signup' | 'comp' | 'loot'} */
+let raidTab = '';
+try {
+  const v = JSON.parse(sessionStorage.getItem(RAID_VIEW_KEY) || 'null');
+  if (v && typeof v.id === 'string'){ raidOpenId = v.id; raidTab = ['signup', 'comp', 'loot'].includes(v.tab) ? v.tab : ''; }
+} catch (e){ /* ignore */ }
+/** Open a raid window ('' = back to the list). @param {string} id @param {'' | 'signup' | 'comp' | 'loot'} [tab] */
+function raidOpen(id, tab){
+  raidOpenId = id;
+  raidTab = tab || '';
+  if (!id) lootModal = null;
+  try { sessionStorage.setItem(RAID_VIEW_KEY, JSON.stringify({ id, tab: raidTab })); } catch (e){ /* ignore */ }
+  renderRaidsPage();
+}
 
 function raidSync(){
   const uid = (db && discordIdentity) ? discordIdentity.id : '';
@@ -89,6 +114,7 @@ function raidNormalizeEvent(raw){
     updatedAt: Number(raw.updatedAt) || 0,
     srMax: Math.min(RAID_SR_MAX, Math.max(0, Math.trunc(Number(raw.srMax)) || 0)),
     srLocked: raw.srLocked === true,
+    hr: Object.fromEntries(Object.entries(raw.hr && typeof raw.hr === 'object' ? raw.hr : {}).filter(([k, v]) => v === true && Number(k) > 0)),
     signupState: raw.signupState === 'closed' || raw.signupState === 'open' ? raw.signupState : 'auto',
     size,
     targets: t ? { tank: Math.max(0, Number(t.tank) || 0), healer: Math.max(0, Number(t.healer) || 0), damage: Math.max(0, Number(t.damage) || 0) } : null,
@@ -129,6 +155,28 @@ function raidSignupOpen(e){
   if (e.signupState === 'closed') return false;
   if (e.signupState === 'open') return true;
   return Date.now() < e.start - RAID_SIGNUP_CLOSE_MS;
+}
+/** End of the raid day: midnight after the start (at least RAID_RUNNING_MS after it). @param {RaidEvent} e */
+function raidDayEnd(e){
+  const d = new Date(e.start);
+  d.setHours(24, 0, 0, 0);
+  return Math.max(d.getTime(), e.start + RAID_RUNNING_MS);
+}
+/** Where the raid stands. @param {RaidEvent} e @returns {'signup' | 'closed' | 'running' | 'done'} */
+function raidPhase(e){
+  const now = Date.now();
+  if (now >= raidDayEnd(e)) return 'done';
+  if (now >= e.start) return 'running';
+  return raidSignupOpen(e) ? 'signup' : 'closed';
+}
+const RAID_PHASE_LABELS = { signup: 'Anmeldung offen', closed: 'Anmeldung geschlossen', running: 'Raid-Tag', done: 'Vorbei' };
+/** Tab a raid window opens with. @param {string} id @param {RaidEvent} e @returns {'signup' | 'comp' | 'loot'} */
+function raidDefaultTab(id, e){
+  const phase = raidPhase(e);
+  if (isOfficerOrAdmin()) return phase === 'signup' ? 'signup' : phase === 'closed' ? 'comp' : 'loot';
+  if (phase === 'signup') return 'signup';
+  if (phase === 'closed') return e.rosterPublished ? 'comp' : 'signup';
+  return Object.values(lootAwards).some(a => a.eventId === id) ? 'loot' : (e.rosterPublished ? 'comp' : 'signup');
 }
 /** Character key for a sign-up. @param {Character | undefined} c @param {string} name */
 function raidCharKey(c, name){
@@ -244,44 +292,116 @@ function raidSignupFormHtml(id){
   </div>`;
 }
 
-/** @param {string} id @param {RaidEvent} e @param {boolean} past */
-function raidEventCardHtml(id, e, past){
+/** Sign-ups by role (+ Vielleicht / Absagen). @param {string} id */
+function raidSignupsHtml(id){
   const r = raidRoster(id);
-  const canManage = isOfficerOrAdmin();
   const col = (label, list) => `<div class="raid-col"><div class="raid-col-head">${label} <span>${list.length}</span></div>${list.length ? list.map(raidChipHtml).join('') : '<span class="bis-item-meta">—</span>'}</div>`;
-  const signupsHtml = `<div class="raid-roster">
+  return `<div class="raid-roster">
       ${col('Tanks', r.tank)}${col('Heiler', r.healer)}${col('Damage', r.damage)}
     </div>
     ${r.maybe.length || r.no.length ? `<div class="raid-roster-extra">
       ${r.maybe.length ? `<div><span class="raid-col-head">Vielleicht</span> ${r.maybe.map(raidChipHtml).join('')}</div>` : ''}
       ${r.no.length ? `<div><span class="raid-col-head">Absagen</span> ${r.no.map(raidChipHtml).join('')}</div>` : ''}
     </div>` : ''}`;
-  const published = e.rosterPublished && Object.keys(e.roster).length;
-  return `<div class="tac-card raid-card${past ? ' raid-past' : ''}">
+}
+
+/** Title block of a raid (list card and window). @param {RaidEvent} e */
+function raidTitleHtml(e){
+  const phase = raidPhase(e);
+  return `<div class="raid-date">${escapeHtml(raidDateLabel(e.start))} <span class="raid-phase raid-phase-${phase}">${RAID_PHASE_LABELS[phase]}</span></div>
+    <h3 class="raid-title">${escapeHtml(e.title)}${e.instance && e.instance !== e.title ? ` <span class="bis-item-meta">${escapeHtml(e.instance)}</span>` : ''}${raidEventSize(e) ? ` <span class="bis-item-meta">· ${raidEventSize(e)}er</span>` : ''}${e.srMax ? ' <span class="loot-tag">Soft-Reserve</span>' : ''}</h3>`;
+}
+
+/** Compact card of the list; opens the raid window. @param {string} id @param {RaidEvent} e */
+function raidListCardHtml(id, e){
+  const r = raidRoster(id);
+  const phase = raidPhase(e);
+  const officer = isOfficerOrAdmin();
+  const mine = Object.entries((raidSignups[id] || {})[discordIdentity.id] || {});
+  const picked = raidCompPicked(id, e);
+  const inLineup = picked.filter(s => s.uid === discordIdentity.id);
+  const awards = Object.values(lootAwards).filter(a => a.eventId === id).length;
+  const sessions = officer ? lootEventSessions(id).length : 0;
+  let me = '';
+  if (isMemberOrHigher()){
+    if (inLineup.length && e.rosterPublished) me = `<span class="raid-me raid-me-in">✓ In der Aufstellung: ${inLineup.map(raidChipHtml).join('')}</span>`;
+    else if (mine.length) me = `<span class="raid-me">Angemeldet: ${mine.map(([k, s]) => `${raidChipHtml({ uid: discordIdentity.id, charKey: k, ...s })} <span class="bis-item-meta">${RAID_STATUS_LABELS[s.status]}</span>`).join(' ')}</span>`;
+    else if (phase === 'signup') me = '<span class="raid-me raid-me-todo">Noch nicht angemeldet</span>';
+  }
+  const facts = [
+    `${r.players} Spieler dabei · ${r.tank.length} T · ${r.healer.length} H · ${r.damage.length} DD`,
+    officer || e.rosterPublished ? `Aufstellung ${picked.length}${raidEventSize(e) ? `/${raidEventSize(e)}` : ''}${e.rosterPublished ? ' · veröffentlicht' : picked.length ? ' · Entwurf' : ''}` : '',
+    sessions ? `${sessions} ${sessions === 1 ? 'Loot-Runde' : 'Loot-Runden'}` : '',
+    awards ? `${awards} ${awards === 1 ? 'Item' : 'Items'} vergeben` : ''
+  ].filter(Boolean);
+  return `<div class="tac-card raid-card raid-list-card${phase === 'done' ? ' raid-past' : ''}" data-raid-open="${escapeHtml(id)}" role="button" tabindex="0" aria-label="${escapeHtml(e.title)} öffnen">
     <div class="raid-head">
-      <div>
-        <div class="raid-date">${escapeHtml(raidDateLabel(e.start))}</div>
-        <h3 class="raid-title">${escapeHtml(e.title)}${e.instance && e.instance !== e.title ? ` <span class="bis-item-meta">${escapeHtml(e.instance)}</span>` : ''}${raidEventSize(e) ? ` <span class="bis-item-meta">· ${raidEventSize(e)}er</span>` : ''}</h3>
-      </div>
-      <div class="raid-counts">
-        <span class="raid-count-yes">${r.players} ${r.players === 1 ? 'Spieler' : 'Spieler'} dabei</span>
-        <span>${r.tank.length} Tanks · ${r.healer.length} Heiler · ${r.damage.length} DD <span class="bis-item-meta">(${r.yes.length} Chars)</span></span>
-        <span class="bis-item-meta">${r.maybe.length} vielleicht · ${r.no.length} Absagen</span>
-      </div>
+      <div>${raidTitleHtml(e)}</div>
+      <span class="raid-open-hint">Öffnen →</span>
     </div>
-    ${e.note ? `<p class="raid-note">${escapeHtml(e.note)}</p>` : ''}
-    ${past ? '' : raidSignupFormHtml(id)}
-    ${published ? raidCompPublishedHtml(id, e) : ''}
-    ${published ? `<details class="raid-signups-all"><summary>Alle Anmeldungen (${r.yes.length + r.maybe.length} Chars)</summary>${signupsHtml}</details>` : signupsHtml}
-    ${canManage && !past ? raidCompPanelHtml(id, e) : ''}
-    ${raidSrSectionHtml(id, e, past)}
-    ${lootEventHtml(id, e)}
-    ${canManage ? `<div class="raid-admin">
-      ${past ? '' : `<button type="button" class="btn btn-ghost btn-sm" data-raid-signup-toggle="${escapeHtml(id)}">${raidSignupOpen(e) ? 'Anmeldung schließen' : 'Anmeldung öffnen'}</button>`}
-      ${raidSrAdminHtml(id, e, past)}
-      <button type="button" class="btn btn-ghost btn-sm" data-raid-edit="${escapeHtml(id)}">Bearbeiten</button>
-      <button type="button" class="btn btn-ghost btn-sm" data-raid-delete="${escapeHtml(id)}">Löschen</button>
-    </div>` : ''}
+    <div class="raid-list-facts">${facts.map(f => `<span>${escapeHtml(f)}</span>`).join('')}</div>
+    ${me}
+  </div>`;
+}
+
+/** The raid window: header, step tabs, the tab's content. @param {string} id @param {RaidEvent} e */
+function raidDetailHtml(id, e){
+  const officer = isOfficerOrAdmin();
+  const phase = raidPhase(e);
+  const tab = raidTab || raidDefaultTab(id, e);
+  const r = raidRoster(id);
+  const picked = raidCompPicked(id, e);
+  const awards = Object.values(lootAwards).filter(a => a.eventId === id).length;
+  const sessions = officer ? lootEventSessions(id) : [];
+  const signupOpen = raidSignupOpen(e) && phase !== 'done';
+  const steps = [
+    ['signup', 'Anmeldung', signupOpen ? (e.signupState === 'open' ? 'offen' : `offen bis ${new Date(e.start - RAID_SIGNUP_CLOSE_MS).toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`) : `geschlossen · ${r.players} Spieler`, !signupOpen],
+    ['comp', 'Aufstellung', `${picked.length}${raidEventSize(e) ? `/${raidEventSize(e)}` : ''} · ${e.rosterPublished ? 'veröffentlicht' : officer ? (picked.length ? 'Entwurf' : 'noch leer') : 'noch nicht veröffentlicht'}`, e.rosterPublished],
+    ['loot', 'Loot', officer ? `${sessions.length} ${sessions.length === 1 ? 'Runde' : 'Runden'} · ${awards} vergeben` : `${awards} vergeben`, phase === 'done' && awards > 0]
+  ];
+  const stepsHtml = `<div class="raid-steps" role="tablist">${steps.map(([key, label, sub, done], i) => `<button type="button" role="tab" class="raid-step${tab === key ? ' active' : ''}${done ? ' done' : ''}" data-raid-tab="${key}" aria-selected="${tab === key}">
+      <span class="raid-step-num">${done ? '✓' : i + 1}</span><span class="raid-step-text"><b>${label}</b><small>${escapeHtml(String(sub))}</small></span>
+    </button>`).join('')}</div>`;
+
+  let body = '';
+  if (tab === 'signup'){
+    body = `${e.note ? `<p class="raid-note">${escapeHtml(e.note)}</p>` : ''}
+      ${officer && phase !== 'done' ? `<div class="raid-next">${signupOpen
+        ? `<span>Alle angemeldet? Schließ die Anmeldung und stell die Aufstellung zusammen. <span class="bis-item-meta">Sonst schließt sie automatisch 24 h vor dem Start.</span></span><button type="button" class="btn btn-teal btn-sm" data-raid-signup-toggle="${escapeHtml(id)}" data-then-tab="comp">Anmeldung schließen → Aufstellung</button>`
+        : `<span>Die Anmeldung ist geschlossen.</span><button type="button" class="btn btn-ghost btn-sm" data-raid-signup-toggle="${escapeHtml(id)}">Anmeldung wieder öffnen</button>`}</div>` : ''}
+      ${phase === 'done' ? '' : raidSignupFormHtml(id)}
+      <div class="raid-col-head raid-section-head">Anmeldungen <span>${r.yes.length} dabei · ${r.maybe.length} vielleicht · ${r.no.length} Absagen</span></div>
+      ${raidSignupsHtml(id)}
+      ${raidSrSectionHtml(id, e, phase === 'done')}
+      ${officer && e.srMax ? `<div class="raid-admin">${raidSrAdminHtml(id, e, phase === 'done')}</div>` : ''}`;
+  } else if (tab === 'comp'){
+    if (officer && phase !== 'done'){
+      body = `${signupOpen ? '<p class="bis-hint raid-next-hint">Die Anmeldung ist noch offen — Du kannst schon planen, es kommen aber evtl. noch Leute dazu.</p>' : ''}
+        ${raidCompPanelHtml(id, e)}`;
+    } else if (e.rosterPublished && picked.length){
+      body = `${raidCompPublishedHtml(id, e)}${officer ? '<p class="bis-hint">Der Raid-Tag ist vorbei — die Aufstellung ist fest.</p>' : ''}`;
+    } else {
+      body = `<p class="bis-hint">Die Offiziere haben die Aufstellung noch nicht veröffentlicht.${phase === 'signup' ? ' Melde Dich im Tab „Anmeldung“ an.' : ''}</p>`;
+    }
+    if (officer && e.rosterPublished && phase !== 'done') body += `<div class="raid-next"><span>Aufstellung steht? Am Raid-Abend geht es mit der Loot-Vergabe weiter.</span><button type="button" class="btn btn-ghost btn-sm" data-raid-tab="loot">Weiter zu Loot →</button></div>`;
+  } else {
+    body = lootTabHtml(id, e);
+  }
+  return `<div class="raid-window">
+    <div class="raid-window-top">
+      <button type="button" class="btn btn-ghost btn-sm" data-raid-back>← Alle Raids</button>
+      ${officer ? `<span class="raid-window-admin">
+        <button type="button" class="btn btn-ghost btn-sm" data-raid-edit="${escapeHtml(id)}">Bearbeiten</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-raid-delete="${escapeHtml(id)}">Löschen</button>
+      </span>` : ''}
+    </div>
+    ${raidEditId === id ? raidEventFormHtml() : ''}
+    <div class="tac-card raid-card">
+      <div class="raid-head"><div>${raidTitleHtml(e)}</div></div>
+      ${stepsHtml}
+      <div class="raid-tab-body">${body}</div>
+    </div>
+    ${lootModalHtml()}
   </div>`;
 }
 
@@ -313,6 +433,9 @@ function raidEventFormHtml(){
   </div>`;
 }
 
+/** Inputs that keep their focus across live re-renders. */
+const RAID_FOCUS_ATTRS = ['data-raid-sr-search', 'data-raid-hr-search', 'data-loot-sess-search', 'data-loot-modal-note'];
+
 function renderRaidsPage(){
   const root = document.getElementById('raidsRoot');
   if (!root) return;
@@ -321,26 +444,41 @@ function renderRaidsPage(){
     return;
   }
   raidSync();
-  const now = Date.now();
-  const all = Object.entries(raidEvents);
-  const upcoming = all.filter(([, e]) => e.start >= now - RAID_RUNNING_MS).sort((a, z) => a[1].start - z[1].start);
-  // Keep the focus in a soft-reserve search box across live re-renders.
+  lootSync();
+  if (isOfficerOrAdmin()) lootSessionSync();
+  // Keep the focus in a search / note field and the pop-up's scroll position across live re-renders.
   const active = /** @type {HTMLInputElement | null} */ (document.activeElement);
-  const focusSr = active && root.contains(active) ? active.getAttribute('data-raid-sr-search') : null;
-  const past = all.filter(([, e]) => e.start < now - RAID_RUNNING_MS).sort((a, z) => z[1].start - a[1].start).slice(0, 10);
-  root.innerHTML = `
-    ${raidLoadError ? `<p class="bis-hint raid-error">${escapeHtml(raidLoadError)}</p>` : ''}
-    ${raidStatusMsg ? `<p class="bis-hint">${escapeHtml(raidStatusMsg)}</p>` : ''}
-    ${isOfficerOrAdmin() && raidEditId === null ? '<div class="forever-actions raid-new"><button type="button" class="btn btn-teal btn-sm" id="raidNewBtn">Raid anlegen</button></div>' : ''}
-    ${raidEventFormHtml()}
-    ${upcoming.length ? upcoming.map(([id, e]) => raidEventCardHtml(id, e, false)).join('') : '<div class="tac-card"><p class="bis-hint">Noch keine Raids geplant.</p></div>'}
-    ${past.length ? `<details class="raid-past-list"><summary>Vergangene Raids (${past.length})</summary>${past.map(([id, e]) => raidEventCardHtml(id, e, true)).join('')}</details>` : ''}`;
+  const focusAttr = active && root.contains(active) ? RAID_FOCUS_ATTRS.find(a => active.hasAttribute(a)) : null;
+  const focusVal = focusAttr ? active.getAttribute(focusAttr) : null;
+  const scrolls = ['.loot-modal-list', '.loot-modal-main'].map(sel => { const el = root.querySelector(sel); return el ? el.scrollTop : 0; });
+  const ev = raidOpenId ? raidEvents[raidOpenId] : null;
+  if (raidOpenId && ev){
+    root.innerHTML = `${raidLoadError ? `<p class="bis-hint raid-error">${escapeHtml(raidLoadError)}</p>` : ''}
+      ${raidStatusMsg ? `<p class="bis-hint">${escapeHtml(raidStatusMsg)}</p>` : ''}
+      ${raidDetailHtml(raidOpenId, ev)}`;
+  } else {
+    // An unknown id (deleted, or not loaded yet) shows the list.
+    const now = Date.now();
+    const all = Object.entries(raidEvents);
+    const upcoming = all.filter(([, e]) => now < raidDayEnd(e)).sort((a, z) => a[1].start - z[1].start);
+    const past = all.filter(([, e]) => now >= raidDayEnd(e)).sort((a, z) => z[1].start - a[1].start).slice(0, 10);
+    root.innerHTML = `
+      ${raidLoadError ? `<p class="bis-hint raid-error">${escapeHtml(raidLoadError)}</p>` : ''}
+      ${raidStatusMsg ? `<p class="bis-hint">${escapeHtml(raidStatusMsg)}</p>` : ''}
+      ${isOfficerOrAdmin() && raidEditId === null ? '<div class="forever-actions raid-new"><button type="button" class="btn btn-teal btn-sm" id="raidNewBtn">Raid anlegen</button></div>' : ''}
+      ${raidEditId === '' ? raidEventFormHtml() : ''}
+      ${upcoming.length ? upcoming.map(([id, e]) => raidListCardHtml(id, e)).join('') : '<div class="tac-card"><p class="bis-hint">Noch keine Raids geplant.</p></div>'}
+      ${past.length ? `<details class="raid-past-list"><summary>Vergangene Raids (${past.length})</summary>${past.map(([id, e]) => raidListCardHtml(id, e)).join('')}</details>` : ''}`;
+  }
   raidWire(root);
   raidSrWire(root);
   raidCompWire(root);
   lootWire(root);
-  if (focusSr){
-    const box = /** @type {HTMLInputElement | null} */ (root.querySelector(`[data-raid-sr-search="${CSS.escape(focusSr)}"]`));
+  lootSessionWire(root);
+  const lists = ['.loot-modal-list', '.loot-modal-main'].map(sel => root.querySelector(sel));
+  lists.forEach((el, i) => { if (el) el.scrollTop = scrolls[i]; });
+  if (focusAttr){
+    const box = /** @type {HTMLInputElement | null} */ (root.querySelector(`[${focusAttr}="${CSS.escape(focusVal)}"]`));
     if (box){ box.focus(); box.setSelectionRange(box.value.length, box.value.length); }
   }
 }
@@ -411,8 +549,21 @@ function raidWire(root){
     const id = btn.getAttribute('data-raid-signup-toggle');
     const e = raidEvents[id];
     if (!e) return;
-    try { await db.ref(`${DB_PATH}/raidEvents/${id}/signupState`).set(raidSignupOpen(e) ? 'closed' : 'open'); }
-    catch (err){ raidStatusMsg = 'Konnte die Anmeldung nicht umschalten.'; renderRaidsPage(); }
+    const then = /** @type {'' | 'comp'} */ (btn.getAttribute('data-then-tab') || '');
+    try {
+      await db.ref(`${DB_PATH}/raidEvents/${id}/signupState`).set(raidSignupOpen(e) ? 'closed' : 'open');
+      if (then) raidOpen(id, then);
+    } catch (err){ raidStatusMsg = 'Konnte die Anmeldung nicht umschalten.'; renderRaidsPage(); }
+  }));
+  root.querySelectorAll('[data-raid-open]').forEach((/** @type {HTMLElement} */ card) => {
+    const open = () => { raidStatusMsg = ''; raidOpen(card.getAttribute('data-raid-open')); window.scrollTo({ top: 0 }); };
+    card.addEventListener('click', open);
+    card.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); open(); } });
+  });
+  root.querySelectorAll('[data-raid-back]').forEach(btn => btn.addEventListener('click', () => { raidStatusMsg = ''; raidEditId = null; raidOpen(''); }));
+  root.querySelectorAll('[data-raid-tab]').forEach(btn => btn.addEventListener('click', () => {
+    raidStatusMsg = '';
+    raidOpen(raidOpenId, /** @type {'signup' | 'comp' | 'loot'} */ (btn.getAttribute('data-raid-tab')));
   }));
   const on = (sel, fn) => { const el = root.querySelector(sel); if (el) el.addEventListener('click', fn); };
   on('#raidNewBtn', () => { raidEditId = ''; renderRaidsPage(); });
@@ -429,6 +580,7 @@ function raidWire(root){
       title: (get('#raidFormTitle') || instance).slice(0, 80), instance, start,
       note: get('#raidFormNote').slice(0, 500),
       srMax: Number(get('#raidFormSr')) || 0, srLocked: prev ? prev.srLocked : false,
+      ...(prev && Object.keys(prev.hr).length ? { hr: prev.hr } : {}),
       // Aufstellung and sign-up state stay as they are when editing.
       signupState: prev ? prev.signupState : 'auto', rosterPublished: prev ? prev.rosterPublished : false,
       ...(prev && prev.targets ? { targets: prev.targets } : {}),
@@ -438,14 +590,14 @@ function raidWire(root){
     try {
       await db.ref(`${DB_PATH}/raidEvents/${id}`).set(payload);
       raidEditId = null;
-      raidStatusMsg = prev ? 'Raid gespeichert.' : 'Raid angelegt.';
+      raidStatusMsg = prev ? 'Raid gespeichert.' : 'Raid angelegt — die Anmeldung ist offen.';
+      if (!prev){ raidOpen(id, 'signup'); return; }
     } catch (e){ raidStatusMsg = 'Speichern fehlgeschlagen — Firebase-Regeln aktualisiert?'; }
     renderRaidsPage();
   });
   root.querySelectorAll('[data-raid-edit]').forEach(btn => btn.addEventListener('click', () => {
-    raidEditId = btn.getAttribute('data-raid-edit');
+    raidEditId = raidEditId === btn.getAttribute('data-raid-edit') ? null : btn.getAttribute('data-raid-edit');
     renderRaidsPage();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   }));
   root.querySelectorAll('[data-raid-delete]').forEach(btn => btn.addEventListener('click', async () => {
     const id = btn.getAttribute('data-raid-delete');
@@ -454,7 +606,10 @@ function raidWire(root){
     const answer = await bisDialog('Raid löschen?', `„${e.title}“ am ${raidDateLabel(e.start)} wird mit allen Anmeldungen und Reserves gelöscht.`,
       [{ id: 'delete', label: 'Löschen', primary: true }, { id: 'cancel', label: 'Abbrechen' }]);
     if (answer !== 'delete') return;
-    try { await db.ref(DB_PATH).update({ [`raidEvents/${id}`]: null, [`raidSignups/${id}`]: null, [`raidReserves/${id}`]: null }); }
-    catch (err){ raidStatusMsg = 'Löschen fehlgeschlagen.'; renderRaidsPage(); }
+    // Loot already handed out stays in the history (lootAwards).
+    try {
+      await db.ref(DB_PATH).update({ [`raidEvents/${id}`]: null, [`raidSignups/${id}`]: null, [`raidReserves/${id}`]: null, [`lootSessions/${id}`]: null });
+      raidOpen('');
+    } catch (err){ raidStatusMsg = 'Löschen fehlgeschlagen.'; renderRaidsPage(); }
   }));
 }

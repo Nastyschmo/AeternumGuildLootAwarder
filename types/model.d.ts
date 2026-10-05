@@ -392,6 +392,8 @@ interface RaidEvent {
   srMax: number;
   /** Reserves can't be changed any more. */
   srLocked: boolean;
+  /** Hard-Reserves: item id -> true (guild keeps them, Loot Council decides; can't be soft-reserved). */
+  hr: Record<string, boolean>;
   /** 'auto' = sign-ups close 24 h before the start; officers can force 'closed' / 'open'. */
   signupState: 'auto' | 'closed' | 'open';
   /** Raid size (10 / 20 / 40), 0 = from the instance. */
@@ -434,6 +436,34 @@ interface LootAward {
   boss?: string;
   /** RCLootCouncil row id (the import skips rows already imported). */
   ext?: string;
+  /** Loot-Runde it was decided in (lootSessions/<eventId>/<sessionId>). */
+  sessionId?: string;
+}
+/** A Loot-Runde of a raid (lootSessions/<eventId>/<sessionId>). */
+interface LootSession {
+  startedAt: Millis;
+  startedBy: DiscordId;
+  /** 0 = still running. */
+  closedAt: Millis;
+  items: Record<string, LootSessionItem>;
+}
+interface LootSessionItem {
+  itemId: number;
+  itemName: string;
+  /** When it dropped (RCLC row time) or was added — tradeable for 2 h from here. */
+  at: Millis;
+  boss: string;
+  /** RCLootCouncil row id ('' = added by hand). */
+  ext: string;
+  /** Player / response from the RCLootCouncil export ('' = none). */
+  rclcName: string;
+  rclcResponse: string;
+  /** Council member uid -> voted candidate "<uid>|<charKey>". */
+  votes: Record<string, string>;
+  /** '' = open, 'award' = awarded (awardId), 'free' = extern / disenchanted / bank (doneNote). */
+  done: '' | 'award' | 'free';
+  awardId: string;
+  doneNote: string;
 }
 interface RaidSignup {
   status: 'yes' | 'maybe' | 'no';

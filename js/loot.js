@@ -1,15 +1,17 @@
-// Loot-Vergabe (Loot Council with a decision aid) and the "Loot" page.
+// Loot-Vergabe: the loot history (lootAwards), the decision aid and the
+// "Loot" page. Items are handed out in a raid's Loot tab, in Loot-Runden
+// with a voting pop-up for the Loot Council (js/loot-session.js).
 //
 // Firebase (own listener, members+ read, Officers / Admins write —
 // README § 6f):
 //  - lootAwards/<id> = { eventId, itemId, itemName, uid, charName, classId,
-//    specId, kind: 'ms' | 'os' | 'other', note, by, at, boss?, ext? }
-//    (boss / ext = RCLootCouncil row id, from js/loot-import.js)
+//    specId, kind: 'ms' | 'os' | 'other', note, by, at, boss?, ext?,
+//    sessionId? } (boss / ext = RCLootCouncil row id from the import,
+//    sessionId = the Loot-Runde it was decided in)
 //
-// Officers award items on a raid event's card ("Loot vergeben"): pick the
-// item, then the decision aid lists every character in the raid — the
-// published / drafted Aufstellung (js/raid-comp.js), else everybody signed
-// up (Dabei / Vielleicht) — with what speaks for them —
+// The decision aid (lootCandidates) lists every character in the raid —
+// the Aufstellung (js/raid-comp.js), else everybody signed up (Dabei /
+// Vielleicht) — with what speaks for them:
 //  - BiS: the item is on the BiS set the character has assigned for the
 //    signed-up spec (Meine Charaktere → Character.bisSets) and not ticked
 //    "Habe ich" (bisOwned). Only public sets are readable for officers;
@@ -17,9 +19,9 @@
 //  - Anwesenheit: in the line-up (or, without one, signed up as "Dabei")
 //    for the last 10 earlier raids;
 //  - Loot: main-spec items received in the last 30 days;
-//  - Main / Twink (the character's isMain).
+//  - Main / Twink (the character's raid status).
 // and a suggested order: BiS + SR first, then main before twink, less
-// recent loot, more attendance. Officers decide; the order is only a hint.
+// recent loot, more attendance. The Loot Council decides.
 
 const LOOT_KIND_LABELS = { ms: 'Main-Spec', os: 'Off-Spec', other: 'Sonstiges' };
 const LOOT_RECENT_MS = 30 * 24 * 3600 * 1000;
@@ -30,12 +32,6 @@ const LOOT_RESULTS = 12;
 let lootAwards = {};
 let lootSyncUid = '';
 let lootLoadError = '';
-/** Event ids whose "Loot vergeben" panel is open. */
-const lootPanelOpen = new Set();
-/** Item search text / picked item per event. @type {Record<string, string>} */
-const lootQuery = {};
-/** @type {Record<string, number>} */
-const lootPick = {};
 /** Loot page filter. */
 let lootPageQuery = '';
 let lootPageView = 'raids'; // 'raids' | 'players'
@@ -75,7 +71,8 @@ function lootNormalize(raw){
     at: Number(raw.at) || 0,
     // From the RCLootCouncil import (js/loot-import.js).
     ...(raw.boss ? { boss: String(raw.boss).slice(0, 60) } : {}),
-    ...(raw.ext ? { ext: String(raw.ext).slice(0, 60) } : {})
+    ...(raw.ext ? { ext: String(raw.ext).slice(0, 60) } : {}),
+    ...(raw.sessionId ? { sessionId: String(raw.sessionId).slice(0, 40) } : {})
   };
 }
 
@@ -147,112 +144,38 @@ function lootCandidates(eventId, itemId){
   return list;
 }
 
-/** Item search for the award panel: drops of the instance first. @param {string} eventId */
-function lootSearchHtml(eventId){
-  const q = (lootQuery[eventId] || '').trim().toLowerCase();
+/**
+ * Item search results (rare+, drops of the instance first, one result
+ * per name and stats). Each result is a button with
+ * data-<attr>="<ctx>|<itemId>". @param {string} ctx @param {string} instance
+ * @param {string} query @param {string} attr
+ */
+function lootSearchHtml(ctx, instance, query, attr){
+  const q = (query || '').trim().toLowerCase();
   if (q.length < 2 || !bisData) return '';
-  const ev = raidEvents[eventId];
   const seen = new Map();
   for (const it of bisData.items.items) {
     if (it.q < 2 || !it.n.toLowerCase().includes(q)) continue;
-    const here = Boolean(ev && ev.instance && it.src && (it.src.drops || []).some(d => d.z === ev.instance));
+    const here = Boolean(instance && it.src && (it.src.drops || []).some(d => d.z === instance));
     const key = it.n + '|' + JSON.stringify(it.s || []);
     const prev = seen.get(key);
     if (!prev || (here && !prev.here) || (here === prev.here && Boolean(it.src) && !prev.it.src)) seen.set(key, { it, here });
   }
   const hits = [...seen.values()].sort((a, z) => Number(z.here) - Number(a.here) || z.it.q - a.it.q || (z.it.il || 0) - (a.it.il || 0) || a.it.n.localeCompare(z.it.n)).slice(0, LOOT_RESULTS);
   if (!hits.length) return '<div class="raid-sr-result-empty">Nichts gefunden.</div>';
-  return hits.map(({ it, here }) => `<button type="button" class="raid-sr-result" data-loot-pick="${escapeHtml(eventId)}|${it.id}" data-item-id="${it.id}">
+  return hits.map(({ it, here }) => `<button type="button" class="raid-sr-result" data-${attr}="${escapeHtml(ctx)}|${it.id}" data-item-id="${it.id}">
     ${bisIconHtml(it, 22)}<span style="color:${bisQualityColor(it)}">${escapeHtml(it.n)}</span>
-    <span class="bis-item-meta">${escapeHtml([here ? ev.instance : bisTypeLabel(it), bisStatLine(it)].filter(Boolean).join(' · '))}</span>
+    <span class="bis-item-meta">${escapeHtml([here ? instance : bisTypeLabel(it), bisStatLine(it)].filter(Boolean).join(' · '))}</span>
   </button>`).join('');
 }
 
-/** Decision-aid table for the picked item. @param {string} eventId */
-function lootCandidatesHtml(eventId){
-  const itemId = lootPick[eventId];
-  if (!itemId) return '';
-  const rows = lootCandidates(eventId, itemId);
-  const bisCell = {
-    yes: '<span class="loot-tag loot-tag-good">BiS</span>',
-    owned: '<span class="loot-tag" title="Steht auf der BiS-Liste, aber „Habe ich“ ist angehakt">hat es</span>',
-    no: '<span class="bis-item-meta">—</span>',
-    none: '<span class="bis-item-meta" title="Keine BiS-Liste für diesen Spec zugewiesen">keine Liste</span>',
-    private: '<span class="bis-item-meta" title="Die zugewiesene BiS-Liste ist privat — für Officer nicht lesbar">privat</span>'
-  };
-  const table = rows.length ? `<table class="loot-table">
-      <thead><tr><th>#</th><th>Charakter</th><th>BiS</th><th>SR</th><th title="„Dabei“ bei den letzten ${LOOT_ATTENDANCE_EVENTS} Raids">Anwesenheit</th><th title="Main-Spec-Items der letzten 30 Tage">Loot 30 T.</th><th></th></tr></thead>
-      <tbody>${rows.map((r, i) => `<tr class="${r.tier ? 'loot-row-strong' : ''}">
-        <td>${i + 1}</td>
-        <td>${lootCharHtml({ charName: r.s.charName || r.s.name, classId: r.s.classId })}
-          <span class="bis-item-meta">${escapeHtml(foreverSpecLabel(r.s.classId, r.s.specId))}${r.isMain === false ? ' · Twink' : ''}${r.s.status === 'maybe' ? ' · vielleicht' : ''}${r.hasItem ? ' · hat es schon bekommen' : ''}</span></td>
-        <td>${bisCell[r.bis]}</td>
-        <td>${r.sr ? '<span class="loot-tag loot-tag-good">SR</span>' : '<span class="bis-item-meta">—</span>'}</td>
-        <td>${r.ofEvents ? `${r.attended}/${r.ofEvents}` : '<span class="bis-item-meta">—</span>'}</td>
-        <td>${r.loot}</td>
-        <td class="loot-actions">
-          <button type="button" class="btn btn-teal btn-sm" data-loot-award="${escapeHtml(eventId)}|${escapeHtml(r.key)}|ms">MS</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-loot-award="${escapeHtml(eventId)}|${escapeHtml(r.key)}|os">OS</button>
-        </td>
-      </tr>`).join('')}</tbody>
-    </table>` : '<p class="bis-hint">Noch niemand angemeldet.</p>';
-  return `<div class="loot-picked">
-      <div class="loot-picked-head">${lootItemHtml(itemId)}<button type="button" class="btn btn-ghost btn-sm" data-loot-unpick="${escapeHtml(eventId)}">Anderes Item</button></div>
-      <input type="text" class="apply-text-input loot-note" data-loot-note="${escapeHtml(eventId)}" maxlength="120" placeholder="Notiz zur Vergabe (optional)">
-      ${table}
-      <p class="bis-hint">Reihenfolge = Vorschlag: BiS und Soft-Reserve zuerst, dann wer das Item noch nicht hat, Main vor Twink, weniger Loot in den letzten 30 Tagen, mehr Anwesenheit. Entscheiden tut der Loot Council.</p>
-    </div>`;
-}
-
-/** Loot block of a raid card: awarded items (everyone) + award panel (officers). @param {string} id @param {RaidEvent} e */
-function lootEventHtml(id, e){
-  lootSync();
-  const awards = Object.entries(lootAwards).filter(([, a]) => a.eventId === id).sort((a, z) => z[1].at - a[1].at);
-  const officer = isOfficerOrAdmin();
-  if (!awards.length && !officer) return '';
-  const list = awards.length ? awards.map(([aid, a]) => `<div class="loot-award-row">
-      ${lootItemHtml(a.itemId, a.itemName)} → ${lootCharHtml(a)} <span class="loot-tag">${LOOT_KIND_LABELS[a.kind]}</span>
-      ${a.boss ? `<span class="bis-item-meta">${escapeHtml(a.boss)}</span>` : ''}${a.note ? `<span class="bis-item-meta">${escapeHtml(a.note)}</span>` : ''}
-      ${officer ? `<button type="button" class="loot-del" data-loot-delete="${escapeHtml(aid)}" aria-label="Vergabe löschen" title="Vergabe löschen">×</button>` : ''}
-    </div>`).join('') : '';
-  let panel = '';
-  if (officer && lootPanelOpen.has(id)){
-    // BiS sets and everybody's "Habe ich" for the decision aid.
-    bisSyncListeners();
-    bisNeedSync();
-    if (!bisData) bisLoadData().then(() => { if (currentPage === 'raids') renderRaidsPage(); }).catch(() => {});
-    panel = `<div class="loot-panel">
-      ${lootPick[id] ? lootCandidatesHtml(id) : `<input type="search" class="apply-text-input" data-loot-search="${escapeHtml(id)}" placeholder="Item suchen …" value="${escapeHtml(lootQuery[id] || '')}" autocomplete="off">
-        <div class="raid-sr-results" data-loot-results="${escapeHtml(id)}">${lootSearchHtml(id)}</div>`}
-    </div>`;
-  }
-  return `<div class="raid-sr loot-event">
-    <div class="raid-col-head">Loot <span>${awards.length ? `${awards.length} vergeben` : ''}</span></div>
-    ${lootLoadError ? `<p class="bis-hint raid-error">${escapeHtml(lootLoadError)}</p>` : ''}
-    ${list}
-    ${officer ? `<div class="raid-admin"><button type="button" class="btn btn-ghost btn-sm" data-loot-toggle="${escapeHtml(id)}">${lootPanelOpen.has(id) ? 'Loot-Vergabe schließen' : 'Loot vergeben'}</button></div>` : ''}
-    ${panel}
+/** One line of the loot history. @param {string} aid @param {LootAward} a @param {boolean} officer */
+function lootAwardRowHtml(aid, a, officer){
+  return `<div class="loot-award-row">
+    ${lootItemHtml(a.itemId, a.itemName)} → ${lootCharHtml(a)} <span class="loot-tag">${LOOT_KIND_LABELS[a.kind]}</span>
+    ${a.boss ? `<span class="bis-item-meta">${escapeHtml(a.boss)}</span>` : ''}${a.note ? `<span class="bis-item-meta">${escapeHtml(a.note)}</span>` : ''}
+    ${officer ? `<button type="button" class="loot-del" data-loot-delete="${escapeHtml(aid)}" aria-label="Vergabe löschen" title="Vergabe löschen">×</button>` : ''}
   </div>`;
-}
-
-/** Write an award. @param {string} eventId @param {string} key "uid|charKey" @param {string} kind @param {string} note */
-async function lootAward(eventId, key, kind, note){
-  const [uid, charKey] = key.split('|');
-  const s = ((raidSignups[eventId] || {})[uid] || {})[charKey];
-  const itemId = lootPick[eventId];
-  const id = newPushId('lootAwards');
-  if (!s || !itemId || !id) return;
-  const item = bisData && bisData.byId.get(itemId);
-  try {
-    await db.ref(`${DB_PATH}/lootAwards/${id}`).set({
-      eventId, itemId, itemName: item ? item.n : '', uid, charName: s.charName || s.name, classId: s.classId, specId: s.specId,
-      kind, note: note.slice(0, 120), by: discordIdentity.id, at: Date.now()
-    });
-    delete lootPick[eventId];
-    lootQuery[eventId] = '';
-    raidStatusMsg = '';
-  } catch (err){ raidStatusMsg = 'Vergabe konnte nicht gespeichert werden — Firebase-Regeln aktualisiert?'; }
-  lootRerender();
 }
 
 /** @param {string} awardId */
@@ -262,43 +185,17 @@ async function lootDelete(awardId){
   const answer = await bisDialog('Vergabe löschen?', `${lootItemName(a)} an ${a.charName} wird aus der Historie entfernt.`,
     [{ id: 'delete', label: 'Löschen', primary: true }, { id: 'cancel', label: 'Abbrechen' }]);
   if (answer !== 'delete') return;
-  try { await db.ref(`${DB_PATH}/lootAwards/${awardId}`).remove(); }
+  /** @type {Record<string, any>} */
+  const updates = { [`lootAwards/${awardId}`]: null };
+  // An award from a Loot-Runde: its item is open again.
+  const ref = lootSessionItemOfAward(a.eventId, awardId);
+  if (ref) Object.assign(updates, { [`${ref}/awardId`]: null, [`${ref}/done`]: null });
+  try { await db.ref(DB_PATH).update(updates); }
   catch (err){ raidStatusMsg = 'Löschen fehlgeschlagen.'; lootRerender(); }
 }
 
-/** Wire loot controls inside root (raid cards or the Loot page). @param {HTMLElement} root */
+/** Wire the history's delete buttons inside root. @param {HTMLElement} root */
 function lootWire(root){
-  root.querySelectorAll('[data-loot-toggle]').forEach(btn => btn.addEventListener('click', () => {
-    const id = btn.getAttribute('data-loot-toggle');
-    if (lootPanelOpen.has(id)) lootPanelOpen.delete(id); else lootPanelOpen.add(id);
-    renderRaidsPage();
-  }));
-  root.querySelectorAll('[data-loot-search]').forEach((/** @type {HTMLInputElement} */ input) => {
-    const id = input.getAttribute('data-loot-search');
-    input.addEventListener('input', () => {
-      lootQuery[id] = input.value;
-      const box = root.querySelector(`[data-loot-results="${CSS.escape(id)}"]`);
-      if (box) box.innerHTML = lootSearchHtml(id);
-    });
-  });
-  // Delegated (results are replaced while typing); root outlives re-renders.
-  if (!root.dataset.lootWired) root.addEventListener('click', ev => {
-    const btn = /** @type {HTMLElement} */ (ev.target).closest('[data-loot-pick]');
-    if (!btn || !root.contains(btn)) return;
-    const [eventId, itemId] = btn.getAttribute('data-loot-pick').split('|');
-    lootPick[eventId] = Number(itemId);
-    renderRaidsPage();
-  });
-  root.dataset.lootWired = '1';
-  root.querySelectorAll('[data-loot-unpick]').forEach(btn => btn.addEventListener('click', () => {
-    delete lootPick[btn.getAttribute('data-loot-unpick')];
-    renderRaidsPage();
-  }));
-  root.querySelectorAll('[data-loot-award]').forEach(btn => btn.addEventListener('click', () => {
-    const [eventId, uid, charKey, kind] = btn.getAttribute('data-loot-award').split('|');
-    const note = /** @type {HTMLInputElement | null} */ (root.querySelector(`[data-loot-note="${CSS.escape(eventId)}"]`));
-    lootAward(eventId, `${uid}|${charKey}`, kind, note ? note.value.trim() : '');
-  }));
   root.querySelectorAll('[data-loot-delete]').forEach(btn => btn.addEventListener('click', () => lootDelete(btn.getAttribute('data-loot-delete'))));
 }
 
@@ -324,11 +221,9 @@ function renderLootPage(){
         <input type="search" id="lootSearch" class="apply-text-input" placeholder="Spieler oder Item …" value="${escapeHtml(lootPageQuery)}" autocomplete="off">
       </div>
     </div>
-    ${lootImportHtml()}
     <div id="lootList">${lootPageListHtml()}</div>
-    <p class="bis-hint">Vergeben wird im Raid-Termin (Raids → „Loot vergeben“) oder per Import aus RCLootCouncil — beides nur Officer.</p>`;
+    <p class="bis-hint">Vergeben wird im Raid selbst: Raids → Raid öffnen → „Loot“ → Loot-Runde starten (Import aus RCLootCouncil, Abstimmung des Loot Councils).</p>`;
   lootWire(root);
-  lootImportWire(root);
   root.querySelectorAll('[data-loot-view]').forEach(btn => btn.addEventListener('click', () => { lootPageView = btn.getAttribute('data-loot-view'); renderLootPage(); }));
   const search = /** @type {HTMLInputElement} */ (root.querySelector('#lootSearch'));
   search.addEventListener('input', () => {
@@ -376,11 +271,7 @@ function lootPageListHtml(){
     const e = raidEvents[eventId];
     return `<div class="tac-card loot-raid">
       <h3 class="bis-card-title">${e ? `${escapeHtml(e.title)} <span class="bis-item-meta">${escapeHtml(raidDateLabel(e.start))}</span>` : `Ohne Raid-Termin <span class="bis-item-meta">${date(list[0][1].at)}</span>`}</h3>
-      ${list.map(([aid, a]) => `<div class="loot-award-row">
-        ${lootItemHtml(a.itemId, a.itemName)} → ${lootCharHtml(a)} <span class="loot-tag">${LOOT_KIND_LABELS[a.kind]}</span>
-        ${a.boss ? `<span class="bis-item-meta">${escapeHtml(a.boss)}</span>` : ''}${a.note ? `<span class="bis-item-meta">${escapeHtml(a.note)}</span>` : ''}
-        ${officer ? `<button type="button" class="loot-del" data-loot-delete="${escapeHtml(aid)}" aria-label="Vergabe löschen" title="Vergabe löschen">×</button>` : ''}
-      </div>`).join('')}
+      ${list.map(([aid, a]) => lootAwardRowHtml(aid, a, officer)).join('')}
     </div>`;
   }).join('');
 }

@@ -8,13 +8,13 @@
 // extra rules. A character already in a line-up of the same instance in
 // the same raid ID (reset Wednesday 07:00) can't be picked again.
 // Members see it once published: the line-up by role plus the bench
-// (Ersatzbank) of everyone else who signed up as Dabei.
+// (Ersatzbank) of everyone else who signed up as Dabei. Officers edit it
+// in the raid window's "Aufstellung" tab until the end of the raid day
+// (raidDayEnd) — before and after the sign-up closes.
 
 /** Default targets per raid size. */
 const RAID_COMP_DEFAULTS = { 10: { tank: 2, healer: 3, damage: 5 }, 20: { tank: 2, healer: 5, damage: 13 }, 40: { tank: 4, healer: 10, damage: 26 } };
 const RAID_ROLE_LABELS = { tank: 'Tanks', healer: 'Heiler', damage: 'Damage' };
-/** Events whose Aufstellung panel is open. */
-const raidCompOpen = new Set();
 
 /** Raid size of an event: from the instance (older events: stored size). @param {RaidEvent} e */
 function raidEventSize(e){
@@ -89,15 +89,10 @@ function raidCompPublishedHtml(id, e){
 
 /** Officer panel to build the line-up. @param {string} id @param {RaidEvent} e */
 function raidCompPanelHtml(id, e){
-  const open = raidCompOpen.has(id);
   const picked = raidCompPicked(id, e);
   const t = raidCompTargets(e);
   const count = role => picked.filter(s => s.role === role).length;
   const summary = `${picked.length}${raidEventSize(e) ? `/${raidEventSize(e)}` : ''} · ${['tank', 'healer', 'damage'].map(r => `${RAID_ROLE_LABELS[r]} ${count(r)}/${t[r]}`).join(' · ')}`;
-  if (!open){
-    return `<div class="raid-comp-bar"><span class="raid-col-head">Aufstellung <span>${summary}${e.rosterPublished ? ' · veröffentlicht' : picked.length ? ' · Entwurf' : ''}</span></span>
-      <button type="button" class="btn btn-ghost btn-sm" data-raid-comp-toggle="${escapeHtml(id)}">Aufstellung bearbeiten</button></div>`;
-  }
   const signups = raidSignupList(id).filter(s => s.status !== 'no');
   const pickedByUid = new Map(picked.map(s => [s.uid, s.key]));
   const row = s => {
@@ -124,12 +119,12 @@ function raidCompPanelHtml(id, e){
   };
   return `<div class="raid-comp-panel">
     <div class="raid-comp-bar"><span class="raid-col-head">Aufstellung <span>${summary}</span></span>
-      <button type="button" class="btn btn-ghost btn-sm" data-raid-comp-toggle="${escapeHtml(id)}">Schließen</button></div>
-    <p class="bis-hint">Pro Spieler höchstens ein Charakter — wer einen anderen Char wählt, ersetzt den bisherigen. 🔒 = der Charakter steht diese Raid-ID (Reset Mittwoch 07:00) schon in einer anderen ${escapeHtml(e.instance)}-Aufstellung. Zielzahlen rechts neben den Rollen anpassbar.</p>
+      <span class="bis-item-meta">Änderbar bis zum Ende des Raid-Tages.</span></div>
+    <p class="bis-hint">Haken setzen = im Raid. Pro Spieler höchstens ein Charakter — wer einen anderen Char wählt, ersetzt den bisherigen. 🔒 = der Charakter steht diese Raid-ID (Reset Mittwoch 07:00) schon in einer anderen ${escapeHtml(e.instance)}-Aufstellung. Zielzahlen rechts neben den Rollen anpassbar.</p>
     <div class="raid-comp-cols">${roleCol('tank')}${roleCol('healer')}${roleCol('damage')}</div>
     <div class="forever-actions">
       ${e.rosterPublished
-        ? `<button type="button" class="btn btn-ghost btn-sm" data-raid-comp-publish="${escapeHtml(id)}|0">Veröffentlichung zurückziehen</button><span class="bis-hint">Veröffentlicht — Änderungen sind sofort sichtbar.</span>`
+        ? `<span class="bis-hint">✓ Veröffentlicht — Änderungen sind sofort für alle sichtbar.</span><button type="button" class="btn btn-ghost btn-sm" data-raid-comp-publish="${escapeHtml(id)}|0">Veröffentlichung zurückziehen</button>`
         : `<button type="button" class="btn btn-teal btn-sm" data-raid-comp-publish="${escapeHtml(id)}|1" ${picked.length ? '' : 'disabled'}>Aufstellung veröffentlichen</button><span class="bis-hint">Entwurf — nur Offiziere sehen ihn.</span>`}
     </div>
   </div>`;
@@ -139,11 +134,6 @@ function raidCompPanelHtml(id, e){
 function raidCompWire(root){
   const ref = id => db.ref(`${DB_PATH}/raidEvents/${id}`);
   const fail = () => { raidStatusMsg = 'Aufstellung konnte nicht gespeichert werden.'; renderRaidsPage(); };
-  root.querySelectorAll('[data-raid-comp-toggle]').forEach(btn => btn.addEventListener('click', () => {
-    const id = btn.getAttribute('data-raid-comp-toggle');
-    if (raidCompOpen.has(id)) raidCompOpen.delete(id); else raidCompOpen.add(id);
-    renderRaidsPage();
-  }));
   root.querySelectorAll('[data-raid-comp-pick]').forEach((/** @type {HTMLInputElement} */ box) => box.addEventListener('change', () => {
     const id = box.getAttribute('data-raid-comp-pick');
     const e = raidEvents[id];

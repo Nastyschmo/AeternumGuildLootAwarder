@@ -436,6 +436,15 @@ Go to **Build → Realtime Database → Rules** and replace them with:
           ".validate": "newData.hasChildren(['itemId', 'uid', 'kind', 'at']) && newData.child('itemId').isNumber() && newData.child('uid').isString() && newData.child('kind').val().matches(/^(ms|os|other)$/) && newData.child('at').isNumber()"
         }
       },
+      "lootSessions": {
+        ".read": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
+        "$eventId": {
+          ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
+          "$sessionId": {
+            ".validate": "newData.hasChildren(['startedAt']) && newData.child('startedAt').isNumber()"
+          }
+        }
+      },
       "bisRecommended": {
         ".read": "auth != null",
         "$setId": {
@@ -1331,6 +1340,16 @@ zurück" / "Abbrechen" and restores the backup; "Aus Talent Builder
 them. No rules change.
 
 **Raids** (`js/raids.js`, page "Raids"): raid calendar with sign-ups.
+**Raid window:** the list shows one compact card per raid (date, phase —
+Anmeldung offen / geschlossen / Raid-Tag / Vorbei —, counts, the own
+sign-up or "✓ In der Aufstellung"); a click opens the raid window with
+three steps as tabs: **1 Anmeldung** (sign-up form, sign-ups, Soft- and
+Hard-Reserves; officers: "Anmeldung schließen → Aufstellung"),
+**2 Aufstellung** (officers edit it until the end of the raid day —
+midnight after the start, at least 6 h —, members see it once
+published), **3 Loot** (Loot-Runden, see Loot-Vergabe). The window opens
+on the tab that fits the phase; open raid and tab are kept in
+sessionStorage.
 **Several characters per member, sign-up deadline, Aufstellung:**
 `raidSignups/<eventId>/<uid>/<charKey>` (charKey = character id from
 Meine Charaktere, `n_<name>` for a typed name; older single sign-ups
@@ -1425,23 +1444,52 @@ an item search shows "Wer kann das herstellen?" — who listed the recipe,
 then who has enough skill. The BiS planner's source lines name guild
 crafters for BoE crafted items ("Gilde: Hammerfaust (Rezept), …").
 
+**Testmodus** (`js/testmode.js`, Admins: User Settings → "Testmodus
+starten"): the whole site on a made-up guild (17 people, 21 characters,
+public BiS sets, five raid events incl. a past one with loot, a raid
+running today with two Loot-Runden and votes, a raid-ID lockout case,
+soft-reserves with a Hard-Reserve, three applications), only in this browser.
+`window.firebase` is replaced by an in-memory stand-in before js/core.js
+loads; changes are kept in localStorage until "Szenario neu laden".
+The red bar on top switches the person you look through (admin,
+officer, members, an applicant) and has a "Was testen?" checklist.
+Discord DMs and Armory / WarcraftLogs lookups are skipped. "Testmodus
+beenden" restores the real login.
+
+**Loot-Runden** (`js/loot-session.js`, raid window → tab "Loot",
+officers / admins = the Loot Council): items are tradeable for 2 hours
+after the drop, so a raid hands out loot in several Runden. "Loot-Runde
+starten" → add what dropped: RCLootCouncil CSV export
+(`js/loot-import.js`; rows of the raid's evening that aren't in this raid
+yet are pre-selected, the RCLC player / response is kept as a hint) or
+single items via the search → "Abstimmung öffnen": a pop-up with the
+Runde's items on the left (votes, "Du fehlst", awarded) and per item the
+decision aid with every council member's vote (☆ Stimme, one per member
+and item, changeable), the trade timer and "MS" / "OS" to award —
+written to `lootAwards` (with `sessionId`), then the next open item.
+"Extern / frei" (external won the roll) and "Entzaubern / Bank" close an
+item without a guild award; "Zurücknehmen" reopens it. **Hard-Reserves**
+(`raidEvents/<id>/hr`, Anmeldung tab, officers): items the guild keeps
+in SR runs with externals — not soft-reservable, flagged HR, decided by
+the council; SR items are rolled in game among the reservers.
+`lootSessions/<eventId>/<sessionId>` = { startedAt, startedBy, closedAt?,
+items: { itemId, itemName, at, boss?, ext?, rclcName?, rclcResponse?,
+votes: { voterUid: "<uid>|<charKey>" }, done?, awardId?, doneNote? } }.
+**Rules:** `lootSessions` (README § 6f) — officers / admins read and
+write. Own listener, not in `SYNCED_KEYS`.
+
 **Loot-Vergabe** (`js/loot.js`, Loot Council with a decision aid):
-officers open "Loot vergeben" on a raid card, search the item (drops of
-the instance first) and get everybody signed up (Dabei / Vielleicht)
+the pop-up of a Loot-Runde lists everybody in the raid — the
+Aufstellung, else everybody signed up (Dabei / Vielleicht)
 with BiS (item on the BiS set the character assigned for the signed-up
 spec on Meine Charaktere, not ticked "Habe ich"; only public sets are
 readable), Soft-Reserve, attendance ("Dabei" for the last 10 earlier
 raids), main-spec loot of the last 30 days and main / twink — in a
 suggested order (BiS + SR, not received yet, main before twink, less
-loot, more attendance). "MS" / "OS" writes `lootAwards/<id>`. The raid
-card lists the event's loot; the page "Loot" shows the history by raid
-or per player. **Import** (`js/loot-import.js`, officers, Loot page):
-paste or pick a RCLootCouncil CSV export; the preview maps players to
-guild characters (by name, realm if ambiguous; unknown ones assignable
-or skipped), responses to Main-Spec / Off-Spec / Sonstiges (guessed:
-Need/Main → MS, Greed/Offspec → OS, Disenchant/Pass/… → Sonstiges;
-changeable) and days to raid events. Rows keep the boss and the RCLC
-row id (`ext`), so re-importing the same export adds nothing.
+loot, more attendance). "MS" / "OS" writes `lootAwards/<id>`. The Loot
+tab lists the raid's loot for everybody; the page "Loot" shows the
+history by raid or per player. Awards keep the boss and the RCLC row id
+(`ext`), so re-importing the same export adds nothing.
 **Rules:** `lootAwards` (README § 6f) — members read, officers / admins
 write. Own listener, not in `SYNCED_KEYS`.
 

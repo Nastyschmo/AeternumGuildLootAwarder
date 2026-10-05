@@ -2269,3 +2269,97 @@ button.apply-chat-edit:hover{ filter: brightness(1.12); }
 .apply-chat-edit-icon{ opacity: .55; font-size: 11px; margin-left: 4px; }
 .application-log-list{ margin: 4px 0 0; padding-left: 18px; font-size: 13px; }
 @media (max-width: 520px){ .apply-chat-name-pair{ grid-template-columns: 1fr; } }
+
+/* Testmodus bar (js/testmode.js) */
+.testmode-bar{ position: sticky; top: 0; z-index: 300; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 16px; font-size: 13px;
+  background: var(--danger); color: var(--text); border-bottom: 2px solid var(--danger-bright); box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+.testmode-bar select, .testmode-bar button{ font: inherit; font-size: 12.5px; background: var(--field-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+.testmode-bar label{ display: inline-flex; align-items: center; gap: 6px; }
+.testmode-note{ opacity: .85; }
+.testmode-guide{ flex-basis: 100%; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+.testmode-guide ol{ margin: 0; padding-left: 20px; line-height: 1.55; }
+
+/* Raid window: list cards, steps, Loot-Runden, voting pop-up (js/raids.js, js/loot-session.js) */
+.raid-list-card{ cursor: pointer; transition: border-color .15s; }
+.raid-list-card:hover, .raid-list-card:focus-visible{ border-color: var(--gold); outline: none; }
+.raid-open-hint{ font-size: 13px; font-weight: 700; color: var(--gold-bright); white-space: nowrap; }
+.raid-list-facts{ display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: 13px; color: var(--text-muted); }
+.raid-me{ display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 8px; font-size: 13px; }
+.raid-me-in{ color: var(--teal-bright); font-weight: 600; }
+.raid-me-todo{ color: var(--gold-bright); font-weight: 600; }
+.raid-phase{ display: inline-block; margin-left: 8px; font-size: 10.5px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); letter-spacing: .02em; vertical-align: 1px; }
+.raid-phase-signup{ border-color: var(--teal-bright); color: var(--teal-bright); }
+.raid-phase-running{ border-color: var(--gold-bright); color: var(--gold-bright); background: rgba(var(--gold-bright-rgb),0.1); }
+.raid-window-top{ display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+.raid-window-admin{ display: flex; gap: 6px; }
+.raid-steps{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 4px; }
+.raid-step{ display: flex; align-items: center; gap: 10px; text-align: left; font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--field-bg); color: var(--text); cursor: pointer; min-width: 0; }
+.raid-step:hover{ border-color: var(--gold); }
+.raid-step.active{ border-color: var(--gold-bright); background: rgba(var(--gold-bright-rgb),0.1); box-shadow: inset 0 -3px 0 var(--gold-bright); }
+.raid-step-num{ flex: 0 0 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; border: 1px solid var(--border); color: var(--text-muted); }
+.raid-step.active .raid-step-num{ border-color: var(--gold-bright); color: var(--gold-bright); }
+.raid-step.done .raid-step-num{ border-color: var(--teal-bright); color: var(--teal-bright); }
+.raid-step-text{ display: flex; flex-direction: column; min-width: 0; }
+.raid-step-text b{ font-size: 14px; }
+.raid-step-text small{ font-size: 11.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.raid-tab-body{ margin-top: 4px; }
+.raid-next{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 14px; margin-top: 12px; padding: 10px 12px; border: 1px dashed var(--gold); border-radius: 8px; font-size: 13.5px; }
+.raid-next .bis-item-meta{ display: block; }
+.raid-next-hint{ margin-top: 10px; }
+.raid-section-head{ margin-top: 14px; }
+.raid-hr{ margin: 6px 0 10px; padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--fold-body-bg); }
+.loot-tag-hr{ border-color: var(--gold-bright); color: var(--gold-bright); font-weight: 700; }
+@media (max-width: 640px){
+  .raid-steps{ grid-template-columns: 1fr; }
+}
+
+.loot-howto{ margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--fold-body-bg); font-size: 13.5px; }
+.loot-howto ol{ margin: 6px 0 0; padding-left: 20px; line-height: 1.55; }
+.loot-sr-hint{ margin-top: 10px; }
+.loot-sess{ margin-top: 12px; padding: 10px 12px; border: 1px solid var(--gold); border-radius: 8px; background: var(--fold-body-bg); }
+.loot-sess-closed{ border-color: var(--border-soft); }
+.loot-sess-closed > summary{ cursor: pointer; list-style: none; }
+.loot-sess-closed > summary::-webkit-details-marker{ display: none; }
+.loot-sess-head{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 6px 14px; }
+.loot-sess-head .bis-item-meta{ display: block; font-size: 12.5px; }
+.loot-sess-items{ display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.loot-sess-chip{ display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 2px 8px 2px 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-panel); }
+.loot-sess-chip.done{ opacity: .7; }
+.loot-sess-add{ margin-top: 8px; }
+.loot-sess .loot-import{ margin-top: 8px; }
+.loot-trade{ font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--teal-bright); color: var(--teal-bright); white-space: nowrap; }
+.loot-trade-soon{ border-color: var(--gold-bright); color: var(--gold-bright); font-weight: 700; }
+.loot-trade-over{ border-color: var(--danger-bright); color: var(--danger-bright); }
+.loot-awarded{ margin-top: 16px; }
+
+.loot-modal{ z-index: 310; padding: 12px; }
+.loot-modal-card{ max-width: 1150px; height: 90vh; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; padding: 16px 18px; }
+.loot-modal-body{ flex: 1; min-height: 0; display: grid; grid-template-columns: 270px 1fr; gap: 14px; }
+.loot-modal-list{ overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 4px; }
+.loot-modal-main{ overflow-y: auto; padding-right: 4px; }
+.loot-modal-item{ display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid var(--border-soft); border-radius: 6px; background: var(--field-bg); color: var(--text); cursor: pointer; }
+.loot-modal-item:hover{ border-color: var(--gold); }
+.loot-modal-item.active{ border-color: var(--gold-bright); background: rgba(var(--gold-bright-rgb),0.1); }
+.loot-modal-item.done{ opacity: .6; }
+.loot-modal-item .bis-item-meta b{ color: var(--gold-bright); }
+.loot-modal-item-head{ padding-bottom: 8px; border-bottom: 1px solid var(--border-soft); margin-bottom: 8px; }
+.loot-modal-item-name{ font-size: 16px; font-weight: 700; }
+.loot-modal-flags{ display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 2px; }
+.loot-mode-hint{ margin: 0 0 8px; }
+.loot-vote-state{ font-size: 13px; margin-bottom: 6px; }
+.loot-vote-table .loot-actions .btn{ margin-left: 3px; }
+.loot-votes .bis-item-meta{ display: inline !important; }
+.loot-row-lead td{ background: rgba(var(--gold-bright-rgb),0.1); }
+.loot-row-lead td:nth-child(7) b{ color: var(--gold-bright); }
+.loot-modal-foot{ display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.loot-modal-foot .apply-text-input{ flex: 1 1 260px; }
+.loot-modal-done{ font-size: 15px; padding: 10px 12px; border: 1px solid var(--teal-bright); border-radius: 8px; margin: 6px 0 10px; }
+@media (max-width: 800px){
+  .loot-modal-card{ height: 94vh; max-height: 94vh; padding: 12px; }
+  .loot-modal-body{ grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .loot-modal-list{ flex-direction: row; overflow-x: auto; overflow-y: hidden; max-height: none; }
+  .loot-modal-item{ flex: 0 0 200px; }
+  .loot-vote-table th:nth-child(5), .loot-vote-table td:nth-child(5), .loot-vote-table th:nth-child(6), .loot-vote-table td:nth-child(6){ display: none; }
+  .loot-modal-main{ overflow-x: auto; }
+  .loot-vote-table{ min-width: 600px; }
+}

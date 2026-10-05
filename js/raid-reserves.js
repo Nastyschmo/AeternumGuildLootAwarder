@@ -12,6 +12,9 @@
 // loot data is incomplete (QuestieDB lacks many boss drops), so the search
 // covers every rare+ item and lists known drops of the event's instance
 // first.
+// Hard-Reserves (raidEvents/<id>/hr = { itemId: true }, officers): items the
+// guild keeps — they can't be soft-reserved and go through the Loot
+// Council's vote (js/loot-session.js). Typical for SR runs with externals.
 
 const RAID_SR_MAX = 3;
 const RAID_SR_RESULTS = 12;
@@ -53,6 +56,12 @@ const raidSrShowAll = {};
 let raidReserves = {};
 /** Search text per event, kept across re-renders. @type {Record<string, string>} */
 const raidSrQuery = {};
+/** Hard-Reserve search text per event (officers). @type {Record<string, string>} */
+const raidHrQuery = {};
+/** Names of the event's Hard-Reserve items (Forever has items under several ids). @param {RaidEvent} e */
+function raidHrNames(e){
+  return new Set(Object.keys(e.hr || {}).map(id => raidSrItemName(Number(id))));
+}
 
 function raidReserveSync(){
   db.ref(`${DB_PATH}/raidReserves`).on('value', snap => {
@@ -114,6 +123,8 @@ function raidSrResultsHtml(id){
   if (q.length < 2 || !bisData) return '';
   const e = raidEvents[id];
   const mine = new Set(((raidReserves[id] || {})[discordIdentity.id] || { items: [] }).items.map(raidSrItemName));
+  // Hard-Reserves can't be soft-reserved.
+  for (const n of raidHrNames(e)) mine.add(n);
   const me = raidUserSignup(id, discordIdentity.id);
   const filter = me && !raidSrShowAll[id] ? (/** @param {ForeverItem} it */ it => raidSrFits(it, me.classId, me.specId)) : () => true;
   // Forever has many items twice or more (Classic id and new ids); same
@@ -188,6 +199,19 @@ function raidSrSectionHtml(id, e, past){
     own = `<div class="raid-sr-own">${chips ? `<div class="raid-sr-mine-list">${chips}</div>` : ''}${add}</div>`;
   }
 
+  // Hard-Reserves: stay in the guild, the Loot Council decides.
+  const officer = isOfficerOrAdmin();
+  const hrIds = Object.keys(e.hr || {}).map(Number);
+  const hrNames = raidHrNames(e);
+  const hr = hrIds.length || (officer && !past) ? `<div class="raid-hr">
+      <div class="raid-col-head">Hard-Reserve <span>nicht reservierbar · bleibt in der Gilde, vergibt der Loot Council</span></div>
+      ${hrIds.length ? `<div class="raid-sr-mine-list">${hrIds.map(itemId => `<span class="raid-sr-mine">${itemHtml(itemId)}${officer && !past ? `<button type="button" data-raid-hr-remove="${escapeHtml(id)}|${itemId}" aria-label="Entfernen">×</button>` : ''}</span>`).join('')}</div>` : '<p class="bis-hint">Keine Hard-Reserves.</p>'}
+      ${officer && !past ? `<div class="raid-sr-search">
+        <input type="search" class="apply-text-input" data-raid-hr-search="${escapeHtml(id)}" placeholder="Hard-Reserve hinzufügen (Item suchen) …" value="${escapeHtml(raidHrQuery[id] || '')}" autocomplete="off">
+        <div class="raid-sr-results" data-raid-hr-results="${escapeHtml(id)}">${lootSearchHtml(id, e.instance, raidHrQuery[id], 'raid-hr-add')}</div>
+      </div>` : ''}
+    </div>` : '';
+
   // Everybody's reserves, grouped by item name (see the duplicate ids
   // above); contested items first.
   /** @type {Map<string, { itemId: number, players: { uid: string, label: string, classId: string, out: boolean }[] }>} */
@@ -208,7 +232,7 @@ function raidSrSectionHtml(id, e, past){
   };
   const list = rows.length
     ? rows.map(([, { itemId, players }]) => `<div class="raid-sr-row">
-        <span class="raid-sr-item">${itemHtml(itemId)}${players.length > 1 ? `<span class="raid-sr-count">${players.length}×</span>` : ''}</span>
+        <span class="raid-sr-item">${itemHtml(itemId)}${players.length > 1 ? `<span class="raid-sr-count">${players.length}×</span>` : ''}${hrNames.has(itemName(itemId)) ? '<span class="loot-tag loot-tag-hr" title="Inzwischen Hard-Reserve — zählt nicht als Soft-Reserve">HR</span>' : ''}</span>
         <span class="raid-sr-players">${players.sort((a, z) => a.label.localeCompare(z.label, 'de')).map(chip).join('')}</span>
       </div>`).join('')
     : '<p class="bis-hint">Noch nichts reserviert.</p>';
@@ -216,6 +240,7 @@ function raidSrSectionHtml(id, e, past){
   return `<div class="raid-sr">
     <div class="raid-col-head">Soft-Reserve <span>max. ${e.srMax} pro Spieler${e.srLocked ? ' · 🔒 gesperrt' : ''}</span></div>
     ${own}
+    ${hr}
     <details class="raid-sr-all"${rows.length && rows.length <= 8 ? ' open' : ''}>
       <summary>Alle Reserves (${count} Spieler, ${rows.length} ${rows.length === 1 ? 'Item' : 'Items'})</summary>
       ${list}
@@ -282,9 +307,31 @@ function raidSrWire(root){
     const list = root.querySelector(`[data-raid-sr-results="${CSS.escape(id)}"]`);
     if (list) list.innerHTML = raidSrResultsHtml(id);
   }));
+  root.querySelectorAll('[data-raid-hr-search]').forEach((/** @type {HTMLInputElement} */ input) => {
+    const id = input.getAttribute('data-raid-hr-search');
+    input.addEventListener('input', () => {
+      raidHrQuery[id] = input.value;
+      const box = root.querySelector(`[data-raid-hr-results="${CSS.escape(id)}"]`);
+      const e = raidEvents[id];
+      if (box) box.innerHTML = lootSearchHtml(id, e ? e.instance : '', input.value, 'raid-hr-add');
+    });
+  });
+  const setHr = (id, itemId, on) => db.ref(`${DB_PATH}/raidEvents/${id}/hr/${itemId}`).set(on ? true : null)
+    .catch(() => { raidStatusMsg = 'Hard-Reserve konnte nicht gespeichert werden.'; renderRaidsPage(); });
+  root.querySelectorAll('[data-raid-hr-remove]').forEach(btn => btn.addEventListener('click', () => {
+    const [id, itemId] = btn.getAttribute('data-raid-hr-remove').split('|');
+    setHr(id, itemId, false);
+  }));
   // Delegated (result buttons are replaced while typing); root outlives
   // re-renders, so wire it once.
   if (!root.dataset.raidSrWired) root.addEventListener('click', ev => {
+    const hrBtn = /** @type {HTMLElement} */ (ev.target).closest('[data-raid-hr-add]');
+    if (hrBtn && root.contains(hrBtn)){
+      const [id, itemId] = hrBtn.getAttribute('data-raid-hr-add').split('|');
+      raidHrQuery[id] = '';
+      setHr(id, itemId, true);
+      return;
+    }
     const btn = /** @type {HTMLElement} */ (ev.target).closest('[data-raid-sr-add]');
     if (!btn || !root.contains(btn)) return;
     const id = btn.getAttribute('data-raid-id');

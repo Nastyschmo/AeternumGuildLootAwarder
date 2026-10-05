@@ -111,6 +111,9 @@ function testSeed(now){
     return out;
   };
   const everyone = Object.keys(charById).filter(k => charById[k][5] === 'main');
+  // Tonight's raid started 90 minutes ago; one character per player in the line-up.
+  const today = Math.floor((now - 90 * 60000) / 60000) * 60000;
+  const todayRoster = ['kraxl', 'olafson', 'tanky', 'baerbel', 'lichtblick', 'wasserfall', 'blattgruen', 'feuerfee', 'frostbeule', 'schattenwort', 'seelenbrand', 'pfeilhagel', 'messerwerk', 'wutbuerger', 'blitzschlag', 'mondstrahl'];
 
   const raidEvents = {
     t_ony_past: { title: 'Onyxia — letzte Woche', instance: "Onyxia's Lair", start: at(-7, 20), note: 'Testszenario: Vergangener Raid mit Aufstellung und vergebenem Loot.', createdBy: 'test_offi', createdAt: now - 10 * day, updatedAt: now - 8 * day,
@@ -118,9 +121,9 @@ function testSeed(now){
     t_bd_1: { title: 'Barrow Deeps — Run 1', instance: 'Barrow Deeps', start: idStart + 13 * 3600000, note: 'Testszenario: Diese Raid-ID schon gelaufen — Kraxl und Tanky sind für Run 2 gesperrt (🔒).', createdBy: 'test_offi', createdAt: now - 6 * day, updatedAt: now - 6 * day,
       roster: { 'test_you|kraxl': true, 'test_m1|tanky': true, 'test_m3|lichtblick': true, 'test_m6|feuerfee': true }, rosterPublished: true },
     t_bd_2: { title: 'Barrow Deeps — Run 2', instance: 'Barrow Deeps', start: idStart + 6 * day + 13 * 3600000, note: 'Testszenario: Gleiche Raid-ID wie Run 1 — stell eine 10er-Aufstellung zusammen.', createdBy: 'test_offi', createdAt: now - 2 * day, updatedAt: now - 2 * day, signupState: 'open' },
-    t_hyjal: { title: 'Hyjal Summit', instance: 'Hyjal Summit', start: at(4, 20), note: 'Testszenario: Anmeldung offen (22 Chars für 20 Plätze), Soft-Reserve mit 2 Items. Ohne Aufstellung sind in der Loot-Vergabe alle Angemeldeten Kandidaten.', createdBy: 'test_offi', createdAt: now - day, updatedAt: now - day, srMax: 2 },
-    t_ony_next: { title: 'Onyxia — morgen', instance: "Onyxia's Lair", start: at(1, 20), note: 'Testszenario: Anmeldung von den Offizieren geschlossen (sonst automatisch 24 h vorher), Aufstellung veröffentlicht.', createdBy: 'test_offi', createdAt: now - 5 * day, updatedAt: now - day, signupState: 'closed',
-      roster: Object.fromEntries(everyone.slice(0, 12).map(k => [`${charById[k][0]}|${k}`, true])), rosterPublished: true }
+    t_hyjal: { title: 'Hyjal Summit', instance: 'Hyjal Summit', start: at(4, 20), note: 'Testszenario: Anmeldung offen (22 Chars für 20 Plätze), Soft-Reserve mit 2 Items und einer Hard-Reserve (Staff of Dominance). Ohne Aufstellung sind in der Loot-Vergabe alle Angemeldeten Kandidaten.', createdBy: 'test_offi', createdAt: now - day, updatedAt: now - day, srMax: 2, hr: { 18842: true } },
+    t_ony_today: { title: 'Onyxia — heute', instance: "Onyxia's Lair", start: today, note: 'Testszenario: Läuft gerade. Anmeldung geschlossen, Aufstellung veröffentlicht, Loot-Runde 1 abgeschlossen, Runde 2 offen mit Stimmen.', createdBy: 'test_offi', createdAt: now - 5 * day, updatedAt: now - day, signupState: 'closed',
+      roster: Object.fromEntries(todayRoster.map(k => [`${charById[k][0]}|${k}`, true])), rosterPublished: true }
   };
   const raidSignups = {
     t_ony_past: signups(everyone.map(k => signup(k, 'yes'))),
@@ -129,7 +132,7 @@ function testSeed(now){
       signup('wasserfall', 'yes'), signup('blattgruen', 'maybe'), signup('frostbeule', 'yes'), signup('schattenwort', 'yes'), signup('seelenbrand', 'yes'),
       signup('pfeilhagel', 'yes'), signup('messerwerk', 'yes'), signup('wutbuerger', 'yes'), signup('wutzwerg', 'yes'), signup('blitzschlag', 'maybe'), signup('mondstrahl', 'no')]),
     t_hyjal: signups([...everyone.filter(k => k !== 'mondstrahl').map(k => signup(k, 'yes')), signup('mondstrahl', 'maybe', 'komme evtl. später'), signup('twinkus', 'yes'), signup('wutzwerg', 'maybe')]),
-    t_ony_next: signups(everyone.map(k => signup(k, 'yes')))
+    t_ony_today: signups(everyone.map(k => signup(k, 'yes')))
   };
   const raidReserves = {
     t_hyjal: {
@@ -147,7 +150,25 @@ function testSeed(now){
     tl2: award('t_ony_past', 17063, 'Band of Accuria', 'messerwerk', 'ms', 7),
     tl3: award('t_ony_past', 16800, 'Arcanist Boots', 'feuerfee', 'ms', 7),
     tl4: award('t_ony_past', 19137, 'Onslaught Girdle', 'wutbuerger', 'os', 7, 'Off-Spec, kein Tank da'),
-    tl5: award('t_bd_1', 16921, 'Halo of Transcendence', 'lichtblick', 'ms', 1)
+    tl5: award('t_bd_1', 16921, 'Halo of Transcendence', 'lichtblick', 'ms', 1),
+    tl6: Object.assign(award('t_ony_today', 17064, 'Shard of the Scale', 'blattgruen', 'ms', 0), { at: now - 55 * 60000, boss: 'Onyxia', sessionId: 'ts1' })
+  };
+  // Loot-Runden of tonight's raid: Runde 1 done, Runde 2 open (votes by Offi Olaf).
+  const min = 60000;
+  const lootSessions = {
+    t_ony_today: {
+      ts1: { startedAt: now - 75 * min, startedBy: 'test_offi', closedAt: now - 50 * min, items: {
+        ti1: { itemId: 17064, itemName: 'Shard of the Scale', at: now - 80 * min, boss: 'Onyxia', done: 'award', awardId: 'tl6' },
+        ti2: { itemId: 18205, itemName: "Eskhandar's Collar", at: now - 80 * min, boss: 'Onyxia', done: 'free', doneNote: 'Entzaubert / Bank' }
+      } },
+      ts2: { startedAt: now - 20 * min, startedBy: 'test_offi', items: {
+        ti3: { itemId: 17068, itemName: 'Deathbringer', at: now - 100 * min, boss: 'Onyxia', ext: 'tx1', rclcName: 'Wutbürger', rclcResponse: 'Need', votes: { test_offi: 'test_m12|wutbuerger' } },
+        ti4: { itemId: 16921, itemName: 'Halo of Transcendence', at: now - 15 * min, boss: 'Onyxia', ext: 'tx2', rclcName: 'Lichtblick', rclcResponse: 'Need', votes: { test_offi: 'test_m3|lichtblick' } },
+        ti5: { itemId: 19145, itemName: 'Robe of Volatile Power', at: now - 15 * min, boss: 'Onyxia', ext: 'tx3' },
+        ti6: { itemId: 16900, itemName: 'Stormrage Cover', at: now - 10 * min, boss: 'Onyxia' },
+        ti7: { itemId: 18814, itemName: 'Choker of the Fire Lord', at: now - 10 * min, boss: 'Onyxia' }
+      } }
+    }
   };
   const app = (applicantId, firstName, age, picks, characters, profs, logs, status, daysAgo, extra) => Object.assign({
     version: 2, firstName, nickname: '', age, picks, characters, charProfessions: profs, extraProfessions: [{ professionId: 'cooking' }],
@@ -162,7 +183,7 @@ function testSeed(now){
     tapp3: app('test_apply3', 'Tom', 24, [{ classId: 'rogue', specs: ['combat'] }], { rogue: 'Tom Schattenfuß' },
       { rogue: [{ professionId: 'engineering' }, { professionId: 'mining' }] }, ['https://www.warcraftlogs.com/character/eu/x/tom'], 'accepted', 9)
   };
-  return { 'guild-loot-data': { discordRoles, characterProfiles, bisPublic, bisOwned, raidEvents, raidSignups, raidReserves, lootAwards, applications } };
+  return { 'guild-loot-data': { discordRoles, characterProfiles, bisPublic, bisOwned, raidEvents, raidSignups, raidReserves, lootAwards, lootSessions, applications } };
 }
 
 // ---------------------------------------------------------------- in-memory Firebase
@@ -259,11 +280,13 @@ function testModeBar(){
     <button type="button" id="testModeExit">Testmodus beenden</button>
     <div class="testmode-guide hidden" id="testModeGuide">
       <ol>
-        <li><b>Raids → Barrow Deeps Run 2</b> (als Admin/Officer): „Aufstellung bearbeiten“ — Kraxl und Tanky sind 🔒 (schon in Run 1 dieser ID). Stell 10 Leute zusammen (2/3/5), veröffentliche.</li>
-        <li><b>Ansicht als Mitglied</b> (z. B. Feuerfee): Run 2 zeigt die veröffentlichte Aufstellung + Ersatzbank; bei Hyjal einen zweiten Charakter anmelden, Soft-Reserve setzen.</li>
-        <li><b>Onyxia — morgen</b>: Anmeldung geschlossen. Als Officer „Anmeldung öffnen“ / „schließen“ testen und als Mitglied schauen, was sich ändert.</li>
-        <li><b>Loot</b> (als Officer): Bei Hyjal „Loot vergeben“ → „Robe of Volatile Power“ — Entscheidungshilfe mit BiS (Heali, Lichtblick, Feuerfee, Seelenbrand), SR, Anwesenheit, Loot 30 T. Vergib MS/OS.</li>
-        <li><b>Loot-Seite</b>: Historie nach Raid / pro Spieler; Import mit einer RCLootCouncil-CSV ausprobieren.</li>
+        <li><b>Raids</b>: Jede Karte öffnet das Raid-Fenster mit den Schritten <b>1 Anmeldung · 2 Aufstellung · 3 Loot</b>.</li>
+        <li><b>Onyxia — heute</b> (als Admin/Officer): Tab „Loot“ — Runde 1 ist abgeschlossen, Runde 2 offen. „Abstimmung öffnen“: Offi Olaf hat schon abgestimmt, gib Deine Stimme ab und vergib MS/OS. Deathbringer ist fast nicht mehr handelbar. Danach „Neue Loot-Runde starten“ und eine RCLC-CSV importieren oder Items einzeln hinzufügen.</li>
+        <li><b>Ansicht als „Offi Olaf“</b>: gleiche Runde, seine Stimme ist ★ — Stimmen beider Council-Mitglieder sieht jeder im Council sofort.</li>
+        <li><b>Barrow Deeps Run 2</b>: Tab „Aufstellung“ — Kraxl und Tanky sind 🔒 (schon in Run 1 dieser ID). Stell 10 Leute zusammen (2/3/5), veröffentliche.</li>
+        <li><b>Hyjal</b>: Soft-Reserve-Raid mit Hard-Reserve (Staff of Dominance, nicht reservierbar). Als Officer im Tab „Anmeldung“ weitere HR setzen, „Anmeldung schließen → Aufstellung“ ausprobieren.</li>
+        <li><b>Ansicht als Mitglied</b> (z. B. Feuerfee): Liste zeigt „Angemeldet“ / „In der Aufstellung“; bei Hyjal einen zweiten Charakter anmelden, Soft-Reserve setzen; Loot-Tab zeigt nur die Vergaben.</li>
+        <li><b>Loot-Seite</b>: Historie nach Raid / pro Spieler.</li>
         <li><b>Bewerbung</b>: als „Neuling Nils“ sieht man den Status der eigenen Bewerbung; als Officer die Liste (offen hervorgehoben, Lena in Bearbeitung, Tom angenommen).</li>
         <li><b>Meine Charaktere / Berufe / BiS-Planer</b>: Charaktere bearbeiten (Main/Twink, Berufe, BiS-Set je Spec), Berufe-Verzeichnis durchsuchen („Lionheart“).</li>
       </ol>

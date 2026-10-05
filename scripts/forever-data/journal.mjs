@@ -55,7 +55,7 @@ const CLASSIC_MAPS = new Set([33, 34, 36, 43, 47, 48, 70, 90, 109, 129, 189, 209
  * on classic ones that got new encounters (reworked in Forever).
  * @param {{ build: string, eraBuild: string, table: Function, maps: Map<number, any> }} ctx
  */
-async function encounterInstances({ build, eraBuild, table, maps }) {
+async function encounterInstances({ build, eraBuild, table, maps, icons }) {
   let rows = [];
   try { rows = await table('DungeonEncounter', build); } catch (e) { console.log(`  encounters: DungeonEncounter ${build} not available (${e.message.slice(0, 120)})`); return []; }
   const eraIds = new Set();
@@ -81,7 +81,8 @@ async function encounterInstances({ build, eraBuild, table, maps }) {
     const seen = new Map();
     for (const r of list.sort((a, z) => I(a.OrderIndex) - I(z.OrderIndex) || I(a.ID) - I(z.ID))) {
       const n = S(r.Name_lang);
-      if (n && !seen.has(n)) seen.set(n, { id: I(r.ID), n });
+      const ic = icons.get(I(r.SpellIconFileID));
+      if (n && !seen.has(n)) seen.set(n, { id: I(r.ID), n, ...(ic ? { i: ic } : {}) });
     }
     out.push({ map: mapId, n: name, kind, ...(isNew ? (classic ? { upd: 1 } : { new: 1 }) : {}), bosses: [...seen.values()] });
   }
@@ -90,12 +91,42 @@ async function encounterInstances({ build, eraBuild, table, maps }) {
 }
 
 /**
+ * Boss models: the client's Creature table (if it has one) names each
+ * creature with its display ids; a boss whose encounter name matches gets
+ * `m` = CreatureDisplayInfo id (the page shows Wowhead's model render).
+ * Probe first — logs what the client offers.
+ */
+async function bossModels({ build, eraBuild, table, encInst }) {
+  const want = new Map();
+  for (const x of encInst) for (const b of x.bosses) want.set(b.n.toLowerCase(), b);
+  for (const name of ['Creature', 'CreatureDisplayInfo', 'JournalEncounterCreature']) {
+    for (const b of [build, eraBuild]) {
+      try {
+        const rows = await table(name, b);
+        console.log(`  models: ${name} ${b}: ${rows.length} rows; columns ${Object.keys(rows[0] || {}).join(',')}`);
+        if (name === 'Creature') {
+          let hits = 0;
+          for (const r of rows) {
+            const boss = want.get(S(r.Name_lang).toLowerCase());
+            const disp = I(r.DisplayID_0) || I(r.DisplayID);
+            if (boss && disp && !boss.m) { boss.m = disp; hits++; }
+          }
+          console.log(`  models: ${hits} of ${want.size} bosses matched by name in Creature ${b}`);
+        }
+        break;
+      } catch (e) { console.log(`  models: ${name} ${b} not available (${e.message.slice(0, 100)})`); }
+    }
+  }
+}
+
+/**
  * @param {{ build: string, eraBuild: string, table: Function, icons: Map<number, string>, instanceNames: string[], maps: Map<number, any> }} ctx
  * @returns {Promise<{ instances: any[], note: string }>}
  */
 export async function buildJournal({ build, eraBuild, table, icons, instanceNames, maps }) {
   const keepNames = new Set([...KEEP_INSTANCES, ...instanceNames].map(n => n.toLowerCase()));
-  const encInst = await encounterInstances({ build, eraBuild, table, maps });
+  const encInst = await encounterInstances({ build, eraBuild, table, maps, icons });
+  await bossModels({ build, eraBuild, table, encInst });
   const load = async (name) => {
     try { return await table(name, build); } catch (e) {
       try { const rows = await table(name, eraBuild); console.log(`  journal: ${name} from Classic Era (${rows.length} rows)`); return rows; }

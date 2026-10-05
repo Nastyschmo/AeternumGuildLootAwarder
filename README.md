@@ -453,6 +453,12 @@ Go to **Build → Realtime Database → Rules** and replace them with:
           }
         }
       },
+      "raidPlans": {
+        "$eventId": {
+          ".read": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin' || (root.child('guild-loot-data/raidEvents').child($eventId).child('rosterPublished').val() === true && root.child('guild-loot-data/raidEvents').child($eventId).child('rosterUids').child(auth.uid).val() === true))",
+          ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')"
+        }
+      },
       "bisRecommended": {
         ".read": "auth != null",
         "$setId": {
@@ -1370,7 +1376,7 @@ three steps as tabs: **1 Anmeldung** (sign-up form, sign-ups, Soft- and
 Hard-Reserves; officers: "Anmeldung schließen → Aufstellung"),
 **2 Aufstellung** (officers edit it until the end of the raid day —
 midnight after the start, at least 6 h —, members see it once
-published), **3 Loot** (Loot-Runden, see Loot-Vergabe). The window opens
+published), **3 Taktik** (players of the published line-up and officers), **4 Loot** (Loot-Runden, see Loot-Vergabe). The window opens
 on the tab that fits the phase; open raid and tab are kept in
 sessionStorage.
 **Several characters per member, sign-up deadline, Aufstellung:**
@@ -1400,6 +1406,32 @@ Absage with character, class, spec and an optional note
 by the spec's role. Everyone logged in can read both; deleting an event
 also clears its sign-ups. **Rules:** `raidEvents` and `raidSignups`
 (README § 6f). Own listeners, not in `SYNCED_KEYS`.
+
+**Taktik** (`js/raid-tactics.js`, step 3 of the raid window, between
+Aufstellung and Loot): boss-by-boss raid plan instead of external sheets.
+Tabs "Ganzer Raid" plus the instance's bosses (`RAID_BOSSES`). Per boss:
+assignments per line-up character (Seelenstein, Anregen, Wiedergeburt,
+Flüche, Segen, Auren, Heal- / Tank-Ziele, Decurse groups, Unterbrechen …
+— `RAID_TACTIC_ABILITIES`, only spells present in our Forever data, talent
+abilities only for the spec), a positioning board (boss, raid groups,
+single players and raid markers dragged onto the field, optional map
+image link), a Kick-Reihenfolge per boss cast (who interrupts in which
+order; only characters with an interrupt in our data: Kick, Pummel,
+Shield Bash for Protection, Counterspell, Earth Shock, Silence for
+Shadow, Feral Charge for Feral, Spell Lock), a note and "MRT-Notiz
+kopieren" (class-colored text for the in-game note). "Ganzer Raid" adds
+the ability summary of the line-up and the raid groups ("Automatisch
+verteilen"). Players see "Deine Aufgaben" on top (assignments, kick
+number, own spot on the board) and on Home (next raid of theirs with
+tasks).
+`raidPlans/<eventId>` = `{ groups: { "<uid>|<charKey>": n }, bosses: {
+<bossKey>: { a: { "<abilityId>~<uid>|<charKey>": { t, n } }, note, kicks: {
+<kickId>: { spell, order: ["<uid>|<charKey>", …] } }, map: { bg, tok: {
+<token>: { x, y } } } } } }`. Readable by officers / admins and
+the players of the published line-up (`raidEvents/<id>/rosterUids`, uid ->
+true, kept by the officers' client when the line-up changes); written by
+officers / admins. **Rules:** `raidPlans` (README § 6f). Own listener,
+not in `SYNCED_KEYS`.
 
 **Soft-Reserve** (`js/raid-reserves.js`): Officers turn it on per event
 (`srMax` 1–3 items per player, "Aus" = off) and can lock it (`srLocked`,

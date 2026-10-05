@@ -9,7 +9,10 @@
 //      bosses: { <bossKey>: {
 //        a: { "<abilityId>~<uid>|<charKey>": { t: target, n?: note } },
 //        note: text,
+//        kicks: { <kickId>: { spell: boss cast, order: ["<uid>|<charKey>", …] } },
 //        map: { bg: imageUrl, tok: { <tokenId>: { x: 0..100, y: 0..100 } } } } } }
+//    Board tokens: boss, g1..gN (raid groups), m1..m8 (raid markers),
+//    p_<raidBossKey(uid|charKey)> (single players).
 //    bossKey 'all' = the whole raid (groups, blessings, buffs).
 //  - Read: officers / admins, and the players in the event's published
 //    line-up (raidEvents/<id>/rosterUids, kept by js/raid-comp.js). Write:
@@ -56,15 +59,19 @@ const RAID_TACTIC_ABILITIES = [
   { id: 'tremor', cls: 'shaman', spell: 'Tremor Totem', label: 'Totem des Erdstoßes', target: 'toggle' },
   { id: 'purge', cls: 'shaman', spell: 'Purge', label: 'Reinigung (Purge)', target: 'toggle' },
   { id: 'decurse_mage', cls: 'mage', spell: 'Remove Lesser Curse', label: 'Fluch aufheben', target: 'group' },
-  { id: 'counterspell', cls: 'mage', spell: 'Counterspell', label: 'Gegenzauber', target: 'text' },
   { id: 'poly', cls: 'mage', spell: 'Polymorph', label: 'Verwandlung', target: 'text' },
-  { id: 'kick', cls: 'rogue', spell: 'Kick', label: 'Tritt (Unterbrechen)', target: 'text' },
   { id: 'expose', cls: 'rogue', spell: 'Expose Armor', label: 'Rüstung schwächen', target: 'toggle' },
   { id: 'sunder', cls: 'warrior', spell: 'Sunder Armor', label: 'Rüstung zerreißen', target: 'toggle' },
   { id: 'demo', cls: 'warrior', spell: 'Demoralizing Shout', label: 'Demoralisierender Ruf', target: 'toggle' },
   { id: 'tclap', cls: 'warrior', spell: 'Thunder Clap', label: 'Donnerknall', target: 'toggle' },
   { id: 'tranq', cls: 'hunter', spell: 'Tranquilizing Shot', label: 'Einlullender Schuss', target: 'toggle' },
   { id: 'mark', cls: 'hunter', spell: "Hunter's Mark", label: 'Mal des Jägers', target: 'toggle' }
+];
+/** Interrupts per class for the Kick-Reihenfolge (only those in our data count; talents only for the spec). */
+const RAID_INTERRUPTS = [
+  { cls: 'rogue', spell: 'Kick' }, { cls: 'warrior', spell: 'Pummel' }, { cls: 'warrior', spell: 'Shield Bash', specs: ['protection'] },
+  { cls: 'mage', spell: 'Counterspell' }, { cls: 'shaman', spell: 'Earth Shock' }, { cls: 'priest', spell: 'Silence', specs: ['shadow'] },
+  { cls: 'druid', spell: 'Feral Charge', specs: ['feral', 'feral_tank'] }, { cls: 'warlock', spell: 'Spell Lock' }
 ];
 /** Raid target markers for the board, {rt1}..{rt8} in game (colors: --mk-1..8 in css/main.css). */
 const RAID_MARKERS = ['Stern', 'Kreis', 'Raute', 'Dreieck', 'Mond', 'Quadrat', 'Kreuz', 'Totenkopf'];
@@ -73,20 +80,21 @@ const RAID_MAP_URL = /^https:\/\/[^\s'"()\\<>]+$/;
 
 /** eventId -> plan. @type {Record<string, any>} */
 let raidPlans = {};
-let raidPlanSyncId = '';
+/** Events with a plan listener (kept: only the open raid and the next few on Home). */
+const raidPlanSyncIds = new Set();
 let raidPlanError = '';
 /** Selected boss per event. @type {Record<string, string>} */
 const raidTacticBoss = {};
 
 function raidPlanSync(eventId){
-  if (!db || raidPlanSyncId === eventId) return;
-  if (raidPlanSyncId) db.ref(`${DB_PATH}/raidPlans/${raidPlanSyncId}`).off();
-  raidPlanSyncId = eventId;
+  if (!db || raidPlanSyncIds.has(eventId)) return;
+  raidPlanSyncIds.add(eventId);
   db.ref(`${DB_PATH}/raidPlans/${eventId}`).on('value', snap => {
     raidPlans[eventId] = snap.val() || {};
     raidPlanError = '';
     if (currentPage === 'raids') renderRaidsPage();
-  }, () => { raidPlanError = 'Keine Leserechte für die Taktik — Firebase-Regeln aktualisiert?'; if (currentPage === 'raids') renderRaidsPage(); });
+    if (currentPage === 'home') renderHomeDashboard();
+  }, () => { raidPlanSyncIds.delete(eventId); raidPlanError = 'Keine Leserechte für die Taktik — Firebase-Regeln aktualisiert?'; if (currentPage === 'raids') renderRaidsPage(); });
 }
 
 /** Firebase-safe key for a boss. @param {string} name */
@@ -140,6 +148,53 @@ function raidTacticVisible(id, e){
   if (isOfficerOrAdmin()) return true;
   return Boolean(discordIdentity && e.rosterPublished && raidCompPicked(id, e).some(s => s.uid === discordIdentity.id));
 }
+/** Interrupt spell of a line-up character ('' = none). @param {any} s */
+function raidInterruptOf(s){
+  const it = RAID_INTERRUPTS.find(x => x.cls === s.classId && (!x.specs || x.specs.includes(s.specId)) && raidClassHasSpell(x.cls, x.spell));
+  return it ? it.spell : '';
+}
+/** Kick entries of a boss, order as an array (Firebase may hand back an object). @param {any} boss */
+function raidBossKicks(boss){
+  return Object.entries((boss && boss.kicks) || {}).filter(([, k]) => k && typeof k === 'object')
+    .map(([kid, k]) => ({ kid, spell: String(k.spell || ''), order: (Array.isArray(k.order) ? k.order : Object.values(k.order || {})).filter(x => typeof x === 'string') }));
+}
+/** Board token id of a player. @param {string} key "uid|charKey" */
+const raidPlayerTok = key => `p_${raidBossKey(key)}`;
+/** Rough spot on the board in words. @param {number} x @param {number} y */
+const raidBoardWhere = (x, y) => `${y < 34 ? 'oben' : y > 66 ? 'unten' : 'mitte'}${x < 34 ? ' links' : x > 66 ? ' rechts' : ''}`;
+/**
+ * Own tasks over all bosses: assignments, kick order, own spot on the board.
+ * @param {string} id @param {RaidEvent} e
+ * @returns {{ chars: any[], group: number, rows: { boss: string, html: string }[] }}
+ */
+function raidTacticMyTasks(id, e){
+  const roster = raidTacticRoster(id, e);
+  const mine = roster.filter(s => discordIdentity && s.uid === discordIdentity.id);
+  const plan = raidPlans[id] || {};
+  const rows = [];
+  if (!mine.length) return { chars: [], group: 0, rows };
+  for (const [bk, name] of raidTacticBosses(e)) {
+    const b = (plan.bosses || {})[bk];
+    if (!b) continue;
+    for (const [k, a] of Object.entries(b.a || {})) {
+      const [abId, caster] = k.split('~');
+      const ab = RAID_TACTIC_ABILITIES.find(x => x.id === abId);
+      const t = ab && mine.some(x => x.key === caster) ? raidTargetText(ab, a, roster) : '';
+      if (t) rows.push({ boss: name, html: `${raidAbilityIconHtml(ab)} ${escapeHtml(ab.label)}${ab.target === 'toggle' ? '' : ` → ${escapeHtml(t)}`}${a.n ? ` <span class="bis-item-meta">${escapeHtml(a.n)}</span>` : ''}` });
+    }
+    for (const k of raidBossKicks(b)) {
+      const i = k.order.findIndex(key => mine.some(x => x.key === key));
+      if (i >= 0) rows.push({ boss: name, html: `${gameIconHtml(raidSpellIcon(mine[0].classId, raidInterruptOf(mine[0])) || 'ability_kick', 20)} Kick <b>#${i + 1}</b> von ${k.order.length} bei ${escapeHtml(k.spell || 'Zauber')}` });
+    }
+    const tok = (b.map && b.map.tok) || {};
+    for (const s of mine) {
+      const p = tok[raidPlayerTok(s.key)];
+      if (p) rows.push({ boss: name, html: `${gameIconHtml('explore', 20)} Position: ${escapeHtml(raidBoardWhere(p.x, p.y))}` });
+    }
+  }
+  return { chars: mine, group: Number((plan.groups || {})[mine[0].key]) || 0, rows };
+}
+
 /** Number of raid groups. @param {RaidEvent} e @param {number} n line-up size */
 const raidGroupCount = (e, n) => Math.max(1, Math.min(8, Math.ceil(Math.max(n, raidEventSize(e) || 5) / 5)));
 
@@ -180,7 +235,7 @@ function raidTacticsHtml(id, e){
   }).join('')}</div>`;
   return `<div class="raid-tactics" data-tac-event="${escapeHtml(id)}">
     ${raidPlanError ? `<p class="bis-hint raid-error">${escapeHtml(raidPlanError)}</p>` : ''}
-    ${raidTacticMineHtml(id, e, roster, plan)}
+    ${raidTacticMineHtml(id, e)}
     ${bossTabs}
     ${!RAID_BOSSES[e.instance] ? '<p class="bis-hint">Für diese Instanz sind noch keine Bosse hinterlegt — nur „Ganzer Raid“.</p>' : ''}
     <div class="tac-section">
@@ -190,6 +245,7 @@ function raidTacticsHtml(id, e){
     </div>
     ${bossKey === 'all' ? `${raidTacticSummaryHtml(roster)}${raidTacticGroupsHtml(id, e, roster, plan, editable)}` : ''}
     ${raidTacticBoardHtml(id, e, roster, plan, bossKey, boss, editable)}
+    ${raidTacticKicksHtml(id, roster, bossKey, boss, editable)}
     ${raidTacticAssignHtml(id, roster, bossKey, boss, editable)}
     <div class="forever-actions">
       <button type="button" class="btn btn-ghost btn-sm" data-tac-mrt="${escapeHtml(id)}|${bossKey}">MRT-Notiz kopieren</button>
@@ -199,25 +255,13 @@ function raidTacticsHtml(id, e){
   </div>`;
 }
 
-/** "Deine Aufgaben": own characters' assignments over all bosses. */
-function raidTacticMineHtml(id, e, roster, plan){
-  const mine = roster.filter(s => discordIdentity && s.uid === discordIdentity.id);
-  if (!mine.length) return '';
-  const names = Object.fromEntries(raidTacticBosses(e));
-  const rows = [];
-  for (const [bk, b] of Object.entries(plan.bosses || {})) {
-    for (const [k, a] of Object.entries((b && b.a) || {})) {
-      const [abId, caster] = k.split('~');
-      const ab = RAID_TACTIC_ABILITIES.find(x => x.id === abId);
-      const s = mine.find(x => x.key === caster);
-      const t = ab && s ? raidTargetText(ab, a, roster) : '';
-      if (t) rows.push(`<li>${raidAbilityIconHtml(ab)} <b>${escapeHtml(names[bk] || bk)}:</b> ${escapeHtml(ab.label)} ${ab.target === 'toggle' ? '' : `→ ${escapeHtml(t)}`}${a.n ? ` <span class="bis-item-meta">${escapeHtml(a.n)}</span>` : ''}</li>`);
-    }
-  }
-  const group = (plan.groups || {})[mine[0].key];
+/** "Deine Aufgaben": own characters' tasks over all bosses. */
+function raidTacticMineHtml(id, e){
+  const { chars, group, rows } = raidTacticMyTasks(id, e);
+  if (!chars.length) return '';
   return `<div class="tac-mine">
-    <div class="raid-col-head">Deine Aufgaben <span>${mine.map(raidCharName).join(', ')}${group ? ` · Gruppe ${group}` : ''}</span></div>
-    ${rows.length ? `<ul>${rows.join('')}</ul>` : '<p class="bis-hint">Noch nichts zugewiesen.</p>'}
+    <div class="raid-col-head">Deine Aufgaben <span>${chars.map(raidCharName).join(', ')}${group ? ` · Gruppe ${group}` : ''}</span></div>
+    ${rows.length ? `<ul>${rows.map(r => `<li><b>${escapeHtml(r.boss)}:</b> ${r.html}</li>`).join('')}</ul>` : '<p class="bis-hint">Noch nichts zugewiesen.</p>'}
   </div>`;
 }
 
@@ -282,30 +326,69 @@ function raidTacticAssignHtml(id, roster, bossKey, boss, editable){
   </div>`;
 }
 
-/** Positioning board of one boss: groups, tanks and markers to drag. */
+/** Positioning board of one boss: boss, groups, single players and markers to drag. */
 function raidTacticBoardHtml(id, e, roster, plan, bossKey, boss, editable){
   if (bossKey === 'all') return '';
   const n = raidGroupCount(e, roster.length);
   const tok = (boss.map && boss.map.tok) || {};
-  /** @type {[string, string, string][]} id, label, css */
-  const tokens = [
-    ['boss', 'Boss', 'tac-tok-boss'],
-    ...Array.from({ length: n }, (_, i) => [`g${i + 1}`, `G${i + 1}`, 'tac-tok-group']),
-    ...roster.filter(s => s.role === 'tank').map(s => [`t_${raidBossKey(s.key)}`, s.charName || s.name, 'tac-tok-tank']),
-    ...RAID_MARKERS.map((name, i) => [`m${i + 1}`, name, `tac-tok-marker tac-mk${i + 1}`])
+  const me = discordIdentity ? discordIdentity.id : '';
+  /** @typedef {{ k: string, label: string, css: string, color?: string }} Tok */
+  /** @type {[string, Tok[]][]} */
+  const sets = [
+    ['Boss & Gruppen', [{ k: 'boss', label: 'Boss', css: 'tac-tok-boss' }, ...Array.from({ length: n }, (_, i) => ({ k: `g${i + 1}`, label: `G${i + 1}`, css: 'tac-tok-group' }))]],
+    ['Marker', RAID_MARKERS.map((name, i) => ({ k: `m${i + 1}`, label: name, css: `tac-tok-marker tac-mk${i + 1}` }))],
+    ['Spieler', roster.map(s => ({ k: raidPlayerTok(s.key), label: s.charName || s.name, css: `tac-tok-player${s.uid === me ? ' tac-tok-mine' : ''}`, color: CLASS_MAP[s.classId] ? CLASS_MAP[s.classId].color : '' }))]
   ];
-  const placed = tokens.filter(([k]) => tok[k]);
-  const parked = tokens.filter(([k]) => !tok[k]);
-  const tokHtml = ([k, label, css], pos) => `<span class="tac-tok ${css}" data-tac-tok="${escapeHtml(k)}" title="${escapeHtml(label)}"${pos ? ` style="left:${Number(pos.x)}%;top:${Number(pos.y)}%"` : ''}>${css.includes('marker') ? '' : escapeHtml(label)}</span>`;
+  const all = sets.flatMap(([, list]) => list);
+  /** @param {Tok} t @param {any} pos */
+  const tokHtml = (t, pos) => `<span class="tac-tok ${t.css}" data-tac-tok="${escapeHtml(t.k)}" title="${escapeHtml(t.label)}" style="${pos ? `left:${Number(pos.x)}%;top:${Number(pos.y)}%;` : ''}${t.color ? `border-color:${t.color};color:${t.color};` : ''}">${t.css.includes('marker') ? '' : escapeHtml(t.label)}</span>`;
   const bg = boss.map && RAID_MAP_URL.test(boss.map.bg || '') ? boss.map.bg : '';
+  const parking = sets.map(([title, list]) => {
+    const free = list.filter(t => !tok[t.k]);
+    return free.length ? `<div class="tac-park-set"><span class="tac-park-title">${escapeHtml(title)}</span>${free.map(t => tokHtml(t, null)).join('')}</div>` : '';
+  }).join('');
   return `<div class="tac-section">
-    <div class="raid-col-head">${gameIconHtml('explore', 16)} Aufstellung am Boss <span>${editable ? 'Marker auf das Feld ziehen, zurück nach unten = entfernen' : 'wer steht wo'}</span></div>
+    <div class="raid-col-head">${gameIconHtml('explore', 16)} Aufstellung am Boss <span>${editable ? 'Boss, Gruppen, Spieler und Marker auf das Feld ziehen, zurück nach unten = entfernen' : 'wer steht wo'}</span></div>
     <div class="tac-board${editable ? ' editable' : ''}" data-tac-board="${escapeHtml(id)}|${bossKey}" style="${bg ? `background-image:url('${escapeHtml(bg)}')` : ''}">
       ${bg ? '' : '<span class="tac-board-hint">Raum (ohne Karte)</span>'}
-      ${placed.map(t => tokHtml(t, tok[t[0]])).join('')}
+      ${all.filter(t => tok[t.k]).map(t => tokHtml(t, tok[t.k])).join('')}
     </div>
-    ${editable ? `<div class="tac-parking" data-tac-parking="${escapeHtml(id)}|${bossKey}">${parked.map(t => tokHtml(t, null)).join('') || '<span class="bis-item-meta">Alle Marker sind auf dem Feld.</span>'}</div>
-      <label class="tac-bg">Karte als Hintergrund (Bild-Link, optional)<input type="url" class="apply-text-input" data-tac-bg="${escapeHtml(id)}|${bossKey}" value="${escapeHtml(bg || '')}" placeholder="https://… (Screenshot der Boss-Karte)"></label>` : ''}
+    ${editable ? `<div class="tac-parking" data-tac-parking="${escapeHtml(id)}|${bossKey}">${parking || '<span class="bis-item-meta">Alles ist auf dem Feld.</span>'}</div>
+      <label class="tac-bg">Karte als Hintergrund (Bild-Link, optional — z. B. ein Screenshot oder Export von raidplan.io)<input type="url" class="apply-text-input" data-tac-bg="${escapeHtml(id)}|${bossKey}" value="${escapeHtml(bg || '')}" placeholder="https://…"></label>` : ''}
+  </div>`;
+}
+
+/** Kick-Reihenfolge: per boss cast, who interrupts in which order. */
+function raidTacticKicksHtml(id, roster, bossKey, boss, editable){
+  if (bossKey === 'all') return '';
+  const kicks = raidBossKicks(boss);
+  if (!editable && !kicks.length) return '';
+  const byKey = Object.fromEntries(roster.map(s => [s.key, s]));
+  const kickers = roster.filter(s => raidInterruptOf(s));
+  const attr = (k, ...rest) => escapeHtml([id, bossKey, k.kid, ...rest].join('|'));
+  const icon = s => { const sp = raidInterruptOf(s); const ic = sp && raidSpellIcon(s.classId, sp); return ic ? gameIconHtml(ic, 16, sp) : ''; };
+  const entry = k => {
+    const order = k.order.filter(key => byKey[key]);
+    const items = order.map((key, i) => {
+      const s = byKey[key];
+      return `<li class="${discordIdentity && s.uid === discordIdentity.id ? 'mine' : ''}"><span class="tac-kick-num">${i + 1}</span>${icon(s)} ${raidCharName(s)}${editable ? `<span class="tac-kick-btns">
+        <button type="button" class="btn btn-ghost" data-tac-kick-move="${attr(k, i, -1)}" ${i === 0 ? 'disabled' : ''} title="nach oben">↑</button>
+        <button type="button" class="btn btn-ghost" data-tac-kick-move="${attr(k, i, 1)}" ${i === order.length - 1 ? 'disabled' : ''} title="nach unten">↓</button>
+        <button type="button" class="btn btn-ghost" data-tac-kick-move="${attr(k, i, 0)}" title="entfernen">✕</button></span>` : ''}</li>`;
+    }).join('');
+    const free = kickers.filter(s => !order.includes(s.key));
+    return `<div class="tac-kick">
+      ${editable ? `<div class="tac-kick-head"><input type="text" class="apply-text-input" data-tac-kick-spell="${attr(k)}" maxlength="60" value="${escapeHtml(k.spell)}" placeholder="Zauber des Bosses, z. B. Shadow Bolt Volley">
+        <button type="button" class="btn btn-ghost btn-sm" data-tac-kick-del="${attr(k)}">Entfernen</button></div>`
+        : `<div class="tac-kick-head"><b>${escapeHtml(k.spell || 'Zauber')}</b></div>`}
+      ${items ? `<ol class="tac-kick-order">${items}</ol>` : '<p class="bis-hint">Noch niemand eingeteilt.</p>'}
+      ${editable && free.length ? `<select data-tac-kick-add="${attr(k)}"><option value="">+ Kicker hinzufügen</option>${free.map(s => `<option value="${escapeHtml(s.key)}">${escapeHtml(s.charName || s.name)} (${escapeHtml(raidInterruptOf(s))})</option>`).join('')}</select>` : ''}
+    </div>`;
+  };
+  return `<div class="tac-section">
+    <div class="raid-col-head">${gameIconHtml('ability_kick', 16)} Kick-Reihenfolge <span>${editable ? `wer welchen Zauber in welcher Reihenfolge unterbricht — ${kickers.length} mit Unterbrechung in der Aufstellung` : 'wer wann unterbricht'}</span></div>
+    ${kicks.length ? `<div class="tac-kicks">${kicks.map(entry).join('')}</div>` : ''}
+    ${editable ? `<div><button type="button" class="btn btn-ghost btn-sm" data-tac-kick-new="${escapeHtml(id)}|${bossKey}">+ Kick-Reihenfolge</button></div>` : ''}
   </div>`;
 }
 
@@ -339,9 +422,16 @@ function raidTacticMrt(id, e, bossKey){
       if (m.length) lines.push(`Gruppe ${i}: ${m.map(col).join(' ')}`);
     }
   }
+  for (const k of raidBossKicks(boss)) {
+    const order = k.order.map(key => roster.find(s => s.key === key)).filter(Boolean);
+    if (order.length) lines.push(`Kicks ${k.spell || ''}: ${order.map((s, i) => `${i + 1} ${col(s)}`).join(', ')}`);
+  }
   const tok = (boss.map && boss.map.tok) || {};
-  const where = (x, y) => `${y < 34 ? 'oben' : y > 66 ? 'unten' : 'mitte'}${x < 34 ? ' links' : x > 66 ? ' rechts' : ''}`;
-  const pos = Object.entries(tok).filter(([k]) => k !== 'boss').map(([k, p]) => `${/^g\d/.test(k) ? `Gruppe ${k.slice(1)}` : /^m\d/.test(k) ? `{rt${k.slice(1)}}` : (roster.find(s => `t_${raidBossKey(s.key)}` === k) || { charName: k }).charName}: ${where(p.x, p.y)}`);
+  const pos = Object.entries(tok).filter(([k]) => k !== 'boss').map(([k, p]) => {
+    const s = roster.find(x => raidPlayerTok(x.key) === k);
+    const label = /^g\d/.test(k) ? `Gruppe ${k.slice(1)}` : /^m\d/.test(k) ? `{rt${k.slice(1)}}` : s ? col(s) : '';
+    return label ? `${label}: ${raidBoardWhere(p.x, p.y)}` : '';
+  }).filter(Boolean);
   if (pos.length) lines.push(`Positionen: ${pos.join(', ')}`);
   if (boss.note) lines.push(boss.note);
   return lines.join('\n');
@@ -434,6 +524,34 @@ function raidTacticsWire(root){
     const [id, bossKey] = btn.getAttribute('data-tac-mrt').split('|');
     try { await navigator.clipboard.writeText(raidTacticMrt(id, raidEvents[id], bossKey)); btn.textContent = 'Kopiert ✓'; }
     catch (err){ btn.textContent = 'Kopieren nicht möglich'; }
+  }));
+  const kickPath = attr => { const [id, bossKey, kid] = attr.split('|'); return { id, bossKey, kid, path: `${id}/bosses/${bossKey}/kicks/${kid}` }; };
+  const kickOrder = (id, bossKey, kid) => { const k = raidBossKicks((((raidPlans[id] || {}).bosses) || {})[bossKey]).find(x => x.kid === kid); return k ? k.order.slice() : []; };
+  box.querySelectorAll('[data-tac-kick-new]').forEach(btn => btn.addEventListener('click', () => {
+    const [id, bossKey] = btn.getAttribute('data-tac-kick-new').split('|');
+    ref(`${id}/bosses/${bossKey}/kicks/k${Date.now().toString(36)}`).set({ spell: '', order: [] }).catch(fail);
+  }));
+  box.querySelectorAll('[data-tac-kick-spell]').forEach((/** @type {HTMLInputElement} */ el) => el.addEventListener('change', () => {
+    const { path } = kickPath(el.getAttribute('data-tac-kick-spell'));
+    ref(`${path}/spell`).set(el.value.trim().slice(0, 60)).catch(fail);
+  }));
+  box.querySelectorAll('[data-tac-kick-del]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Diese Kick-Reihenfolge entfernen?')) return;
+    ref(kickPath(btn.getAttribute('data-tac-kick-del')).path).remove().catch(fail);
+  }));
+  box.querySelectorAll('[data-tac-kick-add]').forEach((/** @type {HTMLSelectElement} */ el) => el.addEventListener('change', () => {
+    if (!el.value) return;
+    const { id, bossKey, kid, path } = kickPath(el.getAttribute('data-tac-kick-add'));
+    ref(`${path}/order`).set([...kickOrder(id, bossKey, kid), el.value]).catch(fail);
+  }));
+  box.querySelectorAll('[data-tac-kick-move]').forEach(btn => btn.addEventListener('click', () => {
+    const parts = btn.getAttribute('data-tac-kick-move').split('|');
+    const { id, bossKey, kid, path } = kickPath(parts.slice(0, 3).join('|'));
+    const i = Number(parts[3]), dir = Number(parts[4]);
+    const order = kickOrder(id, bossKey, kid);
+    if (dir === 0) order.splice(i, 1);
+    else if (order[i + dir] !== undefined) [order[i], order[i + dir]] = [order[i + dir], order[i]];
+    ref(`${path}/order`).set(order.length ? order : null).catch(fail);
   }));
   raidTacticBoardWire(box, ref, fail);
 }

@@ -7,6 +7,9 @@
 //    GUILD_RAID_WEEKDAYS, each raid with the own status), the next raid with the own sign-up /
 //    line-up status, open votes (only when there are any), the newest
 //    announcement, the own recent loot and shortcuts.
+//  - Players of a published line-up get "Deine Aufgaben" (next of their
+//    raids with tasks)
+//    (Taktik step, js/raid-tactics.js — reads raidPlans/<eventId>).
 //  - Officers / admins additionally get "Zu tun": untouched applications,
 //    raids whose sign-up closed without a line-up, unpublished line-ups
 //    close to the start, open Loot-Runden with items left.
@@ -34,6 +37,7 @@ function renderHomeDashboard(){
     ${isOfficerOrAdmin() ? homeTodoHtml() : ''}
     <div class="home-dash-grid">
       ${homeNextRaidHtml()}
+      ${homeTasksHtml()}
       ${votes}
       ${homeAnnouncementHtml(!votes)}
       ${homeLootHtml()}
@@ -209,6 +213,25 @@ function homeNextRaidHtml(){
     </div>`, 'home-card-raid home-card-wide');
 }
 
+/** "Deine Aufgaben": the next raid the user plays in (published line-up) with tasks — '' when there's none. */
+function homeTasksHtml(){
+  const now = Date.now();
+  const mine = Object.entries(raidEvents).filter(([id, e]) => now < raidDayEnd(e) && e.rosterPublished && raidCompPicked(id, e).some(s => s.uid === discordIdentity.id))
+    .sort((a, z) => a[1].start - z[1].start).slice(0, 3);
+  mine.forEach(([id]) => raidPlanSync(id));
+  const next = mine.find(([id, e]) => raidTacticMyTasks(id, e).rows.length);
+  if (!next) return '';
+  const [id, e] = next;
+  const { chars, group, rows } = raidTacticMyTasks(id, e);
+  const byBoss = new Map();
+  for (const r of rows) { if (!byBoss.has(r.boss)) byBoss.set(r.boss, []); byBoss.get(r.boss).push(r.html); }
+  return homeCard(`${gameIconHtml('talents')} Deine Aufgaben`, `
+    <div class="home-card-sub">${escapeHtml(e.title)} · ${escapeHtml(raidDateLabel(e.start))}</div>
+    <p class="home-status">${chars.map(raidCharName).join(', ')}${group ? ` · <b>Gruppe ${group}</b>` : ''}</p>
+    <ul class="home-tasks">${[...byBoss].map(([boss, list]) => `<li><b>${escapeHtml(boss)}</b><ul>${list.map(h => `<li>${h}</li>`).join('')}</ul></li>`).join('')}</ul>
+    <div class="home-links"><button type="button" class="btn btn-ghost btn-sm" data-home-raid="${escapeHtml(id)}" data-home-tab="tactics">Taktik öffnen</button></div>`, 'home-card-tasks');
+}
+
 /** Open votes — '' when there's nothing to vote on (the card is left out). */
 function homeVotesHtml(){
   const items = questPendingPollItems();
@@ -302,7 +325,7 @@ function homeWire(root){
     showPage('raids');
   }));
   root.querySelectorAll('[data-home-raid]').forEach(btn => btn.addEventListener('click', () => {
-    const tab = /** @type {'' | 'signup' | 'comp' | 'loot'} */ (btn.getAttribute('data-home-tab') || '');
+    const tab = /** @type {'' | 'signup' | 'comp' | 'tactics' | 'loot'} */ (btn.getAttribute('data-home-tab') || '');
     raidOpenId = btn.getAttribute('data-home-raid');
     raidTab = tab;
     try { sessionStorage.setItem(RAID_VIEW_KEY, JSON.stringify({ id: raidOpenId, tab })); } catch (e){ /* ignore */ }

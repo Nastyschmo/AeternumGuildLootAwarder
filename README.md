@@ -1414,13 +1414,20 @@ assignments per line-up character (Seelenstein, Anregen, Wiedergeburt,
 Flüche, Segen, Auren, Heal- / Tank-Ziele, Decurse groups, Unterbrechen …
 — `RAID_TACTIC_ABILITIES`, only spells present in our Forever data, talent
 abilities only for the spec), a positioning board (boss, raid groups,
-tanks and raid markers dragged onto the field, optional map image link),
-a note and "MRT-Notiz kopieren" (class-colored text for the in-game note).
-"Ganzer Raid" adds the ability summary of the line-up and the raid groups
-("Automatisch verteilen"). Players see "Deine Aufgaben" on top.
+single players and raid markers dragged onto the field, optional map
+image link), a Kick-Reihenfolge per boss cast (who interrupts in which
+order; only characters with an interrupt in our data: Kick, Pummel,
+Shield Bash for Protection, Counterspell, Earth Shock, Silence for
+Shadow, Feral Charge for Feral, Spell Lock), a note and "MRT-Notiz
+kopieren" (class-colored text for the in-game note). "Ganzer Raid" adds
+the ability summary of the line-up and the raid groups ("Automatisch
+verteilen"). Players see "Deine Aufgaben" on top (assignments, kick
+number, own spot on the board) and on Home (next raid of theirs with
+tasks).
 `raidPlans/<eventId>` = `{ groups: { "<uid>|<charKey>": n }, bosses: {
-<bossKey>: { a: { "<abilityId>~<uid>|<charKey>": { t, n } }, note, map: {
-bg, tok: { <token>: { x, y } } } } } }`. Readable by officers / admins and
+<bossKey>: { a: { "<abilityId>~<uid>|<charKey>": { t, n } }, note, kicks: {
+<kickId>: { spell, order: ["<uid>|<charKey>", …] } }, map: { bg, tok: {
+<token>: { x, y } } } } } }`. Readable by officers / admins and
 the players of the published line-up (`raidEvents/<id>/rosterUids`, uid ->
 true, kept by the officers' client when the line-up changes); written by
 officers / admins. **Rules:** `raidPlans` (README § 6f). Own listener,

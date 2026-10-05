@@ -130,6 +130,8 @@ function testSeed(now){
       roster: Object.fromEntries(planRoster.map(k => [`${charById[k][0]}|${k}`, true])), rosterUids: Object.fromEntries(planRoster.map(k => [charById[k][0], true])), rosterPublished: true }
   };
   const ck = k => `${charById[k][0]}|${k}`;
+  // Board token of a player (same as raidPlayerTok in js/raid-tactics.js, which loads after this file).
+  const ptok = k => `p_${ck(k).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40)}`;
   const raidPlans = {
     t_hyjal_plan: {
       groups: Object.fromEntries(planRoster.map((k, i) => [ck(k), (i % 4) + 1])),
@@ -139,7 +141,8 @@ function testSeed(now){
         bandalar: { a: { [`tank~${ck('tanky')}`]: { t: 'Boss' }, [`tank~${ck('baerbel')}`]: { t: 'Adds links' }, [`heal~${ck('lichtblick')}`]: { t: ck('tanky') }, [`heal~${ck('olafson')}`]: { t: ck('baerbel') },
           [`innervate~${ck('blattgruen')}`]: { t: ck('lichtblick') }, [`curse~${ck('seelenbrand')}`]: { t: 'Curse of Recklessness' }, [`decurse_mage~${ck('feuerfee')}`]: { t: 2 }, [`sunder~${ck('kraxl')}`]: { t: true } },
           note: 'Boss mittig tanken, Adds links sammeln. Fernkampf hinten verteilt.',
-          map: { tok: { boss: { x: 50, y: 40 }, g1: { x: 50, y: 60 }, g2: { x: 30, y: 75 }, g3: { x: 70, y: 75 }, g4: { x: 50, y: 85 }, m8: { x: 50, y: 30 }, m7: { x: 20, y: 40 } } } }
+          kicks: { tk1: { spell: 'Shadow Bolt Volley', order: [ck('messerwerk'), ck('kraxl'), ck('feuerfee')] } },
+          map: { tok: { [ptok('tanky')]: { x: 50, y: 33 }, [ptok('seelenbrand')]: { x: 85, y: 70 }, boss: { x: 50, y: 40 }, g1: { x: 50, y: 60 }, g2: { x: 30, y: 75 }, g3: { x: 70, y: 75 }, g4: { x: 50, y: 85 }, m8: { x: 50, y: 30 }, m7: { x: 20, y: 40 } } } }
       }
     }
   };

@@ -15,6 +15,8 @@ const GUILD_CREST_LETTER = 'R';
 // Shown on the Home dashboard for guests ("Wer wir sind").
 const GUILD_FACTION = 'Horde';
 const GUILD_RAID_DAYS = 'Donnerstag & Sonntag';
+/** The same days as weekday numbers (0 = Sunday) — the Home week strip marks them. */
+const GUILD_RAID_WEEKDAYS = [4, 0];
 const GUILD_FOREVER_RULESET = 'PvP';
 // Official WoW: Forever release date (confirmed Nov 4, 2026, 23:00 UTC —
 // per Blizzard's own announcement and independently mirrored by

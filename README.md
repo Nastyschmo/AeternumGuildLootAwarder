@@ -1466,7 +1466,11 @@ BiS list on a main); officers / admins get "Zu tun" on top (untouched
 applications, closed sign-ups without a line-up, unpublished line-ups
 within 48 h, a running raid without a Loot-Runde, open Loot-Runden). The
 hero button changes with it (Jetzt bewerben / Zur Abstimmung / Zum
-Raid-Kalender); members get a slim hero. The hero shows a countdown to
+Raid-Kalender); members get a slim hero. Members see the next 7 days as a
+strip: raid days (`GUILD_RAID_WEEKDAYS` in js/core.js) and every raid
+with the own status (✓ in der Aufstellung, ● angemeldet, ✗ abgesagt,
+! noch nicht angemeldet, – geschlossen); officers also get "Raidtag —
+noch kein Raid angelegt" in Zu tun with a button to the new-raid form. The hero shows a countdown to
 the Forever launch (afterwards, for members, to the next raid). The news
 row shows only real items (newest announcement, Wowhead / patch notes,
 NEWS_ITEMS until their `until` date) and hides itself when empty.

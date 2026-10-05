@@ -24,53 +24,31 @@ let applyChatPicksDraft = [];
 let applyChatCharNamesDraft = {};
 let applyChatCharProfDraft = {};
 let applyChatExtraProfDraft = [];
-let applyChatCharLogsDraft = {};
+/** @type {string[]} */
+let applyChatLogsDraft = [];
+const APPLY_MAX_LOGS = 5;
 
 function applyChatPrimaryProfessions(){ return PROFESSIONS.filter(p => p.primary); }
 function applyChatSecondaryProfessions(){ return PROFESSIONS.filter(p => !p.primary); }
-// A profession level is either a number 1–375 (Classic/TBC/SoD's skill
-// cap — see PROFESSION_MAX_LEVEL) or the literal string 'max' (the
-// "Max" checkbox) — anything else (left blank, garbage input, over the
-// cap) is treated as "not actually given" and dropped, same as leaving
-// the whole profession unchecked.
-function applyChatValidLevel(level){
-  if (level === 'max') return 'max';
-  const n = parseInt(level, 10);
-  return (Number.isFinite(n) && n >= 1 && n <= PROFESSION_MAX_LEVEL) ? n : null;
+// Until the day after WoW Forever's launch (4 Nov 2026) applicants don't
+// have characters yet — the question asks what they *will* call them.
+const FOREVER_LIVE_FROM = new Date('2026-11-05T00:00:00+01:00').getTime();
+function applyChatForeverLive(){ return Date.now() >= FOREVER_LIVE_FROM; }
+// WoW Forever names: first + last name. Known rules (Blizzard, Sept
+// 2026): first name 2–12 letters, letters only (no digits / spaces);
+// last name one word (no space / hyphen); never three identical letters
+// in a row. Blizzard hasn't published the last name's length limit —
+// FOREVER_LAST_NAME_MAX is a guess until the name reservation (27 Oct).
+const FOREVER_FIRST_NAME_MAX = 12;
+const FOREVER_LAST_NAME_MAX = 16;
+/** Error text for a name part, or '' when it's fine. @param {string} v @param {'Vorname' | 'Nachname'} what @param {number} max */
+function foreverNameError(v, what, max){
+  if (v.length < 2 || v.length > max) return `${what}: ${2}–${max} Buchstaben.`;
+  if (!/^\p{L}+$/u.test(v)) return `${what}: nur Buchstaben — keine Zahlen, Leerzeichen oder Bindestriche.`;
+  if (/(\p{L})\1\1/iu.test(v)) return `${what}: nie drei gleiche Buchstaben hintereinander.`;
+  return '';
 }
-// Shared level-input markup for a profession draft entry — used by both
-// the per-character profession step and the "extra professions" step.
-function applyChatProfLevelRowsHtml(list){
-  return list.map(x => {
-    const prof = PROFESSION_MAP[x.professionId];
-    return `<div class="apply-chat-level-row">
-      <span class="apply-chat-level-label">${escapeHtml(prof ? prof.label : x.professionId)}</span>
-      <input type="text" inputmode="numeric" class="apply-chat-level-input" data-level-prof="${x.professionId}" maxlength="3" placeholder="Lvl" title="Max. ${PROFESSION_MAX_LEVEL}" value="${x.level === 'max' ? '' : (x.level || '')}" ${x.level === 'max' ? 'disabled' : ''}>
-      <label class="apply-chat-level-max"><input type="checkbox" data-max-prof="${x.professionId}" ${x.level === 'max' ? 'checked' : ''}> Max</label>
-    </div>`;
-  }).join('');
-}
-function wireApplyChatProfLevelRows(holder, draftArr, onMaxToggled){
-  holder.querySelectorAll('[data-level-prof]').forEach((/** @type {HTMLInputElement} */ inp) => {
-    inp.addEventListener('input', () => {
-      let digits = inp.value.replace(/[^0-9]/g, '').slice(0, 3);
-      // Clamp live while typing (not just on submit) so "488" can't even
-      // sit in the field looking accepted before silently being dropped
-      // to "keine Angabe" later — Classic/TBC/SoD's skill cap is 375.
-      if (digits !== '' && parseInt(digits, 10) > PROFESSION_MAX_LEVEL) digits = String(PROFESSION_MAX_LEVEL);
-      inp.value = digits;
-      const item = draftArr.find(x => x.professionId === inp.getAttribute('data-level-prof'));
-      if (item) item.level = inp.value;
-    });
-  });
-  holder.querySelectorAll('[data-max-prof]').forEach((/** @type {HTMLInputElement} */ cb) => {
-    cb.addEventListener('change', () => {
-      const item = draftArr.find(x => x.professionId === cb.getAttribute('data-max-prof'));
-      if (item) item.level = cb.checked ? 'max' : '';
-      onMaxToggled();
-    });
-  });
-}
+
 // Same class-pick UI as before (dropdown + spec checkboxes, one row per
 // class, already-used classes disabled in the other rows), just capped
 // at 2 rows total and operating on applyChatPicksDraft/an arbitrary
@@ -191,7 +169,11 @@ const APPLY_CHAT_STEPS = [
   },
   {
     key: 'picks', required: true,
-    bot: 'Für welche Klasse(n) und Spezialisierung(en) bewirbst du dich? (maximal 2 Klassen)',
+    get bot(){
+      return applyChatForeverLive()
+        ? 'Für welche Klasse(n) und Spezialisierung(en) bewirbst du dich? (maximal 2 Klassen)'
+        : 'Welche Klasse(n) und Spezialisierung(en) willst du in WoW Forever spielen? (maximal 2 Klassen — egal, was du gerade spielst)';
+    },
     render(container, value){
       applyChatPicksDraft = (Array.isArray(value) && value.length ? value : [{ classId: CLASSES[0].id, specs: [] }])
         .map(p => ({ classId: p.classId, specs: (p.specs || []).slice() }));
@@ -209,20 +191,31 @@ const APPLY_CHAT_STEPS = [
   },
   {
     key: 'characters', required: true,
-    bot: 'Mit welchen Charakteren (Charakternamen) bewirbst du dich auf diese Klassen?',
+    get bot(){
+      return applyChatForeverLive()
+        ? 'Mit welchen Charakteren bewirbst du dich auf diese Klassen? (Vor- und Nachname)'
+        : 'Wie wirst du deinen Charakter in WoW Forever nennen? (Vor- und Nachname — es gelten Blizzards Namensregeln)';
+    },
     render(container, value){
       const picks = applyChatAnswers.picks || [];
       applyChatCharNamesDraft = {};
-      picks.forEach(p => { applyChatCharNamesDraft[p.classId] = (value && value[p.classId]) || ''; });
+      picks.forEach(p => {
+        const [first, ...rest] = String((value && value[p.classId]) || '').split(' ');
+        applyChatCharNamesDraft[p.classId] = { first: first || '', last: rest.join('') };
+      });
       container.innerHTML = picks.map(p => {
         const cls = CLASS_MAP[p.classId];
+        const d = applyChatCharNamesDraft[p.classId];
         return `<div class="apply-chat-char-row">
           <label class="apply-chat-char-row-label" style="color:${cls.color}">${escapeHtml(cls.label)}</label>
-          <input type="text" class="apply-text-input" maxlength="24" data-char-class="${p.classId}" placeholder="Charaktername" value="${escapeHtml(applyChatCharNamesDraft[p.classId])}">
+          <div class="apply-chat-name-pair">
+            <input type="text" class="apply-text-input" maxlength="${FOREVER_FIRST_NAME_MAX}" data-char-class="${p.classId}" data-char-part="first" placeholder="Vorname" value="${escapeHtml(d.first)}">
+            <input type="text" class="apply-text-input" maxlength="${FOREVER_LAST_NAME_MAX}" data-char-class="${p.classId}" data-char-part="last" placeholder="Nachname" value="${escapeHtml(d.last)}">
+          </div>
         </div>`;
-      }).join('');
-      container.querySelectorAll('[data-char-class]').forEach((inp, idx) => {
-        inp.addEventListener('input', () => { applyChatCharNamesDraft[inp.getAttribute('data-char-class')] = inp.value; });
+      }).join('') + `<p class="apply-chat-hint">Regeln in WoW Forever: Vorname 2–${FOREVER_FIRST_NAME_MAX} Buchstaben, Nachname ein Wort; nur Buchstaben (keine Zahlen, Leerzeichen, Bindestriche), nie drei gleiche Buchstaben hintereinander, keine Namen bekannter Warcraft-Figuren. Der komplette Name muss in der Region einmalig sein.</p>`;
+      container.querySelectorAll('[data-char-class]').forEach((/** @type {HTMLInputElement} */ inp, idx) => {
+        inp.addEventListener('input', () => { applyChatCharNamesDraft[inp.getAttribute('data-char-class')][inp.getAttribute('data-char-part')] = inp.value; });
         if (idx === 0) inp.focus();
       });
     },
@@ -230,138 +223,55 @@ const APPLY_CHAT_STEPS = [
       const picks = applyChatAnswers.picks || [];
       const out = {};
       for (const p of picks){
-        const name = (applyChatCharNamesDraft[p.classId] || '').trim().slice(0, 24);
-        if (!name) return { ok: false, error: 'Bitte gib für jede Klasse einen Charakternamen an.' };
-        out[p.classId] = name;
+        const d = applyChatCharNamesDraft[p.classId] || { first: '', last: '' };
+        const first = d.first.trim(), last = d.last.trim();
+        const label = CLASS_MAP[p.classId].label;
+        if (!first || !last) return { ok: false, error: `Bitte gib für ${label} Vor- und Nachnamen an.` };
+        const err = foreverNameError(first, 'Vorname', FOREVER_FIRST_NAME_MAX) || foreverNameError(last, 'Nachname', FOREVER_LAST_NAME_MAX);
+        if (err) return { ok: false, error: `${label} — ${err}` };
+        // First letter upper case, like the game shows it.
+        const cap = v => v.charAt(0).toLocaleUpperCase('de-DE') + v.slice(1).toLocaleLowerCase('de-DE');
+        out[p.classId] = `${cap(first)} ${cap(last)}`;
       }
       const summary = picks.map(p => `${CLASS_MAP[p.classId].label}: ${out[p.classId]}`).join(' · ');
       return { ok: true, value: out, summary };
     }
   },
   {
-    key: 'charProfessions', required: false,
-    bot: 'Welche Hauptberufe hast du auf dieser/diesen Klasse(n)? (maximal 2 pro Charakter — das Profession-Level ist optional)',
+    key: 'charProfessions', required: true,
+    bot: 'Welche zwei Hauptberufe willst du auf diesem/diesen Charakter(en) lernen? (2 Hauptberufe sind bei uns Pflicht)',
     render(container, value){
       const picks = applyChatAnswers.picks || [];
       applyChatCharProfDraft = {};
-      picks.forEach(p => {
-        applyChatCharProfDraft[p.classId] = (value && value[p.classId])
-          ? value[p.classId].map(x => ({ professionId: x.professionId, level: x.level === 'max' ? 'max' : String(x.level || '') }))
-          : [];
-      });
+      picks.forEach(p => { applyChatCharProfDraft[p.classId] = ((value && value[p.classId]) || []).map(x => x.professionId); });
       container.innerHTML = picks.map(p => {
         const cls = CLASS_MAP[p.classId];
         const charName = (applyChatAnswers.characters || {})[p.classId] || '';
         const optsHtml = applyChatPrimaryProfessions().map(prof => `
           <label class="poll-checkbox-field">
-            <input type="checkbox" data-prof-class="${p.classId}" data-prof-id="${prof.id}" ${applyChatCharProfDraft[p.classId].some(x => x.professionId === prof.id) ? 'checked' : ''}>
+            <input type="checkbox" data-prof-class="${p.classId}" data-prof-id="${prof.id}" ${applyChatCharProfDraft[p.classId].includes(prof.id) ? 'checked' : ''}>
             ${escapeHtml(prof.label)}
           </label>`).join('');
         return `<div class="apply-chat-prof-block">
-          <div class="apply-chat-prof-head" style="color:${cls.color}">${escapeHtml(cls.label)}${charName ? ' — ' + escapeHtml(charName) : ''}</div>
+          <div class="apply-chat-prof-head" style="color:${cls.color}">${escapeHtml(cls.label)}${charName ? ' — ' + escapeHtml(charName) : ''} <span class="apply-chat-prof-count" data-prof-count="${p.classId}">${applyChatCharProfDraft[p.classId].length}/2</span></div>
           <div class="apply-spec-checkboxes">${optsHtml}</div>
-          <div class="apply-chat-level-rows" data-levels-for="${p.classId}"></div>
         </div>`;
       }).join('');
-      const refreshLevels = (classId) => {
-        const holder = container.querySelector(`[data-levels-for="${classId}"]`);
-        holder.innerHTML = applyChatProfLevelRowsHtml(applyChatCharProfDraft[classId]);
-        wireApplyChatProfLevelRows(holder, applyChatCharProfDraft[classId], () => refreshLevels(classId));
-      };
-      container.querySelectorAll('[data-prof-class]').forEach(cb => {
+      container.querySelectorAll('[data-prof-class]').forEach((/** @type {HTMLInputElement} */ cb) => {
         cb.addEventListener('change', () => {
           const classId = cb.getAttribute('data-prof-class');
           const profId = cb.getAttribute('data-prof-id');
           const arr = applyChatCharProfDraft[classId];
           if (cb.checked){
             if (arr.length >= 2){ cb.checked = false; return; }
-            arr.push({ professionId: profId, level: '' });
+            arr.push(profId);
           } else {
-            const idx = arr.findIndex(x => x.professionId === profId);
+            const idx = arr.indexOf(profId);
             if (idx >= 0) arr.splice(idx, 1);
           }
-          refreshLevels(classId);
+          const count = container.querySelector(`[data-prof-count="${classId}"]`);
+          if (count) count.textContent = `${arr.length}/2`;
         });
-      });
-      picks.forEach(p => refreshLevels(p.classId));
-    },
-    collect(){
-      const picks = applyChatAnswers.picks || [];
-      const out = {};
-      const summaryParts = [];
-      picks.forEach(p => {
-        const arr = (applyChatCharProfDraft[p.classId] || [])
-          .map(x => ({ professionId: x.professionId, level: applyChatValidLevel(x.level) }))
-          .filter(x => x.level !== null);
-        out[p.classId] = arr;
-        const label = arr.length ? arr.map(x => `${PROFESSION_MAP[x.professionId].label} (${x.level === 'max' ? 'Max' : x.level})`).join(', ') : 'keine Angabe';
-        summaryParts.push(`${CLASS_MAP[p.classId].label}: ${label}`);
-      });
-      return { ok: true, value: out, summary: summaryParts.join(' · ') };
-    },
-    skipValue(){
-      const picks = applyChatAnswers.picks || [];
-      const out = {}; picks.forEach(p => { out[p.classId] = []; });
-      return { value: out, summary: 'keine Angabe' };
-    }
-  },
-  {
-    key: 'extraProfessions', required: false,
-    bot: 'Hast Du zusätzliche Professions wie Erste Hilfe, Kochkunst und/oder Angeln?',
-    render(container, value){
-      applyChatExtraProfDraft = (Array.isArray(value) ? value : []).map(x => ({ professionId: x.professionId, level: x.level === 'max' ? 'max' : String(x.level || '') }));
-      const optsHtml = applyChatSecondaryProfessions().map(prof => `
-        <label class="poll-checkbox-field">
-          <input type="checkbox" data-extra-prof="${prof.id}" ${applyChatExtraProfDraft.some(x => x.professionId === prof.id) ? 'checked' : ''}>
-          ${escapeHtml(prof.label)}
-        </label>`).join('');
-      container.innerHTML = `<div class="apply-spec-checkboxes">${optsHtml}</div><div class="apply-chat-level-rows" id="applyChatExtraLevels"></div>`;
-      const holder = container.querySelector('#applyChatExtraLevels');
-      const refresh = () => {
-        holder.innerHTML = applyChatProfLevelRowsHtml(applyChatExtraProfDraft);
-        wireApplyChatProfLevelRows(holder, applyChatExtraProfDraft, refresh);
-      };
-      container.querySelectorAll('[data-extra-prof]').forEach(cb => {
-        cb.addEventListener('change', () => {
-          const profId = cb.getAttribute('data-extra-prof');
-          if (cb.checked){ applyChatExtraProfDraft.push({ professionId: profId, level: '' }); }
-          else { applyChatExtraProfDraft = applyChatExtraProfDraft.filter(x => x.professionId !== profId); }
-          refresh();
-        });
-      });
-      refresh();
-    },
-    collect(){
-      const arr = applyChatExtraProfDraft
-        .map(x => ({ professionId: x.professionId, level: applyChatValidLevel(x.level) }))
-        .filter(x => x.level !== null);
-      const summary = arr.length ? arr.map(x => `${PROFESSION_MAP[x.professionId].label} (${x.level === 'max' ? 'Max' : x.level})`).join(', ') : '—';
-      return { ok: true, value: arr, summary };
-    },
-    skipValue(){ return { value: [], summary: '—' }; }
-  },
-  {
-    // One Warcraftlogs link per applied character — same per-character
-    // pattern as the "characters" and "charProfessions" steps, since an
-    // applicant with 2 classes/characters needs to give logs for each,
-    // not just a single link for whichever one they typed first.
-    key: 'charLogs', required: false,
-    bot: 'Bitte teile uns den Link zu deinen aktuellen Warcraftlogs für diese(n) Charakter(e). (Pro Charakter optional — einfach leer lassen, falls für einen Charakter keine Logs vorhanden sind.)',
-    render(container, value){
-      const picks = applyChatAnswers.picks || [];
-      applyChatCharLogsDraft = {};
-      picks.forEach(p => { applyChatCharLogsDraft[p.classId] = (value && value[p.classId]) || ''; });
-      container.innerHTML = picks.map(p => {
-        const cls = CLASS_MAP[p.classId];
-        const charName = (applyChatAnswers.characters || {})[p.classId] || '';
-        return `<div class="apply-chat-char-row">
-          <label class="apply-chat-char-row-label" style="color:${cls.color}">${escapeHtml(cls.label)}${charName ? ' — ' + escapeHtml(charName) : ''}</label>
-          <input type="text" class="apply-text-input" maxlength="300" data-logs-class="${p.classId}" placeholder="https://www.warcraftlogs.com/character/…" value="${escapeHtml(applyChatCharLogsDraft[p.classId])}">
-        </div>`;
-      }).join('');
-      container.querySelectorAll('[data-logs-class]').forEach((inp, idx) => {
-        inp.addEventListener('input', () => { applyChatCharLogsDraft[inp.getAttribute('data-logs-class')] = inp.value; });
-        if (idx === 0) inp.focus();
       });
     },
     collect(){
@@ -369,20 +279,80 @@ const APPLY_CHAT_STEPS = [
       const out = {};
       const summaryParts = [];
       for (const p of picks){
-        const v = (applyChatCharLogsDraft[p.classId] || '').trim().slice(0, 300);
-        if (!v) { summaryParts.push(`${CLASS_MAP[p.classId].label}: —`); continue; }
-        if (!WARCRAFTLOGS_URL_RE.test(v)){
-          return { ok: false, error: `Der Logs-Link für ${CLASS_MAP[p.classId].label} sieht nicht wie ein gültiger warcraftlogs.com-Link aus (z.B. Classic, SoD, Fresh oder Retail — oder lass das Feld leer).` };
-        }
-        out[p.classId] = v;
-        summaryParts.push(`${CLASS_MAP[p.classId].label}: ${v}`);
+        const arr = applyChatCharProfDraft[p.classId] || [];
+        if (arr.length !== 2) return { ok: false, error: `Bitte wähle für ${CLASS_MAP[p.classId].label} genau zwei Hauptberufe.` };
+        out[p.classId] = arr.map(id => ({ professionId: id }));
+        summaryParts.push(`${CLASS_MAP[p.classId].label}: ${arr.map(id => PROFESSION_MAP[id].label).join(', ')}`);
       }
       return { ok: true, value: out, summary: summaryParts.join(' · ') };
+    }
+  },
+  {
+    key: 'extraProfessions', required: false,
+    bot: 'Willst du zusätzlich Erste Hilfe, Kochkunst und/oder Angeln machen? (optional)',
+    render(container, value){
+      applyChatExtraProfDraft = (Array.isArray(value) ? value : []).map(x => ({ professionId: x.professionId }));
+      container.innerHTML = `<div class="apply-spec-checkboxes">${applyChatSecondaryProfessions().map(prof => `
+        <label class="poll-checkbox-field">
+          <input type="checkbox" data-extra-prof="${prof.id}" ${applyChatExtraProfDraft.some(x => x.professionId === prof.id) ? 'checked' : ''}>
+          ${escapeHtml(prof.label)}
+        </label>`).join('')}</div>`;
+      container.querySelectorAll('[data-extra-prof]').forEach((/** @type {HTMLInputElement} */ cb) => {
+        cb.addEventListener('change', () => {
+          const profId = cb.getAttribute('data-extra-prof');
+          if (cb.checked) applyChatExtraProfDraft.push({ professionId: profId });
+          else applyChatExtraProfDraft = applyChatExtraProfDraft.filter(x => x.professionId !== profId);
+        });
+      });
     },
-    skipValue(){
-      const picks = applyChatAnswers.picks || [];
-      const out = {}; picks.forEach(p => { out[p.classId] = ''; });
-      return { value: out, summary: '—' };
+    collect(){
+      const arr = applyChatExtraProfDraft.slice();
+      const summary = arr.length ? arr.map(x => PROFESSION_MAP[x.professionId].label).join(', ') : '—';
+      return { ok: true, value: arr, summary };
+    },
+    skipValue(){ return { value: [], summary: '—' }; }
+  },
+  {
+    // Logs of the applicant's best characters — any game version, any
+    // class (also ones Forever doesn't have, e.g. a Retail Demon Hunter),
+    // not tied to the classes applied for. At least one is required.
+    key: 'logs', required: true,
+    bot: 'Teile uns Links zu den Warcraftlogs deiner besten Charaktere — egal in welcher Version (Retail, Classic, SoD …) und mit welcher Klasse, auch wenn es die Klasse in Forever nicht gibt. Mindestens ein Link ist Pflicht.',
+    render(container, value){
+      applyChatLogsDraft = (Array.isArray(value) && value.length ? value.slice() : ['']);
+      const draw = () => {
+        container.innerHTML = applyChatLogsDraft.map((v, i) => `<div class="apply-chat-log-row">
+            <input type="text" class="apply-text-input" maxlength="300" data-log-index="${i}" placeholder="https://www.warcraftlogs.com/character/…" value="${escapeHtml(v)}">
+            ${applyChatLogsDraft.length > 1 ? `<button type="button" class="apply-class-pick-remove" data-log-remove="${i}" title="Entfernen">✕</button>` : ''}
+          </div>`).join('')
+          + `<button type="button" class="apply-add-class-btn" id="applyChatAddLogBtn" ${applyChatLogsDraft.length >= APPLY_MAX_LOGS ? 'disabled' : ''}>+ Weiteren Link hinzufügen (max. ${APPLY_MAX_LOGS})</button>`;
+        container.querySelectorAll('[data-log-index]').forEach((/** @type {HTMLInputElement} */ inp) => {
+          inp.addEventListener('input', () => { applyChatLogsDraft[Number(inp.getAttribute('data-log-index'))] = inp.value; });
+        });
+        container.querySelectorAll('[data-log-remove]').forEach(btn => btn.addEventListener('click', () => {
+          applyChatLogsDraft.splice(Number(btn.getAttribute('data-log-remove')), 1);
+          draw();
+        }));
+        const add = container.querySelector('#applyChatAddLogBtn');
+        if (add) add.addEventListener('click', () => {
+          if (applyChatLogsDraft.length >= APPLY_MAX_LOGS) return;
+          applyChatLogsDraft.push('');
+          draw();
+          const last = /** @type {HTMLInputElement | null} */ (container.querySelector(`[data-log-index="${applyChatLogsDraft.length - 1}"]`));
+          if (last) last.focus();
+        });
+      };
+      draw();
+      const first = /** @type {HTMLInputElement | null} */ (container.querySelector('[data-log-index="0"]'));
+      if (first) first.focus();
+    },
+    collect(){
+      const links = applyChatLogsDraft.map(v => v.trim().slice(0, 300)).filter(Boolean);
+      if (!links.length) return { ok: false, error: 'Bitte gib mindestens einen Warcraftlogs-Link an.' };
+      const bad = links.find(v => !WARCRAFTLOGS_URL_RE.test(v));
+      if (bad) return { ok: false, error: `„${bad}“ sieht nicht wie ein warcraftlogs.com-Link aus.` };
+      const unique = [...new Set(links)];
+      return { ok: true, value: unique, summary: unique.join(' · ') };
     }
   },
   {
@@ -415,10 +385,16 @@ function resetApplyChat(){
 }
 
 function renderApplyChatTranscript(){
-  els.applyChatLog.innerHTML = APPLY_CHAT_STEPS.slice(0, applyChatStepIndex).map(step => `
+  els.applyChatLog.innerHTML = APPLY_CHAT_STEPS.slice(0, applyChatStepIndex).map((step, i) => `
     <div class="apply-chat-bubble apply-chat-bubble-bot">${escapeHtml(step.bot)}</div>
-    <div class="apply-chat-bubble apply-chat-bubble-user">${escapeHtml(applyChatSummaries[step.key] != null ? applyChatSummaries[step.key] : '—')}</div>
+    <button type="button" class="apply-chat-bubble apply-chat-bubble-user apply-chat-edit" data-apply-edit="${i}" title="Antwort ändern">${escapeHtml(applyChatSummaries[step.key] != null ? applyChatSummaries[step.key] : '—')} <span class="apply-chat-edit-icon" aria-hidden="true">✎</span></button>
   `).join('');
+  // Clicking an earlier answer jumps back to that question.
+  els.applyChatLog.querySelectorAll('[data-apply-edit]').forEach(btn => btn.addEventListener('click', () => {
+    applyChatStepIndex = Number(btn.getAttribute('data-apply-edit'));
+    renderApplyChatTranscript();
+    renderApplyChatCurrentStep();
+  }));
   els.applyChatLog.scrollTop = els.applyChatLog.scrollHeight;
 }
 
@@ -436,6 +412,7 @@ function renderApplyChatCurrentStep(){
   els.applyChatQuestionBubble.textContent = step.bot;
   step.render(els.applyChatInputArea, applyChatAnswers[step.key]);
   els.applyChatSkipBtn.classList.toggle('hidden', !!step.required);
+  els.applyChatBackBtn.classList.toggle('hidden', applyChatStepIndex === 0);
 }
 
 function applyChatGoNext(){
@@ -454,6 +431,14 @@ function applyChatGoNext(){
   renderApplyChatCurrentStep();
 }
 
+// Back one question; the answer given there is kept and shown again.
+function applyChatGoBack(){
+  if (applyChatStepIndex <= 0) return;
+  applyChatStepIndex--;
+  renderApplyChatTranscript();
+  renderApplyChatCurrentStep();
+}
+
 function applyChatSkipStep(){
   const step = APPLY_CHAT_STEPS[applyChatStepIndex];
   if (!step || step.required) return;
@@ -467,6 +452,7 @@ function applyChatSkipStep(){
 
 els.applyChatNextBtn.addEventListener('click', applyChatGoNext);
 els.applyChatSkipBtn.addEventListener('click', applyChatSkipStep);
+els.applyChatBackBtn.addEventListener('click', applyChatGoBack);
 els.applyChatRestartBtn.addEventListener('click', resetApplyChat);
 // Enter submits the current step for simple single-line fields — but not
 // inside the remarks textarea, where Enter should just insert a newline.
@@ -606,7 +592,8 @@ async function submitApplication(){
     characters: a.characters || {},
     charProfessions: a.charProfessions || {},
     extraProfessions: a.extraProfessions || [],
-    charLogs: a.charLogs || {},
+    charLogs: {},
+    logs: a.logs || [],
     remarks: a.remarks || '',
     applicantName: discordIdentity.username,
     applicantId: discordIdentity.id,
@@ -797,7 +784,7 @@ function renderApplicationsList(){
     return { headHtml, applicantCharactersHtml };
   };
   const profListText = (list) => (Array.isArray(list) && list.length)
-    ? list.map(x => `${PROFESSION_MAP[x.professionId] ? PROFESSION_MAP[x.professionId].label : x.professionId} (${x.level === 'max' ? 'Max' : x.level})`).join(', ')
+    ? list.map(x => `${PROFESSION_MAP[x.professionId] ? PROFESSION_MAP[x.professionId].label : x.professionId}${x.level ? ` (${x.level === 'max' ? 'Max' : x.level})` : ''}`).join(', ')
     : '—';
   // Wraps a card's inner content with the right outer shell for its
   // status: Offen stays exactly as before (full-strength card, nothing
@@ -844,12 +831,12 @@ function renderApplicationsList(){
         </span>`;
       }).join('');
       const profsGivenCount = picks.filter(p => ((a.charProfessions || {})[p.classId] || []).length).length;
-      const logsGivenCount = picks.filter(p => charLogs[p.classId]).length;
+      const logsGivenCount = (a.logs || []).length || picks.filter(p => charLogs[p.classId]).length;
       const summaryStatsHtml = [
         { label: 'Alter', value: String(a.age) },
         { label: 'Charakter(e)', value: picks.map(p => (a.characters || {})[p.classId]).filter(Boolean).join(', ') || '—' },
         { label: 'Hauptberufe', value: profsGivenCount ? `${profsGivenCount}/${picks.length} angegeben` : 'keine Angabe' },
-        { label: 'Logs', value: logsGivenCount ? `${logsGivenCount}/${picks.length} verlinkt` : 'keine Angabe' }
+        { label: 'Logs', value: logsGivenCount ? `${logsGivenCount} verlinkt` : 'keine Angabe' }
       ].map(s => `<div class="application-stat"><span class="application-stat-label">${escapeHtml(s.label)}</span><span class="application-stat-value">${escapeHtml(s.value)}</span></div>`).join('');
       const classBlocksHtml = picks.map(p => {
         const cls = CLASS_MAP[p.classId];
@@ -866,7 +853,7 @@ function renderApplicationsList(){
           </span>
           <p class="application-namage"><strong>Charakter:</strong> ${escapeHtml(charName)}</p>
           <p class="application-professions"><strong>Hauptberufe:</strong> ${escapeHtml(profText)}</p>
-          <p class="application-logs"><strong>Warcraftlogs:</strong> ${logUrl ? linkifyEscaped(logUrl) : '—'}</p>
+          ${(a.logs || []).length ? '' : `<p class="application-logs"><strong>Warcraftlogs:</strong> ${logUrl ? linkifyEscaped(logUrl) : '—'}</p>`}
         </div>`;
       }).join('');
       return wrapApplicationCard(a, `
@@ -877,7 +864,8 @@ function renderApplicationsList(){
           <div class="application-summary-classchips">${classChipsHtml}</div>
         </div>
         <div class="application-class-picks application-class-picks-v2">${classBlocksHtml}</div>
-        <p class="application-professions"><strong>Zusätzliche Professions:</strong> ${escapeHtml(profListText(a.extraProfessions))}</p>
+        <p class="application-professions"><strong>Zusätzliche Berufe:</strong> ${escapeHtml(profListText(a.extraProfessions))}</p>
+        ${(a.logs || []).length ? `<div class="application-logs"><strong>Warcraftlogs (beste Charaktere):</strong><ul class="application-log-list">${a.logs.map(u => `<li>${linkifyEscaped(u)}</li>`).join('')}</ul></div>` : ''}
         ${a.remarks ? `<p class="application-remarks"><strong>Sonstiges:</strong> ${linkifyEscaped(a.remarks)}</p>` : ''}
         ${applicantCharactersHtml}
       `);

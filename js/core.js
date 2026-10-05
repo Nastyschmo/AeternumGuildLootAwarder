@@ -576,6 +576,7 @@ const els = {
   applyChatInputArea: document.getElementById('applyChatInputArea'),
   applyChatError: document.getElementById('applyChatError'),
   applyChatSkipBtn: /** @type {HTMLButtonElement} */ (document.getElementById('applyChatSkipBtn')),
+  applyChatBackBtn: /** @type {HTMLButtonElement} */ (document.getElementById('applyChatBackBtn')),
   applyChatNextBtn: /** @type {HTMLButtonElement} */ (document.getElementById('applyChatNextBtn')),
   applyChatDoneArea: document.getElementById('applyChatDoneArea'),
   applyChatRestartBtn: /** @type {HTMLButtonElement} */ (document.getElementById('applyChatRestartBtn')),

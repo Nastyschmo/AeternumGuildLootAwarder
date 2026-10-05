@@ -10,6 +10,10 @@
 //  - Officers / admins additionally get "Zu tun": untouched applications,
 //    raids whose sign-up closed without a line-up, unpublished line-ups
 //    close to the start, open Loot-Runden with items left.
+// Guests can't read members / raids / loot, so officers' and admins'
+// browsers keep a small public summary up to date (publicStats: members,
+// mains, planned raids, items awarded — README § 6f, read: everyone),
+// written only when a number changed; "Wer wir sind" shows it.
 // Reads the raid / loot listeners (js/raids.js, js/loot.js,
 // js/loot-session.js) — started here for members — so no new data.
 
@@ -24,6 +28,7 @@ function renderHomeDashboard(){
   raidSync();
   lootSync();
   if (isOfficerOrAdmin()) lootSessionSync();
+  if (isOfficerOrAdmin()) homeUpdatePublicStats();
   const votes = homeVotesHtml();
   root.innerHTML = `
     ${isOfficerOrAdmin() ? homeTodoHtml() : ''}
@@ -58,6 +63,46 @@ function homeLink(page, label, primary){
   return `<button type="button" class="btn ${primary ? 'btn-teal' : 'btn-ghost'} btn-sm" data-home-page="${page}">${label}</button>`;
 }
 
+// ---------------------------------------------------------------- public stats
+/** Current numbers (officer / admin view of the data). @returns {Omit<PublicStats, 'updatedAt'>} */
+function homeComputeStats(){
+  const now = Date.now();
+  const roles = Object.values(state.discordRoles || {});
+  return {
+    members: roles.filter(r => r && ['member', 'officer', 'admin'].includes(r.role)).length,
+    raiders: Object.values(state.characterProfiles || {}).reduce((n, p) => n + p.characters.filter(characterIsRaider).length, 0),
+    raidsPlanned: Object.values(raidEvents).filter(e => e.start > now).length,
+    itemsAwarded: Object.keys(lootAwards).length
+  };
+}
+let homeStatsWriting = false;
+/** Write publicStats when a number changed (officers / admins, once raids and loot have loaded). */
+function homeUpdatePublicStats(){
+  if (!db || homeStatsWriting || !raidEventsLoaded || !lootAwardsLoaded) return;
+  const next = homeComputeStats();
+  const prev = state.publicStats;
+  if (prev && Object.keys(next).every(k => prev[k] === next[k])) return;
+  homeStatsWriting = true;
+  db.ref(`${DB_PATH}/publicStats`).set({ ...next, updatedAt: Date.now() })
+    .catch(() => { /* rules not updated yet — guests just see no numbers */ })
+    .finally(() => { homeStatsWriting = false; });
+}
+/** Numbers row for guests ('' when unknown). */
+function homeStatsHtml(){
+  const s = state.publicStats;
+  if (!s) return '';
+  /** @param {number} n @param {string} one @param {string} many */
+  const item = (n, one, many) => ({ n, label: n === 1 ? one : many });
+  const items = [
+    item(s.members, 'Mitglied', 'Mitglieder'),
+    item(s.raiders, 'Raid-Main', 'Raid-Mains'),
+    item(s.raidsPlanned, 'Raid geplant', 'Raids geplant'),
+    item(s.itemsAwarded, 'Item vergeben', 'Items vergeben')
+  ].filter(x => x.n > 0);
+  if (!items.length) return '';
+  return `<div class="home-stats">${items.map(x => `<div><b>${x.n}</b><span>${x.label}</span></div>`).join('')}</div>`;
+}
+
 // ---------------------------------------------------------------- guests
 function homeGuestHtml(){
   const badges = recruitingNeedsBadges(state.recruitingNeeds || {});
@@ -70,6 +115,7 @@ function homeGuestHtml(){
         <div><dt>Raidtage</dt><dd>${escapeHtml(GUILD_RAID_DAYS)}</dd></div>
         <div><dt>Forever-Server</dt><dd>${escapeHtml(GUILD_FOREVER_RULESET)}-Ruleset</dd></div>
       </dl>
+      ${homeStatsHtml()}
       <p class="home-text">Wir raiden zusammen, planen Aufstellung und Loot transparent hier auf der Seite und helfen uns gegenseitig mit Berufen, BiS-Listen und Guides.${badges ? '' : ' Wir freuen uns über jede Bewerbung — egal welche Klasse.'}</p>`, badges ? '' : 'home-card-wide')}
     ${badges ? homeCard('Aktuell gesucht', `<div class="recruit-need-badges">${badges}</div><p class="bis-hint">Wir freuen uns aber über jede Bewerbung.</p>`) : ''}
     ${homeCard('So bewirbst du dich', `

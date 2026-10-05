@@ -44,6 +44,8 @@ let raidSignups = {};
 let raidEvents = {};
 let raidSyncUid = '';
 let raidLoadError = '';
+/** raidEvents has answered once (Home's publicStats waits for it). */
+let raidEventsLoaded = false;
 /** Event being edited by an Officer ('' = new event form, null = form closed). @type {string | null} */
 let raidEditId = null;
 let raidStatusMsg = '';
@@ -75,6 +77,7 @@ function raidSync(){
     const out = {};
     for (const [id, raw] of Object.entries(snap.val() || {})) { const e = raidNormalizeEvent(raw); if (e) out[id] = e; }
     raidEvents = out;
+    raidEventsLoaded = true;
     raidLoadError = '';
     rerender();
   }, () => { raidLoadError = 'Keine Leserechte für Raids — Firebase-Regeln aktualisiert?'; rerender(); });

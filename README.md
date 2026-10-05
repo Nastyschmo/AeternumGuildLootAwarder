@@ -291,6 +291,11 @@ Go to **Build → Realtime Database → Rules** and replace them with:
           ".validate": "root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin' || newData.child('role').val() == auth.token.role || (!root.child('guild-loot-data/discordRoles').exists() && newData.child('role').val() == 'admin')"
         }
       },
+      "publicStats": {
+        ".read": true,
+        ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer')",
+        ".validate": "newData.hasChildren(['members', 'raiders', 'raidsPlanned', 'itemsAwarded', 'updatedAt']) && newData.child('members').isNumber() && newData.child('raiders').isNumber() && newData.child('raidsPlanned').isNumber() && newData.child('itemsAwarded').isNumber() && newData.child('updatedAt').isNumber()"
+      },
       "recruitingNeeds": {
         ".read": true,
         ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer')"
@@ -1470,7 +1475,12 @@ Raid-Kalender); members get a slim hero. Members see the next 7 days as a
 strip: raid days (`GUILD_RAID_WEEKDAYS` in js/core.js) and every raid
 with the own status (✓ in der Aufstellung, ● angemeldet, ✗ abgesagt,
 ! noch nicht angemeldet, – geschlossen); officers also get "Raidtag —
-noch kein Raid angelegt" in Zu tun with a button to the new-raid form. The hero shows a countdown to
+noch kein Raid angelegt" in Zu tun with a button to the new-raid form. **Guild numbers for guests:** guests can't
+read members, raids or loot, so the browsers of officers / admins keep
+`publicStats` = { members, raiders (Main characters), raidsPlanned,
+itemsAwarded, updatedAt } up to date (written on Home only when a number
+changed); "Wer wir sind" shows them. **Rules:** `publicStats` (README
+§ 6f, read: everyone, write: officers / admins), in `SYNCED_KEYS`. The hero shows a countdown to
 the Forever launch (afterwards, for members, to the next raid). The news
 row shows only real items (newest announcement, Wowhead / patch notes,
 NEWS_ITEMS until their `until` date) and hides itself when empty.

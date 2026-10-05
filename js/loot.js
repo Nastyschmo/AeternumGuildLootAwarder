@@ -32,6 +32,8 @@ const LOOT_RESULTS = 12;
 let lootAwards = {};
 let lootSyncUid = '';
 let lootLoadError = '';
+/** lootAwards has answered once. */
+let lootAwardsLoaded = false;
 /** Loot page filter. */
 let lootPageQuery = '';
 let lootPageView = 'raids'; // 'raids' | 'players'
@@ -45,6 +47,7 @@ function lootSync(){
     const out = {};
     for (const [id, raw] of Object.entries(snap.val() || {})) { const a = lootNormalize(raw); if (a) out[id] = a; }
     lootAwards = out;
+    lootAwardsLoaded = true;
     lootLoadError = '';
     lootRerender();
   }, () => { lootLoadError = 'Keine Leserechte für den Loot — nur für Gildenmitglieder, oder Firebase-Regeln nicht aktualisiert.'; lootRerender(); });

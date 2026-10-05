@@ -489,6 +489,12 @@ function startPublicRecruitingSync(){
     state.recruitingNeeds = normalizeRecruitingNeeds(snapshot.val());
     renderRecruitView();
   }, () => { /* not logged in yet / rules not deployed — badges just stay empty */ });
+  // Guild numbers for the guests' Home (written by officers / admins,
+  // js/home-dashboard.js) — same reason: read: true only works here.
+  db.ref(DB_PATH + '/publicStats').on('value', (snapshot) => {
+    state.publicStats = normalizePublicStats(snapshot.val());
+    if (currentPage === 'home') renderHomeDashboard();
+  }, () => { /* rules not deployed yet — guests just see no numbers */ });
 }
 
 // Every top-level key under DB_PATH that the page reads, except
@@ -501,7 +507,7 @@ function startPublicRecruitingSync(){
 const SYNCED_KEYS = [
   'discordRoles', 'foreverSurvey', 'votingStatus', 'announcements', 'polls',
   'recruitingNeeds', 'classDeepDives', 'classDiveUpdateHistory',
-  'classDiveSources', 'characterProfiles', 'seenState', 'bisRecommended'
+  'classDiveSources', 'characterProfiles', 'seenState', 'bisRecommended', 'publicStats'
 ];
 // Raw snapshot values per key, merged and run through normalizeState()
 // as one object — so everything downstream sees exactly the same shape

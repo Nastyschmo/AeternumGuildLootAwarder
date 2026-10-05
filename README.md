@@ -294,6 +294,15 @@ Go to **Build → Realtime Database → Rules** and replace them with:
           ".validate": "root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin' || newData.child('role').val() == auth.token.role || (!root.child('guild-loot-data/discordRoles').exists() && newData.child('role').val() == 'admin')"
         }
       },
+      "bossGuides": {
+        ".read": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'member' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
+        "$instance": {
+          "$boss": {
+            ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
+            ".validate": "newData.hasChildren(['updatedAt']) && newData.child('updatedAt').isNumber() && (!newData.child('text').exists() || (newData.child('text').isString() && newData.child('text').val().length <= 20000))"
+          }
+        }
+      },
       "publicStats": {
         ".read": true,
         ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer')",
@@ -1432,6 +1441,26 @@ the players of the published line-up (`raidEvents/<id>/rosterUids`, uid ->
 true, kept by the officers' client when the line-up changes); written by
 officers / admins. **Rules:** `raidPlans` (README § 6f). Own listener,
 not in `SYNCED_KEYS`.
+
+**Boss-Guides** (`js/boss-guides.js`, page "Boss-Guides" under Raid &
+Loot, members): every dungeon / raid with its bosses. Boss lists come
+from the Forever client's `DungeonEncounter` table (official names and
+order; instances Forever adds are marked "Neu in Forever") via
+`scripts/forever-data/journal.mjs` → `data/forever/journal.json`; Forever
+raids not in the client yet use the announced names (`RAID_BOSSES`).
+Blizzard's Dungeon Journal (description, abilities, flags) is imported
+by the same script as soon as the client ships the Journal tables (it
+doesn't yet). Officers write per boss: tactics (rich text), hints per
+role, mechanics (`BOSS_MECHANICS`: Furcht, Magie, Flüche, Gift,
+Krankheit, unterbrechbare Zauber, Raserei, Feuer-/Frost-/Schatten-/
+Naturschaden, Adds, Gedankenkontrolle, Wipe-Gefahr) and class notes. The
+mechanics list the classes that negate or ease them and put the matching
+abilities first in the raid window's Taktik step ("empfohlen"; the
+others under "Weitere Fähigkeiten"). `bossGuides/<instanceKey>/<bossKey>`
+= `{ text, roles: { tank, healer, damage }, classes: { classId: note },
+mech: { id: true }, updatedAt, updatedBy }` (keys: `raidBossKey(name)`).
+**Rules:** `bossGuides` (README § 6f; read: members, write: officers /
+admins). In `SYNCED_KEYS`.
 
 **Soft-Reserve** (`js/raid-reserves.js`): Officers turn it on per event
 (`srMax` 1–3 items per player, "Aus" = off) and can lock it (`srLocked`,

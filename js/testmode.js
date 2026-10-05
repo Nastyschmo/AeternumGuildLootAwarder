@@ -218,7 +218,11 @@ function testSeed(now){
     tan1: { title: 'Raidzeiten ab Dezember', text: '<p>Ab dem Raid-Release am 9. Dezember raiden wir <b>Donnerstag und Sonntag ab 20:00</b>. Meldet euch bitte immer bis 24 h vorher im Raid-Kalender an.</p>',
       authorName: 'Offi Olaf', authorId: 'test_offi', createdAt: now - 2 * 3600000, editedAt: 0 }
   };
-  return { 'guild-loot-data': { announcements, classDeepDives, discordRoles, characterProfiles, bisPublic, bisOwned, raidEvents, raidSignups, raidReserves, lootAwards, lootSessions, raidPlans, applications } };
+  // A Boss-Guide written by officers (Hyjal Summit, first boss).
+  const bossGuides = { hyjal_summit: { bandalar: { text: '<h2>Ablauf</h2><p>Bandalar wird mittig getankt. Bei <b>Furcht</b> rennen alle Richtung Wand — Fear Ward auf den Main-Tank.</p><ul><li>Adds links einsammeln</li><li>Fernkampf verteilt hinten</li></ul>',
+    roles: { tank: 'Boss mittig, Add-Tank links.', healer: 'Tanks priorisieren, Flüche sofort entfernen.', damage: 'Adds zuerst, dann Boss.' },
+    classes: { warlock: 'Curse of Recklessness auf den Boss' }, mech: { fear: true, curse: true, adds: true }, updatedAt: now - day, updatedBy: 'Offi Olaf' } } };
+  return { 'guild-loot-data': { announcements, classDeepDives, discordRoles, characterProfiles, bisPublic, bisOwned, raidEvents, raidSignups, raidReserves, lootAwards, lootSessions, raidPlans, bossGuides, applications } };
 }
 
 // ---------------------------------------------------------------- in-memory Firebase
@@ -354,6 +358,7 @@ function testModeBar(){
         <li><b>Ansicht als „Offi Olaf“</b>: gleiche Runde, seine Stimme ist ★ — Stimmen beider Council-Mitglieder sieht jeder im Council sofort.</li>
         <li><b>Barrow Deeps Run 2</b>: Tab „Aufstellung“ — Kraxl und Tanky sind 🔒 (schon in Run 1 dieser ID). Stell 10 Leute zusammen (2/3/5), veröffentliche.</li>
         <li><b>Hyjal</b>: Soft-Reserve-Raid mit Hard-Reserve (Staff of Dominance, nicht reservierbar). Als Officer im Tab „Anmeldung“ weitere HR setzen, „Anmeldung schließen → Aufstellung“ ausprobieren.</li>
+        <li><b>Boss-Guides</b> (Raid &amp; Loot): Hyjal Summit → Bandalar hat einen Beispiel-Guide (Mechaniken Furcht/Flüche/Adds → hilfreiche Klassen). Als Officer „Bearbeiten“; im Raid „Hyjal — Taktik“ stehen beim Boss die empfohlenen Fähigkeiten oben.</li>
         <li><b>Hyjal — Taktik</b>: Tab „Taktik“ — als Officer pro Boss Seelenstein, Anregen, Flüche, Segen usw. zuweisen, Raidgruppen „Automatisch verteilen“, bei Bandalar Marker auf das Feld ziehen, „MRT-Notiz kopieren“. Als Mitglied (z. B. Seelenbrand) oben „Deine Aufgaben“; Neuling Nils sieht den Tab nicht.</li>
         <li><b>Ansicht als Mitglied</b> (z. B. Feuerfee): Liste zeigt „Angemeldet“ / „In der Aufstellung“; bei Hyjal einen zweiten Charakter anmelden, Soft-Reserve setzen; Loot-Tab zeigt nur die Vergaben.</li>
         <li><b>Loot-Seite</b>: Historie nach Raid / pro Spieler.</li>

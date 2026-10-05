@@ -51,7 +51,8 @@ const CLASSIC_MAPS = new Set([33, 34, 36, 43, 47, 48, 70, 90, 109, 129, 189, 209
 /**
  * Bosses per instance from the Forever client's DungeonEncounter: classic
  * instances (CLASSIC_MAPS) and everything Forever adds (encounters the
- * Classic Era client doesn't have) — `new: 1` on those instances.
+ * Classic Era client doesn't have): `new: 1` on new instances, `upd: 1`
+ * on classic ones that got new encounters (reworked in Forever).
  * @param {{ build: string, eraBuild: string, table: Function, maps: Map<number, any> }} ctx
  */
 async function encounterInstances({ build, eraBuild, table, maps }) {
@@ -74,16 +75,17 @@ async function encounterInstances({ build, eraBuild, table, maps }) {
     const isNew = eraIds.size > 0 && list.some(r => !eraIds.has(I(r.ID)));
     const kind = MAP_KIND[I(map.InstanceType)] || '';
     if (!name || !kind || /\btest/i.test(name) || list.some(r => /^test/i.test(S(r.Name_lang)))) continue;
-    if (!CLASSIC_MAPS.has(mapId) && !isNew) continue;
+    const classic = CLASSIC_MAPS.has(mapId);
+    if (!classic && !isNew) continue;
     // One entry per encounter name (difficulties repeat it), in raid order.
     const seen = new Map();
     for (const r of list.sort((a, z) => I(a.OrderIndex) - I(z.OrderIndex) || I(a.ID) - I(z.ID))) {
       const n = S(r.Name_lang);
       if (n && !seen.has(n)) seen.set(n, { id: I(r.ID), n });
     }
-    out.push({ map: mapId, n: name, kind, ...(isNew ? { new: 1 } : {}), bosses: [...seen.values()] });
+    out.push({ map: mapId, n: name, kind, ...(isNew ? (classic ? { upd: 1 } : { new: 1 }) : {}), bosses: [...seen.values()] });
   }
-  console.log(`  encounters: kept ${out.length} instances: ${out.map(x => `${x.n}${x.new ? '*' : ''} (${x.bosses.length})`).join(' | ')}`);
+  console.log(`  encounters: kept ${out.length} instances: ${out.map(x => `${x.n}${x.new ? '*' : x.upd ? '+' : ''} (${x.bosses.length})`).join(' | ')}`);
   return out;
 }
 
@@ -166,7 +168,7 @@ export async function buildJournal({ build, eraBuild, table, icons, instanceName
       return out;
     });
     const e = encInst.find(x => x.map === I(r.MapID)) || {};
-    return { id, n: S(r.Name_lang), desc: journalText(r.Description_lang), map: I(r.MapID), kind: e.kind || '', ...(e.new ? { new: 1 } : {}), bosses };
+    return { id, n: S(r.Name_lang), desc: journalText(r.Description_lang), map: I(r.MapID), kind: e.kind || '', ...(e.new ? { new: 1 } : {}), ...(e.upd ? { upd: 1 } : {}), bosses };
   }).filter(x => x.bosses.length);
   return { instances, note: '' };
 }

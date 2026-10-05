@@ -2409,6 +2409,54 @@ button.apply-chat-edit:hover{ filter: brightness(1.12); }
 .tac-kick-btns .btn:disabled{ opacity: .35; cursor: default; }
 .tac-bg{ display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--text-muted); }
 .tac-note{ width: 100%; }
+.tac-guide{ display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--field-bg); }
+.tac-guide .btn{ margin-left: auto; }
+.tac-ability.recommended{ border-color: var(--gold); }
+.tac-more summary{ cursor: pointer; font-size: 13px; color: var(--text-muted); margin: 4px 0 8px; }
+
+/* Boss-Guides page (js/boss-guides.js) */
+.boss-picker{ display: flex; flex-direction: column; gap: 8px; }
+.boss-picker-row{ display: flex; gap: 8px; align-items: flex-start; }
+.boss-picker-row .tac-park-title{ padding-top: 7px; }
+.boss-layout{ display: grid; grid-template-columns: 260px 1fr; gap: 18px; align-items: start; }
+.boss-list{ position: sticky; top: 86px; padding: 14px; }
+.boss-list ol{ list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.boss-list-item{ width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; font: inherit; font-size: 13.5px; padding: 6px 8px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--text); cursor: pointer; }
+.boss-list-item:hover{ border-color: var(--border); }
+.boss-list-item.active{ border-color: var(--gold-bright); background: rgba(var(--gold-bright-rgb),0.1); color: var(--gold-bright); }
+.boss-has-guide{ margin-left: auto; color: var(--teal-bright); }
+.boss-source{ margin: 10px 0 0; }
+.boss-detail .tac-card{ display: flex; flex-direction: column; gap: 16px; }
+.boss-detail-head{ display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.boss-title{ font-family: 'Cinzel', serif; color: var(--gold-bright); font-size: 24px; margin: 2px 0 0; }
+.boss-mechs{ display: flex; flex-wrap: wrap; gap: 6px; }
+.boss-mech{ display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; padding: 3px 9px 3px 4px; border: 1px solid var(--border); border-radius: 999px; background: var(--field-bg); }
+.boss-mech-pick{ display: flex; flex-wrap: wrap; gap: 6px; }
+.boss-mech-pick .boss-mech{ cursor: pointer; padding-left: 8px; }
+.boss-mech-pick .boss-mech.locked{ opacity: .7; cursor: default; }
+.boss-desc{ margin: 0; font-size: 14px; }
+.boss-journal{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; }
+.boss-journal.sub{ padding-left: 18px; border-left: 2px solid var(--border-soft); margin-top: 6px; }
+.boss-journal p{ margin: 3px 0 0; color: var(--text-muted); }
+.boss-journal-head{ display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.boss-flag{ font-size: 10.5px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); }
+.boss-text{ font-size: 14px; line-height: 1.55; }
+.boss-roles{ display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.boss-role{ padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--field-bg); font-size: 13.5px; }
+.boss-role p{ margin: 4px 0 0; }
+.boss-role-head{ display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.boss-classes{ display: flex; flex-direction: column; gap: 4px; }
+.boss-class-row{ display: grid; grid-template-columns: 120px 1fr; gap: 8px; align-items: center; font-size: 13.5px; padding: 3px 0; border-bottom: 1px solid var(--border-soft); }
+.boss-class{ display: inline-flex; align-items: center; gap: 5px; font-weight: 700; }
+.boss-roles-edit{ display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.boss-roles-edit label, .boss-class-edit label{ display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.boss-class-edit{ display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 14px; }
+@media (max-width: 800px){
+  .boss-layout{ grid-template-columns: 1fr; }
+  .boss-list{ position: static; }
+  .boss-picker-row{ flex-direction: column; gap: 4px; }
+  .boss-picker-row .tac-park-title{ padding-top: 0; }
+}
 .home-tasks{ margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
 .home-tasks ul{ margin: 2px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
 .home-tasks ul li{ display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }

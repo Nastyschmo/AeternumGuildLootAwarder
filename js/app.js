@@ -171,6 +171,10 @@ const PAGES = [
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><path d="m9 15 2 2 4-4"/></svg>'
   },
   {
+    id: 'bosses', label: 'Boss-Guides', group: 'raid', show: 'member',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-4.4 0-8 3.1-8 7 0 2.4 1.3 4.5 3.3 5.8V19a1 1 0 0 0 1 1h7.4a1 1 0 0 0 1-1v-3.2c2-1.3 3.3-3.4 3.3-5.8 0-3.9-3.6-7-8-7Z"/><circle cx="9" cy="10.5" r="1.5"/><circle cx="15" cy="10.5" r="1.5"/><path d="M10 20v-2M14 20v-2"/></svg>'
+  },
+  {
     id: 'loot', label: 'Loot', group: 'raid', show: 'member',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16v11H4z"/><path d="M4 9l2-5h12l2 5"/><path d="M12 9v11"/><path d="M9 14h6"/></svg>'
   },
@@ -315,6 +319,7 @@ function showPage(pageId, opts){
   if (pageId === 'home') renderHomeDashboard();
   if (pageId === 'classdeepdives') renderClassDeepDivesView();
   if (pageId === 'raids') renderRaidsPage();
+  if (pageId === 'bosses') renderBossGuidesPage();
   if (pageId === 'professions') renderProfessionsPage();
   if (pageId === 'loot') renderLootPage();
   // Opening Ankündigungen is what clears its quest "!" — mark up to the
@@ -466,6 +471,7 @@ function renderAll(){
   // BiS-Planer: login / role changes decide whether sets can be saved.
   if (currentPage === 'bis') renderBisPlanner();
   if (currentPage === 'raids') renderRaidsPage();
+  if (currentPage === 'bosses') renderBossGuidesPage();
   if (currentPage === 'professions') renderProfessionsPage();
   if (currentPage === 'loot') renderLootPage();
 }
@@ -508,7 +514,8 @@ function startPublicRecruitingSync(){
 const SYNCED_KEYS = [
   'discordRoles', 'foreverSurvey', 'votingStatus', 'announcements', 'polls',
   'recruitingNeeds', 'classDeepDives', 'classDiveUpdateHistory',
-  'classDiveSources', 'characterProfiles', 'seenState', 'bisRecommended', 'publicStats'
+  'classDiveSources', 'characterProfiles', 'seenState', 'bisRecommended', 'publicStats',
+  'bossGuides'
 ];
 // Raw snapshot values per key, merged and run through normalizeState()
 // as one object — so everything downstream sees exactly the same shape

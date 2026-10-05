@@ -132,6 +132,8 @@ function raidCompPanelHtml(id, e){
 
 /** @param {HTMLElement} root */
 function raidCompWire(root){
+  // Older line-ups without rosterUids (who may read the Taktik).
+  if (isOfficerOrAdmin() && raidOpenId && raidEvents[raidOpenId]) raidRosterUidsSync(raidOpenId, raidEvents[raidOpenId]);
   const ref = id => db.ref(`${DB_PATH}/raidEvents/${id}`);
   const fail = () => { raidStatusMsg = 'Aufstellung konnte nicht gespeichert werden.'; renderRaidsPage(); };
   root.querySelectorAll('[data-raid-comp-pick]').forEach((/** @type {HTMLInputElement} */ box) => box.addEventListener('change', () => {
@@ -147,6 +149,8 @@ function raidCompWire(root){
     if (box.checked) updates[key] = true;
     // First pick: store the targets too, so they stay with the event.
     const extra = e.targets ? {} : { targets: raidCompTargets(e) };
+    // rosterUids decides who may read the Taktik (raidPlans).
+    extra[`rosterUids/${uid}`] = box.checked ? true : null;
     ref(id).update({ ...Object.fromEntries(Object.entries(updates).map(([k, v]) => [`roster/${k}`, v])), ...extra }).catch(fail);
   }));
   root.querySelectorAll('[data-raid-comp-target]').forEach((/** @type {HTMLInputElement} */ input) => input.addEventListener('change', () => {

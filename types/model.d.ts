@@ -419,6 +419,8 @@ interface RaidEvent {
   roster: Record<string, boolean>;
   /** Members see the Aufstellung. */
   rosterPublished: boolean;
+  /** Players in the Aufstellung (uid -> true): who may read raidPlans/<id> (kept by the officers' client). */
+  rosterUids: Record<string, boolean>;
 }
 interface RaidReserve {
   /** Reserved item ids, slot order. */

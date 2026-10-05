@@ -576,7 +576,7 @@ function renderBisPlanner(){
       <div class="bis-control">
         <label for="bisSpecSelect">Spezialisierung</label>
         <select id="bisSpecSelect">${foreverSpecsForClass(b.classId).map(s => `<option value="${s.id}" ${s.id === b.specId ? 'selected' : ''}>${escapeHtml(s.label)}</option>`).join('')}</select>
-        ${HOW_TO_PLAY[b.classId] && discordIdentity && isMemberOrHigher() ? `<button type="button" class="bis-htp-link" id="bisHtpLink" title="Spielweise, Priorität und Stats in der Class Overview">How to play ${escapeHtml(foreverSpecLabel(b.classId, b.specId))} →</button>` : ''}
+        ${HOW_TO_PLAY[b.classId] && discordIdentity && isMemberOrHigher() ? `<button type="button" class="bis-htp-link" id="bisHtpLink" title="Spielweise, Priorität und Stats auf der Klassen-Seite">How to play ${escapeHtml(foreverSpecLabel(b.classId, b.specId))} →</button>` : ''}
       </div>
       <div class="bis-control">
         <label for="bisRaceSelect">Rasse</label>

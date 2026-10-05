@@ -93,7 +93,7 @@ function htpLinksHtml(classId, specId){
     : `<p class="htp-hint">${loggedIn ? `Noch kein empfohlenes ${escapeHtml(specLabel)}-Set.` : 'Empfohlene Sets siehst Du nach dem Discord-Login.'}</p>`;
   return `<div class="htp-links-head">Unsere Builds &amp; Tools</div>
     <div class="htp-link-row">
-      <button type="button" class="btn btn-ghost btn-sm" data-htp-talents>Talent Builder: ${escapeHtml(CLASS_MAP[classId].label)}</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-htp-talents>Talentplaner: ${escapeHtml(CLASS_MAP[classId].label)}</button>
       <button type="button" class="btn btn-ghost btn-sm" data-htp-bis>BiS-Planer: ${escapeHtml(specLabel)}</button>
       ${loggedIn ? `<button type="button" class="btn btn-ghost btn-sm" data-htp-browse>Öffentliche ${escapeHtml(specLabel)}-Builds (${total})</button>` : ''}
     </div>
@@ -300,7 +300,7 @@ function htpRenderTalentBanner(){
   el.classList.remove('hidden');
   el.innerHTML = `<span>Du siehst die Talente des empfohlenen Builds „${escapeHtml(htpTalentPreview.setName)}“ — ${escapeHtml(htpTalentPreview.cls)}. Dein eigener Stand ist gesichert.</span>
     <span class="bis-tal-actions">
-      <button type="button" class="btn btn-teal btn-sm" id="htpTalentKeepBtn">In meinen Talent Builder übernehmen</button>
+      <button type="button" class="btn btn-teal btn-sm" id="htpTalentKeepBtn">In meinen Talentplaner übernehmen</button>
       <button type="button" class="btn btn-ghost btn-sm" id="htpTalentBackBtn">Zurück zum Guide</button>
     </span>`;
   document.getElementById('htpTalentKeepBtn').addEventListener('click', () => htpEndTalentPreview(true, false));

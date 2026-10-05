@@ -91,10 +91,10 @@ function bisTalentCardHtml(){
     <h3 class="bis-card-title">Talente${total ? ` <span class="bis-tal-sum">${spent.join(' / ')}</span>` : ''}</h3>
     ${total
       ? `<p class="bis-item-meta">${total} von ${available} Punkten auf Stufe ${b.level}${total > available ? ' — <span class="bis-tal-over">zu viele Punkte für diese Stufe</span>' : ''}</p>${trees}`
-      : '<p class="bis-hint">Noch keine Talente im Set. Bearbeite sie im Talent Builder oder übernimm Deinen aktuellen Talent-Builder-Stand.</p>'}
+      : '<p class="bis-hint">Noch keine Talente im Set. Bearbeite sie im Talentplaner oder übernimm Deinen aktuellen Talentplaner-Stand.</p>'}
     <div class="bis-tal-actions">
-      <button type="button" class="btn btn-teal btn-sm" id="bisTalentEditBtn">Im Talent Builder bearbeiten</button>
-      ${builderHas ? `<button type="button" class="btn btn-ghost btn-sm" id="bisTalentTakeBtn" title="Dein Talent-Builder-Stand für ${escapeHtml(cls)}: ${builderSpent.join('/')}">Aus Talent Builder übernehmen (${builderSpent.join('/')})</button>` : ''}
+      <button type="button" class="btn btn-teal btn-sm" id="bisTalentEditBtn">Im Talentplaner bearbeiten</button>
+      ${builderHas ? `<button type="button" class="btn btn-ghost btn-sm" id="bisTalentTakeBtn" title="Dein Talentplaner-Stand für ${escapeHtml(cls)}: ${builderSpent.join('/')}">Aus Talentplaner übernehmen (${builderSpent.join('/')})</button>` : ''}
       ${total ? '<button type="button" class="btn btn-ghost btn-sm" id="bisTalentClearBtn">Leeren</button>' : ''}
     </div>
   </div>`;

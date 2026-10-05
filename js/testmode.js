@@ -184,7 +184,7 @@ function testSeed(now){
       { rogue: [{ professionId: 'engineering' }, { professionId: 'mining' }] }, ['https://www.warcraftlogs.com/character/eu/x/tom'], 'accepted', 9)
   };
   const announcements = {
-    tan1: { title: 'Raidzeiten ab Dezember', text: '<p>Ab dem Raid-Release am 9. Dezember raiden wir <b>Mittwoch und Sonntag ab 20:00</b>. Meldet euch bitte immer bis 24 h vorher im Raid-Kalender an.</p>',
+    tan1: { title: 'Raidzeiten ab Dezember', text: '<p>Ab dem Raid-Release am 9. Dezember raiden wir <b>Donnerstag und Sonntag ab 20:00</b>. Meldet euch bitte immer bis 24 h vorher im Raid-Kalender an.</p>',
       authorName: 'Offi Olaf', authorId: 'test_offi', createdAt: now - 2 * 3600000, editedAt: 0 }
   };
   return { 'guild-loot-data': { announcements, discordRoles, characterProfiles, bisPublic, bisOwned, raidEvents, raidSignups, raidReserves, lootAwards, lootSessions, applications } };

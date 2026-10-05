@@ -62,7 +62,12 @@ function homeGuestHtml(){
   const step = (n, title, text) => `<li><span class="home-step-num">${n}</span><div><b>${title}</b><p>${text}</p></div></li>`;
   return `<div class="home-dash-grid home-dash-guest">
     ${homeCard('Wer wir sind', `
-      <p class="home-text">${escapeHtml(GUILD_NAME)} ist eine deutschsprachige Gilde auf <b>${escapeHtml(GUILD_TAGLINE)}</b> und startet gemeinsam in <b>World of Warcraft: Forever</b> (Launch ${new Date(WOW_FOREVER_RELEASE_MS).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}).</p>
+      <p class="home-text">${escapeHtml(GUILD_NAME)} ist eine deutschsprachige <b>${escapeHtml(GUILD_FACTION)}</b>-Gilde auf <b>${escapeHtml(GUILD_TAGLINE)}</b> und startet gemeinsam in <b>World of Warcraft: Forever</b> (Launch ${new Date(WOW_FOREVER_RELEASE_MS).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}).</p>
+      <dl class="home-facts">
+        <div><dt>Fraktion</dt><dd>${escapeHtml(GUILD_FACTION)}</dd></div>
+        <div><dt>Raidtage</dt><dd>${escapeHtml(GUILD_RAID_DAYS)}</dd></div>
+        <div><dt>Forever-Server</dt><dd>${escapeHtml(GUILD_FOREVER_RULESET)}-Ruleset</dd></div>
+      </dl>
       <p class="home-text">Wir raiden zusammen, planen Aufstellung und Loot transparent hier auf der Seite und helfen uns gegenseitig mit Berufen, BiS-Listen und Guides.</p>`)}
     ${homeCard('Aktuell gesucht', badges
       ? `<div class="recruit-need-badges">${badges}</div><p class="bis-hint">Wir freuen uns aber über jede Bewerbung.</p>`

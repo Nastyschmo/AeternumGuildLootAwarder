@@ -2403,3 +2403,9 @@ button.apply-chat-edit:hover{ filter: brightness(1.12); }
   .home-steps{ grid-template-columns: 1fr; }
   .home-dash-grid{ grid-template-columns: 1fr; }
 }
+
+.home-facts{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 6px 0; }
+.home-facts div{ padding: 6px 10px; border: 1px solid var(--border-soft); border-radius: 6px; background: var(--fold-body-bg); }
+.home-facts dt{ font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
+.home-facts dd{ margin: 2px 0 0; font-weight: 700; color: var(--gold-bright); }
+@media (max-width: 520px){ .home-facts{ grid-template-columns: 1fr; } }

@@ -1342,7 +1342,15 @@ html.theme-horde .voting-card-title{ color: var(--gold-bright); }
    Kandidat) — dimmed so it doesn't read as "needs attention" the same
    way an untouched Offen application does; full brightness on hover so
    it's still easy to read once you're actually looking at it. */
-.application-card-inprogress{ opacity: .68; }
+/* Offen — not picked up by anyone yet: lighter card, gold edge and a
+   gold "Offen" badge so it stands out from the ones in progress. */
+.application-card-open{
+  background: linear-gradient(rgba(var(--gold-bright-rgb),0.07), rgba(var(--gold-bright-rgb),0.07)), var(--bg-panel-raised);
+  border-color: rgba(var(--gold-bright-rgb),0.45); border-left: 4px solid var(--gold-bright);
+  box-shadow: 0 0 14px rgba(var(--gold-bright-rgb),0.12);
+}
+.application-card-open .application-status-open{ color: var(--bg-panel); background: var(--gold-bright); border-color: var(--gold-bright); }
+.application-card-inprogress{ opacity: .68; background: var(--bg-panel); }
 .application-card-inprogress:hover, .application-card-inprogress:focus-within{ opacity: 1; }
 /* Closed (Angenommen / Abgelehnt) — collapses to a single toggle row
    (status badge + "Applicant — Characters") so a growing pile of

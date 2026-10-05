@@ -1537,7 +1537,10 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 .classdive-layout{ display: flex; align-items: flex-start; gap: 22px; margin-bottom: 18px; }
 .classdive-sidebar{
   flex: 0 0 196px; display: flex; flex-direction: column; gap: 3px;
-  position: sticky; top: 16px;
+  /* Docks below the sticky topbar (~70 px), scrolls on its own when the
+     window is shorter than the list. */
+  position: sticky; top: 86px;
+  max-height: calc(100vh - 102px); overflow-y: auto;
 }
 .classdive-filter-btn{
   display: flex; align-items: center; gap: 8px; width: 100%;

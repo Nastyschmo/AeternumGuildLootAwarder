@@ -344,7 +344,8 @@ function normalizeApplicationV2(entry){
   /** @type {Record<ClassId, string>} */
   const characters = {};
   picks.forEach(p => {
-    const name = typeof rawCharacters[p.classId] === 'string' ? rawCharacters[p.classId].trim().slice(0, 24) : '';
+    // "Vorname Nachname" (WoW Forever names) — older applications: one name.
+    const name = typeof rawCharacters[p.classId] === 'string' ? rawCharacters[p.classId].trim().slice(0, 40) : '';
     if (name) characters[p.classId] = name;
   });
 
@@ -353,9 +354,10 @@ function normalizeApplicationV2(entry){
   const normProfList = (list) => Array.from(
     new Map(
       (Array.isArray(list) ? list : [])
-        .filter(x => x && typeof x.professionId === 'string' && PROFESSION_MAP[x.professionId]
-          && (x.level === 'max' || (typeof x.level === 'number' && x.level >= 1 && x.level <= PROFESSION_MAX_LEVEL)))
-        .map(x => [x.professionId, { professionId: x.professionId, level: x.level }])
+        .filter(x => x && typeof x.professionId === 'string' && PROFESSION_MAP[x.professionId])
+        // Level only on older applications (characters that already existed).
+        .map(x => [x.professionId, (x.level === 'max' || (typeof x.level === 'number' && x.level >= 1 && x.level <= PROFESSION_MAX_LEVEL))
+          ? { professionId: x.professionId, level: x.level } : { professionId: x.professionId }])
     ).values()
   );
   const rawCharProf = (entry.charProfessions && typeof entry.charProfessions === 'object') ? entry.charProfessions : {};
@@ -385,10 +387,15 @@ function normalizeApplicationV2(entry){
   }
 
   const remarks = typeof entry.remarks === 'string' ? entry.remarks.trim().slice(0, 1000) : '';
+  // Since Oct 2026: logs of the applicant's best characters, any game /
+  // class, not tied to the classes applied for (1–5 links).
+  const logs = Array.isArray(entry.logs)
+    ? [...new Set(entry.logs.filter(v => typeof v === 'string' && WARCRAFTLOGS_URL_RE.test(v.trim())).map(v => v.trim().slice(0, 300)))].slice(0, 5)
+    : [];
 
   return {
     version: 2,
-    firstName, nickname, age, picks, characters, charProfessions, extraProfessions, charLogs, remarks,
+    firstName, nickname, age, picks, characters, charProfessions, extraProfessions, charLogs, logs, remarks,
     applicantName: (typeof entry.applicantName === 'string' && entry.applicantName) ? entry.applicantName.slice(0, 80) : 'Unbekannt',
     applicantId: typeof entry.applicantId === 'string' ? entry.applicantId : '',
     createdAt: (typeof entry.createdAt === 'number' && entry.createdAt > 0) ? entry.createdAt : 0

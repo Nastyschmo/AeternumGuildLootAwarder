@@ -70,7 +70,8 @@ interface ApplicationStatusFields {
 }
 
 interface ApplicationPick { classId: ClassId; specs: SpecId[]; }
-interface ProfessionLevel { professionId: string; level: number | 'max'; }
+/** level only on older applications (no level since the pre-launch form). */
+interface ProfessionLevel { professionId: string; level?: number | 'max'; }
 
 /** Old flat-form application (before the chat-bot flow). */
 interface ApplicationV1 extends ApplicationStatusFields {
@@ -97,7 +98,10 @@ interface ApplicationV2 extends ApplicationStatusFields {
   characters: Record<ClassId, string>;
   charProfessions: Record<ClassId, ProfessionLevel[]>;
   extraProfessions: ProfessionLevel[];
+  /** Older applications: one Warcraftlogs link per applied class. */
   charLogs: Record<ClassId, string>;
+  /** Warcraftlogs of the applicant's best characters (any game / class). */
+  logs: string[];
   remarks: string;
   applicantName: string;
   applicantId: DiscordId;

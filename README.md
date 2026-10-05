@@ -409,8 +409,10 @@ Go to **Build → Realtime Database → Rules** and replace them with:
         "$eventId": {
           ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid && (!newData.exists() || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'member' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin'))",
-            ".validate": "newData.hasChildren(['status', 'classId', 'specId']) && newData.child('status').isString() && newData.child('status').val().matches(/^(yes|maybe|no)$/)"
+            ".write": "auth != null && auth.uid === $uid && (!newData.exists() || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'member' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')) && (root.child('guild-loot-data/raidEvents').child($eventId).child('signupState').val() === 'open' || (root.child('guild-loot-data/raidEvents').child($eventId).child('signupState').val() !== 'closed' && now < root.child('guild-loot-data/raidEvents').child($eventId).child('start').val() - 86400000))",
+            "$charKey": {
+              ".validate": "newData.hasChildren(['status', 'classId', 'specId']) && newData.child('status').isString() && newData.child('status').val().matches(/^(yes|maybe|no)$/)"
+            }
           }
         }
       },
@@ -1329,6 +1331,21 @@ zurück" / "Abbrechen" and restores the backup; "Aus Talent Builder
 them. No rules change.
 
 **Raids** (`js/raids.js`, page "Raids"): raid calendar with sign-ups.
+**Several characters per member, sign-up deadline, Aufstellung:**
+`raidSignups/<eventId>/<uid>/<charKey>` (charKey = character id from
+Meine Charaktere, `n_<name>` for a typed name; older single sign-ups
+directly under `<uid>` are still read and replaced on the next sign-up).
+Sign-ups close 24 h before the start; officers can close earlier or
+reopen (`raidEvents/<id>/signupState` 'closed' / 'open') — the rules
+enforce it. Officers build the Aufstellung on the card (`js/raid-comp.js`):
+raid size, targets per role (defaults 10 → 2/3/5, 20 → 2/5/13,
+40 → 4/10/26), pick at most one character per player
+(`raidEvents/<id>/roster/<uid>|<charKey>`), then publish
+(`rosterPublished`) — members see the line-up and the Ersatzbank.
+Characters carry a raid status (`raidRole` 'main' / 'twink', several
+mains allowed) set on Meine Charaktere; twinks show dashed with "T".
+The loot decision aid uses the Aufstellung when there is one.
+
 Officers / Admins create, edit and delete events (instance from a dropdown
 of Forever's announced raids, `RAID_INSTANCES` in js/raids.js; `raidEvents/<id>`:
 title, instance, start, note); members sign up as Dabei / Vielleicht /

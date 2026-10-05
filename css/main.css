@@ -2229,3 +2229,31 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 .loot-imp-dup td{ opacity: .45; }
 .loot-imp-missing td{ box-shadow: inset 0 -1px 0 var(--danger); }
 .loot-imp-missing td:nth-child(3){ color: var(--danger-bright); }
+
+/* Raid sign-ups with several characters + Aufstellung (js/raids.js, js/raid-comp.js) */
+.raid-own-signups{ display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; }
+.raid-own-signup{ display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.raid-signup-closed{ opacity: .9; }
+.raid-signup-buttons .bis-item-meta{ align-self: center; }
+.raid-chip small{ font-size: 9px; font-weight: 700; opacity: .8; }
+.raid-chip-twink{ border-style: dashed; }
+.raid-signups-all > summary{ cursor: pointer; font-size: 13px; color: var(--text-muted); font-weight: 600; margin-top: 10px; }
+.raid-comp-published{ margin-top: 12px; padding: 10px 12px; border: 1px solid rgba(var(--gold-bright-rgb),0.4); border-radius: 8px; background: rgba(var(--gold-bright-rgb),0.05); }
+.raid-comp-published .raid-roster{ margin-top: 6px; }
+.raid-comp-bar{ display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-soft); }
+.raid-comp-panel{ margin-top: 4px; }
+.raid-comp-cols{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.raid-comp-col{ display: flex; flex-direction: column; gap: 4px; }
+.raid-comp-col .raid-col-head{ display: flex; align-items: center; gap: 6px; }
+.raid-comp-target{ width: 52px; margin-left: auto; background: var(--field-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 2px 4px; font: inherit; font-size: 12px; }
+.raid-comp-short{ color: var(--danger-bright) !important; }
+.raid-comp-over{ color: var(--gold-bright) !important; }
+.raid-comp-ok{ color: var(--teal-bright) !important; }
+.raid-comp-row{ display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 3px 6px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.raid-comp-row:hover{ background: var(--fold-body-bg); }
+.raid-comp-row.picked{ background: rgba(var(--gold-bright-rgb),0.08); }
+.raid-comp-row.other{ opacity: .5; }
+.raid-comp-row .bis-item-meta{ flex-basis: 100%; padding-left: 22px; }
+.mychar-role-badge{ font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--teal-bright); color: var(--teal-bright); vertical-align: middle; }
+.mychar-role-badge.twink{ border-color: var(--border); color: var(--text-muted); }
+@media (max-width: 760px){ .raid-comp-cols{ grid-template-columns: 1fr; } }

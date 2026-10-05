@@ -133,6 +133,8 @@ interface Character {
   /** Optional, set in "Meine Charaktere" (used by raid sign-ups). */
   classId?: ClassId;
   specId?: SpecId;
+  /** Raid status: full raider or twink (unset: main for the Hauptcharakter). */
+  raidRole?: 'main' | 'twink';
   /** Optional, edited on Meine Charaktere, listed on the Berufe page. */
   professions?: CharacterProfession[];
   /** Optional BiS set per spec: specId -> own saved set id (bisSets / bisPublic). */
@@ -386,6 +388,16 @@ interface RaidEvent {
   srMax: number;
   /** Reserves can't be changed any more. */
   srLocked: boolean;
+  /** 'auto' = sign-ups close 24 h before the start; officers can force 'closed' / 'open'. */
+  signupState: 'auto' | 'closed' | 'open';
+  /** Raid size (10 / 20 / 40), 0 = from the instance. */
+  size: number;
+  /** Target numbers per role for the Aufstellung (null = defaults by size). */
+  targets: { tank: number; healer: number; damage: number } | null;
+  /** Aufstellung: "<uid>|<charKey>" -> true. */
+  roster: Record<string, boolean>;
+  /** Members see the Aufstellung. */
+  rosterPublished: boolean;
 }
 interface RaidReserve {
   /** Reserved item ids, slot order. */

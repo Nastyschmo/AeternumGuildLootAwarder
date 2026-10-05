@@ -114,7 +114,7 @@ function raidSrResultsHtml(id){
   if (q.length < 2 || !bisData) return '';
   const e = raidEvents[id];
   const mine = new Set(((raidReserves[id] || {})[discordIdentity.id] || { items: [] }).items.map(raidSrItemName));
-  const me = (raidSignups[id] || {})[discordIdentity.id];
+  const me = raidUserSignup(id, discordIdentity.id);
   const filter = me && !raidSrShowAll[id] ? (/** @param {ForeverItem} it */ it => raidSrFits(it, me.classId, me.specId)) : () => true;
   // Forever has many items twice or more (Classic id and new ids); same
   // name and stats = one result — the one dropping here, else one with a
@@ -163,7 +163,8 @@ function raidSrSectionHtml(id, e, past){
   }
   const uid = discordIdentity.id;
   const all = raidReserves[id] || {};
-  const signups = raidSignups[id] || {};
+  /** Best sign-up per member (several characters can be signed up). @type {Record<string, RaidSignup>} */
+  const signups = Object.fromEntries(Object.keys(raidSignups[id] || {}).map(u => [u, raidUserSignup(id, u)]));
   const mine = all[uid] ? all[uid].items : [];
   const signedUp = signups[uid] && signups[uid].status !== 'no';
   const itemName = raidSrItemName;
@@ -226,7 +227,7 @@ function raidSrSectionHtml(id, e, past){
 function raidSrText(id){
   const e = raidEvents[id];
   const all = raidReserves[id] || {};
-  const signups = raidSignups[id] || {};
+  const signups = Object.fromEntries(Object.keys(raidSignups[id] || {}).map(u => [u, raidUserSignup(id, u)]));
   /** @type {Map<string, string[]>} */
   const byItem = new Map();
   for (const [u, r] of Object.entries(all)) {
@@ -248,7 +249,7 @@ async function raidSrSave(id, slots){
   try {
     if (!Object.keys(slots).length) await ref.remove();
     else {
-      const s = (raidSignups[id] || {})[uid];
+      const s = raidUserSignup(id, uid);
       await ref.set({
         items: slots,
         name: raidMyName(), charName: (s && s.charName) || '', classId: (s && s.classId) || '', updatedAt: Date.now()

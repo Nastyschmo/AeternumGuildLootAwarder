@@ -7,13 +7,15 @@
 //    (boss / ext = RCLootCouncil row id, from js/loot-import.js)
 //
 // Officers award items on a raid event's card ("Loot vergeben"): pick the
-// item, then the decision aid lists everybody signed up (Dabei /
-// Vielleicht) with what speaks for them —
+// item, then the decision aid lists every character in the raid — the
+// published / drafted Aufstellung (js/raid-comp.js), else everybody signed
+// up (Dabei / Vielleicht) — with what speaks for them —
 //  - BiS: the item is on the BiS set the character has assigned for the
 //    signed-up spec (Meine Charaktere → Character.bisSets) and not ticked
 //    "Habe ich" (bisOwned). Only public sets are readable for officers;
 //  - Soft-Reserve of this event;
-//  - Anwesenheit: "Dabei" sign-ups for the last 10 earlier raids;
+//  - Anwesenheit: in the line-up (or, without one, signed up as "Dabei")
+//    for the last 10 earlier raids;
 //  - Loot: main-spec items received in the last 30 days;
 //  - Main / Twink (the character's isMain).
 // and a suggested order: BiS + SR first, then main before twink, less
@@ -107,9 +109,16 @@ function lootCandidates(eventId, itemId){
   const earlier = Object.entries(raidEvents).filter(([id, e]) => id !== eventId && ev && e.start < ev.start)
     .sort((a, z) => z[1].start - a[1].start).slice(0, LOOT_ATTENDANCE_EVENTS);
   const reserves = (raidReserves[eventId] || {});
-  const list = Object.entries(raidSignups[eventId] || {}).filter(([, s]) => s.status !== 'no').map(([uid, s]) => {
-    const prof = state.characterProfiles[uid];
-    const char = prof && prof.characters.find(c => c.name.toLowerCase() === (s.charName || '').toLowerCase());
+  // With a line-up (Aufstellung) only its characters are in the raid;
+  // without one everybody signed up (each signed-up character).
+  const inRaid = (id, e) => {
+    const all = raidSignupList(id).filter(x => x.status !== 'no');
+    return e && Object.keys(e.roster).length ? all.filter(x => e.roster[x.key]) : all;
+  };
+  const wasThere = (id, uid) => inRaid(id, raidEvents[id]).some(x => x.uid === uid && (raidEvents[id] && Object.keys(raidEvents[id].roster).length ? true : x.status === 'yes'));
+  const list = inRaid(eventId, ev).map(s => {
+    const uid = s.uid;
+    const char = raidSignupChar(uid, s.charKey, s.charName);
     const setId = char && char.bisSets && char.bisSets[s.specId];
     const set = setId ? bisAnySet(setId) : null;
     let bis = 'none';
@@ -119,12 +128,12 @@ function lootCandidates(eventId, itemId){
       bis = !inSet ? 'no' : (bisNeedHas(uid, itemId) ? 'owned' : 'yes');
     }
     const sr = Boolean(reserves[uid] && reserves[uid].items.some(sameItem));
-    const attended = earlier.filter(([id]) => raidSignups[id] && raidSignups[id][uid] && raidSignups[id][uid].status === 'yes').length;
+    const attended = earlier.filter(([id]) => wasThere(id, uid)).length;
     const loot = Object.values(lootAwards).filter(a => a.uid === uid && a.kind === 'ms' && now - a.at < LOOT_RECENT_MS).length;
     const hasItem = Object.values(lootAwards).some(a => a.uid === uid && sameItem(a.itemId));
     return {
-      uid, s, char, setId, bis, sr, attended, ofEvents: earlier.length, loot, hasItem,
-      isMain: char ? char.isMain : null,
+      uid, key: s.key, s, char, setId, bis, sr, attended, ofEvents: earlier.length, loot, hasItem,
+      isMain: char ? characterIsRaider(char) : null,
       tier: Number(bis === 'yes') + Number(sr)
     };
   });
@@ -182,8 +191,8 @@ function lootCandidatesHtml(eventId){
         <td>${r.ofEvents ? `${r.attended}/${r.ofEvents}` : '<span class="bis-item-meta">—</span>'}</td>
         <td>${r.loot}</td>
         <td class="loot-actions">
-          <button type="button" class="btn btn-teal btn-sm" data-loot-award="${escapeHtml(eventId)}|${r.uid}|ms">MS</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-loot-award="${escapeHtml(eventId)}|${r.uid}|os">OS</button>
+          <button type="button" class="btn btn-teal btn-sm" data-loot-award="${escapeHtml(eventId)}|${escapeHtml(r.key)}|ms">MS</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-loot-award="${escapeHtml(eventId)}|${escapeHtml(r.key)}|os">OS</button>
         </td>
       </tr>`).join('')}</tbody>
     </table>` : '<p class="bis-hint">Noch niemand angemeldet.</p>';
@@ -226,9 +235,10 @@ function lootEventHtml(id, e){
   </div>`;
 }
 
-/** Write an award. @param {string} eventId @param {string} uid @param {string} kind @param {string} note */
-async function lootAward(eventId, uid, kind, note){
-  const s = (raidSignups[eventId] || {})[uid];
+/** Write an award. @param {string} eventId @param {string} key "uid|charKey" @param {string} kind @param {string} note */
+async function lootAward(eventId, key, kind, note){
+  const [uid, charKey] = key.split('|');
+  const s = ((raidSignups[eventId] || {})[uid] || {})[charKey];
   const itemId = lootPick[eventId];
   const id = newPushId('lootAwards');
   if (!s || !itemId || !id) return;
@@ -285,9 +295,9 @@ function lootWire(root){
     renderRaidsPage();
   }));
   root.querySelectorAll('[data-loot-award]').forEach(btn => btn.addEventListener('click', () => {
-    const [eventId, uid, kind] = btn.getAttribute('data-loot-award').split('|');
+    const [eventId, uid, charKey, kind] = btn.getAttribute('data-loot-award').split('|');
     const note = /** @type {HTMLInputElement | null} */ (root.querySelector(`[data-loot-note="${CSS.escape(eventId)}"]`));
-    lootAward(eventId, uid, kind, note ? note.value.trim() : '');
+    lootAward(eventId, `${uid}|${charKey}`, kind, note ? note.value.trim() : '');
   }));
   root.querySelectorAll('[data-loot-delete]').forEach(btn => btn.addEventListener('click', () => lootDelete(btn.getAttribute('data-loot-delete'))));
 }

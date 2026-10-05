@@ -46,6 +46,9 @@ function normalizeCharacterProfile(entry){
         classId: c.classId,
         ...(foreverSpecsForClass(c.classId).some(s => s.id === c.specId) ? { specId: c.specId } : {})
       } : {}),
+      // Raid status: 'main' (full raider — several allowed) or 'twink';
+      // unset = main for the Hauptcharakter, twink otherwise.
+      ...(c.raidRole === 'main' || c.raidRole === 'twink' ? { raidRole: c.raidRole } : {}),
       // Optional BiS set per spec (Meine Charaktere, js/mychar-page.js).
       ...(CLASS_MAP[c.classId] && c.bisSets && typeof c.bisSets === 'object' ? (() => {
         const sets = Object.fromEntries(Object.entries(c.bisSets)
@@ -81,6 +84,10 @@ function normalizeCharacterProfessions(raw){
     out.push({ id: p.id, skill: Math.max(1, Math.min(300, Math.trunc(Number(p.skill)) || 1)), ...(recipes.length ? { recipes } : {}) });
   }
   return out;
+}
+/** Is the character a full raider (Main) rather than a twink? @param {Character} c */
+function characterIsRaider(c){
+  return c.raidRole ? c.raidRole === 'main' : Boolean(c.isMain);
 }
 function mainCharacterOf(profile){
   if (!profile || !Array.isArray(profile.characters)) return null;

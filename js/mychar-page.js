@@ -46,7 +46,11 @@ function mycharFormHtml(c){
       <option value="">Spec …</option>
       ${(c.classId ? foreverSpecsForClass(c.classId) : []).map(sp => `<option value="${sp.id}" ${c.specId === sp.id ? 'selected' : ''}>${escapeHtml(sp.label)}</option>`).join('')}
     </select></label>
-    <label class="mychar-form-main"><input type="radio" name="mycharMain" data-mychar-main="${c.id}" ${c.isMain ? 'checked' : ''}> Hauptcharakter</label>
+    <label>Raid-Status<select data-mychar-field="raidRole" data-mychar-id="${c.id}">
+      <option value="main" ${characterIsRaider(c) ? 'selected' : ''}>Main (Raider)</option>
+      <option value="twink" ${characterIsRaider(c) ? '' : 'selected'}>Twink</option>
+    </select></label>
+    <label class="mychar-form-main"><input type="radio" name="mycharMain" data-mychar-main="${c.id}" ${c.isMain ? 'checked' : ''}> Hauptcharakter (Anzeige)</label>
     <button type="button" class="btn btn-ghost btn-sm" data-mychar-remove="${c.id}">Charakter entfernen</button>
   </div>`;
 }
@@ -93,7 +97,7 @@ function mycharCardHtml(c){
   return `<div class="mychar-card" style="border-top-color:${accent}" data-mychar-card="${c.id}">
     <div class="mychar-card-head">
       <div>
-        <div class="mychar-card-name" ${cls ? `style="color:${cls.color}"` : ''}>${escapeHtml(c.name || 'Neuer Charakter')}${c.isMain ? ' <span class="mychar-main-badge">★ Hauptcharakter</span>' : ''}</div>
+        <div class="mychar-card-name" ${cls ? `style="color:${cls.color}"` : ''}>${escapeHtml(c.name || 'Neuer Charakter')}${c.isMain ? ' <span class="mychar-main-badge">★ Hauptcharakter</span>' : ''} <span class="mychar-role-badge${characterIsRaider(c) ? '' : ' twink'}">${characterIsRaider(c) ? 'Main' : 'Twink'}</span></div>
         <div class="mychar-card-realm">${escapeHtml(sub)}</div>
       </div>
       <button type="button" class="btn btn-ghost btn-sm" data-mychar-edit="${c.id}">${editing ? 'Fertig' : 'Bearbeiten'}</button>

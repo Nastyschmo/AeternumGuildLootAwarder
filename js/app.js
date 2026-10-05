@@ -376,7 +376,6 @@ els.navCrestMini.addEventListener('click', () => showPage('home'));
 els.heroCtaBtn.addEventListener('click', () => showPage(els.heroCtaBtn.dataset.target || 'recruit'));
 els.navLoginBtn.addEventListener('click', () => startDiscordLogin());
 els.foreverLoginBtn.addEventListener('click', () => startDiscordLogin());
-els.recruitTeaserBtn.addEventListener('click', () => showPage('recruit'));
 els.recruitLoginBtn.addEventListener('click', () => startDiscordLogin());
 els.applySubmitBtn.addEventListener('click', () => submitApplication());
 els.recruitNeedsSaveBtn.addEventListener('click', () => saveRecruitingNeeds());
@@ -456,7 +455,6 @@ function renderAll(){
   renderForeverView();
   renderAnnouncementsView();
   renderClassDeepDivesView();
-  renderRecruitTeaser();
   renderRecruitView();
   refreshQuestUI();
   renderHomeDashboard();
@@ -489,7 +487,6 @@ function startPublicRecruitingSync(){
   publicSyncStarted = true;
   db.ref(DB_PATH + '/recruitingNeeds').on('value', (snapshot) => {
     state.recruitingNeeds = normalizeRecruitingNeeds(snapshot.val());
-    renderRecruitTeaser();
     renderRecruitView();
   }, () => { /* not logged in yet / rules not deployed — badges just stay empty */ });
 }

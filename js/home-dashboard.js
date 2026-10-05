@@ -1,10 +1,11 @@
 // Home page dashboard ("Welcome"), shown below the hero — what's relevant
 // for whoever is looking:
 //  - Guests / applicants (logged out or not a member yet): who we are,
-//    who we're looking for, "So bewirbst du dich" in three steps, and the
-//    apply button. The intro and recruit teaser below stay for them.
-//  - Members: the next raid with the own sign-up / line-up status, open
-//    votes, the newest announcement, the own recent loot and shortcuts.
+//    who we're looking for (only when recruitingNeeds names classes),
+//    "So bewirbst du dich" in three steps, and the apply button.
+//  - Members: a compact hero, the next raid with the own sign-up /
+//    line-up status, open votes (only when there are any), the newest
+//    announcement, the own recent loot and shortcuts.
 //  - Officers / admins additionally get "Zu tun": untouched applications,
 //    raids whose sign-up closed without a line-up, unpublished line-ups
 //    close to the start, open Loot-Runden with items left.
@@ -15,20 +16,20 @@ function renderHomeDashboard(){
   const root = document.getElementById('homeDashboard');
   if (!root) return;
   const member = !!discordIdentity && isMemberOrHigher();
-  // The intro text and recruit teaser are for people who aren't in yet.
-  document.getElementById('introSection').classList.toggle('hidden', member);
-  document.getElementById('recruitTeaserSection').classList.toggle('hidden', member);
+  // Members get a slim hero so the dashboard is on the first screen.
+  document.getElementById('heroSection').classList.toggle('hero-compact', member);
   homeHeroCta(member);
   if (!member){ root.innerHTML = homeGuestHtml(); homeWire(root); return; }
   raidSync();
   lootSync();
   if (isOfficerOrAdmin()) lootSessionSync();
+  const votes = homeVotesHtml();
   root.innerHTML = `
     ${isOfficerOrAdmin() ? homeTodoHtml() : ''}
     <div class="home-dash-grid">
       ${homeNextRaidHtml()}
-      ${homeVotesHtml()}
-      ${homeAnnouncementHtml()}
+      ${votes}
+      ${homeAnnouncementHtml(!votes)}
       ${homeLootHtml()}
       ${homeShortcutsHtml()}
     </div>`;
@@ -68,10 +69,8 @@ function homeGuestHtml(){
         <div><dt>Raidtage</dt><dd>${escapeHtml(GUILD_RAID_DAYS)}</dd></div>
         <div><dt>Forever-Server</dt><dd>${escapeHtml(GUILD_FOREVER_RULESET)}-Ruleset</dd></div>
       </dl>
-      <p class="home-text">Wir raiden zusammen, planen Aufstellung und Loot transparent hier auf der Seite und helfen uns gegenseitig mit Berufen, BiS-Listen und Guides.</p>`)}
-    ${homeCard('Aktuell gesucht', badges
-      ? `<div class="recruit-need-badges">${badges}</div><p class="bis-hint">Wir freuen uns aber über jede Bewerbung.</p>`
-      : '<p class="home-text">Wir freuen uns grundsätzlich über jede Bewerbung — egal welche Klasse.</p>')}
+      <p class="home-text">Wir raiden zusammen, planen Aufstellung und Loot transparent hier auf der Seite und helfen uns gegenseitig mit Berufen, BiS-Listen und Guides.${badges ? '' : ' Wir freuen uns über jede Bewerbung — egal welche Klasse.'}</p>`, badges ? '' : 'home-card-wide')}
+    ${badges ? homeCard('Aktuell gesucht', `<div class="recruit-need-badges">${badges}</div><p class="bis-hint">Wir freuen uns aber über jede Bewerbung.</p>`) : ''}
     ${homeCard('So bewirbst du dich', `
       <ol class="home-steps">
         ${step(1, 'Mit Discord anmelden', 'Oben rechts — damit wir wissen, wer Du bist.')}
@@ -113,24 +112,26 @@ function homeNextRaidHtml(){
     </div>`, 'home-card-raid home-card-wide');
 }
 
+/** Open votes — '' when there's nothing to vote on (the card is left out). */
 function homeVotesHtml(){
   const items = questPendingPollItems();
-  return homeCard('Abstimmungen', items.length
-    ? `<ul class="home-list">${items.map(it => `<li><span class="nav-quest-badge" aria-hidden="true">!</span> ${escapeHtml(it.title)}</li>`).join('')}</ul>
-      <div class="home-links">${homeLink('forever', 'Jetzt abstimmen', true)}</div>`
-    : `<p class="home-text">✓ Du hast überall abgestimmt.</p><div class="home-links">${homeLink('forever', 'Zu den Abstimmungen')}</div>`);
+  if (!items.length) return '';
+  return homeCard(`Abstimmungen <span class="loot-tag loot-tag-hr">${items.length} offen</span>`, `
+    <p class="home-text">Deine Stimme fehlt noch bei:</p>
+    <div class="home-votes">${items.map(it => `<button type="button" class="home-vote" data-home-page="${it.page}"><span class="nav-quest-badge" aria-hidden="true">!</span><span>${escapeHtml(it.title)}</span><span class="home-vote-go">Abstimmen →</span></button>`).join('')}</div>`);
 }
 
-function homeAnnouncementHtml(){
+/** @param {boolean} [wide] */
+function homeAnnouncementHtml(wide){
   const raw = sortedAnnouncements()[0];
   const a = raw ? normalizeAnnouncement(raw) : null;
-  if (!a) return homeCard('Neueste Ankündigung', '<p class="home-text">Noch keine Ankündigungen.</p>');
+  if (!a) return homeCard('Neueste Ankündigung', '<p class="home-text">Noch keine Ankündigungen.</p>', wide ? 'home-card-wide' : '');
   const unread = questPendingAnnouncement();
   return homeCard(`Neueste Ankündigung${unread ? ' <span class="loot-tag loot-tag-hr">neu</span>' : ''}`, `
     <div class="home-raid-title">${escapeHtml(a.title || 'Ankündigung')}</div>
     <p class="bis-item-meta">${escapeHtml(new Date(a.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }))}${a.authorName ? ` · ${escapeHtml(a.authorName)}` : ''}</p>
     <p class="home-text">${escapeHtml(summarizeAnnouncementText(a.text))}</p>
-    <div class="home-links">${homeLink('announcements', unread ? 'Lesen' : 'Alle Ankündigungen')}</div>`);
+    <div class="home-links">${homeLink('announcements', unread ? 'Lesen' : 'Alle Ankündigungen')}</div>`, wide ? 'home-card-wide' : '');
 }
 
 function homeLootHtml(){

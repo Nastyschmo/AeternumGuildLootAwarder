@@ -45,6 +45,7 @@ async function fetchWowheadNews(){
 // #pageHost), so it survives page navigation untouched.
 let releaseCountdownIntervalStarted = false;
 function updateReleaseCountdown(){
+  updateHeroCountdown();
   const el = document.getElementById('topbarCountdownTimer');
   if (!el) return;
   const diff = WOW_FOREVER_RELEASE_MS - Date.now();
@@ -59,6 +60,35 @@ function updateReleaseCountdown(){
   const minutes = pad(Math.floor((totalSeconds % 3600) / 60));
   const seconds = pad(totalSeconds % 60);
   el.textContent = `${days}T ${hours}:${minutes}:${seconds}`;
+}
+/**
+ * Big countdown in the Home hero: days / hours to the Forever launch,
+ * after it (members) the time to the next raid. Hidden otherwise.
+ */
+function updateHeroCountdown(){
+  const el = document.getElementById('heroCountdown');
+  const eyebrow = document.getElementById('heroEyebrow');
+  if (!el) return;
+  const now = Date.now();
+  const span = (ms, what) => {
+    const h = Math.floor(ms / 3600000);
+    const d = Math.floor(h / 24);
+    const parts = d ? [[d, d === 1 ? 'Tag' : 'Tage'], [h % 24, 'Std']] : [[h, 'Std'], [Math.floor(ms / 60000) % 60, 'Min']];
+    return `Noch ${parts.map(([n, l]) => `<b>${n}</b> ${l}`).join(' ')} ${what}`;
+  };
+  let html = '';
+  if (WOW_FOREVER_RELEASE_MS > now){
+    html = span(WOW_FOREVER_RELEASE_MS - now, 'bis zum Launch');
+    if (eyebrow) eyebrow.textContent = `World of Warcraft: Forever · Launch ${new Date(WOW_FOREVER_RELEASE_MS).toLocaleDateString('de-DE', { day: 'numeric', month: 'long' })}`;
+  } else {
+    if (eyebrow) eyebrow.textContent = 'World of Warcraft: Forever';
+    if (discordIdentity && isMemberOrHigher() && typeof raidEvents === 'object'){
+      const next = Object.values(raidEvents).filter(e => e.start > now).sort((a, z) => a.start - z.start)[0];
+      if (next) html = span(next.start - now, `bis ${escapeHtml(next.title)}`);
+    }
+  }
+  if (el.innerHTML !== html) el.innerHTML = html;
+  el.classList.toggle('hidden', !html);
 }
 function initReleaseCountdown(){
   updateReleaseCountdown();
@@ -75,8 +105,6 @@ function renderPublicShell(){
   els.heroTitle.textContent = GUILD_NAME.toUpperCase();
   els.heroTagline.textContent = GUILD_TAGLINE;
   els.heroDesc.textContent = HERO_DESC;
-  els.introTitle.textContent = INTRO_TITLE;
-  els.introText.textContent = INTRO_TEXT;
   els.footerGuildName.textContent = GUILD_NAME;
   renderNewsGrid();
   refreshQuestUI();
@@ -162,14 +190,11 @@ function renderNewsGrid(){
   // the Klassen-Umfrage, which just dead-ends at a login prompt) — drop
   // those for them rather than showing a card they can't use.
   const loggedIn = !!discordIdentity;
-  let visibleItems = loggedIn ? items : items.filter(item => !item.requiresLogin);
-  // Keep the row looking full (and consistent) even when there aren't
-  // enough real items — cycle through the placeholder tiles as filler.
-  let placeholderIdx = 0;
-  while (visibleItems.length < NEWS_MIN_CARD_COUNT){
-    visibleItems = visibleItems.concat([NEWS_PLACEHOLDER_ITEMS[placeholderIdx % NEWS_PLACEHOLDER_ITEMS.length]]);
-    placeholderIdx++;
-  }
+  const now = Date.now();
+  // Only real news: no filler tiles; items with `until` disappear then.
+  const visibleItems = items.filter(item => (loggedIn || !item.requiresLogin) && !(item.until && now > item.until));
+  const section = document.getElementById('newsSection');
+  if (section) section.classList.toggle('hidden', !visibleItems.length);
   els.newsGrid.innerHTML = visibleItems.map((item, idx) => {
     const thumbStyle = item.image ? ` style="background-image:url('${escapeHtml(item.image)}')"` : '';
     const isLink = !!(item.linkPage || item.linkUrl);

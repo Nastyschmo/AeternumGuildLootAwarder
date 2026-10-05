@@ -21,39 +21,17 @@ const GUILD_FOREVER_RULESET = 'PvP';
 // Wowhead's and Icy Veins' own release-date pages/countdowns). Update
 // this single line if Blizzard ever moves the date.
 const WOW_FOREVER_RELEASE_MS = Date.parse('2026-11-04T23:00:00Z');
-const HERO_DESC = 'Wir bereiten uns auf World of Warcraft: Forever vor. Diese Seite wächst mit — als erstes: eine Umfrage, wer welche Klasse und Spezialisierung spielen möchte.';
-const INTRO_TITLE = 'Bereit für ein neues Kapitel';
-const INTRO_TEXT = 'Diese Seite ist der Startpunkt der WoW Forever Gilde TBA - Gilden und Community Ankündigungen, Abstimmungen für Gilden Member, Guides, Übersicht des Raid-Kader sowie Informationen über verfügbare Berufe. Schaut regelmäßig vorbei und bleibt up2date.';
-// Add a real image URL per item once you have screenshots/artwork —
-// until then a placeholder tile is shown automatically.
-const NEWS_VOTING_IMAGE = 'assets/news-voting.jpg';
+const HERO_DESC = 'Deutschsprachige Horde-Gilde — gemeinsam in World of Warcraft: Forever. Raids planen, Loot fair verteilen, zusammen besser werden.';
 // Reuses the same WoW: Forever logo file as the topbar countdown pill —
 // see assets/logo.png (that's the guild's own uploaded logo asset, not
 // a Blizzard trademark).
 const NEWS_LAUNCH_IMAGE = 'assets/logo.png';
-// Blizzard's own company logo for the Beta-Infos card — the guild's own
-// uploaded copy of Blizzard's official logo, see assets/blizzard-logo.jpg.
-const NEWS_BETA_IMAGE = 'assets/blizzard-logo.jpg';
 /** @type {NewsItem[]} */
 const NEWS_ITEMS = [
-  { title: 'Klassen-Umfrage ist live', blurb: 'Trag ein, welche Klasse(n) du in WoW: Forever spielen möchtest — hilft uns bei der Recruiting-Planung.', image: NEWS_VOTING_IMAGE, linkPage: 'forever', requiresLogin: true },
-  { title: 'Beta-Infos folgen', blurb: 'Wir halten Euch mit wichtigen Infos zur Beta hier am laufenden!', image: NEWS_BETA_IMAGE },
-  { title: 'Launch: 4. November 2026', blurb: 'Bis dahin sammeln wir hier wichtige Gildeninterne Informationen, Entscheidungen und Informationen über den Start in die neue alte Welt!', image: NEWS_LAUNCH_IMAGE }
+  // until = hidden from then on (ms).
+  { title: 'Launch: 4. November 2026', blurb: 'Bis dahin sammeln wir hier wichtige gildeninterne Informationen, Entscheidungen und alles für den Start in die neue alte Welt!', image: NEWS_LAUNCH_IMAGE, until: WOW_FOREVER_RELEASE_MS + 7 * 86400000 }
 ];
-// Shown (cycled, as many as needed) whenever there aren't enough real
-// news items to fill a full row — keeps the grid looking intentional
-// instead of lopsided, e.g. when someone's logged out and the
-// Klassen-Umfrage tile (which needs a login to do anything with) is
-// hidden for them, or simply before there's much news yet.
-/** @type {NewsItem[]} */
-const NEWS_PLACEHOLDER_ITEMS = [
-  { title: 'Hier ist noch Platz für Neuigkeiten', blurb: 'Vielleicht schon bald mit deiner Heldentat drauf?' },
-  { title: 'Content-Baustelle', blurb: 'Unsere Kobolde arbeiten dran. Bitte etwas Geduld (und Kekse spenden).' },
-  { title: 'Nichts zu sehen hier', blurb: 'Genau wie unser Bankfach vor dem ersten Raid-Loot.' },
-  { title: 'Reserviert für Ruhm', blurb: 'Vielleicht die nächste große Ankündigung? Wer weiß.' },
-  { title: 'Platzhalter Nr. 5', blurb: 'Wenn du das liest, bist du offiziell ein News-Nerd. Respekt.' }
-];
-const NEWS_MIN_CARD_COUNT = 5;
+
 // Auto-generated "news" tile for the newest Ankündigung — always uses
 // this messenger-goblin artwork plus a short auto-summary of the
 // announcement text. Shown as long as that announcement still exists;
@@ -506,8 +484,6 @@ const els = {
   heroTagline: document.getElementById('heroTagline'),
   heroDesc: document.getElementById('heroDesc'),
   heroCtaBtn: /** @type {HTMLButtonElement} */ (document.getElementById('heroCtaBtn')),
-  introTitle: document.getElementById('introTitle'),
-  introText: document.getElementById('introText'),
   newsGrid: document.getElementById('newsGrid'),
   newsPrevBtn: /** @type {HTMLButtonElement} */ (document.getElementById('newsPrevBtn')),
   newsNextBtn: /** @type {HTMLButtonElement} */ (document.getElementById('newsNextBtn')),
@@ -563,8 +539,6 @@ const els = {
   talentResetAllBtn: /** @type {HTMLButtonElement} */ (document.getElementById('talentResetAllBtn')),
   talentTreesContainer: document.getElementById('talentTreesContainer'),
   talentTooltip: document.getElementById('talentTooltip'),
-  recruitTeaserNeeds: document.getElementById('recruitTeaserNeeds'),
-  recruitTeaserBtn: /** @type {HTMLButtonElement} */ (document.getElementById('recruitTeaserBtn')),
   recruitNeedsOverviewBadges: document.getElementById('recruitNeedsOverviewBadges'),
   recruitLoggedOut: document.getElementById('recruitLoggedOut'),
   recruitLoggedIn: document.getElementById('recruitLoggedIn'),

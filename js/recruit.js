@@ -1024,12 +1024,3 @@ function renderRecruitApplyGate(){
     btn.addEventListener('click', () => sendApplicationReminder(btn.getAttribute('data-send-reminder')));
   });
 }
-
-// Home-page teaser — driven by the same state.recruitingNeeds as the
-// recruiting page's own overview, so the two never say different things.
-function renderRecruitTeaser(){
-  const badges = recruitingNeedsBadges(state.recruitingNeeds || {});
-  els.recruitTeaserNeeds.innerHTML = badges
-    ? `<p class="recruit-need-label">Aktuell besonders gesucht:</p><div class="recruit-need-badges">${badges}</div>`
-    : '';
-}

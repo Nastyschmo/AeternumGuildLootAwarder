@@ -2409,3 +2409,17 @@ button.apply-chat-edit:hover{ filter: brightness(1.12); }
 .home-facts dt{ font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
 .home-facts dd{ margin: 2px 0 0; font-weight: 700; color: var(--gold-bright); }
 @media (max-width: 520px){ .home-facts{ grid-template-columns: 1fr; } }
+
+/* Home hero: countdown + slim variant for members (js/home.js, js/home-dashboard.js) */
+.hero-countdown{ margin: -12px 0 24px; font-size: 15px; color: var(--text); letter-spacing: .02em; }
+.hero-countdown b{ font-family: 'Cinzel', serif; font-size: 28px; color: var(--gold-bright); margin-right: 2px; }
+.hero.hero-compact{ min-height: 0; padding: 36px 6vw 40px; }
+.hero-compact .hero-title{ font-size: clamp(30px, 4.5vw, 48px); margin-bottom: 4px; }
+.hero-compact .hero-tagline{ margin-bottom: 10px; }
+.hero-compact .hero-desc{ display: none; }
+.hero-compact .hero-countdown{ margin: 0 0 16px; }
+.hero-compact .hero-countdown b{ font-size: 22px; }
+.home-votes{ display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.home-vote{ display: flex; align-items: center; gap: 10px; text-align: left; font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--field-bg); color: var(--text); cursor: pointer; }
+.home-vote:hover{ border-color: var(--gold); }
+.home-vote-go{ margin-left: auto; font-size: 12.5px; font-weight: 700; color: var(--gold-bright); white-space: nowrap; }

@@ -1492,7 +1492,11 @@ auto-links) Emojis in those hand-written texts are shown as game
 icons (`replaceEmojis`, `GAME_EMOJI_ICONS`: ⚙️ gear, 📅 pocket watch, ⚔️
 sword, 🐉 dragon head …); an emoji right before a class / spec mention is
 dropped (the mention has its icon), other emojis are removed, ✅ / ❌
-become ✓ / ✗ — on display only, the stored text is unchanged.
+become ✓ / ✗ — on display only, the stored text is unchanged. Spec names used as a
+heading or list header on their own ("Waffen", "Furor", "Schutz",
+"Vergeltung") get the spec icon of the class mentioned last before them
+(or the page's class) — `annotateSpecHeadings`, the same spec icons as
+the class vote.
 
 **Home-Dashboard** (`js/home-dashboard.js`, below the hero on Home):
 guests / applicants see who we are, who we're looking for

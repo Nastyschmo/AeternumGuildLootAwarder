@@ -2489,3 +2489,4 @@ h2 .game-icon{ vertical-align: -4px; margin-right: 4px; }
 .fc-class-link .game-icon{ width: 16px; height: 16px; margin-right: 4px; }
 .role-counts{ display: inline-flex; gap: 10px; margin-left: 8px; }
 .role-count{ display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--text); }
+.game-spec-heading{ font-weight: inherit; color: inherit; }

@@ -669,8 +669,10 @@ function renderClassDeepDivesView(){
   // plain-text previews, which have no markup to annotate anyway.
   const summaryTextEl = els.classDivesList.querySelector('.classdive-summary-card .classdive-summary-text');
   // Class / spec icons, emojis -> game icons, then the spell auto-links.
-  if (summaryTextEl){ annotateClassMentions(/** @type {HTMLElement} */ (summaryTextEl)); replaceEmojis(/** @type {HTMLElement} */ (summaryTextEl)); annotateSpellMentions(summaryTextEl, c.id); }
-  els.classDivesList.querySelectorAll('.classdive-update-text').forEach((/** @type {HTMLElement} */ el) => { annotateClassMentions(el); replaceEmojis(el); annotateSpellMentions(el, c.id); });
+  /** @param {HTMLElement} el */
+  const decorate = el => { annotateClassMentions(el); annotateSpecHeadings(el, c.id); replaceEmojis(el); annotateSpellMentions(el, c.id); };
+  if (summaryTextEl) decorate(/** @type {HTMLElement} */ (summaryTextEl));
+  els.classDivesList.querySelectorAll('.classdive-update-text').forEach((/** @type {HTMLElement} */ el) => decorate(el));
 
   // Update-Historie + Quellen — always-expanded static cards, wired
   // separately since they have no toggle/expand state of their own.

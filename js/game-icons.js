@@ -116,6 +116,7 @@ function annotateClassMentions(rootEl){
       const url = hit.specId ? foreverSpecIconUrl(hit.classId, hit.specId) : foreverClassIconUrl(hit.classId);
       const span = document.createElement('span');
       span.className = 'game-mention';
+      span.dataset.classId = hit.classId;
       span.style.setProperty('--class-color', CLASS_MAP[hit.classId] ? CLASS_MAP[hit.classId].color : 'inherit');
       if (url){
         const img = document.createElement('img');
@@ -198,4 +199,52 @@ function replaceEmojis(rootEl){
 /** Plain text without emojis (collapsed previews). @param {string} text */
 function stripEmojis(text){
   return text.replace(GAME_EMOJI_RE, e => (/^[✅✔]/.test(e) ? '✓' : /^[❌✖]/.test(e) ? '✗' : '')).replace(/\s{2,}/g, ' ').trim();
+}
+
+/**
+ * Spec names used as a heading or list header on their own — "Waffen",
+ * "Furor", "Schutz", "Vergeltung" (a text that is only the spec name,
+ * maybe with a colon) — get the spec icon (same icons as in the
+ * class / spec vote, foreverSpecIconUrl). The class comes from the last
+ * class mention before it (e.g. a "Paladin" heading), else from the page
+ * (defaultClassId). Run after annotateClassMentions.
+ * @param {HTMLElement} rootEl @param {string} [defaultClassId]
+ */
+function annotateSpecHeadings(rootEl, defaultClassId){
+  if (!rootEl) return;
+  let classId = CLASS_MAP[defaultClassId] ? defaultClassId : '';
+  const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, null);
+  const hits = [];
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.nodeType === 1){
+      const el = /** @type {HTMLElement} */ (node);
+      if (el.classList.contains('game-mention') && el.dataset.classId) classId = el.dataset.classId;
+      continue;
+    }
+    if (!classId || (node.parentElement && node.parentElement.closest('.game-mention, button, a'))) continue;
+    const word = node.nodeValue.trim().replace(/:$/, '').trim().toLowerCase();
+    if (!word || word.length > 30) continue;
+    for (const [specId, words] of Object.entries(GAME_SPEC_WORDS[classId] || {})) {
+      if (words.some(w => w.toLowerCase() === word)){ hits.push({ node, classId, specId }); break; }
+    }
+  }
+  for (const { node: textNode, classId: cid, specId } of hits) {
+    const url = foreverSpecIconUrl(cid, specId);
+    if (!url) continue;
+    const span = document.createElement('span');
+    span.className = 'game-mention game-spec-heading';
+    span.dataset.classId = cid;
+    span.style.setProperty('--class-color', 'inherit');
+    span.title = `${foreverSpecLabel(cid, specId)} · ${CLASS_MAP[cid].label}`;
+    const img = document.createElement('img');
+    img.className = 'game-icon';
+    img.src = url;
+    img.alt = '';
+    img.loading = 'lazy';
+    img.onerror = () => { img.style.display = 'none'; };
+    span.appendChild(img);
+    span.appendChild(document.createTextNode(textNode.nodeValue));
+    textNode.parentNode.replaceChild(span, textNode);
+  }
 }

@@ -1537,7 +1537,10 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 .classdive-layout{ display: flex; align-items: flex-start; gap: 22px; margin-bottom: 18px; }
 .classdive-sidebar{
   flex: 0 0 196px; display: flex; flex-direction: column; gap: 3px;
-  position: sticky; top: 16px;
+  /* Docks below the sticky topbar (~70 px), scrolls on its own when the
+     window is shorter than the list. */
+  position: sticky; top: 86px;
+  max-height: calc(100vh - 102px); overflow-y: auto;
 }
 .classdive-filter-btn{
   display: flex; align-items: center; gap: 8px; width: 100%;
@@ -2456,3 +2459,23 @@ button.apply-chat-edit:hover{ filter: brightness(1.12); }
 .home-stats div{ display: flex; align-items: baseline; gap: 6px; }
 .home-stats b{ font-family: 'Cinzel', serif; font-size: 24px; color: var(--gold-bright); }
 .home-stats span{ font-size: 13px; color: var(--text-muted); }
+
+/* Game-data changelog in the Patch-Updates (js/forever-changes.js) and the Wowhead article dropdown */
+.fc-auto-tag{ font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--teal-bright); color: var(--teal-bright); margin-left: 8px; }
+.fc-old{ color: var(--text-muted); text-decoration: line-through; text-decoration-color: var(--danger-bright); }
+.fc-new{ color: var(--teal-bright); font-weight: 700; }
+.fc-arrow{ color: var(--gold-bright); margin: 0 3px; }
+.fc-del{ color: var(--danger-bright); text-decoration: line-through; background: rgba(var(--gold-bright-rgb),0.06); border-radius: 3px; padding: 0 2px; }
+.fc-ins{ color: var(--teal-bright); font-weight: 700; text-decoration: none; background: rgba(var(--gold-bright-rgb),0.1); border-radius: 3px; padding: 0 2px; }
+.fc-tag{ font-size: 10.5px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); }
+.fc-tag-new{ border-color: var(--teal-bright); color: var(--teal-bright); }
+.fc-hint{ font-size: 12.5px; color: var(--text-muted); font-style: italic; }
+.fc-more{ list-style: none; color: var(--text-muted); font-size: 12.5px; }
+.fc-class-link{ background: none; border: 0; padding: 0; font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline dotted; }
+.fc-auto-block{ margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.classdive-update-text li{ margin-bottom: 4px; }
+.fc-items{ list-style: none; padding-left: 4px; }
+.fc-items li{ display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+.fc-items li::before{ content: '•'; color: var(--gold-bright); margin-right: 2px; }
+.fc-sep{ margin-left: -4px; }
+.news-select{ width: 100%; margin-bottom: 8px; background: var(--field-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; font: inherit; font-size: 12px; cursor: pointer; }

@@ -24,6 +24,10 @@
 // Same "exactly one card, content replaced in place" behavior.
 // ---------------------------------------------------------------------
 let wowheadNewsItem = null;
+/** Last Wowhead articles (Worker `recent`, newest first) for the card's dropdown; [] = older Worker. */
+let wowheadRecent = [];
+/** Index into wowheadRecent the card shows (0 = newest). */
+let wowheadPick = 0;
 let wowheadPatchNotesItem = null;
 async function fetchWowheadNews(){
   if (!isWorkerConfigured()) return;
@@ -33,6 +37,7 @@ async function fetchWowheadNews(){
     const data = await res.json();
     if (!data) return;
     if (data.latest && data.latest.title && data.latest.url) wowheadNewsItem = data.latest;
+    if (Array.isArray(data.recent)) wowheadRecent = data.recent.filter(it => it && it.title && it.url);
     if (data.patchNotes && data.patchNotes.title && data.patchNotes.url) wowheadPatchNotesItem = data.patchNotes;
     renderNewsGrid();
   }catch(e){
@@ -176,15 +181,23 @@ function renderNewsGrid(){
   // content just gets replaced in place whenever fetchWowheadNews() finds
   // a newer post. Skipped if it's the very same article already shown as
   // the patch-notes tile above, so the same post never appears twice.
-  if (wowheadNewsItem && (!wowheadPatchNotesItem || wowheadNewsItem.url !== wowheadPatchNotesItem.url)){
+  // With the Worker's `recent` list the card has a dropdown to page
+  // through the last articles (then it's shown even if the newest one is
+  // also the patch-notes tile, since the others are reachable from it).
+  const wh = wowheadRecent.length ? wowheadRecent[Math.min(wowheadPick, wowheadRecent.length - 1)] : wowheadNewsItem;
+  if (wh && (wowheadRecent.length > 1 || !wowheadPatchNotesItem || wh.url !== wowheadPatchNotesItem.url)){
     items.push({
-      title: wowheadNewsItem.title,
-      blurb: wowheadNewsItem.blurb || 'Neuer Artikel auf Wowhead — antippen zum Lesen.',
-      image: wowheadNewsItem.image || null,
-      linkUrl: wowheadNewsItem.url,
-      badge: 'Wowhead · WoW: Forever'
+      title: wh.title,
+      blurb: wh.blurb || 'Neuer Artikel auf Wowhead — antippen zum Lesen.',
+      image: wh.image || null,
+      linkUrl: wh.url,
+      badge: 'Wowhead · WoW: Forever',
+      ...(wowheadRecent.length > 1 ? { options: wowheadRecent.map(it => it.title) } : {})
     });
   }
+  // The automatic game-data changelog (js/forever-changes.js).
+  const changes = foreverChangesNewsItem();
+  if (changes) items.unshift(changes);
   items.push(...NEWS_ITEMS);
   // A logged-out visitor can't do anything with a login-gated tile (e.g.
   // the Klassen-Umfrage, which just dead-ends at a login prompt) — drop
@@ -205,6 +218,7 @@ function renderNewsGrid(){
     return `<div class="${cardClass}"${dataAttr}>
       <div class="news-thumb"${thumbStyle}>${item.image ? '' : (isPlaceholder ? '📜' : 'Bild folgt')}${badgeHtml}</div>
       <div class="news-body">
+        ${item.options ? `<select class="news-select" data-news-select aria-label="Weitere Wowhead-Artikel">${item.options.map((t, i) => `<option value="${i}" ${i === wowheadPick ? 'selected' : ''}>${i === 0 ? 'Neuester: ' : ''}${escapeHtml(t)}</option>`).join('')}</select>` : ''}
         <h3>${escapeHtml(item.title)}</h3>
         <p>${escapeHtml(item.blurb)}</p>
       </div>
@@ -213,9 +227,23 @@ function renderNewsGrid(){
   els.newsGrid.querySelectorAll('[data-news-link-idx]').forEach(card => {
     const item = visibleItems[Number(card.getAttribute('data-news-link-idx'))];
     if (!item) return;
-    if (item.linkUrl) card.addEventListener('click', () => window.open(item.linkUrl, '_blank', 'noopener'));
-    else if (item.linkPage) card.addEventListener('click', () => showPage(item.linkPage));
+    card.addEventListener('click', ev => {
+      // The article dropdown lives inside the card — choosing doesn't open it.
+      if (/** @type {HTMLElement} */ (ev.target).closest('[data-news-select]')) return;
+      if (item.linkUrl) window.open(item.linkUrl, '_blank', 'noopener');
+      else if (item.linkPage){
+        // The changelog tile opens Klassen on "Allgemein", where it's listed.
+        if (item.linkPage === 'classdeepdives') selectedClassDiveId = 'general';
+        showPage(item.linkPage);
+      }
+    });
   });
+  els.newsGrid.querySelectorAll('[data-news-select]').forEach((/** @type {HTMLSelectElement} */ sel) => sel.addEventListener('change', () => {
+    wowheadPick = Number(sel.value) || 0;
+    const left = els.newsGrid.scrollLeft;
+    renderNewsGrid();
+    els.newsGrid.scrollLeft = left;
+  }));
   els.newsGrid.scrollLeft = 0;
   updateNewsCarouselArrows();
 }

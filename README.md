@@ -220,7 +220,10 @@ directly (Wowhead doesn't allow that from other sites' JavaScript), so the
 Worker fetches it server-side once and hands the guild page back both
 items in one response (`{ latest, patchNotes }`). It's cached for 20
 minutes so the page stays fast and Wowhead isn't hit on every visit. No
-extra secret or config is required for this part.
+extra secret or config is required for this part. The response also
+carries the last 8 articles (`recent`); the Wowhead card then gets a
+dropdown to switch between them (older Worker without `recent`: one card
+as before, no dropdown — redeploy the Worker to get it).
 
 **If you already deployed the Worker before this feature existed**, you
 need to redeploy it once: open your Worker in the Cloudflare dashboard →
@@ -1202,6 +1205,21 @@ The pull request says so when that's needed, and in which order relative
 to merging.
 
 ## WoW Forever item data (automatic)
+
+**Was ist neu? (changelog):** after regenerating, the workflow runs
+`scripts/forever-data/changelog.mjs`, which compares the new data with the
+last commit and — only when the client build changed — adds an entry to
+`data/forever/changelog.json`: items added / removed / changed with their
+old and new values (name, quality, item level, required level, stats,
+damage, armor, slot, binding, set) and talents whose text or ranks
+changed. Same build = importer change, not recorded. On the Klassen page
+every build shows up as a Patch-Update in the same list and style as the
+hand-written ones (`js/forever-changes.js`): "Allgemein" lists the items
+(old → new) and which talents changed per class, each class its talents
+with the changed words marked. When officers already wrote a Patch-Update
+on that day (± 1 day), the automatic part is added to that post
+("Automatisch erkannt") and leaves out items / talents the post already
+names. Home shows a news tile for 14 days after a new build. `--backfill` rebuilds the log from git history.
 
 `data/forever/items.json` holds every equippable WoW Forever item of
 uncommon quality or better — name, slot, item level, required level,

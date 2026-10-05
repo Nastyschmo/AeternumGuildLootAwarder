@@ -1337,9 +1337,13 @@ Meine Charaktere, `n_<name>` for a typed name; older single sign-ups
 directly under `<uid>` are still read and replaced on the next sign-up).
 Sign-ups close 24 h before the start; officers can close earlier or
 reopen (`raidEvents/<id>/signupState` 'closed' / 'open') — the rules
-enforce it. Officers build the Aufstellung on the card (`js/raid-comp.js`):
-raid size, targets per role (defaults 10 → 2/3/5, 20 → 2/5/13,
-40 → 4/10/26), pick at most one character per player
+enforce it. Sign-ups are open to everybody, whatever the raid size.
+Officers build the Aufstellung on the card (`js/raid-comp.js`): the raid
+size comes from the instance (`RAID_INSTANCES`), targets per role
+(defaults 10 → 2/3/5, 20 → 2/5/13, 40 → 4/10/26), pick at most one
+character per player; a character already in a line-up of the same
+instance in the same raid ID (reset Wednesday 07:00 German time,
+`raidLockoutKey`) is locked (🔒) and greyed out in the sign-up form
 (`raidEvents/<id>/roster/<uid>|<charKey>`), then publish
 (`rosterPublished`) — members see the line-up and the Ersatzbank.
 Characters carry a raid status (`raidRole` 'main' / 'twink', several

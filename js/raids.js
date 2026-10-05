@@ -4,9 +4,12 @@
 //  - raidEvents/<id> = { title, instance, start (ms), note, createdBy,
 //    createdAt, updatedAt, srMax, srLocked, signupState, size, targets,
 //    roster, rosterPublished } — Officers / Admins create, edit, delete.
-//    srMax > 0 turns on soft-reserves (js/raid-reserves.js); size /
-//    targets / roster / rosterPublished are the Aufstellung
-//    (js/raid-comp.js).
+//    srMax > 0 turns on soft-reserves (js/raid-reserves.js); targets /
+//    roster / rosterPublished are the Aufstellung (js/raid-comp.js). The
+//    raid size comes from the instance (RAID_INSTANCES); `size` is only
+//    read from older events. Sign-ups are open to everybody regardless of
+//    size; a character is in at most one line-up per instance and raid ID
+//    (reset Wednesday 07:00, raidLockoutKey).
 //  - raidSignups/<eventId>/<uid>/<charKey> = { status: 'yes' | 'maybe' |
 //    'no', name, charName, classId, specId, note, updatedAt } — a member
 //    signs up any number of own characters (charKey = the character's id
@@ -223,7 +226,10 @@ function raidSignupFormHtml(id){
     ${own}
     <div class="raid-signup-fields">
       ${chars.length ? `<select data-raid-char aria-label="Charakter">
-        ${chars.map((c, i) => `<option value="${i}" ${c.name === v.charName ? 'selected' : ''}>${characterIsRaider(c) ? '' : '(Twink) '}${escapeHtml(c.name)}${c.classId ? ` (${escapeHtml(CLASS_MAP[c.classId].label)})` : ''}</option>`).join('')}
+        ${chars.map((c, i) => {
+          const locked = raidLockedBy(id, { uid: discordIdentity.id, charKey: c.id, charName: c.name });
+          return `<option value="${i}" ${c.name === v.charName && !locked ? 'selected' : ''} ${locked ? 'disabled' : ''}>${characterIsRaider(c) ? '' : '(Twink) '}${escapeHtml(c.name)}${c.classId ? ` (${escapeHtml(CLASS_MAP[c.classId].label)})` : ''}${locked ? ` — ID gesperrt (${escapeHtml(locked[1].title)})` : ''}</option>`;
+        }).join('')}
         <option value="other" ${known ? '' : 'selected'}>Anderer Charakter …</option>
       </select>` : ''}
       <input type="text" class="apply-text-input${known ? ' hidden' : ''}" data-raid-field="charName" maxlength="40" placeholder="Charaktername" value="${escapeHtml(v.charName || '')}">
@@ -297,7 +303,6 @@ function raidEventFormHtml(){
       <label>Titel (optional)<input type="text" id="raidFormTitle" class="apply-text-input" maxlength="80" placeholder="z. B. „MC Clear #3“" value="${escapeHtml(e && e.title !== e.instance ? e.title : '')}"></label>
       <label>Datum<input type="date" id="raidFormDate" value="${date}"></label>
       <label>Uhrzeit<input type="time" id="raidFormTime" value="${time}"></label>
-      <label>Raidgröße<select id="raidFormSize">${[10, 20, 40].map(n => `<option value="${n}" ${(e ? raidEventSize(e) : RAID_INSTANCES[instances[0]]) === n ? 'selected' : ''}>${n} Spieler</option>`).join('')}</select></label>
       <label>Soft-Reserve<select id="raidFormSr">${[0, 1, 2, 3].map(n => `<option value="${n}" ${(e ? e.srMax : 0) === n ? 'selected' : ''}>${n ? `${n} ${n === 1 ? 'Item' : 'Items'} pro Spieler` : 'Aus'}</option>`).join('')}</select></label>
     </div>
     <label class="raid-form-note">Notiz (optional)<textarea id="raidFormNote" class="apply-text-input" maxlength="500" rows="2" placeholder="Treffpunkt, Buffs, Consumables …">${escapeHtml(e ? e.note : '')}</textarea></label>
@@ -424,7 +429,6 @@ function raidWire(root){
       title: (get('#raidFormTitle') || instance).slice(0, 80), instance, start,
       note: get('#raidFormNote').slice(0, 500),
       srMax: Number(get('#raidFormSr')) || 0, srLocked: prev ? prev.srLocked : false,
-      size: Number(get('#raidFormSize')) || RAID_INSTANCES[instance] || 20,
       // Aufstellung and sign-up state stay as they are when editing.
       signupState: prev ? prev.signupState : 'auto', rosterPublished: prev ? prev.rosterPublished : false,
       ...(prev && prev.targets ? { targets: prev.targets } : {}),

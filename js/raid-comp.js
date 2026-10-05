@@ -3,8 +3,10 @@
 // Officers / Admins pick from all signed-up characters (Dabei /
 // Vielleicht) who is in the raid — at most one character per player —
 // against target numbers per role (tank / healer / damage, defaults by
-// raid size). Stored on the event (raidEvents/<id>: size, targets,
-// roster { "<uid>|<charKey>": true }, rosterPublished), so no extra rules.
+// raid size from the instance). Stored on the event (raidEvents/<id>:
+// targets, roster { "<uid>|<charKey>": true }, rosterPublished), so no
+// extra rules. A character already in a line-up of the same instance in
+// the same raid ID (reset Wednesday 07:00) can't be picked again.
 // Members see it once published: the line-up by role plus the bench
 // (Ersatzbank) of everyone else who signed up as Dabei.
 
@@ -14,9 +16,48 @@ const RAID_ROLE_LABELS = { tank: 'Tanks', healer: 'Heiler', damage: 'Damage' };
 /** Events whose Aufstellung panel is open. */
 const raidCompOpen = new Set();
 
-/** Raid size of an event (set, else from the instance, else 0). @param {RaidEvent} e */
+/** Raid size of an event: from the instance (older events: stored size). @param {RaidEvent} e */
 function raidEventSize(e){
-  return e.size || RAID_INSTANCES[e.instance] || 0;
+  return RAID_INSTANCES[e.instance] || e.size || 0;
+}
+
+// ---------------------------------------------------------------- raid ID (lockout)
+// A character can be in one line-up per instance per raid ID. The ID
+// resets Wednesday 07:00 German time (EU weekly reset), the same for all
+// raids for now (if Forever gives a raid its own cycle, make this per
+// instance).
+const RAID_RESET = { weekday: 3, hour: 7, tz: 'Europe/Berlin' };
+
+/** Key of the raid ID a moment falls into: the reset's date "2026-12-09". @param {number} ms */
+function raidLockoutKey(ms){
+  // Wall-clock time in Germany, independent of the viewer's time zone.
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: RAID_RESET.tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23', weekday: 'short' })
+    .formatToParts(new Date(ms)).map(x => [x.type, x.value]));
+  const wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.weekday);
+  let back = (wd - RAID_RESET.weekday + 7) % 7;
+  if (back === 0 && Number(p.hour) < RAID_RESET.hour) back = 7;
+  const d = new Date(Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day) - back));
+  return d.toISOString().slice(0, 10);
+}
+/** Same character? (id, else name) @param {{ uid: string, charKey: string, charName: string }} a @param {{ uid: string, charKey: string, charName: string }} b */
+function raidSameChar(a, b){
+  return a.uid === b.uid && (a.charKey === b.charKey || (a.charName || '').toLowerCase() === (b.charName || '').toLowerCase());
+}
+/**
+ * Another event of the same instance and raid ID where this character is
+ * in the line-up — it is saved to that ID then. @param {string} eventId
+ * @param {{ uid: string, charKey: string, charName: string }} s
+ * @returns {[string, RaidEvent] | null}
+ */
+function raidLockedBy(eventId, s){
+  const ev = raidEvents[eventId];
+  if (!ev || !ev.instance) return null;
+  const key = raidLockoutKey(ev.start);
+  for (const [id, e] of Object.entries(raidEvents)) {
+    if (id === eventId || e.instance !== ev.instance || raidLockoutKey(e.start) !== key) continue;
+    if (raidSignupList(id).some(x => e.roster[x.key] && raidSameChar(x, s))) return [id, e];
+  }
+  return null;
 }
 /** Target numbers per role. @param {RaidEvent} e */
 function raidCompTargets(e){
@@ -64,10 +105,11 @@ function raidCompPanelHtml(id, e){
     const prof = state.characterProfiles[s.uid];
     const other = pickedByUid.has(s.uid) && pickedByUid.get(s.uid) !== s.key;
     const isPicked = Boolean(e.roster[s.key]);
-    return `<label class="raid-comp-row${isPicked ? ' picked' : ''}${other ? ' other' : ''}">
-      <input type="checkbox" data-raid-comp-pick="${escapeHtml(id)}" value="${escapeHtml(s.key)}" ${isPicked ? 'checked' : ''}>
+    const locked = raidLockedBy(id, s);
+    return `<label class="raid-comp-row${isPicked ? ' picked' : ''}${other || locked ? ' other' : ''}"${locked ? ` title="Schon in der Aufstellung von ${escapeHtml(locked[1].title)} am ${escapeHtml(raidDateLabel(locked[1].start))} — gleiche Raid-ID"` : ''}>
+      <input type="checkbox" data-raid-comp-pick="${escapeHtml(id)}" value="${escapeHtml(s.key)}" ${isPicked ? 'checked' : ''} ${locked && !isPicked ? 'disabled' : ''}>
       ${raidChipHtml(s)}
-      <span class="bis-item-meta">${escapeHtml(foreverSpecLabel(s.classId, s.specId))}${prof && prof.nickname ? ` · ${escapeHtml(prof.nickname)}` : ''}${char && !characterIsRaider(char) ? ' · Twink' : ''}${s.status === 'maybe' ? ' · vielleicht' : ''}${other ? ' · anderer Char gewählt' : ''}</span>
+      <span class="bis-item-meta">${escapeHtml(foreverSpecLabel(s.classId, s.specId))}${prof && prof.nickname ? ` · ${escapeHtml(prof.nickname)}` : ''}${char && !characterIsRaider(char) ? ' · Twink' : ''}${s.status === 'maybe' ? ' · vielleicht' : ''}${other ? ' · anderer Char gewählt' : ''}${locked ? ` · 🔒 ID: ${escapeHtml(new Date(locked[1].start).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }))}` : ''}</span>
     </label>`;
   };
   const roleCol = role => {
@@ -83,7 +125,7 @@ function raidCompPanelHtml(id, e){
   return `<div class="raid-comp-panel">
     <div class="raid-comp-bar"><span class="raid-col-head">Aufstellung <span>${summary}</span></span>
       <button type="button" class="btn btn-ghost btn-sm" data-raid-comp-toggle="${escapeHtml(id)}">Schließen</button></div>
-    <p class="bis-hint">Pro Spieler höchstens ein Charakter — wer einen anderen Char wählt, ersetzt den bisherigen. Zielzahlen rechts neben den Rollen anpassbar.</p>
+    <p class="bis-hint">Pro Spieler höchstens ein Charakter — wer einen anderen Char wählt, ersetzt den bisherigen. 🔒 = der Charakter steht diese Raid-ID (Reset Mittwoch 07:00) schon in einer anderen ${escapeHtml(e.instance)}-Aufstellung. Zielzahlen rechts neben den Rollen anpassbar.</p>
     <div class="raid-comp-cols">${roleCol('tank')}${roleCol('healer')}${roleCol('damage')}</div>
     <div class="forever-actions">
       ${e.rosterPublished
@@ -114,7 +156,7 @@ function raidCompWire(root){
     for (const k of Object.keys(e.roster)) if (k.split('|')[0] === uid) updates[k] = null;
     if (box.checked) updates[key] = true;
     // First pick: store the targets too, so they stay with the event.
-    const extra = e.targets ? {} : { targets: raidCompTargets(e), size: raidEventSize(e) || 20 };
+    const extra = e.targets ? {} : { targets: raidCompTargets(e) };
     ref(id).update({ ...Object.fromEntries(Object.entries(updates).map(([k, v]) => [`roster/${k}`, v])), ...extra }).catch(fail);
   }));
   root.querySelectorAll('[data-raid-comp-target]').forEach((/** @type {HTMLInputElement} */ input) => input.addEventListener('change', () => {

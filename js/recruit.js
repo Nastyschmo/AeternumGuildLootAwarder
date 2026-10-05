@@ -734,7 +734,9 @@ async function setApplicationNotes(id, notes){
 }
 
 function renderApplicationsList(){
-  const apps = sortedApplications();
+  // Offen first, then in progress, then closed — newest first within each.
+  const rank = a => { const st = a.status || 'open'; return st === 'open' ? 0 : (st === 'accepted' || st === 'rejected') ? 2 : 1; };
+  const apps = sortedApplications().sort((a, z) => rank(a) - rank(z) || z.createdAt - a.createdAt);
   if (!apps.length){
     els.applicationsList.innerHTML = `<div class="lootlib-note">Noch keine Bewerbungen.</div>`;
     return;
@@ -808,7 +810,8 @@ function renderApplicationsList(){
     const status = a.status || 'open';
     const isClosed = status === 'accepted' || status === 'rejected';
     if (!isClosed){
-      const inProgressClass = (status === 'claimed' || status === 'interview' || status === 'candidate') ? ' application-card-inprogress' : '';
+      // Offen = nobody has picked it up yet: highlighted; in progress: muted.
+      const inProgressClass = (status === 'claimed' || status === 'interview' || status === 'candidate') ? ' application-card-inprogress' : ' application-card-open';
       return `<div class="application-card${inProgressClass}" data-application-id="${a.id}">${innerHtml}</div>`;
     }
     const expanded = expandedClosedApplications.has(a.id);

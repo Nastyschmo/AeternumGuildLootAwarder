@@ -312,6 +312,7 @@ function showPage(pageId, opts){
   // about it ever changes at runtime).
   if (pageId === 'forevertools') renderForeverToolsPage();
   if (pageId === 'bis') renderBisPlanner();
+  if (pageId === 'home') renderHomeDashboard();
   if (pageId === 'raids') renderRaidsPage();
   if (pageId === 'professions') renderProfessionsPage();
   if (pageId === 'loot') renderLootPage();
@@ -372,7 +373,7 @@ els.burgerBtn.addEventListener('click', () => setSidebarCollapsed(!els.sidebar.c
 els.sidebarBackdrop.addEventListener('click', () => setSidebarCollapsed(true));
 els.navBrand.addEventListener('click', () => { showPage('home'); maybeAutoCloseSidebarOnMobile(); });
 els.navCrestMini.addEventListener('click', () => showPage('home'));
-els.heroCtaBtn.addEventListener('click', () => showPage('forever'));
+els.heroCtaBtn.addEventListener('click', () => showPage(els.heroCtaBtn.dataset.target || 'recruit'));
 els.navLoginBtn.addEventListener('click', () => startDiscordLogin());
 els.foreverLoginBtn.addEventListener('click', () => startDiscordLogin());
 els.recruitTeaserBtn.addEventListener('click', () => showPage('recruit'));
@@ -458,6 +459,7 @@ function renderAll(){
   renderRecruitTeaser();
   renderRecruitView();
   refreshQuestUI();
+  renderHomeDashboard();
   // Lazy like the Talent Builder page — only (re)rendered while actually
   // open, but on every state change while open, since it shows live data
   // (own characterProfiles can change from "User Settings" (formerly "Meine Charaktere verwalten")).

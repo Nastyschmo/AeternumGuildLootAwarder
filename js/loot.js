@@ -51,6 +51,7 @@ function lootSync(){
 }
 function lootRerender(){
   if (currentPage === 'raids') renderRaidsPage();
+  if (currentPage === 'home') renderHomeDashboard();
   if (currentPage === 'loot') renderLootPage();
 }
 

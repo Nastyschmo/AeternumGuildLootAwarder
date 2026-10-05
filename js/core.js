@@ -12,6 +12,10 @@
 const GUILD_NAME = 'rude';
 const GUILD_TAGLINE = 'Spineshatter-EU';
 const GUILD_CREST_LETTER = 'R';
+// Shown on the Home dashboard for guests ("Wer wir sind").
+const GUILD_FACTION = 'Horde';
+const GUILD_RAID_DAYS = 'Donnerstag & Sonntag';
+const GUILD_FOREVER_RULESET = 'PvP';
 // Official WoW: Forever release date (confirmed Nov 4, 2026, 23:00 UTC —
 // per Blizzard's own announcement and independently mirrored by
 // Wowhead's and Icy Veins' own release-date pages/countdowns). Update

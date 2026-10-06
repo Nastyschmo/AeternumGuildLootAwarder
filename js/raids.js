@@ -313,6 +313,17 @@ function raidSignupsHtml(id){
     </div>` : ''}`;
 }
 
+/**
+ * A titled section of the raid window (Anmeldung tab).
+ * @param {string} icon GAME_ICONS key @param {string} title @param {string} sub @param {string} body @param {string} [cls]
+ */
+function raidPanelHtml(icon, title, sub, body, cls){
+  return `<section class="raid-panel${cls ? ` ${cls}` : ''}">
+    <header class="raid-panel-head">${gameIconHtml(icon, 22)}<h4>${escapeHtml(title)}</h4>${sub ? `<span>${escapeHtml(sub)}</span>` : ''}</header>
+    <div class="raid-panel-body">${body}</div>
+  </section>`;
+}
+
 /** Title block of a raid (list card and window). @param {RaidEvent} e */
 function raidTitleHtml(e){
   const phase = raidPhase(e);
@@ -375,16 +386,22 @@ function raidDetailHtml(id, e){
 
   let body = '';
   if (tab === 'signup'){
-    body = `${e.note ? `<p class="raid-note">${escapeHtml(e.note)}</p>` : ''}
-      ${officer && phase !== 'done' ? `<div class="raid-next">${signupOpen
+    const done = phase === 'done';
+    const guests = isOfficerOrAdmin() && e.srMax ? Object.values(raidApps[id] || {}).filter(a => a.app && !a.status).length : 0;
+    const leader = officer ? raidPanelHtml('guild', 'Raidleitung', 'nur für Offiziere', `
+        ${e.srMax ? `<div class="raid-lead-part">${raidHrBlockHtml(id, e, done, true)}</div>` : ''}
+        ${e.srMax ? `<div class="raid-lead-part"><div class="raid-col-head">Soft-Reserves <span>Liste für den Loot-Master, Änderungen sperren</span></div><div class="raid-admin">${raidSrAdminHtml(id, e, done)}</div></div>` : ''}
+        ${e.srMax ? `<div class="raid-lead-part">${raidExtOfficerHtml(id, e)}</div>` : ''}
+        ${!e.srMax ? '<p class="bis-hint">Ohne Soft-Reserve gibt es hier nichts zu verwalten — Hard-Reserves und Gast-Bewerbungen gehören zu SR-Raids.</p>' : ''}`, `raid-panel-lead${guests ? ' has-todo' : ''}`) : '';
+    body = `${officer && !done ? `<div class="raid-next">${signupOpen
         ? `<span>Alle angemeldet? Schließ die Anmeldung und stell die Aufstellung zusammen. <span class="bis-item-meta">Sonst schließt sie automatisch 24 h vor dem Start.</span></span><button type="button" class="btn btn-teal btn-sm" data-raid-signup-toggle="${escapeHtml(id)}" data-then-tab="comp">Anmeldung schließen → Aufstellung</button>`
         : `<span>Die Anmeldung ist geschlossen.</span><button type="button" class="btn btn-ghost btn-sm" data-raid-signup-toggle="${escapeHtml(id)}">Anmeldung wieder öffnen</button>`}</div>` : ''}
-      ${phase === 'done' ? '' : raidSignupFormHtml(id)}
-      <div class="raid-col-head raid-section-head">Anmeldungen <span>${r.yes.length} dabei · ${r.maybe.length} vielleicht · ${r.no.length} Absagen</span></div>
-      ${raidSignupsHtml(id)}
-      ${raidSrSectionHtml(id, e, phase === 'done')}
-      ${raidExtOfficerHtml(id, e)}
-      ${officer && e.srMax ? `<div class="raid-admin">${raidSrAdminHtml(id, e, phase === 'done')}</div>` : ''}`;
+      ${guests ? `<p class="raid-todo-hint">${gameIconHtml('apply', 18)} ${guests} ${guests === 1 ? 'offene Gast-Bewerbung' : 'offene Gast-Bewerbungen'} — unten im Bereich „Raidleitung“.</p>` : ''}
+      ${e.note ? `<div class="raid-note-box">${gameIconHtml('patch', 18)}<p>${escapeHtml(e.note)}</p></div>` : ''}
+      ${done ? '' : raidPanelHtml('character', 'Deine Anmeldung', signupOpen ? 'mit welchem Charakter bist Du dabei?' : 'Anmeldung geschlossen', raidSignupFormHtml(id), 'raid-panel-me')}
+      ${raidPanelHtml('raid', 'Teilnehmer', `${r.yes.length} dabei · ${r.maybe.length} vielleicht · ${r.no.length} Absagen`, raidSignupsHtml(id))}
+      ${e.srMax ? raidPanelHtml('loot', 'Soft-Reserve', `max. ${e.srMax} ${e.srMax === 1 ? 'Item' : 'Items'} pro Spieler${e.srLocked ? ' · gesperrt' : ''}`, raidSrSectionHtml(id, e, done, { hrEdit: false, bare: true, noHr: officer })) : ''}
+      ${leader}`;
   } else if (tab === 'comp'){
     if (officer && phase !== 'done'){
       body = `${signupOpen ? '<p class="bis-hint raid-next-hint">Die Anmeldung ist noch offen — Du kannst schon planen, es kommen aber evtl. noch Leute dazu.</p>' : ''}

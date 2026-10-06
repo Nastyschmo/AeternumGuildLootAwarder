@@ -2414,6 +2414,31 @@ button.apply-chat-edit:hover{ filter: brightness(1.12); }
 .tac-ability.recommended{ border-color: var(--gold); }
 .tac-more summary{ cursor: pointer; font-size: 13px; color: var(--text-muted); margin: 4px 0 8px; }
 
+/* Raid window, Anmeldung tab: titled panels (raidPanelHtml in js/raids.js) */
+.raid-panel{ margin-top: 14px; border: 1px solid var(--border-soft); border-radius: 10px; background: var(--fold-body-bg); overflow: hidden; }
+.raid-panel-head{ display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; padding: 10px 14px; border-bottom: 1px solid var(--border-soft); background: rgba(var(--gold-bright-rgb),0.04); }
+.raid-panel-head h4{ margin: 0; font-family: 'Cinzel', serif; font-size: 15px; color: var(--gold-bright); letter-spacing: .02em; }
+.raid-panel-head span{ font-size: 12.5px; color: var(--text-muted); }
+.raid-panel-body{ padding: 12px 14px 14px; }
+.raid-panel-body > :first-child{ margin-top: 0; }
+.raid-panel-me{ border-color: var(--teal); }
+.raid-panel-me .raid-panel-head{ background: rgba(47,174,158,0.08); }
+.raid-panel-lead{ border: 1px dashed var(--gold); }
+.raid-panel-lead.has-todo{ border-style: solid; box-shadow: 0 0 0 1px var(--gold); }
+/* Inside a panel the old separators / boxes aren't needed. */
+.raid-panel .raid-signup{ margin-top: 0; padding: 0; border: 0; background: none; }
+.raid-panel .raid-roster{ margin-top: 0; }
+.raid-panel .raid-sr{ margin-top: 0; padding-top: 0; border-top: 0; }
+.raid-panel .raid-admin{ justify-content: flex-start; margin: 0 0 10px; }
+.raid-panel .raid-section-head{ margin-top: 6px; }
+.raid-panel .raid-hr{ margin-top: 0; }
+.raid-note-box{ display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 10px 12px; border-left: 3px solid var(--gold); border-radius: 6px; background: var(--field-bg); }
+.raid-note-box p{ margin: 0; font-size: 13.5px; color: var(--text-muted); white-space: pre-line; }
+.raid-lead-part + .raid-lead-part{ margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+.raid-panel .raid-lead-part .raid-hr{ padding: 0; border: 0; background: none; }
+.raid-panel .raid-lead-part .raid-admin{ margin: 6px 0 0; }
+.raid-todo-hint{ display: flex; align-items: center; gap: 6px; margin: 10px 0 0; font-size: 13.5px; color: var(--gold-bright); }
+
 /* Raid guest applications (js/raid-externals.js) */
 .raid-chip-ext{ font-size: 10px; padding: 0 5px; margin-left: 3px; border-radius: 999px; border: 1px solid var(--teal-bright); color: var(--teal-bright); }
 .raid-ext-intro p{ margin: 6px 0 0; font-size: 14px; }

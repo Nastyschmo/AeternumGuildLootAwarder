@@ -3,7 +3,11 @@
 // wide …), data they can't see, wrong / outdated information, something
 // that doesn't work, or an idea. A floating button bottom right (and
 // "Problem melden" in the user menu) opens the form: category,
-// description, optional screenshot. The report carries the context
+// description, optional screenshot — upload, paste (Ctrl+V or "Aus
+// Zwischenablage") or "Screenshot dieser Seite" (supportCapture: the
+// browser's screen capture of this tab on desktops, else the visible part
+// re-drawn by html2canvas, vendor/html2canvas.min.js, loaded on demand).
+// The report carries the context
 // automatically — page, viewport, phone or not, browser, role, test mode
 // and the last JavaScript errors —, so display problems can be
 // reproduced. Reporters see their own reports with status and answer in
@@ -39,6 +43,7 @@ let supportSyncKey = '';
 let supportLoadError = '';
 let supportFilter = 'open';
 /** Report form draft. */
+/** @type {{ cat: string, text: string, shot: string, err: string, sent: boolean, busy?: boolean }} */
 let supportDraft = { cat: '', text: '', shot: '', err: '', sent: false };
 /** Loaded screenshots (officers). @type {Record<string, string>} */
 const supportShots = {};
@@ -130,8 +135,13 @@ function supportRenderModal(){
       <label class="support-field">Was ist los?<select data-support-cat><option value="">— bitte wählen —</option>${Object.entries(SUPPORT_CATS).map(([k, l]) => `<option value="${k}" ${d.cat === k ? 'selected' : ''}>${escapeHtml(l)}</option>`).join('')}</select></label>
       <label class="support-field">Beschreibung<textarea class="apply-text-input" rows="4" maxlength="2000" data-support-text placeholder="Was hast Du gemacht, was ist passiert, was hättest Du erwartet? Wo genau auf der Seite?">${escapeHtml(d.text)}</textarea></label>
       <div class="support-field">Screenshot (optional)
-        <div class="raid-ext-shots">${d.shot ? `<span class="raid-ext-shot"><img src="${d.shot}" alt="Screenshot"><button type="button" data-support-delshot aria-label="Entfernen">×</button></span>`
-          : '<label class="raid-ext-shot-add">+ Screenshot<input type="file" accept="image/png,image/jpeg,image/webp" data-support-file hidden></label>'}</div>
+        ${d.shot ? `<div class="raid-ext-shots"><span class="raid-ext-shot"><img src="${d.shot}" alt="Screenshot"><button type="button" data-support-delshot aria-label="Entfernen">×</button></span></div>`
+          : `<div class="support-shot-actions">
+            <button type="button" class="btn btn-ghost btn-sm" data-support-capture>${d.busy ? 'Screenshot wird erstellt …' : 'Screenshot dieser Seite'}</button>
+            ${navigator.clipboard && typeof navigator.clipboard.read === 'function' ? '<button type="button" class="btn btn-ghost btn-sm" data-support-paste>Aus Zwischenablage</button>' : ''}
+            <label class="btn btn-ghost btn-sm">Bild hochladen<input type="file" accept="image/png,image/jpeg,image/webp" data-support-file hidden></label>
+          </div>
+          <span class="support-shot-tip">Tipp: Ein kopiertes Bild kannst Du auch mit Strg+V (Mac: ⌘+V) hier einfügen.</span>`}
       </div>
       <p class="access-modal-note">Wird automatisch mitgeschickt: Seite „${escapeHtml(page)}“, Bildschirm ${window.innerWidth}×${window.innerHeight}${supportIsMobile() ? ' (Handy)' : ''}, Browser, Deine Rolle${supportErrors.length ? `, ${supportErrors.length} Fehlermeldung(en) der Seite` : ''}.</p>
       ${d.err ? `<p class="bis-hint raid-error">${escapeHtml(d.err)}</p>` : ''}
@@ -148,6 +158,97 @@ function supportRenderModal(){
   </div>`;
   supportWireModal(modal);
 }
+/** Use an image blob as the report's screenshot. @param {Blob} blob */
+async function supportSetShot(blob){
+  const d = supportDraft;
+  try { d.shot = await raidExtShrink(blob); d.err = ''; } catch (e){ d.err = 'Das Bild konnte nicht verarbeitet werden (kein Bild oder zu groß).'; }
+  supportRenderModal();
+}
+/** Ctrl+V / ⌘+V while the form is open: take a pasted image. @param {ClipboardEvent} ev */
+function supportOnPaste(ev){
+  const modal = document.getElementById('supportModal');
+  if (!modal || modal.classList.contains('hidden') || supportDraft.sent || supportDraft.shot) return;
+  const item = Array.from((ev.clipboardData && ev.clipboardData.items) || []).find(i => i.kind === 'file' && i.type.startsWith('image/'));
+  const file = item && item.getAsFile();
+  if (!file) return; // plain text goes into the text field as usual
+  ev.preventDefault();
+  supportSetShot(file);
+}
+
+/**
+ * "Screenshot dieser Seite": hides the form, then on desktops asks the
+ * browser for a capture of this tab (Chrome / Edge offer "Diesen Tab"
+ * directly — pixel-exact, best for display problems); phones and
+ * browsers without screen capture get the visible part re-drawn by
+ * html2canvas instead (close, not pixel-exact).
+ */
+async function supportCapture(){
+  const d = supportDraft;
+  const modal = document.getElementById('supportModal');
+  const fab = /** @type {HTMLElement | null} */ (document.querySelector('.support-fab'));
+  const md = navigator.mediaDevices;
+  const useTab = Boolean(md && typeof md.getDisplayMedia === 'function') && !supportIsMobile();
+  d.busy = true;
+  d.err = '';
+  if (modal) modal.classList.add('hidden');
+  if (fab) fab.classList.add('hidden');
+  try {
+    // getDisplayMedia must be called right away (it needs the click).
+    const blob = useTab ? await supportCaptureTab(md) : await supportCaptureDom();
+    d.shot = await raidExtShrink(blob);
+  } catch (e){
+    d.err = e && e.name === 'NotAllowedError' ? 'Aufnahme abgebrochen — Du kannst auch ein Bild hochladen oder einfügen.' : 'Der Screenshot hat nicht geklappt — lade stattdessen ein Bild hoch oder füge eins ein.';
+  }
+  d.busy = false;
+  if (modal) modal.classList.remove('hidden');
+  if (fab) fab.classList.remove('hidden');
+  supportRenderModal();
+}
+/** One frame of a screen capture of this tab. @param {MediaDevices} md @returns {Promise<Blob>} */
+async function supportCaptureTab(md){
+  const stream = await md.getDisplayMedia(/** @type {any} */ ({ video: { displaySurface: 'browser' }, audio: false, preferCurrentTab: true, selfBrowserSurface: 'include' }));
+  try {
+    const video = document.createElement('video');
+    video.muted = true;
+    video.srcObject = stream;
+    await video.play();
+    // Give the page a moment to repaint without the form and the browser's picker.
+    await new Promise(r => setTimeout(r, 450));
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    return await new Promise((res, rej) => canvas.toBlob(b => (b ? res(b) : rej(new Error('empty'))), 'image/png'));
+  } finally { stream.getTracks().forEach(t => t.stop()); }
+}
+/** The visible part of the page re-drawn by html2canvas (loaded on first use). @returns {Promise<Blob>} */
+async function supportCaptureDom(){
+  const w = /** @type {any} */ (window);
+  if (!w.html2canvas) await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'vendor/html2canvas.min.js';
+    s.onload = res;
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+  const canvas = await w.html2canvas(document.body, {
+    x: window.scrollX, y: window.scrollY, width: window.innerWidth, height: window.innerHeight,
+    scale: Math.min(2, window.devicePixelRatio || 1), useCORS: true, logging: false,
+    backgroundColor: getComputedStyle(document.body).backgroundColor || null,
+    ignoreElements: el => el.id === 'supportModal' || el.classList.contains('support-fab'),
+    // html2canvas can't draw gradient text (background-clip: text) — plain gold instead.
+    onclone: doc => doc.querySelectorAll('h1, h2, h3, .hero-title').forEach((/** @type {HTMLElement} */ el) => {
+      const cs = getComputedStyle(el);
+      if (cs.backgroundClip === 'text' || cs.webkitBackgroundClip === 'text'){
+        el.style.background = 'none';
+        el.style.webkitTextFillColor = 'currentColor';
+        el.style.color = 'var(--gold-bright)';
+      }
+    })
+  });
+  return await new Promise((res, rej) => canvas.toBlob(b => (b ? res(b) : rej(new Error('empty'))), 'image/png'));
+}
+
 const supportIsMobile = () => window.matchMedia('(max-width: 760px)').matches || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
 /** @param {HTMLElement} modal */
@@ -162,7 +263,18 @@ function supportWireModal(modal){
   on('[data-support-file]', 'change', async ev => {
     const f = (/** @type {HTMLInputElement} */ (ev.target).files || [])[0];
     if (!f) return;
-    try { d.shot = await raidExtShrink(f); d.err = ''; } catch (e){ d.err = 'Das Bild konnte nicht verarbeitet werden (kein Bild oder zu groß).'; }
+    supportSetShot(f);
+  });
+  on('[data-support-capture]', 'click', () => { if (!d.busy) supportCapture(); });
+  on('[data-support-paste]', 'click', async () => {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const it of items) {
+        const type = it.types.find(t => t.startsWith('image/'));
+        if (type) return supportSetShot(await it.getType(type));
+      }
+      d.err = 'In der Zwischenablage ist kein Bild.';
+    } catch (e){ d.err = 'Kein Zugriff auf die Zwischenablage — drück stattdessen Strg+V (Mac: ⌘+V).'; }
     supportRenderModal();
   });
   on('[data-support-send]', 'click', async () => {
@@ -278,4 +390,5 @@ function supportWirePage(root){
   const menuBtn = document.getElementById('accessSupportBtn');
   if (menuBtn) menuBtn.addEventListener('click', () => { const pop = document.getElementById('accessPopover'); if (pop) pop.classList.add('hidden'); supportOpen(); });
   document.addEventListener('keydown', ev => { if (ev.key === 'Escape') supportClose(); });
+  document.addEventListener('paste', supportOnPaste);
 })();

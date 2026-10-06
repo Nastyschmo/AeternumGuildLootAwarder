@@ -2464,6 +2464,9 @@ button.apply-chat-edit:hover{ filter: brightness(1.12); }
 .support-card .access-modal-header h2{ display: flex; align-items: center; gap: 8px; }
 .support-field{ display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; font-size: 13px; color: var(--text-muted); }
 .support-field select{ background: var(--field-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 7px 8px; font: inherit; font-size: 13.5px; }
+.support-shot-actions{ display: flex; flex-wrap: wrap; gap: 6px; }
+.support-shot-actions label.btn{ cursor: pointer; }
+.support-shot-tip{ font-size: 11.5px; color: var(--text-faint); }
 .support-mine{ margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-soft); display: flex; flex-direction: column; gap: 8px; }
 .support-mine-item{ padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--field-bg); font-size: 13px; }
 .support-mine-item p{ margin: 4px 0 0; }

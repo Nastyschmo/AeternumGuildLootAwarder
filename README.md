@@ -1600,7 +1600,11 @@ crafters for BoE crafted items ("Gilde: Hammerfaust (Rezept), …").
 (members, applicants, guests) gets a floating button "Problem melden"
 (bottom right; also in the user menu) — category (Darstellung, Daten
 fehlen, Info falsch, Funktion geht nicht, Idee), description, optional
-screenshot (browser-resized JPEG in `supportReportShots/<id>`). The
+screenshot (browser-resized JPEG in `supportReportShots/<id>`): upload,
+paste (Ctrl+V or "Aus Zwischenablage") or "Screenshot dieser Seite" —
+on desktops the browser's screen capture of the tab (form hidden while
+capturing), on phones / without screen capture the visible part re-drawn
+by html2canvas (`vendor/html2canvas.min.js`, MIT, loaded on first use). The
 report carries page, hash, viewport, pixel ratio, phone or not, user
 agent, role and the last 5 JavaScript errors of the page automatically.
 Reporters see their own reports (query on `uid`) with status and answer

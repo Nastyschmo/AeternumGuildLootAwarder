@@ -138,7 +138,8 @@ function raidNormalizeSignup(raw){
     classId: raw.classId,
     specId: String(raw.specId || ''),
     note: String(raw.note || '').slice(0, 120),
-    updatedAt: Number(raw.updatedAt) || 0
+    updatedAt: Number(raw.updatedAt) || 0,
+    ext: raw.ext === true
   };
 }
 
@@ -238,13 +239,25 @@ function raidRoster(eventId){
   };
 }
 
-/** @param {{ uid: string, charKey?: string, name: string, charName: string, classId: string, specId: string, note: string }} s */
-function raidChipHtml(s){
+/** Damage specs that fight in melee range (the rest of the damage specs are ranged). */
+const RAID_MELEE_SPECS = { warrior: ['arms', 'fury', 'protection'], rogue: ['assassination', 'combat', 'subtlety'], paladin: ['retribution', 'protection'], shaman: ['enhancement'], druid: ['feral', 'feral_tank'] };
+/** @param {{ classId: string, specId: string }} s */
+const raidIsMelee = s => (RAID_MELEE_SPECS[s.classId] || []).includes(s.specId);
+
+/**
+ * Character chip in class color; opts.spec puts the spec icon left of the name (spec name in the tooltip).
+ * @param {{ uid: string, charKey?: string, name: string, charName: string, classId: string, specId: string, note: string, ext?: boolean }} s
+ * @param {{ spec?: boolean }} [opts]
+ */
+function raidChipHtml(s, opts){
   const cls = CLASS_MAP[s.classId];
   const char = s.charKey ? raidSignupChar(s.uid, s.charKey, s.charName) : null;
   const twink = char && !characterIsRaider(char);
   const title = [s.name, `${cls.label} · ${foreverSpecLabel(s.classId, s.specId)}`, twink ? 'Twink' : '', s.note].filter(Boolean).join(' — ');
-  return `<span class="raid-chip${twink ? ' raid-chip-twink' : ''}" style="--class-color:${cls.color}" title="${escapeHtml(title)}">${escapeHtml(s.charName || s.name || 'Unbekannt')}${twink ? ' <small>T</small>' : ''}${s.note ? ' 💬' : ''}</span>`;
+  const specIcon = opts && opts.spec ? foreverSpecIconUrl(s.classId, s.specId) : null;
+  const spec = specIcon ? `<img class="raid-chip-spec" src="${escapeHtml(specIcon)}" alt="${escapeHtml(foreverSpecLabel(s.classId, s.specId))}" width="16" height="16" loading="lazy" onerror="this.remove()">` : '';
+  const note = s.note ? '<svg class="raid-chip-note" viewBox="0 0 16 16" aria-label="Notiz"><path d="M2 3h12v8H6l-3 3v-3H2z" fill="currentColor"/></svg>' : '';
+  return `<span class="raid-chip${twink ? ' raid-chip-twink' : ''}${spec ? ' raid-chip-wide' : ''}" style="--class-color:${cls.color}" title="${escapeHtml(title)}">${spec}<span class="raid-chip-name">${escapeHtml(s.charName || s.name || 'Unbekannt')}</span>${twink ? ' <small>T</small>' : ''}${s.ext ? ' <small class="raid-chip-ext">Gast</small>' : ''}${note}</span>`;
 }
 
 /** The own sign-up controls of an event: one form, one line per signed-up character. @param {string} id */
@@ -302,14 +315,28 @@ function raidSignupFormHtml(id){
 /** Sign-ups by role (+ Vielleicht / Absagen). @param {string} id */
 function raidSignupsHtml(id){
   const r = raidRoster(id);
-  const col = (label, list) => `<div class="raid-col"><div class="raid-col-head">${label} <span>${list.length}</span></div>${list.length ? list.map(raidChipHtml).join('') : '<span class="bis-item-meta">—</span>'}</div>`;
-  return `<div class="raid-roster">
-      ${col(`${roleIconHtml('tank')} Tanks`, r.tank)}${col(`${roleIconHtml('healer')} Heiler`, r.healer)}${col(`${roleIconHtml('damage')} Damage`, r.damage)}
+  const chips = list => list.length ? list.map(s => raidChipHtml(s, { spec: true })).join('') : '<span class="bis-item-meta">—</span>';
+  // Columns side by side — Tanks, Heiler, Melee, Range — with the characters below each other (sorted by class, raidRoster).
+  const col = (icon, label, list) => `<div class="raid-roster-col"><div class="raid-roster-label">${icon}<b>${label}</b><span>${list.length}</span></div><div class="raid-roster-list">${chips(list)}</div></div>`;
+  const extra = (label, list) => list.length ? `<div class="raid-roster-extra-row"><span class="raid-roster-label"><b>${label}</b><span>${list.length}</span></span>${chips(list)}</div>` : '';
+  return `<div class="raid-roster-cols">
+      ${col(roleIconHtml('tank'), 'Tanks', r.tank)}
+      ${col(roleIconHtml('healer'), 'Heiler', r.healer)}
+      ${col(roleIconHtml('damage'), 'Melee', r.damage.filter(raidIsMelee))}
+      ${col(roleIconHtml('damage'), 'Range', r.damage.filter(s => !raidIsMelee(s)))}
     </div>
-    ${r.maybe.length || r.no.length ? `<div class="raid-roster-extra">
-      ${r.maybe.length ? `<div><span class="raid-col-head">Vielleicht</span> ${r.maybe.map(raidChipHtml).join('')}</div>` : ''}
-      ${r.no.length ? `<div><span class="raid-col-head">Absagen</span> ${r.no.map(raidChipHtml).join('')}</div>` : ''}
-    </div>` : ''}`;
+    ${extra('Vielleicht', r.maybe)}${extra('Absagen', r.no)}`;
+}
+
+/**
+ * A titled section of the raid window (Anmeldung tab).
+ * @param {string} icon GAME_ICONS key @param {string} title @param {string} sub @param {string} body @param {string} [cls]
+ */
+function raidPanelHtml(icon, title, sub, body, cls){
+  return `<section class="raid-panel${cls ? ` ${cls}` : ''}">
+    <header class="raid-panel-head">${gameIconHtml(icon, 22)}<h4>${escapeHtml(title)}</h4>${sub ? `<span>${escapeHtml(sub)}</span>` : ''}</header>
+    <div class="raid-panel-body">${body}</div>
+  </section>`;
 }
 
 /** Title block of a raid (list card and window). @param {RaidEvent} e */
@@ -331,7 +358,7 @@ function raidListCardHtml(id, e){
   const sessions = officer ? lootEventSessions(id).length : 0;
   let me = '';
   if (isMemberOrHigher()){
-    if (inLineup.length && e.rosterPublished) me = `<span class="raid-me raid-me-in">✓ In der Aufstellung: ${inLineup.map(raidChipHtml).join('')}</span>`;
+    if (inLineup.length && e.rosterPublished) me = `<span class="raid-me raid-me-in">✓ In der Aufstellung: ${inLineup.map(s => raidChipHtml(s)).join('')}</span>`;
     else if (mine.length) me = `<span class="raid-me">Angemeldet: ${mine.map(([k, s]) => `${raidChipHtml({ uid: discordIdentity.id, charKey: k, ...s })} <span class="bis-item-meta">${RAID_STATUS_LABELS[s.status]}</span>`).join(' ')}</span>`;
     else if (phase === 'signup') me = '<span class="raid-me raid-me-todo">Noch nicht angemeldet</span>';
   }
@@ -374,15 +401,22 @@ function raidDetailHtml(id, e){
 
   let body = '';
   if (tab === 'signup'){
-    body = `${e.note ? `<p class="raid-note">${escapeHtml(e.note)}</p>` : ''}
-      ${officer && phase !== 'done' ? `<div class="raid-next">${signupOpen
+    const done = phase === 'done';
+    const guests = isOfficerOrAdmin() && e.srMax ? Object.values(raidApps[id] || {}).filter(a => a.app && !a.status).length : 0;
+    const leader = officer ? raidPanelHtml('guild', 'Raidleitung', 'nur für Offiziere', `
+        ${e.srMax ? `<div class="raid-lead-part">${raidHrBlockHtml(id, e, done, true)}</div>` : ''}
+        ${e.srMax ? `<div class="raid-lead-part"><div class="raid-col-head">Soft-Reserves <span>Liste für den Loot-Master, Änderungen sperren</span></div><div class="raid-admin">${raidSrAdminHtml(id, e, done)}</div></div>` : ''}
+        ${e.srMax ? `<div class="raid-lead-part">${raidExtOfficerHtml(id, e)}</div>` : ''}
+        ${!e.srMax ? '<p class="bis-hint">Ohne Soft-Reserve gibt es hier nichts zu verwalten — Hard-Reserves und Gast-Bewerbungen gehören zu SR-Raids.</p>' : ''}`, `raid-panel-lead${guests ? ' has-todo' : ''}`) : '';
+    body = `${officer && !done ? `<div class="raid-next">${signupOpen
         ? `<span>Alle angemeldet? Schließ die Anmeldung und stell die Aufstellung zusammen. <span class="bis-item-meta">Sonst schließt sie automatisch 24 h vor dem Start.</span></span><button type="button" class="btn btn-teal btn-sm" data-raid-signup-toggle="${escapeHtml(id)}" data-then-tab="comp">Anmeldung schließen → Aufstellung</button>`
         : `<span>Die Anmeldung ist geschlossen.</span><button type="button" class="btn btn-ghost btn-sm" data-raid-signup-toggle="${escapeHtml(id)}">Anmeldung wieder öffnen</button>`}</div>` : ''}
-      ${phase === 'done' ? '' : raidSignupFormHtml(id)}
-      <div class="raid-col-head raid-section-head">Anmeldungen <span>${r.yes.length} dabei · ${r.maybe.length} vielleicht · ${r.no.length} Absagen</span></div>
-      ${raidSignupsHtml(id)}
-      ${raidSrSectionHtml(id, e, phase === 'done')}
-      ${officer && e.srMax ? `<div class="raid-admin">${raidSrAdminHtml(id, e, phase === 'done')}</div>` : ''}`;
+      ${guests ? `<p class="raid-todo-hint">${gameIconHtml('apply', 18)} ${guests} ${guests === 1 ? 'offene Gast-Bewerbung' : 'offene Gast-Bewerbungen'} — unten im Bereich „Raidleitung“.</p>` : ''}
+      ${e.note ? `<div class="raid-note-box">${gameIconHtml('patch', 18)}<p>${escapeHtml(e.note)}</p></div>` : ''}
+      ${done ? '' : raidPanelHtml('character', 'Deine Anmeldung', signupOpen ? 'mit welchem Charakter bist Du dabei?' : 'Anmeldung geschlossen', raidSignupFormHtml(id), 'raid-panel-me')}
+      ${raidPanelHtml('raid', 'Teilnehmer', `${r.yes.length} dabei · ${r.maybe.length} vielleicht · ${r.no.length} Absagen`, raidSignupsHtml(id))}
+      ${e.srMax ? raidPanelHtml('loot', 'Soft-Reserve', `max. ${e.srMax} ${e.srMax === 1 ? 'Item' : 'Items'} pro Spieler${e.srLocked ? ' · gesperrt' : ''}`, raidSrSectionHtml(id, e, done, { hrEdit: false, bare: true, noHr: officer })) : ''}
+      ${leader}`;
   } else if (tab === 'comp'){
     if (officer && phase !== 'done'){
       body = `${signupOpen ? '<p class="bis-hint raid-next-hint">Die Anmeldung ist noch offen — Du kannst schon planen, es kommen aber evtl. noch Leute dazu.</p>' : ''}
@@ -445,7 +479,7 @@ function raidEventFormHtml(){
 }
 
 /** Inputs that keep their focus across live re-renders. */
-const RAID_FOCUS_ATTRS = ['data-raid-sr-search', 'data-raid-hr-search', 'data-loot-sess-search', 'data-loot-modal-note'];
+const RAID_FOCUS_ATTRS = ['data-raid-sr-search', 'data-raid-hr-search', 'data-loot-sess-search', 'data-loot-modal-note', 'data-raid-ext-f', 'data-raid-ext-note', 'data-raid-ext-msg'];
 
 function renderRaidsPage(){
   const root = document.getElementById('raidsRoot');
@@ -455,6 +489,21 @@ function renderRaidsPage(){
     return;
   }
   raidSync();
+  // Guests (no guild role): the SR raids they can apply for (js/raid-externals.js).
+  if (!isMemberOrHigher()){
+    const active = /** @type {HTMLInputElement | null} */ (document.activeElement);
+    const focusAttr = active && root.contains(active) ? RAID_FOCUS_ATTRS.find(a => active.hasAttribute(a)) : null;
+    const focusVal = focusAttr ? active.getAttribute(focusAttr) : null;
+    const caret = focusAttr && typeof active.selectionStart === 'number' ? active.selectionStart : null;
+    root.innerHTML = raidExtPageHtml();
+    raidExtWire(root);
+    raidSrWire(root);
+    if (focusAttr){
+      const el = /** @type {HTMLInputElement | null} */ (root.querySelector(`[${focusAttr}="${CSS.escape(focusVal)}"]`));
+      if (el){ el.focus(); if (caret !== null && el.setSelectionRange) try { el.setSelectionRange(caret, caret); } catch (e){ /* not a text field */ } }
+    }
+    return;
+  }
   lootSync();
   if (isOfficerOrAdmin()) lootSessionSync();
   // Keep the focus in a search / note field and the pop-up's scroll position across live re-renders.
@@ -485,6 +534,7 @@ function renderRaidsPage(){
   raidSrWire(root);
   raidCompWire(root);
   raidTacticsWire(root);
+  raidExtWire(root);
   lootWire(root);
   lootSessionWire(root);
   const lists = ['.loot-modal-list', '.loot-modal-main'].map(sel => root.querySelector(sel));

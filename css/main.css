@@ -461,6 +461,8 @@ select:focus, textarea:focus{ outline: none; border-color: var(--gold); }
 /* "Notify me about new applications" — only shown for Admin/Officer
    rows (see canNotify in renderAccessModal), indented to line up under
    the name/select above it rather than the avatar. */
+.access-member-options{ display: flex; flex-wrap: wrap; gap: 4px 16px; padding-left: 42px; }
+.access-member-options .access-member-notify{ padding-left: 0; }
 .access-member-notify{
   display: flex; align-items: center; gap: 6px; padding: 4px 4px 0 42px;
   font-size: 11.5px; color: var(--text-muted); cursor: pointer;
@@ -2138,7 +2140,22 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 .raid-col-head span{ color: var(--text-muted); margin-left: 4px; }
 .raid-col{ display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start; }
 .raid-col .raid-col-head{ flex-basis: 100%; }
-.raid-chip{ font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--class-color); color: var(--class-color); }
+.raid-chip{ display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 1px 9px 1px 7px; border-radius: 2px 999px 999px 2px; border: 1px solid var(--class-color); border-left-width: 3px; color: var(--class-color); vertical-align: middle; }
+.raid-chip-spec{ border-radius: 3px; flex: 0 0 auto; }
+.raid-chip-note{ width: 11px; height: 11px; opacity: .8; }
+/* Anmeldung: Tanks / Heiler / Melee / Range as columns, characters below each other. */
+.raid-roster-cols{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.raid-roster-col{ min-width: 0; }
+.raid-roster-label{ display: flex; align-items: center; gap: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--gold-bright); padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid var(--border-soft); }
+.raid-roster-label span{ color: var(--text-muted); }
+.raid-roster-list{ display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.raid-roster-list .raid-chip{ display: flex; min-width: 0; }
+.raid-roster-list .raid-chip-name{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; min-width: 0; }
+.raid-roster-extra-row{ display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-soft); }
+.raid-roster-extra-row .raid-roster-label{ border: 0; margin: 0 6px 0 0; padding: 0; color: var(--text-muted); }
+@media (max-width: 640px){
+  .raid-roster-cols{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .raid-roster-extra{ margin-top: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .raid-roster-extra .raid-col-head{ display: inline; margin-right: 6px; }
 .raid-roster-extra .raid-chip{ margin-right: 4px; }
@@ -2413,6 +2430,69 @@ button.apply-chat-edit:hover{ filter: brightness(1.12); }
 .tac-guide .btn{ margin-left: auto; }
 .tac-ability.recommended{ border-color: var(--gold); }
 .tac-more summary{ cursor: pointer; font-size: 13px; color: var(--text-muted); margin: 4px 0 8px; }
+
+/* Raid window, Anmeldung tab: titled panels (raidPanelHtml in js/raids.js) */
+.raid-panel{ margin-top: 14px; border: 1px solid var(--border-soft); border-radius: 10px; background: var(--fold-body-bg); overflow: hidden; }
+.raid-panel-head{ display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; padding: 10px 14px; border-bottom: 1px solid var(--border-soft); background: rgba(var(--gold-bright-rgb),0.04); }
+.raid-panel-head h4{ margin: 0; font-family: 'Cinzel', serif; font-size: 15px; color: var(--gold-bright); letter-spacing: .02em; }
+.raid-panel-head span{ font-size: 12.5px; color: var(--text-muted); }
+.raid-panel-body{ padding: 12px 14px 14px; }
+.raid-panel-body > :first-child{ margin-top: 0; }
+.raid-panel-me{ border-color: var(--teal); }
+.raid-panel-me .raid-panel-head{ background: rgba(47,174,158,0.08); }
+.raid-panel-lead{ border: 1px dashed var(--gold); }
+.raid-panel-lead.has-todo{ border-style: solid; box-shadow: 0 0 0 1px var(--gold); }
+/* Inside a panel the old separators / boxes aren't needed. */
+.raid-panel .raid-signup{ margin-top: 0; padding: 0; border: 0; background: none; }
+.raid-panel .raid-roster{ margin-top: 0; }
+.raid-panel .raid-sr{ margin-top: 0; padding-top: 0; border-top: 0; }
+.raid-panel .raid-admin{ justify-content: flex-start; margin: 0 0 10px; }
+.raid-panel .raid-section-head{ margin-top: 6px; }
+.raid-panel .raid-hr{ margin-top: 0; }
+.raid-note-box{ display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 10px 12px; border-left: 3px solid var(--gold); border-radius: 6px; background: var(--field-bg); }
+.raid-note-box p{ margin: 0; font-size: 13.5px; color: var(--text-muted); white-space: pre-line; }
+.raid-lead-part + .raid-lead-part{ margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+.raid-panel .raid-lead-part .raid-hr{ padding: 0; border: 0; background: none; }
+.raid-panel .raid-lead-part .raid-admin{ margin: 6px 0 0; }
+.raid-todo-hint{ display: flex; align-items: center; gap: 6px; margin: 10px 0 0; font-size: 13.5px; color: var(--gold-bright); }
+
+/* Raid guest applications (js/raid-externals.js) */
+.raid-chip-ext{ font-size: 10px; padding: 0 5px; margin-left: 3px; border-radius: 999px; border: 1px solid var(--teal-bright); color: var(--teal-bright); }
+.raid-ext-intro p{ margin: 6px 0 0; font-size: 14px; }
+.raid-ext-app{ display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.raid-ext-char{ display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13.5px; }
+.raid-ext-char a{ color: var(--teal-bright); font-size: 12.5px; }
+.raid-ext-char-row{ display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 0; border-bottom: 1px solid var(--border-soft); }
+.raid-ext-shots{ display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.raid-ext-shot{ position: relative; display: inline-block; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--field-bg); overflow: hidden; cursor: zoom-in; }
+.raid-ext-shot img{ display: block; width: 140px; height: 90px; object-fit: cover; }
+.raid-ext-shot button{ position: absolute; top: 2px; right: 2px; border: 0; border-radius: 50%; width: 22px; height: 22px; background: var(--danger); color: var(--text); cursor: pointer; }
+.raid-ext-shot-add{ display: inline-flex; align-items: center; justify-content: center; width: 140px; height: 90px; border: 1px dashed var(--border); border-radius: 6px; color: var(--text-muted); cursor: pointer; font-size: 13px; }
+.raid-ext-shot-add:hover{ border-color: var(--gold); color: var(--gold-bright); }
+.raid-ext-form{ display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.raid-ext-form-char{ display: grid; grid-template-columns: 24px 1fr 1fr 1fr 2fr auto; gap: 6px 8px; align-items: end; }
+.raid-ext-form-char label{ display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--text-muted); min-width: 0; }
+.raid-ext-form-char .tac-kick-num{ margin-bottom: 8px; }
+.raid-ext-thread{ display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.raid-ext-msg{ padding: 6px 10px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--field-bg); font-size: 13.5px; max-width: 85%; }
+.raid-ext-msg.lead{ border-color: var(--gold); }
+.raid-ext-msg.mine{ align-self: flex-end; }
+.raid-ext-msg p{ margin: 3px 0 0; }
+.raid-ext-msg-head{ display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; }
+.raid-ext-reply{ display: flex; gap: 6px; align-items: flex-end; }
+.raid-ext-reply textarea{ flex: 1; min-width: 0; }
+.raid-ext-list{ display: flex; flex-direction: column; gap: 8px; }
+.raid-ext-item{ padding: 8px 10px; border: 1px solid var(--gold); border-radius: 8px; background: var(--fold-body-bg); }
+.raid-ext-item.accepted{ border-color: var(--teal-bright); }
+.raid-ext-item.declined{ border-color: var(--border-soft); opacity: .8; }
+.raid-ext-item > summary{ cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13.5px; }
+.raid-ext-zoom{ position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; background: var(--tip-bg); cursor: zoom-out; }
+.raid-ext-zoom img{ max-width: 100%; max-height: 85vh; border: 1px solid var(--border); border-radius: 8px; }
+@media (max-width: 760px){
+  .raid-ext-form-char{ grid-template-columns: 24px 1fr 1fr; }
+  .raid-ext-form-char .raid-ext-armory{ grid-column: 2 / -1; }
+  .raid-ext-msg{ max-width: 100%; }
+}
 
 /* Boss-Guides page (js/boss-guides.js) */
 .boss-picker{ display: flex; flex-direction: column; gap: 8px; }

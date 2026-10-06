@@ -78,12 +78,12 @@ function raidCompPublishedHtml(id, e){
   for (const s of bench) { if (!benchByUid.has(s.uid)) benchByUid.set(s.uid, []); benchByUid.get(s.uid).push(s); }
   const col = role => {
     const list = picked.filter(s => s.role === role);
-    return `<div class="raid-col"><div class="raid-col-head">${roleIconHtml(role)} ${RAID_ROLE_LABELS[role]} <span>${list.length}</span></div>${list.length ? list.map(raidChipHtml).join('') : '<span class="bis-item-meta">—</span>'}</div>`;
+    return `<div class="raid-col"><div class="raid-col-head">${roleIconHtml(role)} ${RAID_ROLE_LABELS[role]} <span>${list.length}</span></div>${list.length ? list.map(s => raidChipHtml(s)).join('') : '<span class="bis-item-meta">—</span>'}</div>`;
   };
   return `<div class="raid-comp-published">
     <div class="raid-col-head">Aufstellung <span>${picked.length}${raidEventSize(e) ? `/${raidEventSize(e)}` : ''} · von den Offizieren veröffentlicht</span></div>
     <div class="raid-roster">${col('tank')}${col('healer')}${col('damage')}</div>
-    ${benchByUid.size ? `<div class="raid-roster-extra"><div><span class="raid-col-head">Ersatzbank</span> ${[...benchByUid.values()].map(list => list.map(raidChipHtml).join('')).join(' ')}</div></div>` : ''}
+    ${benchByUid.size ? `<div class="raid-roster-extra"><div><span class="raid-col-head">Ersatzbank</span> ${[...benchByUid.values()].map(list => list.map(s => raidChipHtml(s)).join('')).join(' ')}</div></div>` : ''}
   </div>`;
 }
 

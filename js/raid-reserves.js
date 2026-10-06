@@ -165,8 +165,37 @@ function raidSrAdminHtml(id, e, past){
     ${past ? '' : `<button type="button" class="btn btn-ghost btn-sm" data-raid-sr-lock="${escapeHtml(id)}">${e.srLocked ? 'Reserves entsperren' : 'Reserves sperren'}</button>`}`;
 }
 
-/** Soft-reserve block of an event card. @param {string} id @param {RaidEvent} e @param {boolean} past */
-function raidSrSectionHtml(id, e, past){
+/** Item name with icon and quality color (bisData loaded). @param {number} itemId */
+function raidSrItemHtml(itemId){
+  const it = bisData.byId.get(itemId);
+  return `<span class="raid-sr-item-label" data-item-id="${itemId}">${bisIconHtml(it, 22)}<span style="color:${it ? bisQualityColor(it) : 'var(--text)'}">${escapeHtml(raidSrItemName(itemId))}</span></span>`;
+}
+
+/** Hard-Reserves: the list, and for officers (edit) the remove buttons and the item search. @param {string} id @param {RaidEvent} e @param {boolean} past @param {boolean} edit */
+function raidHrBlockHtml(id, e, past, edit){
+  if (!bisData) return '';
+  const hrIds = Object.keys(e.hr || {}).map(Number);
+  const canEdit = edit && isOfficerOrAdmin() && !past;
+  if (!hrIds.length && !canEdit) return '';
+  return `<div class="raid-hr">
+      <div class="raid-col-head">Hard-Reserve <span>nicht reservierbar · bleibt in der Gilde, vergibt der Loot Council</span></div>
+      ${hrIds.length ? `<div class="raid-sr-mine-list">${hrIds.map(itemId => `<span class="raid-sr-mine">${raidSrItemHtml(itemId)}${canEdit ? `<button type="button" data-raid-hr-remove="${escapeHtml(id)}|${itemId}" aria-label="Entfernen">×</button>` : ''}</span>`).join('')}</div>` : '<p class="bis-hint">Keine Hard-Reserves.</p>'}
+      ${canEdit ? `<div class="raid-sr-search">
+        <input type="search" class="apply-text-input" data-raid-hr-search="${escapeHtml(id)}" placeholder="Hard-Reserve hinzufügen (Item suchen) …" value="${escapeHtml(raidHrQuery[id] || '')}" autocomplete="off">
+        <div class="raid-sr-results" data-raid-hr-results="${escapeHtml(id)}">${lootSearchHtml(id, e.instance, raidHrQuery[id], 'raid-hr-add')}</div>
+      </div>` : ''}
+    </div>`;
+}
+
+/**
+ * Soft-reserve block of an event: own reserves + search, Hard-Reserves,
+ * everybody's reserves. opts.hrEdit = false: Hard-Reserves read-only here
+ * (officers edit them in the Raidleitung panel); opts.bare: no own heading
+ * (the panel around it has one); opts.noHr: leave the Hard-Reserves out.
+ * @param {string} id @param {RaidEvent} e @param {boolean} past @param {{ hrEdit?: boolean, bare?: boolean, noHr?: boolean }} [opts]
+ */
+function raidSrSectionHtml(id, e, past, opts){
+  const o = opts || {};
   if (!e.srMax) return '';
   if (!bisData){
     bisLoadData().then(() => { if (currentPage === 'raids') renderRaidsPage(); }).catch(() => {});
@@ -179,14 +208,13 @@ function raidSrSectionHtml(id, e, past){
   const mine = all[uid] ? all[uid].items : [];
   const signedUp = signups[uid] && signups[uid].status !== 'no';
   const itemName = raidSrItemName;
-  const itemHtml = itemId => {
-    const it = bisData.byId.get(itemId);
-    return `<span class="raid-sr-item-label" data-item-id="${itemId}">${bisIconHtml(it, 22)}<span style="color:${it ? bisQualityColor(it) : 'var(--text)'}">${escapeHtml(itemName(itemId))}</span></span>`;
-  };
+  const itemHtml = raidSrItemHtml;
 
   // Own reserves and the search box.
   let own = '';
-  if (!past && isMemberOrHigher()){
+  // Members, and guests whose raid application was accepted (js/raid-externals.js).
+  const guestOk = ((raidApps[id] || {})[uid] || {}).status === 'accepted';
+  if (!past && (isMemberOrHigher() || guestOk)){
     const chips = mine.map(itemId => `<span class="raid-sr-mine">${itemHtml(itemId)}${e.srLocked ? '' : `<button type="button" data-raid-sr-remove="${itemId}" data-raid-id="${escapeHtml(id)}" aria-label="Entfernen">×</button>`}</span>`).join('');
     let add = '';
     if (e.srLocked) add = '<p class="bis-hint">Die Reserves sind gesperrt.</p>';
@@ -200,17 +228,8 @@ function raidSrSectionHtml(id, e, past){
   }
 
   // Hard-Reserves: stay in the guild, the Loot Council decides.
-  const officer = isOfficerOrAdmin();
-  const hrIds = Object.keys(e.hr || {}).map(Number);
   const hrNames = raidHrNames(e);
-  const hr = hrIds.length || (officer && !past) ? `<div class="raid-hr">
-      <div class="raid-col-head">Hard-Reserve <span>nicht reservierbar · bleibt in der Gilde, vergibt der Loot Council</span></div>
-      ${hrIds.length ? `<div class="raid-sr-mine-list">${hrIds.map(itemId => `<span class="raid-sr-mine">${itemHtml(itemId)}${officer && !past ? `<button type="button" data-raid-hr-remove="${escapeHtml(id)}|${itemId}" aria-label="Entfernen">×</button>` : ''}</span>`).join('')}</div>` : '<p class="bis-hint">Keine Hard-Reserves.</p>'}
-      ${officer && !past ? `<div class="raid-sr-search">
-        <input type="search" class="apply-text-input" data-raid-hr-search="${escapeHtml(id)}" placeholder="Hard-Reserve hinzufügen (Item suchen) …" value="${escapeHtml(raidHrQuery[id] || '')}" autocomplete="off">
-        <div class="raid-sr-results" data-raid-hr-results="${escapeHtml(id)}">${lootSearchHtml(id, e.instance, raidHrQuery[id], 'raid-hr-add')}</div>
-      </div>` : ''}
-    </div>` : '';
+  const hr = o.noHr ? '' : raidHrBlockHtml(id, e, past, o.hrEdit !== false);
 
   // Everybody's reserves, grouped by item name (see the duplicate ids
   // above); contested items first.
@@ -238,10 +257,10 @@ function raidSrSectionHtml(id, e, past){
     : '<p class="bis-hint">Noch nichts reserviert.</p>';
   const count = Object.keys(all).length;
   return `<div class="raid-sr">
-    <div class="raid-col-head">Soft-Reserve <span>max. ${e.srMax} pro Spieler${e.srLocked ? ' · 🔒 gesperrt' : ''}</span></div>
+    ${o.bare ? '' : `<div class="raid-col-head">Soft-Reserve <span>max. ${e.srMax} pro Spieler${e.srLocked ? ' · 🔒 gesperrt' : ''}</span></div>`}
     ${own}
     ${hr}
-    <details class="raid-sr-all"${rows.length && rows.length <= 8 ? ' open' : ''}>
+    <details class="raid-sr-all"${rows.length && rows.length <= 3 ? ' open' : ''}>
       <summary>Alle Reserves (${count} Spieler, ${rows.length} ${rows.length === 1 ? 'Item' : 'Items'})</summary>
       ${list}
     </details>

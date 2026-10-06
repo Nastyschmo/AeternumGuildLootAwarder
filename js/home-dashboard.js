@@ -194,7 +194,7 @@ function homeNextRaidHtml(){
   const mine = Object.entries((raidSignups[id] || {})[uid] || {});
   const inLineup = raidCompPicked(id, e).filter(s => s.uid === uid);
   let status;
-  if (inLineup.length && e.rosterPublished) status = `<p class="home-status home-status-good">✓ Du bist in der Aufstellung: ${inLineup.map(raidChipHtml).join(' ')}</p>`;
+  if (inLineup.length && e.rosterPublished) status = `<p class="home-status home-status-good">✓ Du bist in der Aufstellung: ${inLineup.map(s => raidChipHtml(s)).join(' ')}</p>`;
   else if (mine.length) status = `<p class="home-status">Angemeldet: ${mine.map(([k, s]) => `${raidChipHtml({ uid, charKey: k, ...s })} <span class="bis-item-meta">${RAID_STATUS_LABELS[s.status]}</span>`).join(' ')}${e.rosterPublished ? ' <span class="bis-item-meta">· auf der Ersatzbank</span>' : ''}</p>`;
   else if (phase === 'signup') status = '<p class="home-status home-status-todo">Du bist noch nicht angemeldet.</p>';
   else status = '<p class="home-status">Die Anmeldung ist geschlossen.</p>';
@@ -284,6 +284,13 @@ function homeTodoHtml(){
   const todo = [];
   const apps = questPendingApplicationsCount();
   if (apps) todo.push({ text: `${apps} ${apps === 1 ? 'neue Bewerbung wartet' : 'neue Bewerbungen warten'} auf Bearbeitung.`, action: homeLink('recruit', 'Bewerbungen') });
+  // Guest applications for SR raids (js/raid-externals.js), per raid.
+  raidAppsSync();
+  for (const [id, byUid] of Object.entries(raidApps)) {
+    const e = raidEvents[id];
+    const open = Object.values(byUid).filter(a => a.app && !a.status).length;
+    if (e && open && now < raidDayEnd(e)) todo.push({ text: `${e.title} (${raidDateLabel(e.start)}): ${open} ${open === 1 ? 'Gast-Bewerbung' : 'Gast-Bewerbungen'} offen.`, action: `<button type="button" class="btn btn-ghost btn-sm" data-home-raid="${escapeHtml(id)}" data-home-tab="signup">Ansehen</button>` });
+  }
   for (const [id, e] of Object.entries(raidEvents).sort((a, z) => a[1].start - z[1].start)) {
     const phase = raidPhase(e);
     if (phase === 'done') continue;

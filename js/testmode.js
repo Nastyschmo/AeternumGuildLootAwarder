@@ -10,7 +10,9 @@
 // (TESTMODE_DB_KEY) until "Szenario neu laden" or "Beenden".
 // A bar at the top switches the person you look through (admin, officer,
 // members, an applicant) — the page reloads as that person.
-// Entry: Admins, User Settings → "Testmodus starten" (testModeStart).
+// Entry: User Settings → "Testmodus starten" (testModeStart) — Admins, and
+// whoever an Admin unlocked in Manage access (discordRoles/<uid>/testMode,
+// canUseTestMode in js/auth.js).
 
 /* eslint-disable no-var */
 var TESTMODE_KEY = 'rude-testmode-v1';
@@ -32,7 +34,8 @@ var TESTMODE_PEOPLE = {
   test_m7: ['Frostbeule', 'member'], test_m8: ['Schattenwort', 'member'], test_m9: ['Seelenbrand', 'member'],
   test_m10: ['Pfeilhagel', 'member'], test_m11: ['Messerwerk', 'member'], test_m12: ['Wutbürger', 'member'],
   test_m13: ['Blitzschlag', 'member'], test_m14: ['Mondstrahl', 'member'], test_m15: ['Doppelmain-Doris', 'member'],
-  test_bewerber: ['Neuling Nils (Bewerber)', 'community']
+  test_bewerber: ['Neuling Nils (Bewerber)', 'community'],
+  test_gast: ['Gast Gerda (Extern)', 'community']
 };
 
 /** Scenario data relative to now. @param {number} now */
@@ -153,9 +156,11 @@ function testSeed(now){
       signup('wasserfall', 'yes'), signup('blattgruen', 'maybe'), signup('frostbeule', 'yes'), signup('schattenwort', 'yes'), signup('seelenbrand', 'yes'),
       signup('pfeilhagel', 'yes'), signup('messerwerk', 'yes'), signup('wutbuerger', 'yes'), signup('wutzwerg', 'yes'), signup('blitzschlag', 'maybe'), signup('mondstrahl', 'no')]),
     t_hyjal: signups([...everyone.filter(k => k !== 'mondstrahl').map(k => signup(k, 'yes')), signup('mondstrahl', 'maybe', 'komme evtl. später'), signup('twinkus', 'yes'), signup('wutzwerg', 'maybe')]),
+    // (the accepted guest's sign-up is added below)
     t_ony_today: signups(everyone.map(k => signup(k, 'yes'))),
     t_hyjal_plan: signups(planRoster.map(k => signup(k, 'yes')))
   };
+  raidSignups.t_hyjal.test_gast = { x_c1: { status: 'yes', name: 'Gast Gerda (Extern)', charName: 'Gerdabear', classId: 'druid', specId: 'feral_tank', note: 'Gast', ext: true, updatedAt: now - day } };
   const raidReserves = {
     t_hyjal: {
       test_m6: { items: { s1: 19145, s2: 19147 }, name: 'Feuerfee', charName: 'Feuerfee', classId: 'mage', updatedAt: now - day },
@@ -218,11 +223,33 @@ function testSeed(now){
     tan1: { title: 'Raidzeiten ab Dezember', text: '<p>Ab dem Raid-Release am 9. Dezember raiden wir <b>Donnerstag und Sonntag ab 20:00</b>. Meldet euch bitte immer bis 24 h vorher im Raid-Kalender an.</p>',
       authorName: 'Offi Olaf', authorId: 'test_offi', createdAt: now - 2 * 3600000, editedAt: 0 }
   };
+  // Guest applications for the SR raid Hyjal (js/raid-externals.js): Gerda accepted, Nils open with a screenshot.
+  const shot = (() => {
+    try {
+      const c = document.createElement('canvas'); c.width = 480; c.height = 270;
+      const x = c.getContext('2d');
+      x.fillStyle = '#0b1e2c'; x.fillRect(0, 0, 480, 270);
+      x.fillStyle = '#c9a227'; x.font = 'bold 22px sans-serif'; x.fillText('Gear-Screenshot (Test)', 24, 44);
+      x.fillStyle = '#e6eef2'; x.font = '16px sans-serif';
+      ['Kopf: Nemesis Skullcap', 'Brust: Robe of Volatile Power', 'Waffe: Staff of Dominance'].forEach((t, i) => x.fillText(t, 24, 90 + i * 30));
+      return c.toDataURL('image/jpeg', 0.8);
+    } catch (e){ return ''; }
+  })();
+  const raidApplications = { t_hyjal: {
+    test_bewerber: { app: { name: 'Neuling Nils (Bewerber)', note: 'Trage gerade noch PvP-Gear, PvE-Set ist im Screenshot. Raid-Erfahrung: MC/BWL auf Classic.', shots: shot ? 1 : 0, at: now - 5 * 3600000, upd: now - 5 * 3600000,
+      chars: { c1: { n: 'Nilsor', cls: 'warlock', spec: 'destruction', armory: 'https://worldofwarcraft.blizzard.com/de-de/character/eu/spineshatter/nilsor' }, c2: { n: 'Nilsheal', cls: 'priest', spec: 'holy', armory: 'https://worldofwarcraft.blizzard.com/de-de/character/eu/spineshatter/nilsheal' } } },
+      msgs: { tm1: { by: 'test_bewerber', name: 'Neuling Nils (Bewerber)', text: 'Kann auch als Heiler mit, falls ihr Heiler braucht!', at: now - 4 * 3600000 } } },
+    test_gast: { app: { name: 'Gast Gerda (Extern)', note: '', shots: 0, at: now - 2 * day, upd: now - 2 * day,
+      chars: { c1: { n: 'Gerdabear', cls: 'druid', spec: 'feral_tank', armory: 'https://worldofwarcraft.blizzard.com/de-de/character/eu/spineshatter/gerdabear' } } },
+      status: 'accepted', char: 'c1', decidedBy: 'Offi Olaf', decidedAt: now - day,
+      msgs: { tm2: { by: 'test_offi', name: 'Offi Olaf', text: 'Willkommen! Treffpunkt 19:45 am Instanzeingang.', at: now - day } } }
+  } };
+  const raidApplicationShots = shot ? { t_hyjal: { test_bewerber: { s1: shot } } } : {};
   // A Boss-Guide written by officers (Hyjal Summit, first boss).
   const bossGuides = { hyjal_summit: { bandalar: { text: '<h2>Ablauf</h2><p>Bandalar wird mittig getankt. Bei <b>Furcht</b> rennen alle Richtung Wand — Fear Ward auf den Main-Tank.</p><ul><li>Adds links einsammeln</li><li>Fernkampf verteilt hinten</li></ul>',
     roles: { tank: 'Boss mittig, Add-Tank links.', healer: 'Tanks priorisieren, Flüche sofort entfernen.', damage: 'Adds zuerst, dann Boss.' },
     classes: { warlock: 'Curse of Recklessness auf den Boss' }, mech: { fear: true, curse: true, adds: true }, updatedAt: now - day, updatedBy: 'Offi Olaf' } } };
-  return { 'guild-loot-data': { announcements, classDeepDives, discordRoles, characterProfiles, bisPublic, bisOwned, raidEvents, raidSignups, raidReserves, lootAwards, lootSessions, raidPlans, bossGuides, applications } };
+  return { 'guild-loot-data': { announcements, classDeepDives, discordRoles, characterProfiles, bisPublic, bisOwned, raidEvents, raidSignups, raidReserves, lootAwards, lootSessions, raidPlans, bossGuides, raidApplications, raidApplicationShots, applications } };
 }
 
 // ---------------------------------------------------------------- in-memory Firebase
@@ -258,7 +285,14 @@ if (RUDE_TESTMODE) (function(){
       key: path.split('/').pop(),
       orderByChild(c){ return makeRef(path, Object.assign({}, q, { child: c })); },
       equalTo(v){ return makeRef(path, Object.assign({}, q, { eq: v })); },
-      push(){ return { key: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) }; },
+      child(c){ return makeRef(path + '/' + c); },
+      // push(value) stores it under a new key; the result is a promise with .key (like Firebase's ThenableReference).
+      push(v){
+        const key = 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        const p = v === undefined ? Promise.resolve() : (put(path + '/' + key, v), setTimeout(refire, 1), Promise.resolve());
+        return Object.assign(p, { key });
+      },
+      once(){ const v = get(path); return Promise.resolve({ val: () => (v === undefined ? null : JSON.parse(JSON.stringify(v))) }); },
       on(ev, cb){
         const l = { path, active: true, fire: () => {
           if (!l.active) return;
@@ -358,6 +392,7 @@ function testModeBar(){
         <li><b>Ansicht als „Offi Olaf“</b>: gleiche Runde, seine Stimme ist ★ — Stimmen beider Council-Mitglieder sieht jeder im Council sofort.</li>
         <li><b>Barrow Deeps Run 2</b>: Tab „Aufstellung“ — Kraxl und Tanky sind 🔒 (schon in Run 1 dieser ID). Stell 10 Leute zusammen (2/3/5), veröffentliche.</li>
         <li><b>Hyjal</b>: Soft-Reserve-Raid mit Hard-Reserve (Staff of Dominance, nicht reservierbar). Als Officer im Tab „Anmeldung“ weitere HR setzen, „Anmeldung schließen → Aufstellung“ ausprobieren.</li>
+        <li><b>Gast-Bewerbungen</b>: Als <b>Neuling Nils</b> oder <b>Gast Gerda</b> (ohne Gildenrolle) zeigt „Raids“ die SR-Raids — Bewerbung mit Armory-Link, Screenshot und Nachricht; Gerda ist angenommen und kann Soft-Reserves setzen. Als Officer im Hyjal-Raid, Tab „Anmeldung“ unten: Gast-Bewerbungen annehmen / ablehnen und antworten.</li>
         <li><b>Boss-Guides</b> (Raid &amp; Loot): Hyjal Summit → Bandalar hat einen Beispiel-Guide (Mechaniken Furcht/Flüche/Adds → hilfreiche Klassen). Als Officer „Bearbeiten“; im Raid „Hyjal — Taktik“ stehen beim Boss die empfohlenen Fähigkeiten oben.</li>
         <li><b>Hyjal — Taktik</b>: Tab „Taktik“ — als Officer pro Boss Seelenstein, Anregen, Flüche, Segen usw. zuweisen, Raidgruppen „Automatisch verteilen“, bei Bandalar Marker auf das Feld ziehen, „MRT-Notiz kopieren“. Als Mitglied (z. B. Seelenbrand) oben „Deine Aufgaben“; Neuling Nils sieht den Tab nicht.</li>
         <li><b>Ansicht als Mitglied</b> (z. B. Feuerfee): Liste zeigt „Angemeldet“ / „In der Aufstellung“; bei Hyjal einen zweiten Charakter anmelden, Soft-Reserve setzen; Loot-Tab zeigt nur die Vergaben.</li>

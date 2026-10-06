@@ -438,11 +438,41 @@ Go to **Build → Realtime Database → Rules** and replace them with:
         "$eventId": {
           ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid && root.child('guild-loot-data/raidEvents').child($eventId).exists() && root.child('guild-loot-data/raidEvents').child($eventId).child('srLocked').val() !== true && (!newData.exists() || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'member' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin'))",
+            ".write": "auth != null && auth.uid === $uid && root.child('guild-loot-data/raidEvents').child($eventId).exists() && root.child('guild-loot-data/raidEvents').child($eventId).child('srLocked').val() !== true && (!newData.exists() || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'member' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin') || root.child('guild-loot-data/raidApplications').child($eventId).child(auth.uid).child('status').val() === 'accepted')",
             ".validate": "newData.hasChildren(['items'])",
             "items": {
               "$slot": { ".validate": "newData.isNumber() && (newData.val() === data.val() || ($slot === 's1' && root.child('guild-loot-data/raidEvents').child($eventId).child('srMax').val() >= 1) || ($slot === 's2' && root.child('guild-loot-data/raidEvents').child($eventId).child('srMax').val() >= 2) || ($slot === 's3' && root.child('guild-loot-data/raidEvents').child($eventId).child('srMax').val() >= 3))" }
             }
+          }
+        }
+      },
+      "raidApplications": {
+        ".read": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
+        "$eventId": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
+            "app": {
+              ".write": "auth != null && auth.uid === $uid && (!newData.exists() || (root.child('guild-loot-data/raidEvents').child($eventId).child('srMax').val() >= 1 && !data.parent().child('status').exists() && (root.child('guild-loot-data/raidEvents').child($eventId).child('signupState').val() === 'open' || (root.child('guild-loot-data/raidEvents').child($eventId).child('signupState').val() !== 'closed' && now < root.child('guild-loot-data/raidEvents').child($eventId).child('start').val() - 86400000))))",
+              ".validate": "newData.hasChildren(['name', 'chars', 'at']) && newData.child('at').isNumber() && (!newData.child('note').exists() || (newData.child('note').isString() && newData.child('note').val().length <= 1000))"
+            },
+            "msgs": {
+              "$msgId": {
+                ".write": "auth != null && !data.exists() && (auth.uid === $uid || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin'))",
+                ".validate": "newData.hasChildren(['by', 'text', 'at']) && newData.child('by').val() === auth.uid && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 1000 && newData.child('at').isNumber()"
+              }
+            },
+            "status": { ".validate": "newData.isString() && newData.val().matches(/^(accepted|declined)$/)" }
+          }
+        }
+      },
+      "raidApplicationShots": {
+        "$eventId": {
+          ".read": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && ((root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin') || (auth.uid === $uid && (!newData.exists() || (root.child('guild-loot-data/raidEvents').child($eventId).child('srMax').val() >= 1 && (root.child('guild-loot-data/raidEvents').child($eventId).child('signupState').val() === 'open' || (root.child('guild-loot-data/raidEvents').child($eventId).child('signupState').val() !== 'closed' && now < root.child('guild-loot-data/raidEvents').child($eventId).child('start').val() - 86400000))))))",
+            "$shot": { ".validate": "$shot.matches(/^s[123]$/) && newData.isString() && newData.val().length <= 600000 && newData.val().matches(/^data:image\\/(jpeg|png|webp);base64,/)" }
           }
         }
       },
@@ -1464,6 +1494,27 @@ only holds mounts / pets and NPC → model is server-side).
 **Rules:** `bossGuides` (README § 6f; read: members, write: officers /
 admins). In `SYNCED_KEYS`.
 
+**Gast-Bewerbungen für SR-Raids** (`js/raid-externals.js`): people
+logged in with Discord but without a guild role (community) see the
+Raids page as a guest view — the upcoming Soft-Reserve raids (`srMax` >
+0) — and apply per raid: 1–3 characters (name, class, spec, Armory link
+— required), up to 3 gear screenshots (resized to JPEG in the browser,
+≤ ~550 KB, stored as data URLs in `raidApplicationShots/<eventId>/<uid>/s1..s3`,
+read by officers / the guest only when opened) and a note; then a
+message thread with the raid leads. Guests can edit while the sign-up is
+open and nothing was decided, and withdraw. Officers review them in the
+raid window's Anmeldung tab: "Mit <Charakter> annehmen" writes the
+decision and a sign-up "Dabei" (`raidSignups/<eventId>/<uid>/x_c1`,
+`ext: true`, chip "Gast") — the guest shows up in the Aufstellung and may
+soft-reserve (`raidReserves` rule) —, "Ablehnen" / "Zurücksetzen" remove
+it again. Officers' Home "Zu tun" lists open guest applications.
+`raidApplications/<eventId>/<uid>` = `{ app: { name, chars: { c1..c3: {
+n, cls, spec, armory } }, note, shots, at, upd }, status: 'accepted' |
+'declined', char, decidedBy, decidedAt, msgs: { <id>: { by, name, text,
+at } } }`. **Rules:** `raidApplications`, `raidApplicationShots`, and
+the `raidReserves/$eventId/$uid` write rule (README § 6f). Own
+listeners, not in `SYNCED_KEYS`.
+
 **Soft-Reserve** (`js/raid-reserves.js`): Officers turn it on per event
 (`srMax` 1–3 items per player, "Aus" = off) and can lock it (`srLocked`,
 "Reserves sperren" on the card). Members signed up as Dabei / Vielleicht search an
@@ -1530,8 +1581,11 @@ an item search shows "Wer kann das herstellen?" — who listed the recipe,
 then who has enough skill. The BiS planner's source lines name guild
 crafters for BoE crafted items ("Gilde: Hammerfaust (Rezept), …").
 
-**Testmodus** (`js/testmode.js`, Admins: User Settings → "Testmodus
-starten"): the whole site on a made-up guild (17 people, 21 characters,
+**Testmodus** (`js/testmode.js`, User Settings → "Testmodus starten"
+for Admins and for anyone an Admin unlocked in Manage access — checkbox
+"Testmodus" per person, `discordRoles/<uid>/testMode`; no rules change,
+people can already write their own entry and the test mode never touches
+the real data): the whole site on a made-up guild (17 people, 21 characters,
 public BiS sets, five raid events incl. a past one with loot, a raid
 running today with two Loot-Runden and votes, a raid-ID lockout case,
 soft-reserves with a Hard-Reserve, three applications), only in this browser.

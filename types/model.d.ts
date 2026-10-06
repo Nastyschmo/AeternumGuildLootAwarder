@@ -18,6 +18,8 @@ interface DiscordRoleEntry {
   username?: string;
   avatar?: string | null;
   notifyOnApplications?: boolean;
+  /** Unlocked by an Admin: may start the test mode (User Settings). */
+  testMode?: boolean;
 }
 
 interface ForeverPick { classId: ClassId; spec: SpecId; }
@@ -508,4 +510,6 @@ interface RaidSignup {
   specId: SpecId;
   note: string;
   updatedAt: Millis;
+  /** A guest accepted from a raid application (js/raid-externals.js). */
+  ext: boolean;
 }

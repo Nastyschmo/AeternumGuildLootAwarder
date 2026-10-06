@@ -18,9 +18,10 @@
 //    line-up (raidEvents/<id>/rosterUids, kept by js/raid-comp.js). Write:
 //    officers / admins.
 //
-// Bosses: RAID_BOSSES per instance (announced Forever bosses; mechanics
-// aren't known yet). Abilities: RAID_TACTIC_ABILITIES — only what exists
-// in our Forever spell / talent data (e.g. no Curse of Shadow / Curse of
+// Bosses: from the client data when it has the instance, else RAID_BOSSES
+// (announced Forever bosses) — bossGuideBossNames in js/boss-guides.js.
+// A boss's Boss-Guide mechanics put the abilities that help first.
+// Abilities: RAID_TACTIC_ABILITIES — only what exists in our Forever spell / talent data (e.g. no Curse of Shadow / Curse of
 // Doom in Forever), talent abilities only for the spec that has them.
 
 /** Bosses per instance, in raid order (as announced for WoW Forever). */
@@ -46,19 +47,27 @@ const RAID_TACTIC_ABILITIES = [
   { id: 'innervate', cls: 'druid', spell: 'Innervate', label: 'Anregen', target: 'player' },
   { id: 'rebirth', cls: 'druid', spell: 'Rebirth', label: 'Wiedergeburt', target: 'player' },
   { id: 'decurse_druid', cls: 'druid', spell: 'Remove Curse', label: 'Flüche entfernen', target: 'group' },
+  { id: 'poison_druid', cls: 'druid', spell: 'Abolish Poison', label: 'Gift aufheben', target: 'group' },
   { id: 'faerie', cls: 'druid', spell: 'Faerie Fire', label: 'Feenfeuer', target: 'toggle' },
   { id: 'pi', cls: 'priest', spell: 'Power Infusion', specs: ['discipline'], label: 'Seele der Macht', target: 'player' },
   { id: 'fearward', cls: 'priest', spell: 'Fear Ward', label: 'Furchtzauberschutz', target: 'player' },
   { id: 'dispel', cls: 'priest', spell: 'Dispel Magic', label: 'Magie bannen', target: 'group' },
+  { id: 'disease_priest', cls: 'priest', spell: 'Abolish Disease', label: 'Krankheit aufheben', target: 'group' },
+  { id: 'shadowprot', cls: 'priest', spell: 'Shadow Protection', label: 'Schattenschutz', target: 'group' },
   { id: 'shackle', cls: 'priest', spell: 'Shackle Undead', label: 'Untote fesseln', target: 'text' },
   { id: 'blessing', cls: 'paladin', label: 'Segen', target: 'choice', options: ['Blessing of Kings', 'Blessing of Might', 'Blessing of Wisdom', 'Blessing of Salvation', 'Blessing of Light'], all: true },
   { id: 'aura', cls: 'paladin', label: 'Aura', target: 'choice', options: ['Devotion Aura', 'Concentration Aura', 'Retribution Aura', 'Fire Resistance Aura', 'Frost Resistance Aura', 'Shadow Resistance Aura'] },
   { id: 'cleanse', cls: 'paladin', spell: 'Cleanse', label: 'Läutern', target: 'group' },
   { id: 'di', cls: 'paladin', spell: 'Divine Intervention', label: 'Göttliches Eingreifen', target: 'player' },
   { id: 'totems', cls: 'shaman', spell: 'Strength of Earth Totem', label: 'Totems (Gruppe)', target: 'group' },
+  { id: 'cleansing_totem', cls: 'shaman', label: 'Reinigungstotem', target: 'choice', options: ['Poison Cleansing Totem', 'Disease Cleansing Totem'] },
+  { id: 'resist_totem', cls: 'shaman', label: 'Widerstandstotem', target: 'choice', options: ['Fire Resistance Totem', 'Frost Resistance Totem', 'Nature Resistance Totem'] },
   { id: 'tremor', cls: 'shaman', spell: 'Tremor Totem', label: 'Totem des Erdstoßes', target: 'toggle' },
   { id: 'purge', cls: 'shaman', spell: 'Purge', label: 'Reinigung (Purge)', target: 'toggle' },
   { id: 'decurse_mage', cls: 'mage', spell: 'Remove Lesser Curse', label: 'Fluch aufheben', target: 'group' },
+  { id: 'hibernate', cls: 'druid', spell: 'Hibernate', label: 'Winterschlaf', target: 'text' },
+  { id: 'trap', cls: 'hunter', spell: 'Freezing Trap', label: 'Eiskältefalle', target: 'text' },
+  { id: 'sap', cls: 'rogue', spell: 'Sap', label: 'Kopfnuss', target: 'text' },
   { id: 'poly', cls: 'mage', spell: 'Polymorph', label: 'Verwandlung', target: 'text' },
   { id: 'expose', cls: 'rogue', spell: 'Expose Armor', label: 'Rüstung schwächen', target: 'toggle' },
   { id: 'sunder', cls: 'warrior', spell: 'Sunder Armor', label: 'Rüstung zerreißen', target: 'toggle' },
@@ -101,7 +110,7 @@ function raidPlanSync(eventId){
 const raidBossKey = name => name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'boss';
 /** Bosses of an event ("Ganzer Raid" first). @param {RaidEvent} e */
 function raidTacticBosses(e){
-  return [['all', 'Ganzer Raid'], ...(RAID_BOSSES[e.instance] || []).map(n => [raidBossKey(n), n])];
+  return [['all', 'Ganzer Raid'], ...bossGuideBossNames(e.instance).map(n => [raidBossKey(n), n])];
 }
 /** Does the Forever data have this spell / talent for the class? @param {string} classId @param {string} spell */
 function raidClassHasSpell(classId, spell){
@@ -211,15 +220,17 @@ function raidTargetText(ab, a, roster){
 function raidTacticStepLabel(id, e){
   raidPlanSync(id);
   const plan = raidPlans[id];
-  if (!plan) return `${(RAID_BOSSES[e.instance] || []).length || 'keine'} Bosse`;
+  const count = bossGuideBossNames(e.instance).length;
+  if (!plan) return `${count || 'keine'} Bosse`;
   const done = Object.entries(plan.bosses || {}).filter(([k, b]) => k !== 'all' && b && (b.note || Object.keys(b.a || {}).length)).length;
-  return `${done}/${(RAID_BOSSES[e.instance] || []).length} Bosse geplant`;
+  return `${done}/${count} Bosse geplant`;
 }
 
 // ---------------------------------------------------------------- rendering
 /** The Taktik step of the raid window. @param {string} id @param {RaidEvent} e */
 function raidTacticsHtml(id, e){
   raidPlanSync(id);
+  bossJournalLoad();
   const officer = isOfficerOrAdmin();
   const editable = officer && raidPhase(e) !== 'done';
   if (officer) raidRosterUidsSync(id, e);
@@ -237,7 +248,8 @@ function raidTacticsHtml(id, e){
     ${raidPlanError ? `<p class="bis-hint raid-error">${escapeHtml(raidPlanError)}</p>` : ''}
     ${raidTacticMineHtml(id, e)}
     ${bossTabs}
-    ${!RAID_BOSSES[e.instance] ? '<p class="bis-hint">Für diese Instanz sind noch keine Bosse hinterlegt — nur „Ganzer Raid“.</p>' : ''}
+    ${raidTacticGuideHtml(e, bosses, bossKey)}
+    ${bosses.length < 2 ? '<p class="bis-hint">Für diese Instanz sind noch keine Bosse hinterlegt — nur „Ganzer Raid“.</p>' : ''}
     <div class="tac-section">
       <div class="raid-col-head">${gameIconHtml('patch', 16)} ${bossKey === 'all' ? 'Notiz für den ganzen Raid' : 'Taktik'}</div>
       ${editable ? `<textarea class="apply-text-input tac-note" data-tac-note="${escapeHtml(id)}|${bossKey}" rows="3" maxlength="2000" placeholder="Taktik, Phasen, worauf zu achten ist …">${escapeHtml(boss.note || '')}</textarea>`
@@ -246,7 +258,7 @@ function raidTacticsHtml(id, e){
     ${bossKey === 'all' ? `${raidTacticSummaryHtml(roster)}${raidTacticGroupsHtml(id, e, roster, plan, editable)}` : ''}
     ${raidTacticBoardHtml(id, e, roster, plan, bossKey, boss, editable)}
     ${raidTacticKicksHtml(id, roster, bossKey, boss, editable)}
-    ${raidTacticAssignHtml(id, roster, bossKey, boss, editable)}
+    ${raidTacticAssignHtml(id, roster, bossKey, boss, editable, bossKey === 'all' ? new Set() : bossRecommendedAbilities(e.instance, (bosses.find(([k]) => k === bossKey) || ['', ''])[1]))}
     <div class="forever-actions">
       <button type="button" class="btn btn-ghost btn-sm" data-tac-mrt="${escapeHtml(id)}|${bossKey}">MRT-Notiz kopieren</button>
       ${editable && bossKey !== 'all' ? `<button type="button" class="btn btn-ghost btn-sm" data-tac-copyfrom="${escapeHtml(id)}|${bossKey}">Zuweisungen vom vorherigen Boss übernehmen</button>` : ''}
@@ -296,11 +308,31 @@ function raidTacticGroupsHtml(id, e, roster, plan, editable){
   </div>`;
 }
 
-/** Assignment table of one boss. */
-function raidTacticAssignHtml(id, roster, bossKey, boss, editable){
+/** Boss tab: mechanics from the Boss-Guide and a link to it. @param {RaidEvent} e */
+function raidTacticGuideHtml(e, bosses, bossKey){
+  if (bossKey === 'all') return '';
+  const name = (bosses.find(([k]) => k === bossKey) || ['', ''])[1];
+  const mechs = bossMechanics(e.instance, name);
+  const g = bossGuideOf(raidBossKey(e.instance), bossKey);
+  return `<div class="tac-guide">
+    ${mechs.length ? `<div class="boss-mechs">${mechs.map(m => `<span class="boss-mech">${gameIconHtml(m.icon, 18)}${escapeHtml(m.label)}</span>`).join('')}</div>` : ''}
+    <span class="bis-item-meta">${g && g.text ? 'Taktik im Boss-Guide' : 'Noch kein Boss-Guide'}${mechs.length ? ' · empfohlene Fähigkeiten stehen bei den Zuweisungen oben' : ''}</span>
+    <button type="button" class="btn btn-ghost btn-sm" data-tac-guide="${escapeHtml(raidBossKey(e.instance))}|${escapeHtml(bossKey)}">Boss-Guide öffnen →</button>
+  </div>`;
+}
+
+/** Abilities always shown on a boss tab; the rest only when recommended or assigned. */
+const RAID_TACTIC_CORE = new Set(['tank', 'heal', 'soulstone', 'curse', 'innervate', 'rebirth', 'pi', 'faerie', 'sunder', 'expose', 'demo', 'mark']);
+
+/** Assignment table of one boss (rec: abilities recommended by the Boss-Guide, shown first). */
+function raidTacticAssignHtml(id, roster, bossKey, boss, editable, rec){
   const a = boss.a || {};
   const n = Math.max(1, Math.ceil(roster.length / 5));
-  const blocks = RAID_TACTIC_ABILITIES.filter(ab => bossKey === 'all' ? ab.all : true).map(ab => {
+  const used = new Set(Object.keys(a).filter(k => a[k] && a[k].t != null && a[k].t !== '' && a[k].t !== false).map(k => k.split('~')[0]));
+  const list = RAID_TACTIC_ABILITIES.filter(ab => bossKey === 'all' ? ab.all : true);
+  const ordered = bossKey === 'all' ? list : [...list.filter(ab => rec.has(ab.id)), ...list.filter(ab => !rec.has(ab.id))];
+  const shown = ab => bossKey === 'all' || rec.has(ab.id) || RAID_TACTIC_CORE.has(ab.id) || used.has(ab.id) || !editable;
+  const block = ab => {
     // Readers only see what is assigned.
     const casters = roster.filter(s => raidCanDo(ab, s) && (editable || raidTargetText(ab, a[`${ab.id}~${s.key}`], roster)));
     if (!casters.length) return '';
@@ -318,11 +350,14 @@ function raidTacticAssignHtml(id, roster, bossKey, boss, editable){
       const note = editable && ab.target !== 'toggle' && (cur.t || cur.n) ? `<input type="text" class="apply-text-input tac-assign-note" data-tac-assign-note="${escapeHtml(id)}|${bossKey}|${escapeHtml(key)}" maxlength="80" value="${escapeHtml(cur.n || '')}" placeholder="Notiz">` : '';
       return `<div class="tac-assign-row${discordIdentity && s.uid === discordIdentity.id ? ' mine' : ''}">${raidCharName(s)}${input}${note}</div>`;
     }).join('');
-    return `<div class="tac-ability"><div class="tac-ability-head">${raidAbilityIconHtml(ab)} ${escapeHtml(ab.label)}</div>${rows}</div>`;
-  }).join('');
+    return `<div class="tac-ability${rec.has(ab.id) ? ' recommended' : ''}"><div class="tac-ability-head">${raidAbilityIconHtml(ab)} ${escapeHtml(ab.label)}${rec.has(ab.id) ? ' <span class="loot-tag">empfohlen</span>' : ''}</div>${rows}</div>`;
+  };
+  const blocks = ordered.filter(shown).map(block).join('');
+  const more = ordered.filter(ab => !shown(ab)).map(block).filter(Boolean);
   return `<div class="tac-section">
     <div class="raid-col-head">${gameIconHtml('talents', 16)} Zuweisungen <span>${bossKey === 'all' ? 'für den ganzen Raid (Seelensteine, Segen)' : 'für diesen Boss'}</span></div>
     <div class="tac-abilities">${blocks || `<p class="bis-hint">${editable ? 'Keine zuweisbaren Fähigkeiten in der Aufstellung.' : 'Noch nichts zugewiesen.'}</p>`}</div>
+    ${more.length ? `<details class="tac-more"><summary>Weitere Fähigkeiten (${more.length})</summary><div class="tac-abilities">${more.join('')}</div></details>` : ''}
   </div>`;
 }
 
@@ -452,6 +487,10 @@ function raidTacticsWire(root){
   if (!box) return;
   const ref = path => db.ref(`${DB_PATH}/raidPlans/${path}`);
   const fail = () => { raidStatusMsg = 'Taktik konnte nicht gespeichert werden — Firebase-Regeln aktualisiert?'; renderRaidsPage(); };
+  box.querySelectorAll('[data-tac-guide]').forEach(btn => btn.addEventListener('click', () => {
+    const [inst, bossKey] = btn.getAttribute('data-tac-guide').split('|');
+    bossGuideOpen(inst, bossKey);
+  }));
   box.querySelectorAll('[data-tac-boss]').forEach(btn => btn.addEventListener('click', () => {
     const [id, k] = btn.getAttribute('data-tac-boss').split('|');
     raidTacticBoss[id] = k;

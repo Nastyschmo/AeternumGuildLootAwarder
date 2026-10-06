@@ -725,8 +725,41 @@ function normalizeState(parsed){
       const out = {};
       for (const id of Object.keys(raw)) if (raw[id] === true) out[id] = true;
       return out;
-    })()
+    })(),
+    bossGuides: normalizeBossGuides(parsed.bossGuides)
   };
+}
+
+/**
+ * Boss-Guides written by officers (bossGuides/<instanceKey>/<bossKey>, js/boss-guides.js).
+ * @param {any} raw @returns {State['bossGuides']}
+ */
+function normalizeBossGuides(raw){
+  /** @type {State['bossGuides']} */
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [inst, bosses] of Object.entries(raw)) {
+    if (!bosses || typeof bosses !== 'object') continue;
+    for (const [boss, g] of Object.entries(bosses)) {
+      if (!g || typeof g !== 'object') continue;
+      /** @type {Record<string, string>} */
+      const classes = {};
+      for (const [c, note] of Object.entries(g.classes && typeof g.classes === 'object' ? g.classes : {})) if (CLASS_MAP[c]) classes[c] = String(note || '').slice(0, 200);
+      /** @type {Record<string, true>} */
+      const mech = {};
+      for (const [a, v] of Object.entries(g.mech && typeof g.mech === 'object' ? g.mech : {})) if (v === true && /^[a-z_]{1,20}$/.test(a)) mech[a] = true;
+      (out[inst] = out[inst] || {})[boss] = {
+        text: sanitizeRichText(String(g.text || '').slice(0, 20000)),
+        roles: { tank: String((g.roles || {}).tank || '').slice(0, 1000), healer: String((g.roles || {}).healer || '').slice(0, 1000), damage: String((g.roles || {}).damage || '').slice(0, 1000) },
+        classes, mech,
+        updatedAt: Number(g.updatedAt) || 0,
+        updatedBy: String(g.updatedBy || '').slice(0, 60),
+        // Boss picture: https link only (no quotes / brackets — used in src).
+        img: /^https:\/\/[^\s'"()\\<>]+$/.test(String(g.img || '')) ? String(g.img).slice(0, 500) : ''
+      };
+    }
+  }
+  return out;
 }
 
 function isVotingClosed(votingId){

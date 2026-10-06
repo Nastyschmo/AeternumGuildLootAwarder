@@ -190,6 +190,23 @@ interface State {
   bisRecommended: Record<PushId, true>;
   /** Guild numbers for guests (Home), written by officers / admins. */
   publicStats: PublicStats | null;
+  /** Boss-Guides: instanceKey -> bossKey -> guide (officers write; js/boss-guides.js). */
+  bossGuides: Record<string, Record<string, BossGuide>>;
+}
+interface BossGuide {
+  /** Tactics, rich text (sanitizeRichText). */
+  text: string;
+  /** Short hints per role (plain text). */
+  roles: { tank: string; healer: string; damage: string };
+  /** Classes that negate / ease mechanics: classId -> why. */
+  classes: Record<string, string>;
+  /** Mechanics (BOSS_MECHANICS ids) — suggest classes and Taktik abilities. */
+  mech: Record<string, true>;
+  updatedAt: Millis;
+  /** Display name of the last editor. */
+  updatedBy: string;
+  /** Picture of the boss (https link; the client has no boss models). */
+  img: string;
 }
 interface PublicStats {
   members: number;

@@ -284,6 +284,8 @@ function homeTodoHtml(){
   const todo = [];
   const apps = questPendingApplicationsCount();
   if (apps) todo.push({ text: `${apps} ${apps === 1 ? 'neue Bewerbung wartet' : 'neue Bewerbungen warten'} auf Bearbeitung.`, action: homeLink('recruit', 'Bewerbungen') });
+  const reports = supportOpenCount();
+  if (reports) todo.push({ text: `${reports} ${reports === 1 ? 'offene Meldung' : 'offene Meldungen'} über „Problem melden“.`, action: homeLink('support', 'Meldungen') });
   // Guest applications for SR raids (js/raid-externals.js), per raid.
   raidAppsSync();
   for (const [id, byUid] of Object.entries(raidApps)) {

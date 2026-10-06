@@ -303,6 +303,21 @@ Go to **Build → Realtime Database → Rules** and replace them with:
           }
         }
       },
+      "supportReports": {
+        ".read": "auth != null && ((root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin') || (query.orderByChild == 'uid' && query.equalTo == auth.uid))",
+        ".indexOn": ["uid"],
+        "$reportId": {
+          ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin'))",
+          ".validate": "newData.hasChildren(['uid', 'cat', 'text', 'at']) && newData.child('cat').isString() && newData.child('cat').val().matches(/^(display|data|info|bug|idea)$/) && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 2000 && newData.child('at').isNumber()"
+        }
+      },
+      "supportReportShots": {
+        "$reportId": {
+          ".read": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin')",
+          ".write": "auth != null && ((!data.exists() && root.child('guild-loot-data/supportReports').child($reportId).child('uid').val() === auth.uid) || (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin'))",
+          ".validate": "newData.isString() && newData.val().length <= 600000 && newData.val().matches(/^data:image\\/(jpeg|png|webp);base64,/)"
+        }
+      },
       "publicStats": {
         ".read": true,
         ".write": "auth != null && (root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'admin' || root.child('guild-loot-data/discordRoles').child(auth.uid).child('role').val() == 'officer')",
@@ -1580,6 +1595,22 @@ lists crafters per profession (filter chips, search by player or item);
 an item search shows "Wer kann das herstellen?" — who listed the recipe,
 then who has enough skill. The BiS planner's source lines name guild
 crafters for BoE crafted items ("Gilde: Hammerfaust (Rezept), …").
+
+**Problem melden / Meldungen** (`js/support.js`): every logged-in user
+(members, applicants, guests) gets a floating button "Problem melden"
+(bottom right; also in the user menu) — category (Darstellung, Daten
+fehlen, Info falsch, Funktion geht nicht, Idee), description, optional
+screenshot (browser-resized JPEG in `supportReportShots/<id>`). The
+report carries page, hash, viewport, pixel ratio, phone or not, user
+agent, role and the last 5 JavaScript errors of the page automatically.
+Reporters see their own reports (query on `uid`) with status and answer
+in the same window. Officers / admins: page "Meldungen" (filter Offen /
+In Arbeit / Erledigt, status, answer, open the page, screenshot,
+delete); open reports count on the quest bell, the nav badge and Home
+"Zu tun". `supportReports/<id>` = `{ uid, name, role, cat, text, page,
+hash, vw, vh, dpr, mobile, ua, errors, shot, at, status, reply,
+handledBy, handledAt }`. **Rules:** `supportReports`, `supportReportShots`
+(README § 6f). Own listeners, not in `SYNCED_KEYS`.
 
 **Testmodus** (`js/testmode.js`, User Settings → "Testmodus starten"
 for Admins and for anyone an Admin unlocked in Manage access — checkbox

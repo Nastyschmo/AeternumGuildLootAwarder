@@ -106,5 +106,11 @@ export function buildQuests({ qQuests, qNpcs, qObjects, zoneInfo, rewardItems, i
     const z = ref[1];
     if (z && !zones[z]) { const info = zoneInfo(z); if (info && info.name) zones[z] = { n: info.name, k: info.kind === 'd' || info.kind === 'r' || info.kind === 'b' ? info.kind : 'z', lv: [0, 0], c: 0 }; }
   }
+  // The same instance can come under several ids: the client's area id the
+  // quests use (Uldaman 1517, Zul'Farrak 978 …) often lacks the instance
+  // type the enum id (1337, 1176 …) has — same name, same kind.
+  const kindByName = new Map();
+  for (const z of Object.values(zones)) if (z.k !== 'z') kindByName.set(z.n.toLowerCase(), z.k);
+  for (const z of Object.values(zones)) if (z.k === 'z' && kindByName.has(z.n.toLowerCase())) z.k = kindByName.get(z.n.toLowerCase());
   return { quests, npcs, objs, items, zones };
 }

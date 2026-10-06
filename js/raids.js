@@ -239,13 +239,25 @@ function raidRoster(eventId){
   };
 }
 
-/** @param {{ uid: string, charKey?: string, name: string, charName: string, classId: string, specId: string, note: string, ext?: boolean }} s */
-function raidChipHtml(s){
+/** Damage specs that fight in melee range (the rest of the damage specs are ranged). */
+const RAID_MELEE_SPECS = { warrior: ['arms', 'fury', 'protection'], rogue: ['assassination', 'combat', 'subtlety'], paladin: ['retribution', 'protection'], shaman: ['enhancement'], druid: ['feral', 'feral_tank'] };
+/** @param {{ classId: string, specId: string }} s */
+const raidIsMelee = s => (RAID_MELEE_SPECS[s.classId] || []).includes(s.specId);
+
+/**
+ * Character chip in class color; opts.spec adds the spec (icon + name).
+ * @param {{ uid: string, charKey?: string, name: string, charName: string, classId: string, specId: string, note: string, ext?: boolean }} s
+ * @param {{ spec?: boolean }} [opts]
+ */
+function raidChipHtml(s, opts){
   const cls = CLASS_MAP[s.classId];
   const char = s.charKey ? raidSignupChar(s.uid, s.charKey, s.charName) : null;
   const twink = char && !characterIsRaider(char);
   const title = [s.name, `${cls.label} · ${foreverSpecLabel(s.classId, s.specId)}`, twink ? 'Twink' : '', s.note].filter(Boolean).join(' — ');
-  return `<span class="raid-chip${twink ? ' raid-chip-twink' : ''}" style="--class-color:${cls.color}" title="${escapeHtml(title)}">${escapeHtml(s.charName || s.name || 'Unbekannt')}${twink ? ' <small>T</small>' : ''}${s.ext ? ' <small class="raid-chip-ext">Gast</small>' : ''}${s.note ? ' 💬' : ''}</span>`;
+  const specIcon = opts && opts.spec ? foreverSpecIconUrl(s.classId, s.specId) : null;
+  const spec = opts && opts.spec ? `<span class="raid-chip-spec">${specIcon ? `<img src="${escapeHtml(specIcon)}" alt="" width="14" height="14" loading="lazy" onerror="this.remove()">` : ''}${escapeHtml(foreverSpecLabel(s.classId, s.specId))}</span>` : '';
+  const note = s.note ? '<svg class="raid-chip-note" viewBox="0 0 16 16" aria-label="Notiz"><path d="M2 3h12v8H6l-3 3v-3H2z" fill="currentColor"/></svg>' : '';
+  return `<span class="raid-chip${twink ? ' raid-chip-twink' : ''}${spec ? ' raid-chip-wide' : ''}" style="--class-color:${cls.color}" title="${escapeHtml(title)}"><span class="raid-chip-name">${escapeHtml(s.charName || s.name || 'Unbekannt')}</span>${spec}${twink ? ' <small>T</small>' : ''}${s.ext ? ' <small class="raid-chip-ext">Gast</small>' : ''}${note}</span>`;
 }
 
 /** The own sign-up controls of an event: one form, one line per signed-up character. @param {string} id */
@@ -303,14 +315,17 @@ function raidSignupFormHtml(id){
 /** Sign-ups by role (+ Vielleicht / Absagen). @param {string} id */
 function raidSignupsHtml(id){
   const r = raidRoster(id);
-  const col = (label, list) => `<div class="raid-col"><div class="raid-col-head">${label} <span>${list.length}</span></div>${list.length ? list.map(raidChipHtml).join('') : '<span class="bis-item-meta">—</span>'}</div>`;
-  return `<div class="raid-roster">
-      ${col(`${roleIconHtml('tank')} Tanks`, r.tank)}${col(`${roleIconHtml('healer')} Heiler`, r.healer)}${col(`${roleIconHtml('damage')} Damage`, r.damage)}
-    </div>
-    ${r.maybe.length || r.no.length ? `<div class="raid-roster-extra">
-      ${r.maybe.length ? `<div><span class="raid-col-head">Vielleicht</span> ${r.maybe.map(raidChipHtml).join('')}</div>` : ''}
-      ${r.no.length ? `<div><span class="raid-col-head">Absagen</span> ${r.no.map(raidChipHtml).join('')}</div>` : ''}
-    </div>` : ''}`;
+  const chips = list => list.length ? list.map(s => raidChipHtml(s, { spec: true })).join('') : '<span class="bis-item-meta">—</span>';
+  // One row per group, top to bottom: Tanks, Heiler, Melee, Range (sorted by class inside, raidRoster).
+  const row = (icon, label, list, cls) => `<div class="raid-roster-row${cls ? ` ${cls}` : ''}"><div class="raid-roster-label">${icon}<b>${label}</b><span>${list.length}</span></div><div class="raid-roster-chips">${chips(list)}</div></div>`;
+  return `<div class="raid-roster-rows">
+      ${row(roleIconHtml('tank'), 'Tanks', r.tank)}
+      ${row(roleIconHtml('healer'), 'Heiler', r.healer)}
+      ${row(roleIconHtml('damage'), 'Melee', r.damage.filter(raidIsMelee))}
+      ${row(roleIconHtml('damage'), 'Range', r.damage.filter(s => !raidIsMelee(s)))}
+      ${r.maybe.length ? row('', 'Vielleicht', r.maybe, 'raid-roster-row-extra') : ''}
+      ${r.no.length ? row('', 'Absagen', r.no, 'raid-roster-row-extra') : ''}
+    </div>`;
 }
 
 /**
@@ -343,7 +358,7 @@ function raidListCardHtml(id, e){
   const sessions = officer ? lootEventSessions(id).length : 0;
   let me = '';
   if (isMemberOrHigher()){
-    if (inLineup.length && e.rosterPublished) me = `<span class="raid-me raid-me-in">✓ In der Aufstellung: ${inLineup.map(raidChipHtml).join('')}</span>`;
+    if (inLineup.length && e.rosterPublished) me = `<span class="raid-me raid-me-in">✓ In der Aufstellung: ${inLineup.map(s => raidChipHtml(s)).join('')}</span>`;
     else if (mine.length) me = `<span class="raid-me">Angemeldet: ${mine.map(([k, s]) => `${raidChipHtml({ uid: discordIdentity.id, charKey: k, ...s })} <span class="bis-item-meta">${RAID_STATUS_LABELS[s.status]}</span>`).join(' ')}</span>`;
     else if (phase === 'signup') me = '<span class="raid-me raid-me-todo">Noch nicht angemeldet</span>';
   }

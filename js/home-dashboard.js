@@ -194,7 +194,7 @@ function homeNextRaidHtml(){
   const mine = Object.entries((raidSignups[id] || {})[uid] || {});
   const inLineup = raidCompPicked(id, e).filter(s => s.uid === uid);
   let status;
-  if (inLineup.length && e.rosterPublished) status = `<p class="home-status home-status-good">✓ Du bist in der Aufstellung: ${inLineup.map(raidChipHtml).join(' ')}</p>`;
+  if (inLineup.length && e.rosterPublished) status = `<p class="home-status home-status-good">✓ Du bist in der Aufstellung: ${inLineup.map(s => raidChipHtml(s)).join(' ')}</p>`;
   else if (mine.length) status = `<p class="home-status">Angemeldet: ${mine.map(([k, s]) => `${raidChipHtml({ uid, charKey: k, ...s })} <span class="bis-item-meta">${RAID_STATUS_LABELS[s.status]}</span>`).join(' ')}${e.rosterPublished ? ' <span class="bis-item-meta">· auf der Ersatzbank</span>' : ''}</p>`;
   else if (phase === 'signup') status = '<p class="home-status home-status-todo">Du bist noch nicht angemeldet.</p>';
   else status = '<p class="home-status">Die Anmeldung ist geschlossen.</p>';

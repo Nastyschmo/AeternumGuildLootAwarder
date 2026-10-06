@@ -2138,7 +2138,22 @@ html.theme-horde .classdive-toggle-static:hover{ background: var(--fold-head-bg)
 .raid-col-head span{ color: var(--text-muted); margin-left: 4px; }
 .raid-col{ display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start; }
 .raid-col .raid-col-head{ flex-basis: 100%; }
-.raid-chip{ font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--class-color); color: var(--class-color); }
+.raid-chip{ display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 1px 9px 1px 7px; border-radius: 2px 999px 999px 2px; border: 1px solid var(--class-color); border-left-width: 3px; color: var(--class-color); vertical-align: middle; }
+.raid-chip-spec{ display: inline-flex; align-items: center; gap: 3px; padding-left: 6px; margin-left: 2px; border-left: 1px solid var(--border); font-size: 11px; color: var(--text-muted); }
+.raid-chip-spec img{ border-radius: 3px; }
+.raid-chip-note{ width: 11px; height: 11px; opacity: .8; }
+/* Anmeldung: one row per group (Tanks, Heiler, Melee, Range). */
+.raid-roster-rows{ display: flex; flex-direction: column; }
+.raid-roster-row{ display: grid; grid-template-columns: 130px 1fr; gap: 10px; align-items: start; padding: 8px 0; border-bottom: 1px solid var(--border-soft); }
+.raid-roster-row:first-child{ padding-top: 0; }
+.raid-roster-row:last-child{ border-bottom: 0; padding-bottom: 0; }
+.raid-roster-label{ display: flex; align-items: center; gap: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--gold-bright); padding-top: 3px; }
+.raid-roster-label span{ color: var(--text-muted); }
+.raid-roster-chips{ display: flex; flex-wrap: wrap; gap: 5px; }
+.raid-roster-row-extra .raid-roster-label{ color: var(--text-muted); }
+@media (max-width: 640px){
+  .raid-roster-row{ grid-template-columns: 1fr; gap: 6px; }
+}
 .raid-roster-extra{ margin-top: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .raid-roster-extra .raid-col-head{ display: inline; margin-right: 6px; }
 .raid-roster-extra .raid-chip{ margin-right: 4px; }

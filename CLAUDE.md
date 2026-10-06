@@ -39,7 +39,7 @@ Worker.
   Ausnahme: Keys, die die Seite nie liest (z. B. `applicationLocks`), kommen
   nicht in `SYNCED_KEYS` und bekommen keine `.read`-Regel.
   Keys, die nur pro Nutzer bzw. per Query gelesen werden (`applications`,
-  `bisSets`, `bisOwned`, `bisPublic`, `raidEvents`, `raidSignups`, `raidReserves`, `lootAwards`, `lootSessions`), haben eigene Listener statt eines
+  `bisSets`, `bisOwned`, `bisPublic`, `raidEvents`, `raidSignups`, `raidReserves`, `lootAwards`, `lootSessions`, `raidPlans`, `raidApplications`, `supportReports`), haben eigene Listener statt eines
   `SYNCED_KEYS`-Eintrags, brauchen aber ihre `.read`-Regel.
 - Neue Seiten-Origins (eigene Domain usw.) müssen im Worker erlaubt
   werden: `DEFAULT_ALLOWED_ORIGINS` bzw. Worker-Variable `ALLOWED_ORIGINS`.

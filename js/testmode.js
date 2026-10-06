@@ -245,11 +245,20 @@ function testSeed(now){
       msgs: { tm2: { by: 'test_offi', name: 'Offi Olaf', text: 'Willkommen! Treffpunkt 19:45 am Instanzeingang.', at: now - day } } }
   } };
   const raidApplicationShots = shot ? { t_hyjal: { test_bewerber: { s1: shot } } } : {};
+  // Two "Problem melden" reports (js/support.js): one open from a phone, one answered.
+  const supportReports = {
+    tsr1: { uid: 'test_m6', name: 'Feuerfee', role: 'member', cat: 'display', text: 'Auf dem Handy ist die Raid-Karte zu breit, ich muss seitlich scrollen um die Anmeldung zu sehen.', page: 'raids', hash: '#raids',
+      vw: 390, vh: 844, dpr: 3, mobile: true, ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+      errors: ['TypeError: Cannot read properties of undefined (reading \'classId\') (raids.js:412)'], shot: 0, at: now - 3 * 3600000, status: 'open' },
+    tsr2: { uid: 'test_m9', name: 'Seelenbrand', role: 'member', cat: 'info', text: 'Bei Hyjal steht ein falscher Bossname.', page: 'bosses', hash: '#bosses', vw: 1920, vh: 1080, dpr: 1, mobile: false,
+      ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36', errors: [], shot: 0, at: now - 2 * day,
+      status: 'done', reply: 'Danke, ist korrigiert!', handledBy: 'Offi Olaf', handledAt: now - day }
+  };
   // A Boss-Guide written by officers (Hyjal Summit, first boss).
   const bossGuides = { hyjal_summit: { bandalar: { text: '<h2>Ablauf</h2><p>Bandalar wird mittig getankt. Bei <b>Furcht</b> rennen alle Richtung Wand — Fear Ward auf den Main-Tank.</p><ul><li>Adds links einsammeln</li><li>Fernkampf verteilt hinten</li></ul>',
     roles: { tank: 'Boss mittig, Add-Tank links.', healer: 'Tanks priorisieren, Flüche sofort entfernen.', damage: 'Adds zuerst, dann Boss.' },
     classes: { warlock: 'Curse of Recklessness auf den Boss' }, mech: { fear: true, curse: true, adds: true }, updatedAt: now - day, updatedBy: 'Offi Olaf' } } };
-  return { 'guild-loot-data': { announcements, classDeepDives, discordRoles, characterProfiles, bisPublic, bisOwned, raidEvents, raidSignups, raidReserves, lootAwards, lootSessions, raidPlans, bossGuides, raidApplications, raidApplicationShots, applications } };
+  return { 'guild-loot-data': { announcements, classDeepDives, discordRoles, characterProfiles, bisPublic, bisOwned, raidEvents, raidSignups, raidReserves, lootAwards, lootSessions, raidPlans, bossGuides, raidApplications, raidApplicationShots, supportReports, applications } };
 }
 
 // ---------------------------------------------------------------- in-memory Firebase
@@ -392,6 +401,7 @@ function testModeBar(){
         <li><b>Ansicht als „Offi Olaf“</b>: gleiche Runde, seine Stimme ist ★ — Stimmen beider Council-Mitglieder sieht jeder im Council sofort.</li>
         <li><b>Barrow Deeps Run 2</b>: Tab „Aufstellung“ — Kraxl und Tanky sind 🔒 (schon in Run 1 dieser ID). Stell 10 Leute zusammen (2/3/5), veröffentliche.</li>
         <li><b>Hyjal</b>: Soft-Reserve-Raid mit Hard-Reserve (Staff of Dominance, nicht reservierbar). Als Officer im Tab „Anmeldung“ weitere HR setzen, „Anmeldung schließen → Aufstellung“ ausprobieren.</li>
+        <li><b>Problem melden</b>: Button unten rechts (für alle) — Meldung mit Screenshot abschicken, danach „Deine Meldungen“. Als Admin/Officer: Seite „Meldungen“ (Gilde) mit einer offenen Handy-Meldung inkl. Fehlermeldung; Status setzen und antworten.</li>
         <li><b>Gast-Bewerbungen</b>: Als <b>Neuling Nils</b> oder <b>Gast Gerda</b> (ohne Gildenrolle) zeigt „Raids“ die SR-Raids — Bewerbung mit Armory-Link, Screenshot und Nachricht; Gerda ist angenommen und kann Soft-Reserves setzen. Als Officer im Hyjal-Raid, Tab „Anmeldung“ unten: Gast-Bewerbungen annehmen / ablehnen und antworten.</li>
         <li><b>Boss-Guides</b> (Raid &amp; Loot): Hyjal Summit → Bandalar hat einen Beispiel-Guide (Mechaniken Furcht/Flüche/Adds → hilfreiche Klassen). Als Officer „Bearbeiten“; im Raid „Hyjal — Taktik“ stehen beim Boss die empfohlenen Fähigkeiten oben.</li>
         <li><b>Hyjal — Taktik</b>: Tab „Taktik“ — als Officer pro Boss Seelenstein, Anregen, Flüche, Segen usw. zuweisen, Raidgruppen „Automatisch verteilen“, bei Bandalar Marker auf das Feld ziehen, „MRT-Notiz kopieren“. Als Mitglied (z. B. Seelenbrand) oben „Deine Aufgaben“; Neuling Nils sieht den Tab nicht.</li>

@@ -2456,6 +2456,43 @@ button.apply-chat-edit:hover{ filter: brightness(1.12); }
 .raid-panel .raid-lead-part .raid-admin{ margin: 6px 0 0; }
 .raid-todo-hint{ display: flex; align-items: center; gap: 6px; margin: 10px 0 0; font-size: 13.5px; color: var(--gold-bright); }
 
+/* Problem melden / Meldungen (js/support.js) */
+.support-fab{ position: fixed; right: 18px; bottom: 18px; z-index: 70; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border: 1px solid var(--gold); border-radius: 999px; background: var(--bg-panel); color: var(--gold-bright); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.4); opacity: .9; }
+.support-fab:hover{ opacity: 1; background: var(--bg-panel-raised); }
+.support-fab svg{ width: 18px; height: 18px; }
+.support-card{ max-width: 560px; }
+.support-card .access-modal-header h2{ display: flex; align-items: center; gap: 8px; }
+.support-field{ display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; font-size: 13px; color: var(--text-muted); }
+.support-field select{ background: var(--field-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 7px 8px; font: inherit; font-size: 13.5px; }
+.support-shot-actions{ display: flex; flex-wrap: wrap; gap: 6px; }
+.support-shot-actions label.btn{ cursor: pointer; }
+.support-shot-tip{ font-size: 11.5px; color: var(--text-faint); }
+.support-mine{ margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-soft); display: flex; flex-direction: column; gap: 8px; }
+.support-mine-item{ padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--field-bg); font-size: 13px; }
+.support-mine-item p{ margin: 4px 0 0; }
+.support-reply{ color: var(--teal-bright); }
+.support-status{ display: inline-block; font-size: 10.5px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); }
+.support-status-open{ border-color: var(--gold-bright); color: var(--gold-bright); }
+.support-status-progress{ border-color: var(--teal-bright); color: var(--teal-bright); }
+.support-item{ display: flex; flex-direction: column; gap: 8px; }
+.support-item-open{ border-color: var(--gold); }
+.support-item-done{ opacity: .8; }
+.support-item-head{ display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 14px; }
+.support-text{ margin: 0; font-size: 14px; }
+.support-ctx{ display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; color: var(--text-muted); }
+.support-ctx code, .support-errors code{ font-size: 11.5px; color: var(--text-faint); }
+.support-link{ font: inherit; color: var(--teal-bright); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+.support-errors summary{ cursor: pointer; font-size: 12.5px; color: var(--danger-bright); }
+.support-errors ul{ margin: 4px 0 0; padding-left: 18px; }
+.support-handle{ display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid var(--border-soft); }
+.support-handle label{ display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--text-muted); max-width: 640px; }
+.support-handle select{ max-width: 200px; background: var(--field-bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font: inherit; }
+#pageHost{ padding-bottom: 56px; }
+@media (max-width: 760px){
+  .support-fab{ right: 12px; bottom: 12px; padding: 10px; }
+  .support-fab span{ display: none; }
+}
+
 /* Raid guest applications (js/raid-externals.js) */
 .raid-chip-ext{ font-size: 10px; padding: 0 5px; margin-left: 3px; border-radius: 999px; border: 1px solid var(--teal-bright); color: var(--teal-bright); }
 .raid-ext-intro p{ margin: 6px 0 0; font-size: 14px; }

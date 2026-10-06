@@ -215,7 +215,7 @@ function raidExtFormHtml(id, d){
   </div>`;
 }
 
-/** Shrink an image file to a JPEG data URL under RAID_EXT_SHOT_MAX_BYTES. @param {File} file @returns {Promise<string>} */
+/** Shrink an image (file, pasted or captured blob) to a JPEG data URL under RAID_EXT_SHOT_MAX_BYTES. @param {Blob} file @returns {Promise<string>} */
 function raidExtShrink(file){
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);

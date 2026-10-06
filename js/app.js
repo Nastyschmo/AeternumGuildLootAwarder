@@ -66,6 +66,7 @@ function pageQuestPending(pageId){
   if (pageId === 'announcements') return questPendingAnnouncement();
   if (pageId === 'forever') return questPendingPollItems().length > 0;
   if (pageId === 'recruit') return questPendingApplicationsCount() > 0;
+  if (pageId === 'support') return supportOpenCount() > 0;
   return false;
 }
 // Marks Ankündigungen as "seen" up to the newest post that exists right
@@ -94,7 +95,8 @@ function renderQuestBell(){
   const announcementPending = questPendingAnnouncement();
   const pollItems = questPendingPollItems();
   const applicationsCount = questPendingApplicationsCount();
-  const totalCount = (announcementPending ? 1 : 0) + pollItems.length + applicationsCount;
+  const supportCount = supportOpenCount();
+  const totalCount = (announcementPending ? 1 : 0) + pollItems.length + applicationsCount + supportCount;
   // The bell icon itself is the WoW "!" quest mark — filled gold when
   // there's something pending, just its empty outline when you're
   // caught up (see the .has-pending CSS). Each item inside the dropdown
@@ -126,6 +128,13 @@ function renderQuestBell(){
         <a class="quest-popover-item" data-quest-page="recruit">
           <span class="quest-popover-item-icon" aria-hidden="true">?</span>
           <span>${applicationsCount} offene Bewerbung${applicationsCount === 1 ? '' : 'en'} (noch nicht in Bearbeitung)</span>
+        </a>`;
+    }
+    if (supportCount){
+      html += `<div class="quest-popover-section-title">Meldungen</div>
+        <a class="quest-popover-item" data-quest-page="support">
+          <span class="quest-popover-item-icon" aria-hidden="true">?</span>
+          <span>${supportCount} offene Meldung${supportCount === 1 ? '' : 'en'} („Problem melden“)</span>
         </a>`;
     }
   }
@@ -165,6 +174,10 @@ const PAGES = [
   {
     id: 'recruit', label: 'Bewerbung', group: 'guild', show: 'applicant',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>'
+  },
+  {
+    id: 'support', label: 'Meldungen', group: 'guild', show: 'officer',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/><path d="M12 8v4M12 15.5v.01"/></svg>'
   },
   {
     id: 'raids', label: 'Raids', group: 'raid', show: 'login',
@@ -210,6 +223,7 @@ function pageInNav(p){
   if (p.show === 'applicant') return !isMemberOrHigher() || isOfficerOrAdmin();
   // Raids: members see the calendar, guests the SR raids they can apply for.
   if (p.show === 'login') return Boolean(discordIdentity);
+  if (p.show === 'officer') return isOfficerOrAdmin();
   return true;
 }
 // Sidebar sections, in this order; pages keep their PAGES order inside one.
@@ -321,6 +335,7 @@ function showPage(pageId, opts){
   if (pageId === 'home') renderHomeDashboard();
   if (pageId === 'classdeepdives') renderClassDeepDivesView();
   if (pageId === 'raids') renderRaidsPage();
+  if (pageId === 'support') renderSupportPage();
   if (pageId === 'bosses') renderBossGuidesPage();
   if (pageId === 'professions') renderProfessionsPage();
   if (pageId === 'loot') renderLootPage();
@@ -474,6 +489,7 @@ function renderAll(){
   // BiS-Planer: login / role changes decide whether sets can be saved.
   if (currentPage === 'bis') renderBisPlanner();
   if (currentPage === 'raids') renderRaidsPage();
+  if (currentPage === 'support') renderSupportPage();
   if (currentPage === 'bosses') renderBossGuidesPage();
   if (currentPage === 'professions') renderProfessionsPage();
   if (currentPage === 'loot') renderLootPage();

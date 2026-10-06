@@ -1742,10 +1742,16 @@ not. No rules change. Rules: README § 6f.
 
 Page "Levelguide" (Wissen & Tools, everybody, `js/level-guide.js`): where
 the Horde quests at which level and which dungeon quests exist, with the
-whole quest chain that leads to them. "Mein Level" (kept in the browser)
-marks the dungeons and zones that fit (level range of the middle 80 % of
-their quests, zones spanning more than 15 levels — capitals — never
-"fit"); a search finds quests, NPCs and zones.
+whole quest chain that leads to them. "Mein Level" and "Mein Volk" (kept
+in the browser) mark the dungeons and zones that fit (level range of the
+middle 80 % of their quests, zones spanning more than 15 levels —
+capitals — never "fit"). Starting zones are tagged with their races; with
+a race picked, the other races' starting zones are dimmed and never fit,
+and quests only other races can take are hidden. A search finds quests,
+NPCs and zones. Every quest shows what to do (Blizzard's objective text,
+English) and its targets — NPCs to kill, objects to use, items to collect
+with who drops them, places to explore — with coordinates, plus where to
+hand it in when that's somewhere else.
 
 - **Dungeons & Raids:** per instance its quests — quest giver with zone,
   coordinates and a "/way x y" copy button, every step of the chain from

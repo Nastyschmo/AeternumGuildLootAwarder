@@ -1581,8 +1581,11 @@ an item search shows "Wer kann das herstellen?" — who listed the recipe,
 then who has enough skill. The BiS planner's source lines name guild
 crafters for BoE crafted items ("Gilde: Hammerfaust (Rezept), …").
 
-**Testmodus** (`js/testmode.js`, Admins: User Settings → "Testmodus
-starten"): the whole site on a made-up guild (17 people, 21 characters,
+**Testmodus** (`js/testmode.js`, User Settings → "Testmodus starten"
+for Admins and for anyone an Admin unlocked in Manage access — checkbox
+"Testmodus" per person, `discordRoles/<uid>/testMode`; no rules change,
+people can already write their own entry and the test mode never touches
+the real data): the whole site on a made-up guild (17 people, 21 characters,
 public BiS sets, five raid events incl. a past one with loot, a raid
 running today with two Loot-Runden and votes, a raid-ID lockout case,
 soft-reserves with a Hard-Reserve, three applications), only in this browser.

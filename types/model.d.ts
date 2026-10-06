@@ -18,6 +18,8 @@ interface DiscordRoleEntry {
   username?: string;
   avatar?: string | null;
   notifyOnApplications?: boolean;
+  /** Unlocked by an Admin: may start the test mode (User Settings). */
+  testMode?: boolean;
 }
 
 interface ForeverPick { classId: ClassId; spec: SpecId; }

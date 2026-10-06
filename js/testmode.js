@@ -10,7 +10,9 @@
 // (TESTMODE_DB_KEY) until "Szenario neu laden" or "Beenden".
 // A bar at the top switches the person you look through (admin, officer,
 // members, an applicant) — the page reloads as that person.
-// Entry: Admins, User Settings → "Testmodus starten" (testModeStart).
+// Entry: User Settings → "Testmodus starten" (testModeStart) — Admins, and
+// whoever an Admin unlocked in Manage access (discordRoles/<uid>/testMode,
+// canUseTestMode in js/auth.js).
 
 /* eslint-disable no-var */
 var TESTMODE_KEY = 'rude-testmode-v1';

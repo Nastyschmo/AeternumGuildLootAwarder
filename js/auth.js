@@ -248,6 +248,22 @@ async function setDiscordUserNotify(discordId, enabled){
   await saveData('discordRoles/' + discordId);
 }
 
+// "Testmodus" toggle in Manage access: unlocks User Settings →
+// "Testmodus starten" for this person (Admins always have it). Test mode
+// only runs in that person's browser on made-up data (js/testmode.js), so
+// this is a convenience switch, not a permission the rules protect.
+async function setDiscordUserTestMode(discordId, enabled){
+  if (!state.discordRoles || !state.discordRoles[discordId]) return;
+  state.discordRoles[discordId].testMode = !!enabled;
+  await saveData('discordRoles/' + discordId);
+}
+/** May the logged-in person start the test mode? */
+function canUseTestMode(){
+  if (currentRole === 'admin') return true;
+  const me = discordIdentity && (state.discordRoles || {})[discordIdentity.id];
+  return Boolean(me && me.testMode);
+}
+
 function renderAccessModal(){
   const roles = state.discordRoles || {};
   const ids = Object.keys(roles);
@@ -283,6 +299,11 @@ function renderAccessModal(){
           Bewerbungen melden
         </label>`
       : '';
+    // Test mode: Admins always have it; everybody else when an Admin ticks it.
+    const testHtml = m.role === 'admin' ? '' : `<label class="access-member-notify" title="Darf in den User Settings den Testmodus starten (erfundene Daten, nur im eigenen Browser)">
+          <input type="checkbox" data-testmode-discord-id="${id}" ${m.testMode ? 'checked' : ''}>
+          Testmodus
+        </label>`;
     return `
       <div class="access-member-block">
         <div class="access-member-row">
@@ -290,7 +311,7 @@ function renderAccessModal(){
           <span class="access-member-name">${escapeHtml(m.username || 'Unknown')}${nickHtml}${isSelf ? ' (you)' : ''}</span>
           <select class="access-member-role-select" data-discord-id="${id}" ${isSelf ? 'disabled title="You can\'t change your own role — ask another Admin, or use a second Discord account."' : ''}>${roleOptHtml(m.role)}</select>
         </div>
-        ${notifyHtml}
+        ${notifyHtml || testHtml ? `<div class="access-member-options">${notifyHtml}${testHtml}</div>` : ''}
         <div class="access-member-characters-row">
           <div class="character-chips">${chipsHtml}</div>
           ${hasCharacters ? `<button type="button" class="btn btn-ghost btn-sm access-member-armory-refresh" data-refresh-armory="${id}">Aktualisieren</button>` : ''}
@@ -314,6 +335,9 @@ function renderAccessModal(){
   });
   els.accessMemberList.querySelectorAll('[data-notify-discord-id]').forEach((/** @type {HTMLInputElement} */ cb) => {
     cb.addEventListener('change', () => setDiscordUserNotify(cb.getAttribute('data-notify-discord-id'), cb.checked));
+  });
+  els.accessMemberList.querySelectorAll('[data-testmode-discord-id]').forEach((/** @type {HTMLInputElement} */ cb) => {
+    cb.addEventListener('change', () => setDiscordUserTestMode(cb.getAttribute('data-testmode-discord-id'), cb.checked));
   });
   els.accessMemberList.querySelectorAll('[data-refresh-armory]').forEach((/** @type {HTMLButtonElement} */ btn) => {
     btn.addEventListener('click', async () => {

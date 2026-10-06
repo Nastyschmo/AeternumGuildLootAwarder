@@ -461,6 +461,8 @@ select:focus, textarea:focus{ outline: none; border-color: var(--gold); }
 /* "Notify me about new applications" — only shown for Admin/Officer
    rows (see canNotify in renderAccessModal), indented to line up under
    the name/select above it rather than the avatar. */
+.access-member-options{ display: flex; flex-wrap: wrap; gap: 4px 16px; padding-left: 42px; }
+.access-member-options .access-member-notify{ padding-left: 0; }
 .access-member-notify{
   display: flex; align-items: center; gap: 6px; padding: 4px 4px 0 42px;
   font-size: 11.5px; color: var(--text-muted); cursor: pointer;

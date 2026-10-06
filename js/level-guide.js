@@ -149,7 +149,7 @@ function lgDungeonsHtml(){
       </button>
       ${open ? `<div class="lg-card-body">${ids.map(id => lgQuestHtml(id, key)).join('')}</div>` : ''}
     </div>`;
-  }).join('') || '<div class="tac-card"><p class="bis-hint">Nichts gefunden.</p></div>';
+  }).join('');
 }
 
 function lgZonesHtml(){
@@ -175,7 +175,13 @@ function lgZonesHtml(){
         ${ids.map(id => lgQuestHtml(id, key)).join('')}
       </div>` : ''}
     </div>`;
-  }).join('') || '<div class="tac-card"><p class="bis-hint">Nichts gefunden.</p></div>';
+  }).join('');
+}
+
+/** The open tab; a search looks through both (dungeons first). */
+function lgListHtml(){
+  const html = lgQuery ? lgDungeonsHtml() + lgZonesHtml() : lgTab === 'zones' ? lgZonesHtml() : lgDungeonsHtml();
+  return html || '<div class="tac-card"><p class="bis-hint">Nichts gefunden.</p></div>';
 }
 
 function renderLevelGuidePage(){
@@ -192,7 +198,7 @@ function renderLevelGuidePage(){
       <input type="search" class="apply-text-input lg-search" data-lg-search placeholder="Quest, NPC oder Zone suchen …" value="${escapeHtml(lgQuery)}">
       <p class="bis-hint">Horde und neutrale Quests aus QuestieDB (WoW Forever). Neue Forever-Inhalte erscheinen, sobald QuestieDB sie hat. Namen auf Englisch wie im Spiel-Datenstand.</p>
     </div>
-    ${lgTab === 'zones' ? lgZonesHtml() : lgDungeonsHtml()}`;
+    ${lgListHtml()}`;
   lgWire(root);
   if (searchFocused){ const s = /** @type {HTMLInputElement} */ (root.querySelector('[data-lg-search]')); s.focus(); s.setSelectionRange(s.value.length, s.value.length); }
 }

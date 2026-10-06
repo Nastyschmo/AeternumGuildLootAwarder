@@ -138,7 +138,8 @@ function raidNormalizeSignup(raw){
     classId: raw.classId,
     specId: String(raw.specId || ''),
     note: String(raw.note || '').slice(0, 120),
-    updatedAt: Number(raw.updatedAt) || 0
+    updatedAt: Number(raw.updatedAt) || 0,
+    ext: raw.ext === true
   };
 }
 
@@ -238,13 +239,13 @@ function raidRoster(eventId){
   };
 }
 
-/** @param {{ uid: string, charKey?: string, name: string, charName: string, classId: string, specId: string, note: string }} s */
+/** @param {{ uid: string, charKey?: string, name: string, charName: string, classId: string, specId: string, note: string, ext?: boolean }} s */
 function raidChipHtml(s){
   const cls = CLASS_MAP[s.classId];
   const char = s.charKey ? raidSignupChar(s.uid, s.charKey, s.charName) : null;
   const twink = char && !characterIsRaider(char);
   const title = [s.name, `${cls.label} · ${foreverSpecLabel(s.classId, s.specId)}`, twink ? 'Twink' : '', s.note].filter(Boolean).join(' — ');
-  return `<span class="raid-chip${twink ? ' raid-chip-twink' : ''}" style="--class-color:${cls.color}" title="${escapeHtml(title)}">${escapeHtml(s.charName || s.name || 'Unbekannt')}${twink ? ' <small>T</small>' : ''}${s.note ? ' 💬' : ''}</span>`;
+  return `<span class="raid-chip${twink ? ' raid-chip-twink' : ''}" style="--class-color:${cls.color}" title="${escapeHtml(title)}">${escapeHtml(s.charName || s.name || 'Unbekannt')}${twink ? ' <small>T</small>' : ''}${s.ext ? ' <small class="raid-chip-ext">Gast</small>' : ''}${s.note ? ' 💬' : ''}</span>`;
 }
 
 /** The own sign-up controls of an event: one form, one line per signed-up character. @param {string} id */
@@ -382,6 +383,7 @@ function raidDetailHtml(id, e){
       <div class="raid-col-head raid-section-head">Anmeldungen <span>${r.yes.length} dabei · ${r.maybe.length} vielleicht · ${r.no.length} Absagen</span></div>
       ${raidSignupsHtml(id)}
       ${raidSrSectionHtml(id, e, phase === 'done')}
+      ${raidExtOfficerHtml(id, e)}
       ${officer && e.srMax ? `<div class="raid-admin">${raidSrAdminHtml(id, e, phase === 'done')}</div>` : ''}`;
   } else if (tab === 'comp'){
     if (officer && phase !== 'done'){
@@ -445,7 +447,7 @@ function raidEventFormHtml(){
 }
 
 /** Inputs that keep their focus across live re-renders. */
-const RAID_FOCUS_ATTRS = ['data-raid-sr-search', 'data-raid-hr-search', 'data-loot-sess-search', 'data-loot-modal-note'];
+const RAID_FOCUS_ATTRS = ['data-raid-sr-search', 'data-raid-hr-search', 'data-loot-sess-search', 'data-loot-modal-note', 'data-raid-ext-f', 'data-raid-ext-note', 'data-raid-ext-msg'];
 
 function renderRaidsPage(){
   const root = document.getElementById('raidsRoot');
@@ -455,6 +457,21 @@ function renderRaidsPage(){
     return;
   }
   raidSync();
+  // Guests (no guild role): the SR raids they can apply for (js/raid-externals.js).
+  if (!isMemberOrHigher()){
+    const active = /** @type {HTMLInputElement | null} */ (document.activeElement);
+    const focusAttr = active && root.contains(active) ? RAID_FOCUS_ATTRS.find(a => active.hasAttribute(a)) : null;
+    const focusVal = focusAttr ? active.getAttribute(focusAttr) : null;
+    const caret = focusAttr && typeof active.selectionStart === 'number' ? active.selectionStart : null;
+    root.innerHTML = raidExtPageHtml();
+    raidExtWire(root);
+    raidSrWire(root);
+    if (focusAttr){
+      const el = /** @type {HTMLInputElement | null} */ (root.querySelector(`[${focusAttr}="${CSS.escape(focusVal)}"]`));
+      if (el){ el.focus(); if (caret !== null && el.setSelectionRange) try { el.setSelectionRange(caret, caret); } catch (e){ /* not a text field */ } }
+    }
+    return;
+  }
   lootSync();
   if (isOfficerOrAdmin()) lootSessionSync();
   // Keep the focus in a search / note field and the pop-up's scroll position across live re-renders.
@@ -485,6 +502,7 @@ function renderRaidsPage(){
   raidSrWire(root);
   raidCompWire(root);
   raidTacticsWire(root);
+  raidExtWire(root);
   lootWire(root);
   lootSessionWire(root);
   const lists = ['.loot-modal-list', '.loot-modal-main'].map(sel => root.querySelector(sel));

@@ -284,6 +284,13 @@ function homeTodoHtml(){
   const todo = [];
   const apps = questPendingApplicationsCount();
   if (apps) todo.push({ text: `${apps} ${apps === 1 ? 'neue Bewerbung wartet' : 'neue Bewerbungen warten'} auf Bearbeitung.`, action: homeLink('recruit', 'Bewerbungen') });
+  // Guest applications for SR raids (js/raid-externals.js), per raid.
+  raidAppsSync();
+  for (const [id, byUid] of Object.entries(raidApps)) {
+    const e = raidEvents[id];
+    const open = Object.values(byUid).filter(a => a.app && !a.status).length;
+    if (e && open && now < raidDayEnd(e)) todo.push({ text: `${e.title} (${raidDateLabel(e.start)}): ${open} ${open === 1 ? 'Gast-Bewerbung' : 'Gast-Bewerbungen'} offen.`, action: `<button type="button" class="btn btn-ghost btn-sm" data-home-raid="${escapeHtml(id)}" data-home-tab="signup">Ansehen</button>` });
+  }
   for (const [id, e] of Object.entries(raidEvents).sort((a, z) => a[1].start - z[1].start)) {
     const phase = raidPhase(e);
     if (phase === 'done') continue;

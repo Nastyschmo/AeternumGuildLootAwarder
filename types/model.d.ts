@@ -508,4 +508,6 @@ interface RaidSignup {
   specId: SpecId;
   note: string;
   updatedAt: Millis;
+  /** A guest accepted from a raid application (js/raid-externals.js). */
+  ext: boolean;
 }

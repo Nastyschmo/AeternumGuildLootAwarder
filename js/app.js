@@ -167,7 +167,7 @@ const PAGES = [
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>'
   },
   {
-    id: 'raids', label: 'Raids', group: 'raid', show: 'member',
+    id: 'raids', label: 'Raids', group: 'raid', show: 'login',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><path d="m9 15 2 2 4-4"/></svg>'
   },
   {
@@ -208,6 +208,8 @@ const PAGES = [
 function pageInNav(p){
   if (p.show === 'member') return isMemberOrHigher();
   if (p.show === 'applicant') return !isMemberOrHigher() || isOfficerOrAdmin();
+  // Raids: members see the calendar, guests the SR raids they can apply for.
+  if (p.show === 'login') return Boolean(discordIdentity);
   return true;
 }
 // Sidebar sections, in this order; pages keep their PAGES order inside one.

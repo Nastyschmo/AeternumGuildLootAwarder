@@ -2414,6 +2414,44 @@ button.apply-chat-edit:hover{ filter: brightness(1.12); }
 .tac-ability.recommended{ border-color: var(--gold); }
 .tac-more summary{ cursor: pointer; font-size: 13px; color: var(--text-muted); margin: 4px 0 8px; }
 
+/* Raid guest applications (js/raid-externals.js) */
+.raid-chip-ext{ font-size: 10px; padding: 0 5px; margin-left: 3px; border-radius: 999px; border: 1px solid var(--teal-bright); color: var(--teal-bright); }
+.raid-ext-intro p{ margin: 6px 0 0; font-size: 14px; }
+.raid-ext-app{ display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.raid-ext-char{ display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13.5px; }
+.raid-ext-char a{ color: var(--teal-bright); font-size: 12.5px; }
+.raid-ext-char-row{ display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 0; border-bottom: 1px solid var(--border-soft); }
+.raid-ext-shots{ display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.raid-ext-shot{ position: relative; display: inline-block; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--field-bg); overflow: hidden; cursor: zoom-in; }
+.raid-ext-shot img{ display: block; width: 140px; height: 90px; object-fit: cover; }
+.raid-ext-shot button{ position: absolute; top: 2px; right: 2px; border: 0; border-radius: 50%; width: 22px; height: 22px; background: var(--danger); color: var(--text); cursor: pointer; }
+.raid-ext-shot-add{ display: inline-flex; align-items: center; justify-content: center; width: 140px; height: 90px; border: 1px dashed var(--border); border-radius: 6px; color: var(--text-muted); cursor: pointer; font-size: 13px; }
+.raid-ext-shot-add:hover{ border-color: var(--gold); color: var(--gold-bright); }
+.raid-ext-form{ display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.raid-ext-form-char{ display: grid; grid-template-columns: 24px 1fr 1fr 1fr 2fr auto; gap: 6px 8px; align-items: end; }
+.raid-ext-form-char label{ display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--text-muted); min-width: 0; }
+.raid-ext-form-char .tac-kick-num{ margin-bottom: 8px; }
+.raid-ext-thread{ display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.raid-ext-msg{ padding: 6px 10px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--field-bg); font-size: 13.5px; max-width: 85%; }
+.raid-ext-msg.lead{ border-color: var(--gold); }
+.raid-ext-msg.mine{ align-self: flex-end; }
+.raid-ext-msg p{ margin: 3px 0 0; }
+.raid-ext-msg-head{ display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; }
+.raid-ext-reply{ display: flex; gap: 6px; align-items: flex-end; }
+.raid-ext-reply textarea{ flex: 1; min-width: 0; }
+.raid-ext-list{ display: flex; flex-direction: column; gap: 8px; }
+.raid-ext-item{ padding: 8px 10px; border: 1px solid var(--gold); border-radius: 8px; background: var(--fold-body-bg); }
+.raid-ext-item.accepted{ border-color: var(--teal-bright); }
+.raid-ext-item.declined{ border-color: var(--border-soft); opacity: .8; }
+.raid-ext-item > summary{ cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13.5px; }
+.raid-ext-zoom{ position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; background: var(--tip-bg); cursor: zoom-out; }
+.raid-ext-zoom img{ max-width: 100%; max-height: 85vh; border: 1px solid var(--border); border-radius: 8px; }
+@media (max-width: 760px){
+  .raid-ext-form-char{ grid-template-columns: 24px 1fr 1fr; }
+  .raid-ext-form-char .raid-ext-armory{ grid-column: 2 / -1; }
+  .raid-ext-msg{ max-width: 100%; }
+}
+
 /* Boss-Guides page (js/boss-guides.js) */
 .boss-picker{ display: flex; flex-direction: column; gap: 8px; }
 .boss-picker-row{ display: flex; gap: 8px; align-items: flex-start; }

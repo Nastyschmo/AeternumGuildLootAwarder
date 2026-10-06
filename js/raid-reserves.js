@@ -186,7 +186,9 @@ function raidSrSectionHtml(id, e, past){
 
   // Own reserves and the search box.
   let own = '';
-  if (!past && isMemberOrHigher()){
+  // Members, and guests whose raid application was accepted (js/raid-externals.js).
+  const guestOk = ((raidApps[id] || {})[uid] || {}).status === 'accepted';
+  if (!past && (isMemberOrHigher() || guestOk)){
     const chips = mine.map(itemId => `<span class="raid-sr-mine">${itemHtml(itemId)}${e.srLocked ? '' : `<button type="button" data-raid-sr-remove="${itemId}" data-raid-id="${escapeHtml(id)}" aria-label="Entfernen">×</button>`}</span>`).join('');
     let add = '';
     if (e.srLocked) add = '<p class="bis-hint">Die Reserves sind gesperrt.</p>';

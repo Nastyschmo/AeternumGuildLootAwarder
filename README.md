@@ -1738,6 +1738,37 @@ are hit / crit / dodge / block % read from the enchant text
 (`bisEnchantChances`, e.g. "Hit +1%"); procs (Crusader) and haste are
 not. No rules change. Rules: README § 6f.
 
+## Levelguide
+
+Page "Levelguide" (Wissen & Tools, everybody, `js/level-guide.js`): where
+the Horde quests at which level and which dungeon quests exist, with the
+whole quest chain that leads to them. "Mein Level" and "Mein Volk" (kept
+in the browser) mark the dungeons and zones that fit (level range of the
+middle 80 % of their quests, zones spanning more than 15 levels —
+capitals — never "fit"). Starting zones are tagged with their races; with
+a race picked, the other races' starting zones are dimmed and never fit,
+and quests only other races can take are hidden. A search finds quests,
+NPCs and zones. Every quest shows what to do (Blizzard's objective text,
+English) and its targets — NPCs to kill, objects to use, items to collect
+with who drops them, places to explore — with coordinates, plus where to
+hand it in when that's somewhere else.
+
+- **Dungeons & Raids:** per instance its quests — quest giver with zone,
+  coordinates and a "/way x y" copy button, every step of the chain from
+  the first quest (with where each step starts), the follow-up quest and
+  the reward items (tooltips as in the BiS-Planer).
+- **Zonen:** world zones by level range with their quest hubs (quest
+  givers with three or more quests) and quests.
+
+Data: `scripts/forever-data/quests.mjs` → `data/forever/quests.json`,
+built by the daily Forever data workflow from QuestieDB's Forever data
+(Horde and neutral quests only; quest givers hostile to the Horde and
+pre-quests the Horde can't take are left out). Zone names come from the
+client's `AreaTable`, instance kind as for the item data; an instance
+that only comes under the client's area id gets the kind of the
+same-named instance. New Forever quests show up once QuestieDB has them.
+Names stay English. No Firebase data, no rules change.
+
 ## How to play (Class Overview)
 
 Each class in **Class Overview** has a "How to play" card above its

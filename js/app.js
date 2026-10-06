@@ -200,6 +200,10 @@ const PAGES = [
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg>'
   },
   {
+    id: 'levelguide', label: 'Levelguide', group: 'know',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h4v-5h4v-5h4V5h6"/><path d="m17 3 4 2-4 2"/></svg>'
+  },
+  {
     id: 'classdeepdives', label: 'Klassen', group: 'know', show: 'member',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M9 7h7M9 11h7"/></svg>'
   },
@@ -335,6 +339,7 @@ function showPage(pageId, opts){
   if (pageId === 'home') renderHomeDashboard();
   if (pageId === 'classdeepdives') renderClassDeepDivesView();
   if (pageId === 'raids') renderRaidsPage();
+  if (pageId === 'levelguide') renderLevelGuidePage();
   if (pageId === 'support') renderSupportPage();
   if (pageId === 'bosses') renderBossGuidesPage();
   if (pageId === 'professions') renderProfessionsPage();

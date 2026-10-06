@@ -2459,7 +2459,7 @@ button.apply-chat-edit:hover{ filter: brightness(1.12); }
 /* Levelguide (js/level-guide.js) */
 .lg-top{ display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
 .lg-top .bis-hint{ flex-basis: 100%; margin: 0; }
-.lg-level{ display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); }
+.lg-level{ display: flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 13px; color: var(--text-muted); }
 .lg-level input{ width: 80px; }
 .lg-search{ flex: 1 1 220px; min-width: 0; }
 .lg-card{ padding: 0; overflow: hidden; }
@@ -2489,12 +2489,22 @@ button.apply-chat-edit:hover{ filter: brightness(1.12); }
 .lg-step-final{ color: var(--gold-bright); }
 .lg-item{ display: inline-flex; align-items: center; gap: 4px; }
 .lg-item img{ border-radius: 3px; border: 1px solid var(--border); }
+.lg-card.lg-other{ opacity: .55; }
+.lg-task{ display: flex; flex-direction: column; gap: 4px; }
+.lg-task > div{ display: flex; gap: 4px 10px; }
+.lg-otext{ color: var(--text); line-height: 1.45; }
+.lg-targets{ margin: 0; padding: 0 0 0 82px; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+.lg-targets li{ display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
+.lg-ttype{ min-width: 64px; font-size: 11px; color: var(--teal-bright); }
+.lg-titem{ color: var(--gold-bright); }
 .lg-hubs{ padding: 10px 16px; border-bottom: 1px solid var(--border-soft); display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; }
 .lg-hub{ display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 @media (max-width: 640px){
   .lg-card-head{ padding: 10px 12px; }
   .lg-quest{ padding: 10px 12px; }
   .lg-label{ min-width: 0; flex-basis: 100%; }
+  .lg-task > div{ flex-wrap: wrap; }
+  .lg-targets{ padding-left: 0; }
 }
 
 /* Problem melden / Meldungen (js/support.js) */

@@ -436,6 +436,7 @@ for (const name of ['Mortal Strike', 'Bloodthirst', 'Shield Slam', 'Holy Shock',
 // ---------------------------------------------------------------- levelguide
 const questData = buildQuests({
   qQuests, qNpcs, qObjects, itemName,
+  itemDrops: id => { const r = qItems.get(id) || []; return { npcs: (r[1] || []).map(I).filter(Boolean), objs: (r[2] || []).map(I).filter(Boolean) }; },
   // Quests are sorted by the client's area ids (Razorfen Kraul 1717, Zul'Farrak 978 …), which
   // QuestieDB's instance enum doesn't list — so dungeon / raid also from the area's map.
   zoneInfo: id => {

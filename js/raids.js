@@ -245,7 +245,7 @@ const RAID_MELEE_SPECS = { warrior: ['arms', 'fury', 'protection'], rogue: ['ass
 const raidIsMelee = s => (RAID_MELEE_SPECS[s.classId] || []).includes(s.specId);
 
 /**
- * Character chip in class color; opts.spec adds the spec (icon + name).
+ * Character chip in class color; opts.spec puts the spec icon left of the name (spec name in the tooltip).
  * @param {{ uid: string, charKey?: string, name: string, charName: string, classId: string, specId: string, note: string, ext?: boolean }} s
  * @param {{ spec?: boolean }} [opts]
  */
@@ -255,9 +255,9 @@ function raidChipHtml(s, opts){
   const twink = char && !characterIsRaider(char);
   const title = [s.name, `${cls.label} · ${foreverSpecLabel(s.classId, s.specId)}`, twink ? 'Twink' : '', s.note].filter(Boolean).join(' — ');
   const specIcon = opts && opts.spec ? foreverSpecIconUrl(s.classId, s.specId) : null;
-  const spec = opts && opts.spec ? `<span class="raid-chip-spec">${specIcon ? `<img src="${escapeHtml(specIcon)}" alt="" width="14" height="14" loading="lazy" onerror="this.remove()">` : ''}${escapeHtml(foreverSpecLabel(s.classId, s.specId))}</span>` : '';
+  const spec = specIcon ? `<img class="raid-chip-spec" src="${escapeHtml(specIcon)}" alt="${escapeHtml(foreverSpecLabel(s.classId, s.specId))}" width="16" height="16" loading="lazy" onerror="this.remove()">` : '';
   const note = s.note ? '<svg class="raid-chip-note" viewBox="0 0 16 16" aria-label="Notiz"><path d="M2 3h12v8H6l-3 3v-3H2z" fill="currentColor"/></svg>' : '';
-  return `<span class="raid-chip${twink ? ' raid-chip-twink' : ''}${spec ? ' raid-chip-wide' : ''}" style="--class-color:${cls.color}" title="${escapeHtml(title)}"><span class="raid-chip-name">${escapeHtml(s.charName || s.name || 'Unbekannt')}</span>${spec}${twink ? ' <small>T</small>' : ''}${s.ext ? ' <small class="raid-chip-ext">Gast</small>' : ''}${note}</span>`;
+  return `<span class="raid-chip${twink ? ' raid-chip-twink' : ''}${spec ? ' raid-chip-wide' : ''}" style="--class-color:${cls.color}" title="${escapeHtml(title)}">${spec}<span class="raid-chip-name">${escapeHtml(s.charName || s.name || 'Unbekannt')}</span>${twink ? ' <small>T</small>' : ''}${s.ext ? ' <small class="raid-chip-ext">Gast</small>' : ''}${note}</span>`;
 }
 
 /** The own sign-up controls of an event: one form, one line per signed-up character. @param {string} id */
@@ -316,16 +316,16 @@ function raidSignupFormHtml(id){
 function raidSignupsHtml(id){
   const r = raidRoster(id);
   const chips = list => list.length ? list.map(s => raidChipHtml(s, { spec: true })).join('') : '<span class="bis-item-meta">—</span>';
-  // One row per group, top to bottom: Tanks, Heiler, Melee, Range (sorted by class inside, raidRoster).
-  const row = (icon, label, list, cls) => `<div class="raid-roster-row${cls ? ` ${cls}` : ''}"><div class="raid-roster-label">${icon}<b>${label}</b><span>${list.length}</span></div><div class="raid-roster-chips">${chips(list)}</div></div>`;
-  return `<div class="raid-roster-rows">
-      ${row(roleIconHtml('tank'), 'Tanks', r.tank)}
-      ${row(roleIconHtml('healer'), 'Heiler', r.healer)}
-      ${row(roleIconHtml('damage'), 'Melee', r.damage.filter(raidIsMelee))}
-      ${row(roleIconHtml('damage'), 'Range', r.damage.filter(s => !raidIsMelee(s)))}
-      ${r.maybe.length ? row('', 'Vielleicht', r.maybe, 'raid-roster-row-extra') : ''}
-      ${r.no.length ? row('', 'Absagen', r.no, 'raid-roster-row-extra') : ''}
-    </div>`;
+  // Columns side by side — Tanks, Heiler, Melee, Range — with the characters below each other (sorted by class, raidRoster).
+  const col = (icon, label, list) => `<div class="raid-roster-col"><div class="raid-roster-label">${icon}<b>${label}</b><span>${list.length}</span></div><div class="raid-roster-list">${chips(list)}</div></div>`;
+  const extra = (label, list) => list.length ? `<div class="raid-roster-extra-row"><span class="raid-roster-label"><b>${label}</b><span>${list.length}</span></span>${chips(list)}</div>` : '';
+  return `<div class="raid-roster-cols">
+      ${col(roleIconHtml('tank'), 'Tanks', r.tank)}
+      ${col(roleIconHtml('healer'), 'Heiler', r.healer)}
+      ${col(roleIconHtml('damage'), 'Melee', r.damage.filter(raidIsMelee))}
+      ${col(roleIconHtml('damage'), 'Range', r.damage.filter(s => !raidIsMelee(s)))}
+    </div>
+    ${extra('Vielleicht', r.maybe)}${extra('Absagen', r.no)}`;
 }
 
 /**

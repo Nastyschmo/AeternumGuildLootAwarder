@@ -8,12 +8,12 @@
 // Dive texts); everything else is German. Edited by hand via PR — bump
 // HOW_TO_PLAY_UPDATED when the content changes.
 
-const HOW_TO_PLAY_UPDATED = '2026-10-03';
+const HOW_TO_PLAY_UPDATED = '2026-10-11';
 
 /** @type {Record<string, HowToPlayClass>} */
 const HOW_TO_PLAY = {
   warrior: {
-    intro: 'Plattenträger mit Wut als Ressource: Wut entsteht, wenn Du Schaden austeilst oder einsteckst. Forever gibt jedem Baum neue Werkzeuge – Arms spielt um Rend und Overpower (Bloodthrill), Fury lässt Whirlwind mit beiden Waffen zuschlagen (Raging Blows), Protection macht mit Bastion auch Schaden.',
+    intro: 'Plattenträger mit Wut als Ressource: Wut entsteht, wenn Du Schaden austeilst oder einsteckst. Forever gibt jedem Baum neue Werkzeuge – Arms spielt um Rend und Overpower (Bloodthrill), Fury macht Whirlwind und Cleave billiger (Raging Blows) und heilt sich über Gore Drinker, Protection macht mit Bastion auch Schaden.',
     leveling: 'Arms mit Zweihänder ist der bequemste Weg: hoher Einzelschaden, Sweeping Strikes gegen Gruppen und viele Overpower-Procs über Bloodthrill. Fury lohnt sich erst mit zwei guten Waffen, meist ab Dungeon-Ausrüstung. Einen Schild für Dungeons mitnehmen – Tanks werden immer gesucht.',
     races: 'Alle Völker können Warrior spielen. Für Schaden sind Völker mit Angriffs- oder Waffen-Racials beliebt, für Tanks solche mit Stamina- bzw. Verteidigungs-Boni. Die Racials im Detail: Talent Builder → Völker.',
     professions: 'Bergbau + Schmiedekunst für eigene Waffen und Rüstung, oder Ingenieurskunst für Bomben, Zielfernrohre und Gadgets (stark im PvP und Raid). Zum Goldmachen beim Leveln: Bergbau + Kräuterkunde oder Kürschnerei.',
@@ -33,12 +33,12 @@ const HOW_TO_PLAY = {
         tips: [
           'Weaponmaster hängt vom Waffentyp ab: Axt/Stangenwaffe = Crit, Streitkolben/Stab = Rüstung ignorieren, Schwert = Extra-Angriffe.',
           'Sweeping Strikes vor Gruppen-Pulls zünden.',
-          'Spearing Strike macht Extraschaden gegen Riesen, Drachkin und berittene Gegner.'
+          'Spearing Strike macht Extraschaden gegen Riesen, Drachkin und berittene Gegner – und holt Reiter vom Mount.'
         ]
       },
       fury: {
         summary: 'Beidhändiger Nahkämpfer – im Raid meist der stärkste physische Schaden, braucht aber gute Ausrüstung.',
-        playstyle: 'Bloodthirst auf Cooldown, Whirlwind trifft mit Raging Blows auch mit der Nebenhand. Flurry hält die Angriffsgeschwindigkeit hoch, Death Wish ist Dein Burst. Wut-Überschuss geht in Heroic Strike, bei mehreren Zielen in Cleave.',
+        playstyle: 'Bloodthirst und Whirlwind auf Cooldown – Raging Blows senkt die Wutkosten von Whirlwind und Cleave um 3. Flurry hält die Angriffsgeschwindigkeit hoch, Death Wish ist Dein Burst. Wut-Überschuss geht in Heroic Strike, bei mehreren Zielen in Cleave.',
         priority: [
           'Battle Shout aktiv halten',
           'Bloodthirst auf Cooldown',
@@ -49,7 +49,7 @@ const HOW_TO_PLAY = {
         ],
         stats: 'Hit bis zum Cap ist Pflicht (beidhändig verfehlst Du sonst sehr oft), dann Strength/Attack Power und Crit (Flurry).',
         tips: [
-          'Boundless Rage erhöht die maximale Wut um 30 – weniger Verschwendung in Burst-Phasen.',
+          'Gore Drinker: Nach Bloodthirst, Death Wish, Bloodrage, Berserker Rage oder Enrage heilen Dich Deine nächsten 3 Schläge um je 1 % Leben.',
           'Bloodthirst gibt zusätzlich 10 % Laufgeschwindigkeit.',
           'Fury levelt zäh – erst mit ordentlicher Dungeon-Ausrüstung wechseln.'
         ]
@@ -78,7 +78,8 @@ const HOW_TO_PLAY = {
       { label: 'Warcraft Tavern – Warrior', url: 'https://www.warcrafttavern.com/forever/guides/warrior/' },
       { label: 'classicwow.gg – Warrior Overview', url: 'https://classicwow.gg/forever/guides/warrior' },
       { label: 'Mobalytics – Protection Warrior', url: 'https://mobalytics.gg/wow-forever/profile/phaseshifter/classes/protection-warrior' },
-      { label: 'wowforever.games – Warrior Guide', url: 'https://www.wowforever.games/129.html' }
+      { label: 'wowforever.games – Warrior Guide', url: 'https://www.wowforever.games/129.html' },
+      { label: 'MMO-Champion – Forever Development Notes (1. Oktober)', url: 'https://www.mmo-champion.com/content/14573-World-of-Warcraft-Forever-Beta-Development-Notes-October-1' }
     ]
   },
 
@@ -120,7 +121,7 @@ const HOW_TO_PLAY = {
         tips: [
           'Templar\'s Bulwark löst Forbearance aus – nicht direkt nach Divine Shield nutzbar.',
           'Improved Righteous Fury senkt den erlittenen Schaden um 6 %.',
-          'Reckoning gibt Extra-Angriffe nach Blocks und Crits gegen Dich.'
+          'Reckoning gibt Extra-Angriffe nach Blocks und Crits gegen Dich (höchstens alle 1,5 Sek.).'
         ]
       },
       retribution: {

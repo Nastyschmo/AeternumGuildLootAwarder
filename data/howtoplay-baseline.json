@@ -1,6 +1,6 @@
 {
- "updated": "2026-10-03",
- "build": "1.60.1.70205",
+ "updated": "2026-10-11",
+ "build": "1.60.1.70338",
  "classes": {
   "warrior": {
    "Bastion": {
@@ -9,15 +9,11 @@
    },
    "Bloodthirst": {
     "max": 1,
-    "desc": "Instantly attack the target causing damage equal to 35% of your Attack Power plus 30 and increasing your movement speed by 10% for 10 sec."
+    "desc": "Instantly attack the target causing damage equal to 45% of your Attack Power plus 30 and increasing your movement speed by 10% for 10 sec."
    },
    "Bloodthrill": {
     "max": 5,
     "desc": "Your Main Hand melee attacks against enemies afflicted by your Rend have a 20% chance to allow the use of your Overpower ability on the target. Lasts 6 sec."
-   },
-   "Boundless Rage": {
-    "max": 3,
-    "desc": "Increases your maximum Rage by 30."
    },
    "Concussion Blow": {
     "max": 1,
@@ -27,9 +23,17 @@
     "max": 1,
     "desc": "When activated, increases your Physical damage done by 20% and makes you immune to Fear effects, but increases all damage you take by 5%. Lasts 30 sec."
    },
+   "Enrage": {
+    "max": 5,
+    "desc": "Gives you a 30% chance to deal 10% increased Physical damage for 12 sec after being the victim of any damaging attack."
+   },
    "Flurry": {
     "max": 5,
     "desc": "Increases your melee attack speed by 25% for your next 3 swings after dealing a melee critical strike."
+   },
+   "Gore Drinker": {
+    "max": 2,
+    "desc": "Your Enrage, Berserker Rage, Bloodrage, Death Wish, and Bloodthirst abilities cause your next 3 melee attacks to restore 1% of your maximum Health."
    },
    "Improved Charge": {
     "max": 2,
@@ -61,7 +65,7 @@
    },
    "Raging Blows": {
     "max": 1,
-    "desc": "Causes your Whirlwind to also strike with your Off Hand weapon, and reduces the Rage cost of your Cleave ability by 2."
+    "desc": "Reduces the Rage cost of your Cleave and Whirlwind abilities by 3."
    },
    "Shield Slam": {
     "max": 1,
@@ -73,7 +77,7 @@
    },
    "Spearing Strike": {
     "max": 1,
-    "desc": "A brutal attack that deals 40% weapon damage, plus an additional 80% weapon damage against Giants, Dragonkin, and mounted targets."
+    "desc": "A brutal attack that deals 40% weapon damage. Deals an additional 80% weapon damage against Giants, Dragonkin, and mounted targets. Mounted targets are dismounted."
    },
    "Sweeping Strikes": {
     "max": 1,
@@ -139,7 +143,7 @@
    },
    "Reckoning": {
     "max": 5,
-    "desc": "Gives you a 40% chance to gain an extra attack after Blocking a melee attack and a 100% chance to gain an extra attack after being the victim of a non-periodic critical strike."
+    "desc": "Gives you a 40% chance to gain an extra attack after Blocking a melee attack and a 100% chance to gain an extra attack after being the victim of a non-periodic critical strike. Cannot occur more often than once every 1.5 sec."
    },
    "Repentance": {
     "max": 1,
@@ -209,7 +213,7 @@
    },
    "Expose Prey": {
     "max": 2,
-    "desc": "Your attacks against targets with Hunter's Mark have a 10% chance to activate your Mongoose Bite for 5 sec."
+    "desc": "Your attacks against targets with Hunter's Mark have a 10% chance to activate your Mongoose Bite for 10 sec."
    },
    "Ferocity": {
     "max": 5,

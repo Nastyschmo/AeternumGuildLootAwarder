@@ -469,8 +469,10 @@ function renderForeverOfficerTable(){
   // Object.entries (not .values) — the uid is needed to look up a
   // saved nickname from characterProfiles for the "Nickname (Discord)"
   // display.
+  // Only current guild members (votes of people who left are removed by the
+  // Worker's role sync; until then they're just not shown).
   const entries = Object.entries(state.foreverSurvey || {})
-    .filter(([, e]) => e && Array.isArray(e.picks) && e.picks.length)
+    .filter(([uid, e]) => e && Array.isArray(e.picks) && e.picks.length && isGuildMemberUid(uid))
     .map(([uid, e]) => ({ uid, ...e }));
   if (!entries.length){
     els.foreverOfficerTable.innerHTML = '<tr><td class="lootlib-note">Noch keine Stimmen.</td></tr>';
@@ -769,6 +771,8 @@ function foreverAggregate(){
   let voterCount = 0;
   Object.entries(state.foreverSurvey).forEach(([uid, entry]) => {
     if (!entry || !Array.isArray(entry.picks) || !entry.picks.length) return;
+    // Votes of people who left the guild don't count (see renderForeverOfficerTable).
+    if (!isGuildMemberUid(uid)) return;
     voterCount++;
     const name = memberDisplayLabel(uid, entry.username);
     entry.picks.forEach(p => {

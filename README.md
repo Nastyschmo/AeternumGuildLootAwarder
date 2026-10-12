@@ -926,6 +926,14 @@ site until they do. This step adds a job that periodically re-checks
 everyone who's ever logged in and fixes up their stored role by itself — no
 one needs to log in again for it to take effect.
 
+The same job also cleans up the **WoW Forever class / spec voting**: votes
+(`foreverSurvey/<uid>`) of people who are no longer Guild Member / Officer /
+Admin — they left the Discord server or lost the member role — are removed.
+As a safety net it removes nothing when Discord returns an empty member list
+or when more than half of all voters would go (that would be a sync problem,
+not people leaving). The page itself also only counts votes of current
+members, so a leaver's vote stops showing right away, even before the job runs.
+
 It needs no new secrets — it reuses `DISCORD_BOT_TOKEN` and
 `FIREBASE_SERVICE_ACCOUNT_JSON`, which you already set up in steps 6a and
 6e. It also needs **no Firebase rules changes** — it writes using the

@@ -113,6 +113,18 @@ function memberDisplayLabel(uid, username){
   return (profile && profile.nickname) ? `${profile.nickname} (${fallback})` : fallback;
 }
 
+/**
+ * Is this Discord id (still) in the guild — Guild Member, Officer or Admin
+ * in discordRoles? People who left the Discord server drop to Community
+ * there (on their next login, or by the Worker's hourly role sync).
+ * @param {string} uid
+ */
+function isGuildMemberUid(uid){
+  const entry = (state.discordRoles || {})[uid];
+  const role = entry && entry.role;
+  return role === 'admin' || role === 'officer' || role === 'member';
+}
+
 /** @returns {Announcement | null} */
 function normalizeAnnouncement(a){
   if (!a || typeof a.text !== 'string' || !a.text.trim()) return null;

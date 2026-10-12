@@ -873,6 +873,11 @@ async function syncDiscordRolesToFirebase(env){
     return;
   }
 
+  if (!members.length){
+    console.log('[role sync] Discord returned no members — skipped (nothing changed).');
+    return;
+  }
+
   // discordUserId -> the site role they currently resolve to, for everyone
   // presently in the server.
   const currentRoleByUserId = new Map();
@@ -921,22 +926,72 @@ async function syncDiscordRolesToFirebase(env){
   const changedCount = Object.keys(updates).length;
   if (changedCount === 0){
     console.log(`[role sync] checked ${Object.keys(stored).length} known member(s) — all already up to date.`);
-    return;
+  } else {
+    try{
+      const res = await fetch(`${FIREBASE_DATABASE_URL}/guild-loot-data/discordRoles.json`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text().catch(() => '')}`);
+      console.log(`[role sync] updated ${changedCount} member(s): ` + JSON.stringify(updates));
+    }catch(e){
+      console.log('[role sync] failed to write updated roles to Firebase: ' + e.message);
+      return;
+    }
   }
 
+  // Roles as they are now (stored + this run's changes).
+  const roleNow = (uid) => {
+    if (updates[`${uid}/role`]) return updates[`${uid}/role`];
+    return stored[uid] && stored[uid].role;
+  };
+  await pruneForeverSurvey(accessToken, roleNow);
+}
+
+// The class / spec voting (foreverSurvey) is for guild members: votes of
+// people who are no longer in the guild (left the Discord server or lost
+// the member role → 'community', or no discordRoles entry at all) are
+// removed, so the results only show the current guild. Runs after the role
+// sync above, with the same admin access token (bypasses the rules).
+const SURVEY_MEMBER_ROLES = ['admin', 'officer', 'member'];
+async function pruneForeverSurvey(accessToken, roleNow){
+  let survey;
   try{
-    const res = await fetch(`${FIREBASE_DATABASE_URL}/guild-loot-data/discordRoles.json`, {
+    const res = await fetch(`${FIREBASE_DATABASE_URL}/guild-loot-data/foreverSurvey.json?shallow=true`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    survey = await res.json();
+  }catch(e){
+    console.log('[survey prune] could not read foreverSurvey: ' + e.message);
+    return;
+  }
+  if (!survey) return;
+  const removals = {};
+  for (const uid of Object.keys(survey)){
+    if (!SURVEY_MEMBER_ROLES.includes(roleNow(uid))) removals[uid] = null;
+  }
+  const count = Object.keys(removals).length;
+  if (!count) return;
+  // Safety net: a broken / empty Discord member list would turn everyone into
+  // 'community' — never wipe most of the voting because of that.
+  const total = Object.keys(survey).length;
+  if (count > 3 && count > total / 2){
+    console.log(`[survey prune] skipped: ${count} of ${total} voters would be removed — that looks like a sync problem, not people leaving.`);
+    return;
+  }
+  try{
+    const res = await fetch(`${FIREBASE_DATABASE_URL}/guild-loot-data/foreverSurvey.json`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
+      body: JSON.stringify(removals)
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text().catch(() => '')}`);
+    console.log(`[survey prune] removed the votes of ${count} former member(s): ` + Object.keys(removals).join(', '));
   }catch(e){
-    console.log('[role sync] failed to write updated roles to Firebase: ' + e.message);
-    return;
+    console.log('[survey prune] failed to remove votes: ' + e.message);
   }
-
-  console.log(`[role sync] updated ${changedCount} member(s): ` + JSON.stringify(updates));
 }
 
 export default {

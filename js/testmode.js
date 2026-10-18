@@ -351,6 +351,11 @@ function testModeChangelog(){
         { c: 'Druid', n: 'Moonkin Form', k: 'changed', from: 'Shapeshift into Moonkin Form, increasing Armor contribution from items by 360%, and all party members within 30 yards have their Critical Strike chance increased by 3%.', to: 'Shapeshift into Moonkin Form, increasing Armor contribution from items by 360%, and all party members within 40 yards have their Critical Strike chance increased by 5%.' },
         { c: 'Druid', n: 'Furor', k: 'changed', ranks: [5, 3], from: 'Gives you a 100% chance to gain 10 Rage when you shapeshift into Bear Form or Dire Bear Form.', to: 'Gives you a 100% chance to gain 15 Rage when you shapeshift into Bear Form or Dire Bear Form.' },
         { c: 'Mage', n: 'Arcane Power', k: 'changed', from: 'For the next 15 sec, your spells deal 30% more damage while costing 30% more mana to cast.', to: 'For the next 20 sec, your spells deal 25% more damage while costing 25% more mana to cast.' }
+      ],
+      abilities: [
+        { c: 'Warrior', n: 'Battle Shout', k: 'changed', from: 'The warrior shouts, increasing the melee attack power of all party members within 20 yards by 9. Lasts 3 min.', to: 'The warrior shouts, increasing the melee attack power of all party or raid members within 20 yards by 9. Lasts 3 min.' },
+        { c: 'Mage', n: 'Frost Blast', k: 'added', to: 'Quickly launch a weak blast of frost at the enemy, causing 26 Frost damage and slowing movement speed by 40% for 9 sec.', lv: [null, 24] },
+        { c: 'Druid', n: 'Shred', k: 'changed', lv: [22, 20] }
       ]
     },
     {

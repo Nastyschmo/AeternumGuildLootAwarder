@@ -1279,15 +1279,19 @@ to merging.
 last commit and — only when the client build changed — adds an entry to
 `data/forever/changelog.json`: items added / removed / changed with their
 old and new values (name, quality, item level, required level, stats,
-damage, armor, slot, binding, set) and talents whose text or ranks
-changed. Same build = importer change, not recorded. On the Klassen page
+damage, armor, slot, binding, set), talents whose text or ranks
+changed, and class abilities (`data/forever/spells.json`, written by
+`scripts/forever-data/spells.mjs`) that are new, removed or changed (text,
+learn level). Same build = importer change, not recorded. On the Klassen page
 every build shows up as a Patch-Update in the same list and style as the
 hand-written ones (`js/forever-changes.js`): "Allgemein" lists the items
 (old → new) and which talents changed per class, each class its talents
 with the changed words marked. When officers already wrote a Patch-Update
 on that day (± 1 day), the automatic part is added to that post
 ("Automatisch erkannt") and leaves out items / talents the post already
-names. Home shows a news tile for 14 days after a new build. `--backfill` rebuilds the log from git history.
+names. Home shows a news tile for 14 days after a new build. `--backfill` rebuilds the log from git history;
+`--merge-abilities=<changelog.json>` once took the ability changes of older builds (before
+`spells.json` existed here) from nasty-gaming's changelog of the same game data.
 
 `data/forever/items.json` holds every equippable WoW Forever item of
 uncommon quality or better — name, slot, item level, required level,

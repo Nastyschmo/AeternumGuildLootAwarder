@@ -3,7 +3,8 @@
 // data/forever/changelog.json is written by the daily data workflow
 // (scripts/forever-data/changelog.mjs): one entry per new client build
 // with the items added / removed / changed (old → new values) and the
-// talents whose text or ranks changed.
+// talents whose text or ranks changed, and the class abilities (spells.json)
+// that are new, removed or changed (text, learn level).
 //
 // On the Klassen page every build becomes a Patch-Update post in the same
 // list and style as the hand-written ones (foreverChangePosts):
@@ -20,8 +21,9 @@
 // build (testModeChangelog in js/testmode.js).
 
 /** @typedef {{ c: string, n: string, k: 'added' | 'removed' | 'changed', from?: string, to?: string, ranks?: [number, number] }} ForeverTalentChange */
+/** @typedef {{ c: string, n: string, k: 'added' | 'removed' | 'changed', from?: string, to?: string, lv?: [number | null, number] }} ForeverAbilityChange */
 /** @typedef {[number, string, number]} ForeverItemRef */
-/** @typedef {{ date: string, build: string, prevBuild: string, items?: { counts: { added: number, removed: number, changed: number }, added: ForeverItemRef[], removed: ForeverItemRef[], changed: [number, string, number, Record<string, [any, any]>][] }, talents?: ForeverTalentChange[] }} ForeverChangeEntry */
+/** @typedef {{ date: string, build: string, prevBuild: string, items?: { counts: { added: number, removed: number, changed: number }, added: ForeverItemRef[], removed: ForeverItemRef[], changed: [number, string, number, Record<string, [any, any]>][] }, talents?: ForeverTalentChange[], abilities?: ForeverAbilityChange[] }} ForeverChangeEntry */
 
 /** @type {ForeverChangeEntry[] | null} */
 let foreverChanges = null;
@@ -56,11 +58,13 @@ function foreverChangeItemHtml(id, name){
 function foreverChangeSummary(e, cls){
   const c = e.items && !cls ? e.items.counts : { added: 0, removed: 0, changed: 0 };
   const t = (e.talents || []).filter(x => !cls || x.c === cls).length;
+  const ab = (e.abilities || []).filter(x => !cls || x.c === cls).length;
   return [
     c.added ? `${c.added} ${c.added === 1 ? 'neues Item' : 'neue Items'}` : '',
     c.changed ? `${c.changed} ${c.changed === 1 ? 'Item' : 'Items'} geändert` : '',
     c.removed ? `${c.removed} entfernt` : '',
-    t ? `${t} ${t === 1 ? 'Talent' : 'Talente'}` : ''
+    t ? `${t} ${t === 1 ? 'Talent' : 'Talente'}` : '',
+    ab ? `${ab} ${ab === 1 ? 'Fähigkeit' : 'Fähigkeiten'}` : ''
   ].filter(Boolean).join(' · ');
 }
 
@@ -137,6 +141,15 @@ function foreverTalentChangeHtml(t){
   return `<li><b>${escapeHtml(t.n)}</b>${ranks}${text}</li>`;
 }
 
+/** One ability change: new / removed, learn level, text. @param {ForeverAbilityChange} a */
+function foreverAbilityChangeHtml(a){
+  const lv = a.lv ? ` · Lernbar ab Stufe ${a.lv[0] == null ? foreverNew(a.lv[1]) : `${foreverOld(a.lv[0])} ${foreverArrow} ${foreverNew(a.lv[1])}`}` : '';
+  if (a.k === 'removed') return `<li><b>${escapeHtml(a.n)}</b> <span class="fc-tag">entfernt</span></li>`;
+  if (a.k === 'added') return `<li><b>${escapeHtml(a.n)}</b> <span class="fc-tag fc-tag-new">neue Fähigkeit</span>${lv}${a.to ? `<br>${escapeHtml(a.to)}` : ''}</li>`;
+  const text = a.from && a.to && a.from !== a.to ? `<br>${foreverTextDiff(a.from, a.to)}` : '';
+  return `<li><b>${escapeHtml(a.n)}</b>${lv}${text}</li>`;
+}
+
 // ---------------------------------------------------------------- posts
 /** Does the officers' post text already name it? @param {string} plain lower-case text @param {string} name */
 const foreverMentioned = (plain, name) => Boolean(plain) && plain.includes(name.toLowerCase());
@@ -176,6 +189,21 @@ function foreverChangeHtml(e, classLabel, known){
         const cls = CLASSES.find(x => x.label === c);
         return `<li><button type="button" class="fc-class-link" data-select-classdive="${cls ? cls.id : ''}" style="color:${cls ? cls.color : 'var(--text)'}">${cls && foreverClassIconUrl(cls.id) ? `<img class="game-icon" src="${escapeHtml(foreverClassIconUrl(cls.id))}" alt="" loading="lazy">` : ''}${escapeHtml(FOREVER_CLASS_DE[c] || c)}</button>: ${names.map(escapeHtml).join(', ')}</li>`;
       }).join('')}</ul><p class="fc-hint">Die Texte vorher / nachher stehen bei der jeweiligen Klasse.</p>`;
+    }
+  }
+  const abilities = (e.abilities || []).filter(a => !classLabel || a.c === classLabel);
+  if (abilities.length){
+    if (classLabel){
+      const rest = abilities.filter(a => { const m = foreverMentioned(known, a.n); if (m) skipped++; return !m; });
+      if (rest.length) html += `<h2>${gameIconHtml('spells', 22)} Fähigkeiten</h2><ul>${rest.map(foreverAbilityChangeHtml).join('')}</ul>`;
+    } else {
+      /** @type {Map<string, string[]>} */
+      const byClass = new Map();
+      for (const a of abilities) { if (!byClass.has(a.c)) byClass.set(a.c, []); byClass.get(a.c).push(a.n); }
+      html += `<h2>${gameIconHtml('spells', 22)} Fähigkeiten</h2><ul>${[...byClass].map(([c, names]) => {
+        const cls = CLASSES.find(x => x.label === c);
+        return `<li><button type="button" class="fc-class-link" data-select-classdive="${cls ? cls.id : ''}" style="color:${cls ? cls.color : 'var(--text)'}">${cls && foreverClassIconUrl(cls.id) ? `<img class="game-icon" src="${escapeHtml(foreverClassIconUrl(cls.id))}" alt="" loading="lazy">` : ''}${escapeHtml(FOREVER_CLASS_DE[c] || c)}</button>: ${names.map(escapeHtml).join(', ')}</li>`;
+      }).join('')}</ul>`;
     }
   }
   if (!html) return '';

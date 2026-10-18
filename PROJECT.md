@@ -16,6 +16,17 @@ Rules of collaboration: `CLAUDE.md`.
 
 ## Work log (most recent first)
 
+- **2026-10-18** — Updates in step with nasty-gaming: the data workflow
+  also writes `data/forever/spells.json` (class abilities + racials, English;
+  `scripts/forever-data/spells.mjs`, same as nasty), `changelog.mjs` (now the
+  same as nasty's, rude paths) records ability changes (new / removed / text /
+  learn level). The 15/16 Oct build's 21 ability changes (raid-wide totems and
+  Battle Shout, Moonkin Aura, Salvation, Frost Blast, Shred …) were merged once
+  from nasty's changelog (`--merge-abilities`, German texts dropped). Klassen
+  page: "Fähigkeiten" in the automatic Patch-Updates (per class with text
+  diff and learn level; Allgemein lists the classes). The 15 Oct Blizzard notes
+  themselves are officer posts here (Firebase) — text handed to the user to
+  paste.
 - **2026-10-18** — Forever overview: characters per role (Tank / Healer /
   Damage) next to the legend, following the Alle / First / Second filter.
 - **2026-10-18** — Forever-Abstimmung, Gilden-Übersicht (Klassen &

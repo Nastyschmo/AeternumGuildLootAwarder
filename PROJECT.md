@@ -29,11 +29,7 @@ Rules of collaboration: `CLAUDE.md`.
     longer have (Malediction, Shadow Affinity, Improved Fade, Wake of Fire,
     Improved Fire Nova, Call of Thunder) and clamp ranks to the new max
     (e.g. Fire Power 5 → 3). BiS sets already did this (`bisNormalizeTalents`).
-  - How to play (`data/howtoplay.js`): Mental Strength +10 %, Arcane rework
-    (Arcane Blast → spell damage from Intellect, Arcane Wrath, Missile
-    Barrage), Improved Fire Blast replaces Wake of Fire, Heating Up, Ice
-    Lance 200 %, Reckoning, Devouring Contagion, Power in Light. Baseline
-    rewritten (`scripts/howtoplay/check.mjs --baseline`), stand 2026-10-18.
+  - How to play: already updated for the patch by PR #63 (kept as merged).
   - Raid tactics: Blessing of Salvation is gone — new assignment "Salvation"
     (per player); spellbook snapshot: Salvation / Mass Salvation.
   - Updates page: the word diff marks whole runs of removed / added words

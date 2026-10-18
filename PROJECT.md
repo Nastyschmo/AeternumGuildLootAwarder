@@ -16,6 +16,10 @@ Rules of collaboration: `CLAUDE.md`.
 
 ## Work log (most recent first)
 
+- **2026-10-18** — Forever-Abstimmung, Gilden-Übersicht (Klassen &
+  Spezialisierungen gesamt): filter Alle / First Char / Second Char (picks[0]
+  / picks[1]) — bars, class totals and the "who voted" lists follow it — and
+  the number of characters next to the number of members.
 - **2026-10-18** — Caught up with the WoW Forever class patch (build
   1.60.1.70425) and the broken data workflow:
   - `scripts/forever-data/update.mjs`: keeps the previous `class-stats.json`

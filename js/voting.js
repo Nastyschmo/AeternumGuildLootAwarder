@@ -760,6 +760,14 @@ async function saveForeverPicks(){
   refreshQuestUI();
 }
 
+/**
+ * Which characters the overview counts: every pick, only the First Char
+ * (picks[0], levelled first) or only the Second Char (picks[1]).
+ * @type {'all' | 'first' | 'second'}
+ */
+let foreverOverviewFilter = 'all';
+const FOREVER_OV_FILTERS = [['all', 'Alle'], ['first', 'First Char'], ['second', 'Second Char']];
+
 function foreverAggregate(){
   // classId -> { total, specs: { <specId>: count }, namesBySpec: { <specId>: [...] } }
   const agg = {};
@@ -768,15 +776,18 @@ function foreverAggregate(){
     foreverSpecsForClass(c.id).forEach(s => { specs[s.id] = 0; namesBySpec[s.id] = []; });
     agg[c.id] = { total: 0, specs, namesBySpec };
   });
-  let voterCount = 0;
+  let voterCount = 0, charCount = 0;
   Object.entries(state.foreverSurvey).forEach(([uid, entry]) => {
     if (!entry || !Array.isArray(entry.picks) || !entry.picks.length) return;
     // Votes of people who left the guild don't count (see renderForeverOfficerTable).
     if (!isGuildMemberUid(uid)) return;
     voterCount++;
     const name = memberDisplayLabel(uid, entry.username);
-    entry.picks.forEach(p => {
-      if (!agg[p.classId]) return;
+    entry.picks.forEach((p, i) => {
+      if (foreverOverviewFilter === 'first' && i !== 0) return;
+      if (foreverOverviewFilter === 'second' && i !== 1) return;
+      if (!p || !agg[p.classId]) return;
+      charCount++;
       agg[p.classId].total++;
       if (agg[p.classId].specs[p.spec] !== undefined){
         agg[p.classId].specs[p.spec]++;
@@ -784,17 +795,24 @@ function foreverAggregate(){
       }
     });
   });
-  return { agg, voterCount };
+  return { agg, voterCount, charCount };
 }
 
 function renderForeverOverview(){
-  const { agg, voterCount } = foreverAggregate();
+  const { agg, voterCount, charCount } = foreverAggregate();
   // Bars/legend are colored by role (Tank/Healer/Damage), not by class or
   // spec slot, so gaps in a role are visible across the whole roster at a
   // glance.
   const legendHtml = `<div class="forever-ov-legend">
     ${['tank', 'healer', 'damage'].map(role => `<span class="forever-ov-legend-item"><span class="forever-ov-legend-dot" style="background:${FOREVER_ROLE_COLORS[role]}"></span>${FOREVER_ROLE_LABELS[role]}</span>`).join('')}
   </div>`;
+  const filterHtml = `<div class="forever-ov-filter" role="group" aria-label="Welche Charaktere">
+    ${FOREVER_OV_FILTERS.map(([id, label]) => `<button type="button" class="racials-faction-btn${foreverOverviewFilter === id ? ' active' : ''}" data-forever-ov-filter="${id}" aria-pressed="${foreverOverviewFilter === id}">${label}</button>`).join('')}
+  </div>`;
+  const wireFilter = () => els.foreverOverview.querySelectorAll('[data-forever-ov-filter]').forEach(btn => btn.addEventListener('click', () => {
+    foreverOverviewFilter = /** @type {'all' | 'first' | 'second'} */ (btn.getAttribute('data-forever-ov-filter') || 'all');
+    renderForeverOverview();
+  }));
   if (!voterCount){
     els.foreverOverview.innerHTML = legendHtml + `<div class="lootlib-note">Noch keine Stimmen.</div>`;
     return;
@@ -842,9 +860,12 @@ function renderForeverOverview(){
       <div class="forever-ov-class-total">${data.total} gesamt</div>
     </div>`;
   }).join('');
-  els.foreverOverview.innerHTML = legendHtml +
-    `<div class="lootlib-note" style="margin-bottom:8px;">${voterCount} Mitglied${voterCount === 1 ? '' : 'er'} haben bisher abgestimmt.</div>` +
+  const filterLabel = (FOREVER_OV_FILTERS.find(([id]) => id === foreverOverviewFilter) || ['', ''])[1];
+  const charLabel = `${charCount === 1 ? 'Charakter' : 'Charaktere'}${foreverOverviewFilter === 'all' ? '' : ` (${filterLabel})`}`;
+  els.foreverOverview.innerHTML = filterHtml + legendHtml +
+    `<div class="lootlib-note" style="margin-bottom:8px;">${voterCount} Mitglied${voterCount === 1 ? '' : 'er'} haben bisher abgestimmt · <b>${charCount}</b> ${charLabel} gesamt.</div>` +
     `<div class="forever-ov-chart-wrap"><div class="forever-ov-chart">${chartHtml}</div></div>`;
+  wireFilter();
   els.foreverOverview.querySelectorAll('[data-vote-details-class]').forEach(el => {
     el.addEventListener('click', () => {
       const clsId = el.getAttribute('data-vote-details-class');

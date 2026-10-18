@@ -16,6 +16,8 @@ Rules of collaboration: `CLAUDE.md`.
 
 ## Work log (most recent first)
 
+- **2026-10-18** — Forever overview: characters per role (Tank / Healer /
+  Damage) next to the legend, following the Alle / First / Second filter.
 - **2026-10-18** — Forever-Abstimmung, Gilden-Übersicht (Klassen &
   Spezialisierungen gesamt): filter Alle / First Char / Second Char (picks[0]
   / picks[1]) — bars, class totals and the "who voted" lists follow it — and

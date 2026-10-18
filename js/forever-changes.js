@@ -106,13 +106,25 @@ function foreverTextDiff(from, to){
   // LCS table (texts are a sentence or two — small).
   const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
   for (let i = a.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  // Runs of removed / added words (with the spaces between them) become one
+  // <del> / <ins> each — old text first (struck through), then the new one.
   let i = 0, j = 0, out = '';
+  /** @type {string[]} */ let del = [];
+  /** @type {string[]} */ let ins = [];
+  const flush = () => {
+    const d = del.join('').trim(), n = ins.join('').trim();
+    if (d) out += `<del class="fc-del">${escapeHtml(d)}</del>`;
+    if (d && n) out += ' ';
+    if (n) out += `<ins class="fc-ins">${escapeHtml(n)}</ins>`;
+    if ((d || n) && /\s$/.test(del.join('') + ins.join(''))) out += ' ';
+    del = []; ins = [];
+  };
   while (i < a.length || j < b.length) {
-    if (i < a.length && j < b.length && a[i] === b[j]){ out += escapeHtml(a[i]); i++; j++; }
-    // Old word first (struck through), then the new one.
-    else if (i < a.length && (j >= b.length || dp[i + 1][j] >= dp[i][j + 1])){ out += /\S/.test(a[i]) ? `<del class="fc-del">${escapeHtml(a[i])}</del>` : ''; i++; }
-    else { out += /\S/.test(b[j]) ? `<ins class="fc-ins">${escapeHtml(b[j])}</ins>` : escapeHtml(b[j]); j++; }
+    if (i < a.length && j < b.length && a[i] === b[j]){ flush(); out += escapeHtml(a[i]); i++; j++; }
+    else if (i < a.length && (j >= b.length || dp[i + 1][j] >= dp[i][j + 1])){ del.push(a[i]); i++; }
+    else { ins.push(b[j]); j++; }
   }
+  flush();
   return out;
 }
 

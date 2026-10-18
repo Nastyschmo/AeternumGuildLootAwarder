@@ -65,8 +65,16 @@ function loadTalentBuild(){
         build[cls].level = saved.level;
       }
       if (Array.isArray(saved.points)){
+        // Only talents the current trees still have, ranks clamped to their max
+        // (game patches remove talents or lower ranks, e.g. build 1.60.1.70425).
         for (let i = 0; i < 3; i++){
-          if (saved.points[i] && typeof saved.points[i] === 'object') build[cls].points[i] = Object.assign({}, saved.points[i]);
+          const tree = saved.points[i];
+          const talents = TALENT_DATA[cls].trees[i] ? TALENT_DATA[cls].trees[i].talents : [];
+          if (!tree || typeof tree !== 'object') continue;
+          for (const t of talents){
+            const r = Math.min(t.max, Math.floor(Number(tree[t.name]) || 0));
+            if (r > 0) build[cls].points[i][t.name] = r;
+          }
         }
       }
     });

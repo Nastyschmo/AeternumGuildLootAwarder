@@ -8,7 +8,7 @@
 // Dive texts); everything else is German. Edited by hand via PR — bump
 // HOW_TO_PLAY_UPDATED when the content changes.
 
-const HOW_TO_PLAY_UPDATED = '2026-10-11';
+const HOW_TO_PLAY_UPDATED = '2026-10-18';
 
 /** @type {Record<string, HowToPlayClass>} */
 const HOW_TO_PLAY = {
@@ -121,7 +121,7 @@ const HOW_TO_PLAY = {
         tips: [
           'Templar\'s Bulwark löst Forbearance aus – nicht direkt nach Divine Shield nutzbar.',
           'Improved Righteous Fury senkt den erlittenen Schaden um 6 %.',
-          'Reckoning gibt Extra-Angriffe nach Blocks und Crits gegen Dich (höchstens alle 1,5 Sek.).'
+          'Reckoning gibt Extra-Angriffe nach Blocks und Crits gegen Dich und speichert bis zu 4 davon.'
         ]
       },
       retribution: {
@@ -304,9 +304,9 @@ const HOW_TO_PLAY = {
           'Inner Focus für einen kostenlosen großen Heal',
           'Power Infusion an den stärksten Caster'
         ],
-        stats: 'Healing Power, Intellect (Mental Strength +15 %) und Crit (Divine Aegis); Meditation macht Spirit/MP5 auch im Kampf nützlich.',
+        stats: 'Healing Power, Intellect (Mental Strength +10 %) und Crit (Divine Aegis); Meditation macht Spirit/MP5 auch im Kampf nützlich.',
         tips: [
-          'Mit Holy Fire und Power in Light machen Smite und Penance mehr Schaden – Disc kann auch solo ordentlich Schaden machen.',
+          'Mit Holy Fire oder Shadow Word: Pain auf dem Ziel machen Smite und Penance dank Power in Light mehr Schaden – Disc kann auch solo ordentlich Schaden machen.',
           'Twin Disciplines verstärkt alle Sofortzauber.'
         ]
       },
@@ -333,7 +333,7 @@ const HOW_TO_PLAY = {
         priority: [
           'Shadowform',
           'Shadow Word: Pain aktiv',
-          'Devouring Plague (Devouring Contagion: springt beim Tod weiter)',
+          'Devouring Plague (Devouring Contagion: springt beim Tod auf 2 Gegner über)',
           'Mind Blast auf Cooldown',
           'Shadow Word: Death unter 20 % Leben (Early Demise)',
           'Mind Flay als Füller'
@@ -421,15 +421,16 @@ const HOW_TO_PLAY = {
 
   mage: {
     intro: 'Fernkampf-Caster mit viel Kontrolle. Neu: Arcane Blast (Talent), Frostfire Bolt (Lehrer ab Stufe 40), Ice Lance und Fingers of Frost – und Orcs können jetzt Magier werden.',
-    leveling: 'Frost ist der bequemste Leveling-Spec: Frost Nova plus Ice Lance (300 % Schaden gegen eingefrorene Ziele) beendet Kämpfe schnell. Gruppen farmst Du mit Blizzard und Cone of Cold.',
+    leveling: 'Frost ist der bequemste Leveling-Spec: Frost Nova plus Ice Lance (200 % mehr Schaden gegen eingefrorene Ziele) beendet Kämpfe schnell. Gruppen farmst Du mit Blizzard und Cone of Cold.',
     races: 'Mensch, Gnom, Orc (neu), Untote, Troll und Skyborne.',
     professions: 'Schneiderei + Verzauberkunst für eigene Stoffrüstung und Verzauberungen, oder Ingenieurskunst für PvP-Gadgets. Zum Goldmachen beim Leveln: Kräuterkunde + Bergbau.',
     specs: {
       arcane: {
         summary: 'Burst-Spec, bei dem sich alles um Mana-Planung dreht.',
-        playstyle: 'Arcane Blast stapelt sich: Jeder Cast erhöht den Schaden Deiner anderen Zauber um 10 %, aber auch seine eigenen Kosten. Missile Barrage verkürzt dann Arcane Missiles. Arcane Power und Presence of Mind für Burst – immer das Mana im Blick behalten.',
+        playstyle: 'Arcane Blast stapelt sich: Jeder Cast gibt Dir 15 % Deiner Intelligenz als Zaubermacht (bis 4×), erhöht aber auch seine eigenen Kosten. Arcane Wrath (Talent) skaliert mit Deinem maximalen Mana. Missile Barrage (jetzt schon in der ersten Reihe) verkürzt Arcane Missiles und macht sie kostenlos. Arcane Power und Presence of Mind für Burst – immer das Mana im Blick behalten.',
         priority: [
           'Arcane Blast 2–4× stapeln (je nach Mana)',
+          'Arcane Wrath, solange das Mana reicht',
           'Arcane Missiles mit Missile Barrage',
           'Arcane Power + Presence of Mind im Burst',
           'Clearcasting für teure Zauber nutzen',
@@ -443,7 +444,7 @@ const HOW_TO_PLAY = {
       },
       fire: {
         summary: 'Crit-Spec mit Brandschaden über Ignite und Pyroblast.',
-        playstyle: 'Fireball als Standard, Scorch für den Improved Scorch-Debuff. Heating Up: Crits mit Fireball, Frostfire Bolt, Fire Blast oder Scorch verkürzen den nächsten Pyroblast. Combustion für Burst.',
+        playstyle: 'Fireball als Standard, Scorch für den Improved Scorch-Debuff. Heating Up: Crits mit Fireball, Frostfire Bolt, Fire Blast oder Scorch verkürzen den nächsten Pyroblast; jeder Fire-Blast-Treffer gibt zusätzlich einen Stapel. Combustion für Burst.',
         priority: [
           'Improved Scorch-Debuff aufbauen',
           'Pyroblast nach Heating Up-Stapeln',
@@ -455,12 +456,12 @@ const HOW_TO_PLAY = {
         stats: 'Hit bis zum Cap, Spell Power und Crit (Ignite, Master of Elements).',
         tips: [
           'Burning Soul senkt Deine Bedrohung und schützt vor Zauberverzögerung.',
-          'Wake of Fire: Nach einem Kill hat Dein nächster Fire Blast +50 % Crit-Chance.'
+          'Improved Fire Blast: bis zu 2 Sek. weniger Abklingzeit und 15 Meter mehr Reichweite für Fire Blast.'
         ]
       },
       frost: {
         summary: 'Kontroll-Spec mit Shatter-Combos – die beste Wahl zum Leveln.',
-        playstyle: 'Frostbolt verlangsamt, Frostbite und Frost Nova frieren ein, Ice Lance macht gegen eingefrorene Ziele 300 % mehr Schaden. Fingers of Frost lässt zwei Zauber wirken, als wäre das Ziel eingefroren. Ice Barrier schützt vor Unterbrechungen.',
+        playstyle: 'Frostbolt verlangsamt, Frostbite und Frost Nova frieren ein, Ice Lance macht gegen eingefrorene Ziele 200 % mehr Schaden. Fingers of Frost lässt zwei Zauber wirken, als wäre das Ziel eingefroren. Ice Barrier schützt vor Unterbrechungen.',
         priority: [
           'Ice Barrier aktiv',
           'Frostbolt als Füller',

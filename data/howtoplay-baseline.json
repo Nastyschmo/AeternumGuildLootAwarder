@@ -1,6 +1,6 @@
 {
- "updated": "2026-10-11",
- "build": "1.60.1.70338",
+ "updated": "2026-10-18",
+ "build": "1.60.1.70450",
  "classes": {
   "warrior": {
    "Bastion": {
@@ -13,7 +13,7 @@
    },
    "Bloodthrill": {
     "max": 5,
-    "desc": "Your Main Hand melee attacks against enemies afflicted by your Rend have a 20% chance to allow the use of your Overpower ability on the target. Lasts 6 sec."
+    "desc": "Grants your Main Hand melee attacks against enemies afflicted by your Rend a 20% chance to allow an activation of Overpower."
    },
    "Concussion Blow": {
     "max": 1,
@@ -99,7 +99,7 @@
    },
    "Champion of the Light": {
     "max": 3,
-    "desc": "Increases your spell damage by up to 60% of your Intellect."
+    "desc": "Increases your spell damage by up to 30% of your Intellect."
    },
    "Divine Favor": {
     "max": 1,
@@ -143,7 +143,7 @@
    },
    "Reckoning": {
     "max": 5,
-    "desc": "Gives you a 40% chance to gain an extra attack after Blocking a melee attack and a 100% chance to gain an extra attack after being the victim of a non-periodic critical strike. Cannot occur more often than once every 1.5 sec."
+    "desc": "Gives you a 40% chance to gain an extra attack after Blocking a melee attack and a 100% chance to gain an extra attack after being the victim of a non-periodic critical strike."
    },
    "Repentance": {
     "max": 1,
@@ -213,7 +213,7 @@
    },
    "Expose Prey": {
     "max": 2,
-    "desc": "Your attacks against targets with Hunter's Mark have a 10% chance to activate your Mongoose Bite for 10 sec."
+    "desc": "Grants your melee and ranged attacks against enemies afflicted by Hunter's Mark a 10% chance to allow an activation of Mongoose Bite. Lasts 10 sec."
    },
    "Ferocity": {
     "max": 5,
@@ -257,7 +257,7 @@
    },
    "Predator's Edge": {
     "max": 5,
-    "desc": "Increases your melee critical strike damage by 30% and your Off Hand weapon damage by 50%."
+    "desc": "Increases your melee ability critical strike damage by 30% and your Off Hand weapon damage by 50%."
    },
    "Rapid Killing": {
     "max": 2,
@@ -265,11 +265,11 @@
    },
    "Rapid Recuperation": {
     "max": 2,
-    "desc": "Hitting a target with your Serpent Sting ability grants you 50% and consuming Rapid Killing grants you 100% of your Mana regeneration while casting for the next 15 sec."
+    "desc": "Afflicting a target with Serpent Sting allows 50% of your Mana Regeneration to continue while casting for 15 sec, increased to 100% when Rapid Killing is consumed."
    },
    "Resourcefulness": {
     "max": 2,
-    "desc": "Reduces the mana cost of your Trap abilities and melee abilities by 60%. In addition, your critical strikes have a 100% chance to allow 50% of your Mana regeneration to continue while casting for 30 sec."
+    "desc": "Reduces the Mana cost of your Trap and melee abilities by 60%, and grants your melee and ranged ability Critical Strikes a 100% chance to allow 50% of your Mana Regeneration to continue while casting for 30 sec."
    },
    "Scatter Shot": {
     "max": 1,
@@ -385,7 +385,7 @@
    },
    "Devouring Contagion": {
     "max": 2,
-    "desc": "Reduces the mana cost of your Devouring Plague by 50%. Targets that die while Devouring Plague is active spreads it, jumping to a nearby enemy within 10 yds for the remaining duration."
+    "desc": "Reduces the mana cost of your Devouring Plague by 50%. Targets that die while Devouring Plague is active spreads it, jumping to 2 nearby enemies within 10 yds for the remaining duration."
    },
    "Divine Aegis": {
     "max": 3,
@@ -417,7 +417,7 @@
    },
    "Mental Strength": {
     "max": 5,
-    "desc": "Increases your total Intellect by 15%."
+    "desc": "Increases your total Intellect by 10%."
    },
    "Mind Flay": {
     "max": 1,
@@ -433,7 +433,7 @@
    },
    "Power in Light": {
     "max": 5,
-    "desc": "Your Smite and Penance spells deal 10% increased damage to targets afflicted with your Holy Fire."
+    "desc": "Your Smite and Penance spells deal 10% increased damage to targets afflicted with your Holy Fire or Shadow Word: Pain."
    },
    "Prayer of Mending": {
     "max": 1,
@@ -445,7 +445,7 @@
    },
    "Shadow Weaving": {
     "max": 3,
-    "desc": "Your Shadow damage spells have a 100% chance to increase the Shadow damage you deal by 2% for 15 sec, stacking up to 5 times."
+    "desc": "Your Shadow damage spells have a 100% chance to increase the Shadow damage the target takes from you by 2% for 15 sec, stacking up to 5 times."
    },
    "Shadowform": {
     "max": 1,
@@ -519,7 +519,7 @@
    },
    "Lava Burst": {
     "max": 1,
-    "desc": "You hurl molten lava at the target, dealing 164 Fire damage. If your Flame Shock is on the target, Lava Burst deals 20% increased damage."
+    "desc": "You hurl molten lava at the target, dealing 123 Fire damage. If your Flame Shock is on the target, Lava Burst deals 20% increased damage."
    },
    "Lightning Overload": {
     "max": 3,
@@ -567,13 +567,13 @@
    },
    "Water Shield": {
     "max": 1,
-    "desc": "The caster is surrounded by 3 globes of water. When a spell, melee, or ranged attack hits the caster or when one of the caster's healing spells gets a critical result, 2% of maximum mana is restored to the caster, expending one water globe. Only one globe will activate every few seconds. Lasts 10 min. Only one Elemental Shield can be active on the Shaman at any one time."
+    "desc": "The caster is surrounded by 3 globes of water. When a spell, melee, or ranged attack hits the caster or when one of the caster's spells gets a critical result, 2% of maximum mana is restored to the caster, expending one water globe. Only one globe will activate every few seconds. Lasts 10 min. Only one Elemental Shield can be active on the Shaman at any one time."
    }
   },
   "mage": {
    "Arcane Blast": {
     "max": 1,
-    "desc": "Blasts the target with energy, dealing 54 Arcane damage. Each time you cast Arcane Blast, the damage of all your other spells is increased by 10% and the mana cost of Arcane Blast is increased by 175%. Effect stacks up to 4 times and lasts 8 sec or until any other damage spell is cast."
+    "desc": "Blasts the target with energy, dealing 32 Arcane damage. Each time you cast Arcane Blast, you gain 15% of your Intellect as Spell Damage and the mana cost of Arcane Blast is increased by 175%. Effect stacks up to 4 times and lasts 15 sec from time of initial application."
    },
    "Arcane Meditation": {
     "max": 3,
@@ -586,6 +586,10 @@
    "Arcane Power": {
     "max": 1,
     "desc": "For the next 15 sec, your spells deal 30% more damage while costing 30% more mana to cast."
+   },
+   "Arcane Wrath": {
+    "max": 1,
+    "desc": "Launches a projectile of pure Arcane energy at the enemy target, causing 120 Arcane damage. This spell gains additional Spell Damage equal to 5% of your maximum Mana."
    },
    "Blast Wave": {
     "max": 1,
@@ -617,7 +621,7 @@
    },
    "Heating Up": {
     "max": 1,
-    "desc": "Non-periodic critical strikes with Fireball, Frostfire Bolt, Fire Blast, and Scorch reduce the cast time of your next Pyroblast cast within 20 sec by 25%, stacking up to 3 times."
+    "desc": "Non-periodic critical strikes with Fireball, Frostfire Bolt, Fire Blast, and Scorch reduce the cast time of your next Pyroblast cast within 20 sec by 25%, stacking up to 3 times. Fire Blast grants an additional stack every time it deals damage."
    },
    "Ice Barrier": {
     "max": 1,
@@ -629,7 +633,7 @@
    },
    "Ice Lance": {
     "max": 1,
-    "desc": "Deals 28 Frost damage to an enemy target. Deals 300% increased damage to Frozen targets."
+    "desc": "Deals 28 Frost damage to an enemy target. Deals 200% increased damage to Frozen targets."
    },
    "Ice Shards": {
     "max": 5,
@@ -643,6 +647,10 @@
     "max": 2,
     "desc": "Your Counterspell also Silences the target for 4 sec."
    },
+   "Improved Fire Blast": {
+    "max": 2,
+    "desc": "Reduces the cooldown of your Fire Blast spell by 2 sec and increases its range by 15 yards."
+   },
    "Improved Scorch": {
     "max": 3,
     "desc": "Your Scorch spell has a 100% chance to cause your target to be vulnerable to Fire damage. This vulnerability increases all Fire damage you deal to your target by 3% and lasts 30 sec, stacking up to 5 times."
@@ -652,8 +660,8 @@
     "desc": "Your Fire and Frost critical strikes will refund 30% of their base mana cost."
    },
    "Missile Barrage": {
-    "max": 1,
-    "desc": "Gives your Arcane Blast spell a 40% chance, and your Fireball, Frostbolt, and Frostfire Bolt spells a 20% chance to reduce the channeled duration of your next Arcane Missiles spell by 50%, reduce the Mana cost by 100%, and missiles fire every 0.5 sec."
+    "max": 2,
+    "desc": "Gives your Arcane Blast spell a 40% chance, your Arcane Missile hits a 10% chance, and your Arcane Wrath, Fireball, Frostbolt, and Frostfire Bolt spells a 20% chance to reduce the channeled duration of your next Arcane Missiles spell by 50%, reduce the Mana cost by 100%, and missiles fire every 0.5 sec."
    },
    "Presence of Mind": {
     "max": 1,
@@ -666,16 +674,12 @@
    "Shatter": {
     "max": 3,
     "desc": "Increases the critical strike chance of all your spells against Frozen targets by 50%."
-   },
-   "Wake of Fire": {
-    "max": 2,
-    "desc": "Reduces the cooldown of your Fire Blast spell by 2 sec. Killing a non-trivial target increases the critical strike chance of your next Fire Blast cast within 30 sec by 50%."
    }
   },
   "warlock": {
    "Amplify Curse": {
     "max": 1,
-    "desc": "Increases the effect of your next Curse of Weakness or Bane of Agony by 50%, or your next Curse of Exhaustion by 20%. Lasts 30 sec."
+    "desc": "Increases the effect of your next Curse of Weakness or Bane of Agony by 50%, or your next Curse of Exhaustion by 0%. Lasts 30 sec."
    },
    "Bane": {
     "max": 5,

@@ -458,7 +458,13 @@ const journal = await buildJournal({ build, eraBuild, table, icons, instanceName
 console.log(`  journal: ${journal.instances.length} instances, ${journal.instances.reduce((n, x) => n + x.bosses.length, 0)} bosses${journal.note ? ` (${journal.note})` : ''}`);
 
 // ---------------------------------------------------------------- class stats
-const classStats = await buildClassStats({ build, table, getText });
+// The base attributes come from a third-party snapshot (see class-stats.mjs) that has
+// disappeared; when it can't be fetched, keep the previous class-stats.json instead
+// of failing the whole update.
+let classStats = null;
+try {
+  classStats = await buildClassStats({ build, table, getText });
+} catch (e) { console.log(`  class stats: failed (${e.message.slice(0, 200)}), keeping the previous file`); }
 
 // ---------------------------------------------------------------- write
 await mkdir(OUT_DIR, { recursive: true });
@@ -472,7 +478,7 @@ async function writeIfChanged(name, json) {
   return true;
 }
 const itemsChanged = await writeIfChanged('items.json', JSON.stringify({ build, eraBuild, sets, professions, reagents, materials, instances, items }) + '\n');
-const statsChanged = await writeIfChanged('class-stats.json', JSON.stringify({ build, ...classStats }) + '\n');
+const statsChanged = classStats ? await writeIfChanged('class-stats.json', JSON.stringify({ build, ...classStats }) + '\n') : false;
 const enchantsChanged = await writeIfChanged('enchants.json', JSON.stringify({ build, enchants }) + '\n');
 const journalChanged = await writeIfChanged('journal.json', JSON.stringify({ build, instances: journal.instances }) + '\n');
 const questsChanged = await writeIfChanged('quests.json', JSON.stringify({ build, ...questData }) + '\n');

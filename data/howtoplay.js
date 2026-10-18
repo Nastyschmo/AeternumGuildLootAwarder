@@ -8,7 +8,7 @@
 // Dive texts); everything else is German. Edited by hand via PR — bump
 // HOW_TO_PLAY_UPDATED when the content changes.
 
-const HOW_TO_PLAY_UPDATED = '2026-10-11';
+const HOW_TO_PLAY_UPDATED = '2026-10-18';
 
 /** @type {Record<string, HowToPlayClass>} */
 const HOW_TO_PLAY = {
@@ -121,7 +121,7 @@ const HOW_TO_PLAY = {
         tips: [
           'Templar\'s Bulwark löst Forbearance aus – nicht direkt nach Divine Shield nutzbar.',
           'Improved Righteous Fury senkt den erlittenen Schaden um 6 %.',
-          'Reckoning gibt Extra-Angriffe nach Blocks und Crits gegen Dich (höchstens alle 1,5 Sek.).'
+          'Reckoning gibt Extra-Angriffe nach Blocks und Crits gegen Dich.'
         ]
       },
       retribution: {
@@ -304,9 +304,9 @@ const HOW_TO_PLAY = {
           'Inner Focus für einen kostenlosen großen Heal',
           'Power Infusion an den stärksten Caster'
         ],
-        stats: 'Healing Power, Intellect (Mental Strength +15 %) und Crit (Divine Aegis); Meditation macht Spirit/MP5 auch im Kampf nützlich.',
+        stats: 'Healing Power, Intellect (Mental Strength bis +10 %) und Crit (Divine Aegis); Meditation macht Spirit/MP5 auch im Kampf nützlich.',
         tips: [
-          'Mit Holy Fire und Power in Light machen Smite und Penance mehr Schaden – Disc kann auch solo ordentlich Schaden machen.',
+          'Mit Holy Fire oder Shadow Word: Pain auf dem Ziel machen Smite und Penance dank Power in Light mehr Schaden – Disc kann auch solo ordentlich Schaden machen.',
           'Twin Disciplines verstärkt alle Sofortzauber.'
         ]
       },
@@ -333,7 +333,7 @@ const HOW_TO_PLAY = {
         priority: [
           'Shadowform',
           'Shadow Word: Pain aktiv',
-          'Devouring Plague (Devouring Contagion: springt beim Tod weiter)',
+          'Devouring Plague (Devouring Contagion: springt beim Tod auf 2 weitere Gegner)',
           'Mind Blast auf Cooldown',
           'Shadow Word: Death unter 20 % Leben (Early Demise)',
           'Mind Flay als Füller'
@@ -421,13 +421,13 @@ const HOW_TO_PLAY = {
 
   mage: {
     intro: 'Fernkampf-Caster mit viel Kontrolle. Neu: Arcane Blast (Talent), Frostfire Bolt (Lehrer ab Stufe 40), Ice Lance und Fingers of Frost – und Orcs können jetzt Magier werden.',
-    leveling: 'Frost ist der bequemste Leveling-Spec: Frost Nova plus Ice Lance (300 % Schaden gegen eingefrorene Ziele) beendet Kämpfe schnell. Gruppen farmst Du mit Blizzard und Cone of Cold.',
+    leveling: 'Frost ist der bequemste Leveling-Spec: Frost Nova plus Ice Lance (+200 % Schaden gegen eingefrorene Ziele) beendet Kämpfe schnell. Gruppen farmst Du mit Blizzard und Cone of Cold.',
     races: 'Mensch, Gnom, Orc (neu), Untote, Troll und Skyborne.',
     professions: 'Schneiderei + Verzauberkunst für eigene Stoffrüstung und Verzauberungen, oder Ingenieurskunst für PvP-Gadgets. Zum Goldmachen beim Leveln: Kräuterkunde + Bergbau.',
     specs: {
       arcane: {
         summary: 'Burst-Spec, bei dem sich alles um Mana-Planung dreht.',
-        playstyle: 'Arcane Blast stapelt sich: Jeder Cast erhöht den Schaden Deiner anderen Zauber um 10 %, aber auch seine eigenen Kosten. Missile Barrage verkürzt dann Arcane Missiles. Arcane Power und Presence of Mind für Burst – immer das Mana im Blick behalten.',
+        playstyle: 'Arcane Blast stapelt sich bis 4×: Jeder Cast gibt Dir 15 % Deines Intellect als Zauberschaden, macht aber auch den nächsten Arcane Blast deutlich teurer. Die Stapel laufen 15 Sek. ab dem ersten Cast. Missile Barrage verkürzt dann Arcane Missiles. Arcane Power und Presence of Mind für Burst – immer das Mana im Blick behalten.',
         priority: [
           'Arcane Blast 2–4× stapeln (je nach Mana)',
           'Arcane Missiles mit Missile Barrage',
@@ -435,7 +435,7 @@ const HOW_TO_PLAY = {
           'Clearcasting für teure Zauber nutzen',
           'Evocation / Mana-Edelsteine, wenn das Mana knapp wird'
         ],
-        stats: 'Hit bis zum Cap, Spell Power, Intellect (Arcane Mind) und Crit.',
+        stats: 'Hit bis zum Cap, Intellect (Arcane Mind; Arcane Blast macht ihn zu Zauberschaden), Spell Power und Crit.',
         tips: [
           'Arcane Meditation lässt 50 % der Manaregeneration beim Zaubern weiterlaufen.',
           'Improved Counterspell silenced zusätzlich 4 Sek.'
@@ -455,12 +455,12 @@ const HOW_TO_PLAY = {
         stats: 'Hit bis zum Cap, Spell Power und Crit (Ignite, Master of Elements).',
         tips: [
           'Burning Soul senkt Deine Bedrohung und schützt vor Zauberverzögerung.',
-          'Wake of Fire: Nach einem Kill hat Dein nächster Fire Blast +50 % Crit-Chance.'
+          'Heating Up: Jeder Fire Blast-Treffer gibt zusätzlich einen Stapel – so ist der nächste Pyroblast schneller bereit.'
         ]
       },
       frost: {
         summary: 'Kontroll-Spec mit Shatter-Combos – die beste Wahl zum Leveln.',
-        playstyle: 'Frostbolt verlangsamt, Frostbite und Frost Nova frieren ein, Ice Lance macht gegen eingefrorene Ziele 300 % mehr Schaden. Fingers of Frost lässt zwei Zauber wirken, als wäre das Ziel eingefroren. Ice Barrier schützt vor Unterbrechungen.',
+        playstyle: 'Frostbolt verlangsamt, Frostbite und Frost Nova frieren ein, Ice Lance macht gegen eingefrorene Ziele 200 % mehr Schaden. Fingers of Frost lässt zwei Zauber wirken, als wäre das Ziel eingefroren. Ice Barrier schützt vor Unterbrechungen.',
         priority: [
           'Ice Barrier aktiv',
           'Frostbolt als Füller',
@@ -480,7 +480,8 @@ const HOW_TO_PLAY = {
       { label: 'classicwow.gg – Mage Overview', url: 'https://classicwow.gg/forever/guides/mage' },
       { label: 'talentsforever – Mage Changes', url: 'https://talentsforever.com/mage/changes' },
       { label: 'wowforeverbuilds – Frost Leveling (Stufe 20)', url: 'https://wowforeverbuilds.com/guide/beta-20-frost-mage-leveling' },
-      { label: 'leprestore – Frost Mage', url: 'https://leprestore.com/guides/world-of-warcraft-forever/wow-forever-frost-mage-guide-best-builds-race-professions/' }
+      { label: 'leprestore – Frost Mage', url: 'https://leprestore.com/guides/world-of-warcraft-forever/wow-forever-frost-mage-guide-best-builds-race-professions/' },
+      { label: 'Icy Veins – Forever Development Notes (15. Oktober)', url: 'https://www.icy-veins.com/wow-forever/news/racial-and-class-tuning-new-features-and-options-massive-wow-forever-beta-development-notes-october-15th/' }
     ]
   },
 

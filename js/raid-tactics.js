@@ -55,7 +55,9 @@ const RAID_TACTIC_ABILITIES = [
   { id: 'disease_priest', cls: 'priest', spell: 'Abolish Disease', label: 'Krankheit aufheben', target: 'group' },
   { id: 'shadowprot', cls: 'priest', spell: 'Shadow Protection', label: 'Schattenschutz', target: 'group' },
   { id: 'shackle', cls: 'priest', spell: 'Shackle Undead', label: 'Untote fesseln', target: 'text' },
-  { id: 'blessing', cls: 'paladin', label: 'Segen', target: 'choice', options: ['Blessing of Kings', 'Blessing of Might', 'Blessing of Wisdom', 'Blessing of Salvation', 'Blessing of Light'], all: true },
+  { id: 'blessing', cls: 'paladin', label: 'Segen', target: 'choice', options: ['Blessing of Kings', 'Blessing of Might', 'Blessing of Wisdom', 'Blessing of Light'], all: true },
+  // Since build 1.60.1.70425 Salvation is no Blessing any more (stacks with one): assigned per player.
+  { id: 'salvation', cls: 'paladin', spell: 'Salvation', label: 'Salvation', target: 'player', all: true },
   { id: 'aura', cls: 'paladin', label: 'Aura', target: 'choice', options: ['Devotion Aura', 'Concentration Aura', 'Retribution Aura', 'Fire Resistance Aura', 'Frost Resistance Aura', 'Shadow Resistance Aura'] },
   { id: 'cleanse', cls: 'paladin', spell: 'Cleanse', label: 'Läutern', target: 'group' },
   { id: 'di', cls: 'paladin', spell: 'Divine Intervention', label: 'Göttliches Eingreifen', target: 'player' },

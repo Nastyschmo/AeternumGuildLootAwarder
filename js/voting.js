@@ -803,8 +803,12 @@ function renderForeverOverview(){
   // Bars/legend are colored by role (Tank/Healer/Damage), not by class or
   // spec slot, so gaps in a role are visible across the whole roster at a
   // glance.
+  // Characters per role (Tank / Healer / Damage) under the current filter.
+  /** @type {Record<string, number>} */
+  const roleCount = { tank: 0, healer: 0, damage: 0 };
+  CLASSES.forEach(cls => foreverSpecsForClass(cls.id).forEach(s => { roleCount[s.role] = (roleCount[s.role] || 0) + (agg[cls.id].specs[s.id] || 0); }));
   const legendHtml = `<div class="forever-ov-legend">
-    ${['tank', 'healer', 'damage'].map(role => `<span class="forever-ov-legend-item"><span class="forever-ov-legend-dot" style="background:${FOREVER_ROLE_COLORS[role]}"></span>${FOREVER_ROLE_LABELS[role]}</span>`).join('')}
+    ${['tank', 'healer', 'damage'].map(role => `<span class="forever-ov-legend-item"><span class="forever-ov-legend-dot" style="background:${FOREVER_ROLE_COLORS[role]}"></span>${FOREVER_ROLE_LABELS[role]}${voterCount ? ` <b class="forever-ov-legend-count">${roleCount[role] || 0}</b>` : ''}</span>`).join('')}
   </div>`;
   const filterHtml = `<div class="forever-ov-filter" role="group" aria-label="Welche Charaktere">
     ${FOREVER_OV_FILTERS.map(([id, label]) => `<button type="button" class="racials-faction-btn${foreverOverviewFilter === id ? ' active' : ''}" data-forever-ov-filter="${id}" aria-pressed="${foreverOverviewFilter === id}">${label}</button>`).join('')}

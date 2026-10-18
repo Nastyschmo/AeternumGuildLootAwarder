@@ -587,10 +587,6 @@
     "max": 1,
     "desc": "For the next 15 sec, your spells deal 30% more damage while costing 30% more mana to cast."
    },
-   "Arcane Wrath": {
-    "max": 1,
-    "desc": "Launches a projectile of pure Arcane energy at the enemy target, causing 120 Arcane damage. This spell gains additional Spell Damage equal to 5% of your maximum Mana."
-   },
    "Blast Wave": {
     "max": 1,
     "desc": "A wave of flame radiates outward from the caster, damaging all enemies caught within the blast for 163 Fire damage, and Dazing them for 50% reduced movement speed for 6 sec."
@@ -646,10 +642,6 @@
    "Improved Counterspell": {
     "max": 2,
     "desc": "Your Counterspell also Silences the target for 4 sec."
-   },
-   "Improved Fire Blast": {
-    "max": 2,
-    "desc": "Reduces the cooldown of your Fire Blast spell by 2 sec and increases its range by 15 yards."
    },
    "Improved Scorch": {
     "max": 3,

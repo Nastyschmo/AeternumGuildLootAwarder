@@ -8,7 +8,7 @@
 // Dive texts); everything else is German. Edited by hand via PR — bump
 // HOW_TO_PLAY_UPDATED when the content changes.
 
-const HOW_TO_PLAY_UPDATED = '2026-10-18';
+const HOW_TO_PLAY_UPDATED = '2026-11-02';
 
 /** @type {Record<string, HowToPlayClass>} */
 const HOW_TO_PLAY = {
@@ -85,7 +85,7 @@ const HOW_TO_PLAY = {
 
   paladin: {
     intro: 'Plattenträger mit Heilung und Siegeln. Neu in Forever: Holy Strike (ab Stufe 6) für alle Specs, Seal of Fury für Tanks, Templar\'s Bulwark – und die Horde bekommt mit den Untoten ihre ersten Paladine.',
-    leveling: 'Retribution mit Zweihänder ist der natürliche Leveling-Spec. Holy Strike macht die ersten Stufen deutlich aktiver als im alten Classic. Siegel-Wechsel mit Twist of Light lohnt sich erst später.',
+    leveling: 'Retribution mit Zweihänder ist der natürliche Leveling-Spec. Holy Strike macht die ersten Stufen deutlich aktiver als im alten Classic. Siegel-Wechsel mit Unsealed Wrath lohnt sich erst später.',
     races: 'Mensch, Zwerg und – neu – Untote.',
     professions: 'Bergbau + Schmiedekunst für Plattenrüstung; als Heiler auch Kräuterkunde + Alchemie für Tränke und Fläschchen. Zum Goldmachen beim Leveln: zwei Sammelberufe.',
     specs: {
@@ -108,7 +108,7 @@ const HOW_TO_PLAY = {
       },
       protection: {
         summary: 'Schild-Tank mit Absorb-Schilden und starker Gruppen-Bedrohung.',
-        playstyle: 'Righteous Fury an, Seal of Fury liefert einen Absorb-Schild. Holy Shield aufrechterhalten, Consecration gegen Gruppen; Holy Strike senkt mit Iron Creed zusätzlich Deinen erlittenen Schaden. Templar\'s Bulwark ist ein Schild in Höhe Deines maximalen Lebens.',
+        playstyle: 'Righteous Fury an, Seal of Fury liefert einen Absorb-Schild. Holy Shield aufrechterhalten, Consecration gegen Gruppen; Holy Strike senkt mit Iron Creed zusätzlich Deinen erlittenen Schaden. Templar\'s Bulwark ist ein Schild in Höhe Deines maximalen Lebens. Seit dem 30. Oktober gibt es Shieldsworn als 31er: Holy Strike hat 4 Sek. weniger Abklingzeit, trifft mit dem Schild und lässt Dich kurz Zauber blocken.',
         priority: [
           'Righteous Fury aktiv',
           'Holy Shield aufrechterhalten',
@@ -126,12 +126,12 @@ const HOW_TO_PLAY = {
       },
       retribution: {
         summary: 'Zweihand-Nahkämpfer mit Holy-Schaden – der beste Paladin-Spec zum Questen.',
-        playstyle: 'Seal of Command aktiv, Judgement auf Cooldown, Holy Strike – mit Sacred Arbiter frischt er alle Judgements auf. Twist of Light (31er) belohnt Siegel-Wechsel: Das alte Siegel hinterlässt ein Echo, das mit dem nächsten Schlag noch einmal wirkt.',
+        playstyle: 'Seal of Command aktiv, Judgement auf Cooldown, Holy Strike – mit Sacred Arbiter frischt er alle Judgements auf. Unsealed Wrath (31er, hieß in der Beta Twist of Light) belohnt Siegel-Wechsel: Das alte Siegel hinterlässt ein Echo, das mit dem nächsten Schlag noch einmal wirkt.',
         priority: [
           'Siegel aktiv (meist Seal of Command)',
           'Judgement auf Cooldown',
           'Holy Strike auf Cooldown',
-          'Siegel nach dem Judgement neu setzen bzw. wechseln (Twist of Light)',
+          'Siegel nach dem Judgement neu setzen bzw. wechseln (Unsealed Wrath)',
           'Exorcism und Hammer of Wrath (Execute-Phase)',
           'Consecration bei mehreren Gegnern'
         ],
@@ -139,7 +139,7 @@ const HOW_TO_PLAY = {
         tips: [
           'Benediction und Holy Conduit halten das Mana stabil.',
           'Repentance ist Dein Crowd Control gegen Humanoide.',
-          'Instrument of Law senkt Deine Bedrohung, solange Righteous Fury aus ist.'
+          'Vengeance (+9 % Schaden) wirkt seit dem 30. Oktober nur noch mit Seal of Command.'
         ]
       }
     },
@@ -312,7 +312,7 @@ const HOW_TO_PLAY = {
       },
       holy: {
         summary: 'Gruppen- und Raid-Heiler mit springenden und reaktiven Heilungen.',
-        playstyle: 'Prayer of Mending auf Cooldown, Renew auf Tanks, Heal/Greater Heal (Divine Fury: kürzere Zauberzeit) für große Lücken, Binding Heal, wenn Du selbst auch Schaden hast, Prayer of Healing bzw. Holy Nova gegen Gruppen-Schaden. Litany of Light belohnt, verschiedene Heilzauber abzuwechseln.',
+        playstyle: 'Prayer of Mending auf Cooldown, Renew auf Tanks, Heal/Greater Heal (Divine Fury: kürzere Zauberzeit) für große Lücken, Binding Heal (seit dem 30. Oktober ein Lehrer-Zauber), wenn Du selbst auch Schaden hast, Prayer of Healing bzw. Holy Nova gegen Gruppen-Schaden. Litany of Light belohnt, verschiedene Heilzauber abzuwechseln.',
         priority: [
           'Prayer of Mending auf Cooldown',
           'Renew auf dem Tank',
@@ -421,13 +421,13 @@ const HOW_TO_PLAY = {
 
   mage: {
     intro: 'Fernkampf-Caster mit viel Kontrolle. Neu: Arcane Blast (Talent), Frostfire Bolt (Lehrer ab Stufe 40), Ice Lance und Fingers of Frost – und Orcs können jetzt Magier werden.',
-    leveling: 'Frost ist der bequemste Leveling-Spec: Frost Nova plus Ice Lance (+200 % Schaden gegen eingefrorene Ziele) beendet Kämpfe schnell. Gruppen farmst Du mit Blizzard und Cone of Cold.',
+    leveling: 'Frost ist der bequemste Leveling-Spec: Frost Nova plus Ice Lance (ein Vielfaches an Schaden gegen eingefrorene Ziele, seit dem Launch mit 8 Sek. Abklingzeit) beendet Kämpfe schnell. Gruppen farmst Du mit Blizzard und Cone of Cold.',
     races: 'Mensch, Gnom, Orc (neu), Untote, Troll und Skyborne.',
     professions: 'Schneiderei + Verzauberkunst für eigene Stoffrüstung und Verzauberungen, oder Ingenieurskunst für PvP-Gadgets. Zum Goldmachen beim Leveln: Kräuterkunde + Bergbau.',
     specs: {
       arcane: {
         summary: 'Burst-Spec, bei dem sich alles um Mana-Planung dreht.',
-        playstyle: 'Arcane Blast stapelt sich bis 4×: Jeder Cast gibt Dir 15 % Deines Intellect als Zauberschaden, macht aber auch den nächsten Arcane Blast deutlich teurer. Die Stapel laufen 15 Sek. ab dem ersten Cast. Missile Barrage verkürzt dann Arcane Missiles. Arcane Power und Presence of Mind für Burst – immer das Mana im Blick behalten.',
+        playstyle: 'Arcane Blast stapelt sich bis 4×: Jeder Cast gibt Dir einen Teil Deines Intellect als Zauberschaden, macht aber auch den nächsten Arcane Blast deutlich teurer. Missile Barrage (seit dem Launch in der zweiten Reihe) verkürzt dann Arcane Missiles. Arcane Power und Presence of Mind für Burst – immer das Mana im Blick behalten.',
         priority: [
           'Arcane Blast 2–4× stapeln (je nach Mana)',
           'Arcane Missiles mit Missile Barrage',
@@ -460,7 +460,7 @@ const HOW_TO_PLAY = {
       },
       frost: {
         summary: 'Kontroll-Spec mit Shatter-Combos – die beste Wahl zum Leveln.',
-        playstyle: 'Frostbolt verlangsamt, Frostbite und Frost Nova frieren ein, Ice Lance macht gegen eingefrorene Ziele 200 % mehr Schaden. Fingers of Frost lässt zwei Zauber wirken, als wäre das Ziel eingefroren. Ice Barrier schützt vor Unterbrechungen.',
+        playstyle: 'Frostbolt verlangsamt, Frostbite und Frost Nova frieren ein, Ice Lance macht gegen eingefrorene Ziele ein Vielfaches an Schaden, hat seit dem Launch aber 8 Sek. Abklingzeit. Fingers of Frost lässt zwei Zauber wirken, als wäre das Ziel eingefroren. Ice Barrier schützt vor Zauberverzögerung und erhöht Deinen Frostschaden.',
         priority: [
           'Ice Barrier aktiv',
           'Frostbolt als Füller',
@@ -471,7 +471,7 @@ const HOW_TO_PLAY = {
         ],
         stats: 'Hit bis zum Cap, Spell Power und Crit (Shatter, Ice Shards).',
         tips: [
-          'Laut Guides reicht auf Stufe 20 schon Elemental Precision, Frostbite, Ice Shards und Ice Lance.',
+          'Laut Guides reicht auf Stufe 20 schon Precision, Frostbite, Ice Shards und Ice Lance.',
           'Ice Block ist Deine Lebensversicherung – Cold Snap setzt ihn zurück.'
         ]
       }
@@ -550,7 +550,7 @@ const HOW_TO_PLAY = {
   },
 
   druid: {
-    intro: 'Gestaltwandler für jede Rolle: Bär (Tank), Katze (Nahkampf), Moonkin (Caster) und Heiler. Neu: Primal Bite, Lacerate, Berserk, Eclipse, Wild Growth und Shifting Power.',
+    intro: 'Gestaltwandler für jede Rolle: Bär (Tank), Katze (Nahkampf), Moonkin (Caster) und Heiler. Neu: Primal Bite, Lacerate, Eclipse, Wild Growth, Bloom und Shifting Power. Berserk wurde kurz vor dem Launch (30. Oktober) wieder entfernt.',
     leveling: 'Feral (Katze) levelt am schnellsten – Travel Form, Prowl und Selbstheilung zwischen den Kämpfen. Für Dungeons die Bärform als Tank mitnehmen.',
     races: 'Nachtelf, Taure und Skyborne.',
     professions: 'Kräuterkunde + Alchemie (passt zu Reisegestalt und Sammeln), oder Kürschnerei + Lederverarbeitung für Feral-Ausrüstung.',
@@ -573,14 +573,13 @@ const HOW_TO_PLAY = {
       },
       feral: {
         summary: 'Katzen-Nahkampf mit Blutungen.',
-        playstyle: 'Aus Prowl eröffnen, mit Rake, Shred und Claw Combo-Punkte aufbauen, Rip als Blutung, Ferocious Bite als Finisher. Rend and Tear: +10 % gegen blutende Ziele. Shifting Power wandelt Mana in Energie, Berserk ist Dein Burst. Leader of the Pack hilft der ganzen Gruppe.',
+        playstyle: 'Aus Prowl eröffnen, mit Rake, Shred und Claw Combo-Punkte aufbauen, Rip als Blutung, Ferocious Bite als Finisher. Rend and Tear: +10 % gegen blutende Ziele. Shifting Power wandelt Mana in Energie – das neue Powershifting. Seit Berserk am 30. Oktober entfernt wurde, hat die Katze keinen großen Burst-Cooldown mehr. Leader of the Pack hilft der ganzen Gruppe.',
         priority: [
           'Rake aktiv',
           'Shred (von hinten) bzw. Claw zum Aufbau',
           'Rip bei 5 Punkten',
           'Ferocious Bite mit übrigen Punkten',
-          'Shifting Power bei leerer Energie',
-          'Berserk für Burst'
+          'Shifting Power bei leerer Energie'
         ],
         stats: 'Agility/Strength, Attack Power, Hit und Crit.',
         tips: [
@@ -590,14 +589,13 @@ const HOW_TO_PLAY = {
       },
       feral_tank: {
         summary: 'Bären-Tank mit viel Rüstung und Leben.',
-        playstyle: 'Bärform, Lacerate bis 5 stapeln, Primal Bite als Haupt-Wutverbraucher mit viel Bedrohung, Swipe gegen Gruppen, Maul bei Wut-Überschuss. Feral Charge unterbricht Zauber. Berserk lässt Primal Bite bis zu 3 Ziele treffen.',
+        playstyle: 'Bärform, Lacerate (seit dem 30. Oktober ein Talent) bis 5 stapeln, Primal Bite (jetzt das 31er-Talent ganz unten im Baum) als Haupt-Wutverbraucher mit viel Bedrohung, Swipe gegen Gruppen, Maul bei Wut-Überschuss. Feral Charge unterbricht Zauber.',
         priority: [
           'Primal Bite auf Cooldown',
           'Lacerate auf 5 Stapeln halten',
           'Swipe bei mehreren Gegnern',
           'Maul bei Wut-Überschuss',
-          'Demoralizing Roar',
-          'Berserk für große Pulls'
+          'Demoralizing Roar'
         ],
         stats: 'Stamina, Armor, Dodge (Natural Reaction) und Hit für zuverlässige Bedrohung.',
         tips: [
@@ -607,7 +605,7 @@ const HOW_TO_PLAY = {
       },
       restoration: {
         summary: 'HoT-Heiler mit starker Gruppenheilung.',
-        playstyle: 'Rejuvenation und Regrowth vorlegen, Swiftmend verbraucht sie für eine sofortige große Heilung, Wild Growth heilt die ganze Gruppe über 7 Sek. Gift of the Earthmother verkürzt den globalen Cooldown dieser Zauber.',
+        playstyle: 'Rejuvenation und Regrowth vorlegen, Swiftmend verbraucht sie für eine sofortige große Heilung, Wild Growth heilt die Gruppe des Ziels über 7 Sek., hat seit dem 30. Oktober aber 3 Sek. Zauberzeit. Bloom (ersetzt Gift of the Earthmother) heilt, wenn Rejuvenation oder Regrowth ausläuft, um 100 % Deines Spirits.',
         priority: [
           'Rejuvenation auf Tank bzw. wer Schaden nimmt',
           'Wild Growth bei Gruppen-Schaden',

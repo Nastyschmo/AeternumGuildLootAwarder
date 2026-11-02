@@ -55,6 +55,7 @@ const BIS_TALENT_STATS = {
   'Mage|Arcane Focus': [['hit:Arcane', 0]],
   'Mage|Arcane Impact': [['crit:Arcane', 0]],
   'Mage|Elemental Precision': [['hit:Fire', 0], ['hit:Frost', 0]],
+  'Mage|Precision': [['hit', 0]],
   'Mage|Critical Mass': [['crit:Fire', 0]],
   'Mage|Arcane Resilience': [['armorFromInt', 0]],
   'Mage|Arcane Mind': [['int', 0]],

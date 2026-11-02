@@ -1,6 +1,6 @@
 // Builds data/forever/items.json + data/forever/meta.json from live sources:
 //  - wago.tools DB2 CSV exports of the newest WoW Forever client build
-//    (product wow_classic_beta, version 1.60.x) for item names, slots,
+//    (products wowf and wow_classic_beta, version 1.60.x) for item names, slots,
 //    stats, armor, damage, sets and icons;
 //  - QuestieDB (github.com/Questie/QuestieDB, data/Forever) for where an
 //    item comes from: NPC drops, quest rewards, vendors, objects, containers;
@@ -33,7 +33,9 @@ import vm from 'node:vm';
 
 const OUT_DIR = new URL('../../data/forever/', import.meta.url);
 const WAGO = 'https://wago.tools';
-const PRODUCT = 'wow_classic_beta';
+// The released game (wowf, builds from Oct 28 on) and the beta, which stopped
+// at 1.60.1.70532 when it closed on Oct 22 — the newest build of either.
+const PRODUCTS = ['wowf', 'wow_classic_beta'];
 const QUESTIE = 'https://raw.githubusercontent.com/Questie/QuestieDB/master/data/Forever';
 // QuestieDB's Forever (and Classic) data has no loot for some raid bosses
 // (e.g. Molten Core); its Wotlk data does, for the same NPC and item ids.
@@ -85,10 +87,12 @@ async function table(name, build, need = [], locale = '') {
 const byId = (rows, key = 'ID') => new Map(rows.map(r => [I(r[key]), r]));
 
 // ---------------------------------------------------------------- build
-async function newestBuild(builds, product, prefix) {
-  const list = (builds[product] || []).filter(b => b.version.startsWith(prefix))
-    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-  if (!list.length) throw new Error(`no ${prefix}x build found under ${product}`);
+/** The highest prefix.x build (by build number) over the given products. */
+async function newestBuild(builds, products, prefix) {
+  const num = v => Number(String(v).split('.').pop()) || 0;
+  const list = [products].flat().flatMap(p => builds[p] || []).filter(b => b.version.startsWith(prefix))
+    .sort((a, b) => num(b.version) - num(a.version) || String(b.created_at).localeCompare(String(a.created_at)));
+  if (!list.length) throw new Error(`no ${prefix}x build found under ${[products].flat().join(', ')}`);
   return list[0].version;
 }
 
@@ -252,7 +256,7 @@ function parseInstanceZones(text) {
 
 // ---------------------------------------------------------------- main
 const builds = JSON.parse(await getText(`${WAGO}/api/builds`));
-const build = await newestBuild(builds, PRODUCT, '1.60.');
+const build = await newestBuild(builds, PRODUCTS, '1.60.');
 // wago.tools' Forever ItemSparse export only holds part of the items (the
 // rest are unchanged Classic items). Those are filled in from the newest
 // Classic Era build, whose ItemSparse stores final stat/armor/damage values.

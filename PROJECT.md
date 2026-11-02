@@ -16,6 +16,21 @@ Rules of collaboration: `CLAUDE.md`.
 
 ## Work log (most recent first)
 
+- **2026-11-02** — Forever data: the importer read only the beta product
+  (wow_classic_beta), which stopped at 1.60.1.70532 when the beta closed;
+  the released game's builds (70630 … 70707) are under wago.tools' `wowf`
+  product. `scripts/forever-data/update.mjs` now takes the highest 1.60
+  build of both (same fix as nasty-gaming). How-to-play texts updated for
+  the launch build and the Oct 28 / Oct 30 hotfixes (Druid: Berserk gone,
+  Lacerate talent, Primal Bite capstone, Wild Growth cast time, Bloom;
+  Paladin: Unsealed Wrath, Shieldsworn, Vengeance needs Seal of Command;
+  Priest: Binding Heal trainer spell; Mage: Ice Lance cooldown, Missile
+  Barrage row 2, Precision). Raid tactics: Salvation and Blessing of Light
+  removed (gone since the Oct 30 hotfix). BiS talent stats: Mage Precision.
+  Known gap: server hotfixes (Paladin / Druid / Priest talent reworks of
+  Oct 30) are in no client build, so the live talent data still shows the
+  beta state for them.
+
 - **2026-10-18** — Updates in step with nasty-gaming: the data workflow
   also writes `data/forever/spells.json` (class abilities + racials, English;
   `scripts/forever-data/spells.mjs`, same as nasty), `changelog.mjs` (now the

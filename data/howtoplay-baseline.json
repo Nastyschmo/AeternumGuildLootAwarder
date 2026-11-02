@@ -1,6 +1,6 @@
 {
- "updated": "2026-10-18",
- "build": "1.60.1.70450",
+ "updated": "2026-11-02",
+ "build": "1.60.1.70707",
  "classes": {
   "warrior": {
    "Bastion": {
@@ -99,7 +99,7 @@
    },
    "Champion of the Light": {
     "max": 3,
-    "desc": "Increases your spell damage by up to 30% of your Intellect."
+    "desc": "Increases your spell damage by up to 60% of your Intellect."
    },
    "Divine Favor": {
     "max": 1,
@@ -128,10 +128,6 @@
    "Infusion of Light": {
     "max": 2,
     "desc": "Your Holy Shock and Flash of Light critical hits reduce the cast time of your next Holy Light cast within 15 sec by 1 sec."
-   },
-   "Instrument of Law": {
-    "max": 2,
-    "desc": "Reduces the cast time of your Hammer of Wrath by 1 sec, and reduces all threat you generate by 20% while Righteous Fury is not active."
    },
    "Iron Creed": {
     "max": 5,
@@ -180,6 +176,10 @@
    "Twist of Light": {
     "max": 1,
     "desc": "Reduces the Mana cost of your Seal spells by 20%, and when you replace your Seal of Command, Seal of Righteousness, Seal of Fury, or Seal of Justice with a different Seal, you gain an Echo of that Seal. Your next melee attack applies the replaced Seal's effects, consuming the Echo."
+   },
+   "Vengeance": {
+    "max": 3,
+    "desc": "Increases your Physical and Holy damage dealt by 3% for 30 sec after landing a non-periodic critical strike. Stacks up to 3 times."
    },
    "Voice of Truth": {
     "max": 1,
@@ -603,10 +603,6 @@
     "max": 1,
     "desc": "When activated, this spell causes each of your Fire damage spell hits to increase your critical strike chance with Fire damage spells by 10%. This effect lasts until you have caused 3 non-periodic critical strikes with Fire spells."
    },
-   "Elemental Precision": {
-    "max": 5,
-    "desc": "Improves your chance to hit with Frost and Fire spells by 5%."
-   },
    "Fingers of Frost": {
     "max": 2,
     "desc": "Gives your Chill effects a 15% chance to grant you the Fingers of Frost effect, which treats your next 2 spells cast as if the target were Frozen. Lasts 15 sec."
@@ -621,7 +617,7 @@
    },
    "Ice Barrier": {
     "max": 1,
-    "desc": "Instantly shields you, absorbing 431 damage. Lasts 1 min. While the shield holds, your spellcasts will not be interrupted or delayed from taking damage."
+    "desc": "Instantly shields you, absorbing 447 damage. Lasts 1 min. While the shield holds, your spellcasts will not be interrupted or delayed from taking damage."
    },
    "Ice Block": {
     "max": 1,
@@ -653,7 +649,11 @@
    },
    "Missile Barrage": {
     "max": 2,
-    "desc": "Gives your Arcane Blast spell a 40% chance, your Arcane Missile hits a 10% chance, and your Arcane Wrath, Fireball, Frostbolt, and Frostfire Bolt spells a 20% chance to reduce the channeled duration of your next Arcane Missiles spell by 50%, reduce the Mana cost by 100%, and missiles fire every 0.5 sec."
+    "desc": "Gives your Arcane Blast spell a 40% chance, and your Arcane Wrath, Fireball, Frostbolt, Frost Blast, and Frostfire Bolt spells a 20% chance to reduce the channeled duration of your next Arcane Missiles spell by 50%, reduce the Mana cost by 100%, and missiles fire every 0.5 sec."
+   },
+   "Precision": {
+    "max": 3,
+    "desc": "Improves your chance to hit with all spells by 6%."
    },
    "Presence of Mind": {
     "max": 1,
@@ -671,7 +671,7 @@
   "warlock": {
    "Amplify Curse": {
     "max": 1,
-    "desc": "Increases the effect of your next Curse of Weakness or Bane of Agony by 50%, or your next Curse of Exhaustion by 0%. Lasts 30 sec."
+    "desc": "Increases the effect of your next Curse of Weakness or Bane of Agony by 50%, or your next Curse of Exhaustion by 20%. Lasts 30 sec."
    },
    "Bane": {
     "max": 5,

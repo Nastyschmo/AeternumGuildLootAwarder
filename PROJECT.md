@@ -16,6 +16,20 @@ Rules of collaboration: `CLAUDE.md`.
 
 ## Work log (most recent first)
 
+- **2026-11-03** — How to play updated for Blizzard's development notes of
+  Nov 2 (same as nasty-gaming): Rogue rework (Shank, Poised, Death Mark;
+  Thousand Cuts / Cutthroat removed), Shaman (Lava Burst removed, Call of
+  Thunder, Lightning Mastery, Stormstrike, Riptide), Warrior (Flurry,
+  Defensive Stance, Improved Whirlwind), Paladin (Unsealed Wrath, Vengeance,
+  Swift Judgement, Oath of Light, Righteous Fury threat; Voice of Truth
+  removed), Priest (Binding Heal removed), Hunter, Druid, Mage, Warlock
+  numbers. Baseline rewritten for build 1.60.1.70753 after the review.
+  The data workflow no longer merges a data update blindly: it runs
+  `check.mjs --strict` first and leaves the pull request open with a comment
+  when a talent the guide names was added or removed (data PR #70 had been
+  merged while the type-check workflow — which bot PRs don't trigger — would
+  have failed).
+
 - **2026-11-02** — Forever data: the importer read only the beta product
   (wow_classic_beta), which stopped at 1.60.1.70532 when the beta closed;
   the released game's builds (70630 … 70707) are under wago.tools' `wowf`

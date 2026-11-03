@@ -18,9 +18,14 @@
 //    loaded).
 //  - Zonen: world zones by level range, their quest hubs (quest givers
 //    with the most quests) and quests.
+//  - Nicht vergessen: what is easy to miss while leveling (free bags,
+//    camp, Cozy Sleeping Bag, hidden item quests, gold) by level passage
+//    (data/levelchecklist.js); "Mein Level" marks the passage, ticks are
+//    kept in localStorage. Needs no quest data.
 
 const LG_LEVEL_KEY = 'rude-levelguide-level';
 const LG_RACE_KEY = 'rude-levelguide-race';
+const LG_CHECK_KEY = 'rude-levelguide-checklist';
 /** Horde races (ids as in quests.json) with their German names. */
 const LG_RACES = { orc: ['Orc', 'Orcs'], troll: ['Troll', 'Trolle'], tauren: ['Tauren', 'Tauren'], undead: ['Untoter', 'Untote'] };
 /** @type {{ build: string, quests: Record<string, any>, npcs: Record<string, any[]>, objs: Record<string, any[]>, items: Record<string, any[]>, zones: Record<string, any> } | null} */
@@ -234,8 +239,55 @@ function lgZonesHtml(){
   }).join('');
 }
 
+// ------------------------------------------------------------ Nicht vergessen
+/** Ticked checklist ids (this browser). @returns {string[]} */
+function lgCheckDone(){
+  try { const v = JSON.parse(localStorage.getItem(LG_CHECK_KEY) || '[]'); return Array.isArray(v) ? v.filter(x => typeof x === 'string') : []; } catch (e){ return []; }
+}
+/** @param {string[]} ids */
+function lgCheckSave(ids){ try { localStorage.setItem(LG_CHECK_KEY, JSON.stringify(ids)); } catch (e){ /* ignore */ } }
+const LG_CHECK_KIND = { bag: 'Tasche', camp: 'Lager', quest: 'Questreihe', secret: 'Versteckt', gold: 'Gold', tip: 'Tipp', pet: 'Begleiter', gear: 'Ausrüstung' };
+/** The passage of a level. @param {number} lv */
+const lgPassage = lv => LEVEL_CHECKLIST.passages.find(p => lv >= p.from && lv <= p.to) || LEVEL_CHECKLIST.passages[0];
+
+function lgChecklistHtml(){
+  if (typeof LEVEL_CHECKLIST === 'undefined') return '';
+  const done = lgCheckDone();
+  const cur = lgLevel ? lgPassage(lgLevel) : null;
+  const total = LEVEL_CHECKLIST.items.length;
+  const ticked = LEVEL_CHECKLIST.items.filter(x => done.includes(x.id)).length;
+  const date = new Date(`${LEVEL_CHECKLIST_UPDATED}T12:00:00`).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+  const item = (/** @type {LevelCheckItem} */ x) => {
+    const c = x.cls ? CLASS_MAP[x.cls] : null;
+    return `<article class="lgc-item${done.includes(x.id) ? ' done' : ''}">
+      <label class="lgc-check"><input type="checkbox" data-lgc="${escapeHtml(x.id)}"${done.includes(x.id) ? ' checked' : ''}><span aria-hidden="true"></span></label>
+      <div class="lgc-body">
+        <div class="lgc-tags"><span class="lgc-kind lgc-kind-${x.kind}">${LG_CHECK_KIND[x.kind] || x.kind}</span><span>${x.level > 1 ? `ab ${x.level}` : 'jederzeit'}</span>${c ? `<span class="lgc-cls" style="color:${c.color}">${escapeHtml(c.label)}</span>` : ''}</div>
+        <h3>${escapeHtml(x.title)}</h3>
+        ${x.where ? `<p class="lgc-where">⌖ ${escapeHtml(x.where)}</p>` : ''}
+        <p>${escapeHtml(x.text)}</p>
+        ${x.steps ? `<ol>${x.steps.map(st => `<li>${escapeHtml(st)}</li>`).join('')}</ol>` : ''}
+        ${x.source ? `<p class="lgc-src">Quelle: <a href="${escapeHtml(x.source.url)}" target="_blank" rel="noopener">${escapeHtml(x.source.label)} ↗</a></p>` : ''}
+      </div>
+    </article>`;
+  };
+  return `<div class="tac-card lgc-head">
+      <p class="tac-card-note">Was man beim Leveln in WoW Forever leicht übersieht – nach Stufe sortiert, nur Horde und neutral. Nebenbei offen lassen und mit jeder Stufe zum nächsten Abschnitt scrollen. Zusammengetragen aus Community-Guides, meist noch vom Beta-Stand (Stand ${escapeHtml(date)}).</p>
+      <div class="lgc-progress"><span>${ticked} von ${total} erledigt</span><span class="lgc-meter"><i style="width:${total ? Math.round(ticked / total * 100) : 0}%"></i></span>${ticked ? '<button type="button" class="tac-boss" data-lgc-reset>Häkchen zurücksetzen</button>' : ''}</div>
+      <div class="tac-bosses">${LEVEL_CHECKLIST.passages.map(p => `<button type="button" class="tac-boss${cur === p ? ' active' : ''}" data-lgc-jump="${p.from}">${p.from}–${p.to}</button>`).join('')}</div>
+    </div>
+    ${LEVEL_CHECKLIST.passages.map(p => {
+      const items = LEVEL_CHECKLIST.items.filter(x => x.level >= p.from && x.level <= p.to);
+      return `<section class="lgc-passage${cur === p ? ' current' : ''}" id="lgc-${p.from}">
+        <div class="lgc-rail"><span class="lgc-badge"><small>Stufe</small>${p.from}–${p.to}</span>${cur === p ? '<span class="lgc-here">Du bist hier</span>' : ''}</div>
+        <div class="lgc-items">${items.length ? items.map(item).join('') : '<p class="bis-hint">Hier gibt es nichts Besonderes – weiter questen!</p>'}</div>
+      </section>`;
+    }).join('')}`;
+}
+
 /** The open tab; a search looks through both (dungeons first). */
 function lgListHtml(){
+  if (lgTab === 'check' && !lgQuery) return lgChecklistHtml();
   const html = lgQuery ? lgDungeonsHtml() + lgZonesHtml() : lgTab === 'zones' ? lgZonesHtml() : lgDungeonsHtml();
   return html || '<div class="tac-card"><p class="bis-hint">Nichts gefunden.</p></div>';
 }
@@ -244,14 +296,14 @@ function renderLevelGuidePage(){
   const root = document.getElementById('levelGuideRoot');
   if (!root) return;
   lgLoad();
-  if (!lgData){ root.innerHTML = `<div class="tac-card"><p class="bis-hint">${lgError ? escapeHtml(lgError) : 'Questdaten werden geladen …'}</p></div>`; return; }
+  if (!lgData && lgTab !== 'check'){ root.innerHTML = `<div class="tac-card"><p class="bis-hint">${lgError ? escapeHtml(lgError) : 'Questdaten werden geladen …'}</p></div>`; return; }
   // Item tooltips on rewards need the item data (loaded once, in the background).
   if (typeof bisData !== 'undefined' && !bisData) bisLoadData().catch(() => {});
   const searchFocused = document.activeElement && /** @type {HTMLElement} */ (document.activeElement).hasAttribute('data-lg-search');
   root.innerHTML = `<div class="tac-card lg-top">
       <label class="lg-level">Mein Level<input type="number" min="1" max="60" class="apply-text-input" data-lg-level value="${lgLevel || ''}" placeholder="z. B. 23"></label>
       <label class="lg-level">Mein Volk<select class="apply-text-input" data-lg-race><option value="">Alle Völker</option>${Object.entries(LG_RACES).map(([k, [one]]) => `<option value="${k}"${lgRace === k ? ' selected' : ''}>${one}</option>`).join('')}</select></label>
-      <div class="tac-bosses">${[['dungeons', 'Dungeons & Raids'], ['zones', 'Zonen']].map(([k, l]) => `<button type="button" class="tac-boss${lgTab === k ? ' active' : ''}" data-lg-tab="${k}">${l}</button>`).join('')}</div>
+      <div class="tac-bosses">${[['dungeons', 'Dungeons & Raids'], ['zones', 'Zonen'], ['check', 'Nicht vergessen']].map(([k, l]) => `<button type="button" class="tac-boss${lgTab === k ? ' active' : ''}" data-lg-tab="${k}">${l}</button>`).join('')}</div>
       <input type="search" class="apply-text-input lg-search" data-lg-search placeholder="Quest, NPC oder Zone suchen …" value="${escapeHtml(lgQuery)}">
       <p class="bis-hint">Horde und neutrale Quests aus QuestieDB (WoW Forever). Neue Forever-Inhalte erscheinen, sobald QuestieDB sie hat. Namen und Questtexte auf Englisch wie im Spiel-Datenstand.</p>
     </div>
@@ -262,7 +314,28 @@ function renderLevelGuidePage(){
 
 /** @param {HTMLElement} root */
 function lgWire(root){
-  root.querySelectorAll('[data-lg-tab]').forEach(btn => btn.addEventListener('click', () => { lgTab = btn.getAttribute('data-lg-tab'); renderLevelGuidePage(); }));
+  root.querySelectorAll('[data-lg-tab]').forEach(btn => btn.addEventListener('click', () => {
+    lgTab = btn.getAttribute('data-lg-tab');
+    renderLevelGuidePage();
+    // Checklist: straight to the passage of "Mein Level".
+    if (lgTab === 'check' && lgLevel) document.getElementById(`lgc-${lgPassage(lgLevel).from}`)?.scrollIntoView({ block: 'start' });
+  }));
+  root.querySelectorAll('[data-lgc-jump]').forEach(btn => btn.addEventListener('click', () => document.getElementById(`lgc-${btn.getAttribute('data-lgc-jump')}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
+  root.querySelectorAll('[data-lgc]').forEach(box => box.addEventListener('change', () => {
+    const id = box.getAttribute('data-lgc') || '';
+    const done = lgCheckDone().filter(x => x !== id);
+    if (/** @type {HTMLInputElement} */ (box).checked) done.push(id);
+    lgCheckSave(done);
+    const y = window.scrollY;
+    renderLevelGuidePage();
+    window.scrollTo(0, y);
+  }));
+  root.querySelector('[data-lgc-reset]')?.addEventListener('click', async () => {
+    const ok = await bisDialog('Häkchen zurücksetzen', 'Alle Häkchen in „Nicht vergessen“ entfernen?', [{ id: 'cancel', label: 'Abbrechen' }, { id: 'reset', label: 'Zurücksetzen', primary: true }]);
+    if (ok !== 'reset') return;
+    lgCheckSave([]);
+    renderLevelGuidePage();
+  });
   root.querySelectorAll('[data-lg-open]').forEach(btn => btn.addEventListener('click', () => {
     const k = btn.getAttribute('data-lg-open');
     if (lgOpen.has(k)) lgOpen.delete(k); else lgOpen.add(k);

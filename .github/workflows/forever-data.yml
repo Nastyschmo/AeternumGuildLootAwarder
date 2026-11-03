@@ -3,7 +3,12 @@
 #
 # - Daily (and on demand via "Run workflow"): regenerates the data on main.
 #   If anything changed, it validates the result (importer sanity checks +
-#   the TypeScript check), opens a pull request and merges it right away.
+#   the TypeScript check) and opens a pull request. It merges it right away
+#   only when the "How to play" guide still matches the new talent data
+#   (scripts/howtoplay/check.mjs --strict, the same check the PR's type-check
+#   workflow runs — bot pull requests don't trigger that workflow). If a
+#   talent the guide names was added or removed, the pull request stays open
+#   with a note: review the guide on its branch, rewrite the baseline, merge.
 # - Daily on main, after that: checks the "How to play" guide against the
 #   (possibly new) talent data (scripts/howtoplay/check.mjs) and keeps one
 #   open issue labelled "how-to-play" listing the talents whose text changed
@@ -66,6 +71,16 @@ jobs:
           git add data/forever
           git commit -m "Regenerate Forever data (build ${{ steps.diff.outputs.build }})"
           git push
+      - name: How to play — guide and baseline agree (decides the merge)
+        id: strict
+        if: steps.diff.outputs.changed == 'true' && github.ref == 'refs/heads/main'
+        run: |
+          if node scripts/howtoplay/check.mjs --strict > howtoplay-strict.txt 2>&1; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+          cat howtoplay-strict.txt
       - name: Open and merge data pull request
         if: steps.diff.outputs.changed == 'true' && github.ref == 'refs/heads/main'
         env:
@@ -80,8 +95,21 @@ jobs:
           git push -u origin "$branch"
           gh pr create --base main --head "$branch" \
             --title "Daten-Update: WoW Forever Build ${{ steps.diff.outputs.build }}" \
-            --body "Automatisches Update von \`data/forever/\` aus wago.tools und QuestieDB. Importer-Prüfungen und TypeScript-Check waren grün; dieser PR wird automatisch gemergt."
-          gh pr merge "$branch" --squash --delete-branch
+            --body "Automatisches Update von \`data/forever/\` aus wago.tools und QuestieDB. Importer-Prüfungen und TypeScript-Check waren grün."
+          if [ "${{ steps.strict.outputs.ok }}" = "true" ]; then
+            gh pr merge "$branch" --squash --delete-branch
+          else
+            {
+              echo "**Nicht automatisch gemergt:** Der How-to-play-Guide passt nicht mehr zu den neuen Talentdaten (ein im Guide genanntes Talent ist neu oder entfallen)."
+              echo
+              echo "Auf diesem Branch \`data/howtoplay.js\` prüfen, danach \`node scripts/howtoplay/check.mjs --baseline\` ausführen, committen und mergen."
+              echo
+              echo '```'
+              tail -n 40 howtoplay-strict.txt
+              echo '```'
+            } > strict-comment.md
+            gh pr comment "$branch" --body-file strict-comment.md
+          fi
       - name: How to play — talent changes since the guide was reviewed
         if: github.ref == 'refs/heads/main'
         env:

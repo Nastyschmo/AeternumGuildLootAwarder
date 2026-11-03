@@ -8,7 +8,7 @@
 // Dive texts); everything else is German. Edited by hand via PR — bump
 // HOW_TO_PLAY_UPDATED when the content changes.
 
-const HOW_TO_PLAY_UPDATED = '2026-11-02';
+const HOW_TO_PLAY_UPDATED = '2026-11-03';
 
 /** @type {Record<string, HowToPlayClass>} */
 const HOW_TO_PLAY = {
@@ -38,7 +38,7 @@ const HOW_TO_PLAY = {
       },
       fury: {
         summary: 'Beidhändiger Nahkämpfer – im Raid meist der stärkste physische Schaden, braucht aber gute Ausrüstung.',
-        playstyle: 'Bloodthirst und Whirlwind auf Cooldown – Raging Blows senkt die Wutkosten von Whirlwind und Cleave um 3. Flurry hält die Angriffsgeschwindigkeit hoch, Death Wish ist Dein Burst. Wut-Überschuss geht in Heroic Strike, bei mehreren Zielen in Cleave.',
+        playstyle: 'Bloodthirst und Whirlwind auf Cooldown – Raging Blows senkt die Wutkosten von Whirlwind und Cleave um 3. Flurry (seit 2.11. 3 Punkte für bis zu 30 % Tempo) hält die Angriffsgeschwindigkeit hoch, Death Wish ist Dein Burst – Bloodthirst setzt jetzt Death Wish voraus. Neu sind Improved Whirlwind (kürzere Abklingzeit, mehr Schaden auf das nächste Ziel) und Reckless Swings (Leben gegen Wut). Wut-Überschuss geht in Heroic Strike, bei mehreren Zielen in Cleave.',
         priority: [
           'Battle Shout aktiv halten',
           'Bloodthirst auf Cooldown',
@@ -56,7 +56,7 @@ const HOW_TO_PLAY = {
       },
       protection: {
         summary: 'Schild-Tank. Bastion (+10 % Schaden mit Schild) macht Protection in Forever auch beim Questen brauchbar.',
-        playstyle: 'Defensive Stance mit Schild. Shield Slam erzeugt sehr viel Bedrohung und skaliert mit Block Value, Revenge kommt nach Block/Dodge/Parry, Sunder Armor liegt auf dem Hauptziel. Wut bekommst Du zusätzlich über Shield Specialization und Master of Defense.',
+        playstyle: 'Defensive Stance mit Schild (seit 2.11. 80 % statt 30 % mehr Bedrohung). Shield Slam erzeugt sehr viel Bedrohung und skaliert mit Block Value, Revenge kommt nach Block/Dodge/Parry, Sunder Armor liegt auf dem Hauptziel. Wut bekommst Du zusätzlich über Shield Specialization und Master of Defense.',
         priority: [
           'Shield Slam auf Cooldown',
           'Revenge, sobald verfügbar',
@@ -91,7 +91,7 @@ const HOW_TO_PLAY = {
     specs: {
       holy: {
         summary: 'Mana-effizienter Heiler mit starker Einzelziel-Heilung.',
-        playstyle: 'Holy Light für große Heilungen, Flash of Light für effizientes Nachheilen, Holy Shock für Sofort-Heilung. Illumination gibt bei kritischen Heilungen Mana zurück – Crit ist also auch Mana. Light\'s Vigil (31er-Talent) auf den Tank legen: Der nächste Holy Shock auf ihn hat keinen Cooldown und heilt auch seine Gruppe.',
+        playstyle: 'Holy Light für große Heilungen, Flash of Light für effizientes Nachheilen, Holy Shock für Sofort-Heilung. Illumination gibt bei kritischen Heilungen Mana zurück – Crit ist also auch Mana. Light\'s Vigil (31er-Talent) auf den Tank legen: Der nächste Holy Shock auf ihn hat keinen Cooldown und heilt auch seine Gruppe. Oath of Light (neu) auf einen Verbündeten verstärkt 5 Min. lang Holy Light, Flash of Light und Holy Shock auf ihn; Boundless Light gibt Holy Shock auf alle anderen mehr Crit.',
         priority: [
           'Light\'s Vigil auf dem Tank halten',
           'Holy Shock bei akutem Schaden',
@@ -103,7 +103,7 @@ const HOW_TO_PLAY = {
         stats: 'Healing Power, Intellect und Crit (Illumination). Reverence lässt 30 % der Manaregeneration beim Zaubern weiterlaufen.',
         tips: [
           'Spiritual Focus schützt Deine Zauber vor Verzögerung durch Schaden.',
-          'Voice of Truth macht 6 Sek. immun gegen Silence und Unterbrechungen – gegen Caster Gold wert.'
+          'Holy Power erhöht seit 2.11. den Crit-Bonus Deiner Heilungen statt der Crit-Chance.'
         ]
       },
       protection: {
@@ -112,21 +112,21 @@ const HOW_TO_PLAY = {
         priority: [
           'Righteous Fury aktiv',
           'Holy Shield aufrechterhalten',
-          'Holy Strike auf Cooldown (Iron Creed: −10 % Schaden)',
+          'Holy Strike auf Cooldown (Iron Creed: −6 % Schaden, mehr Bedrohung)',
           'Consecration bei mehreren Gegnern',
-          'Judgement – Swift Judgement setzt den Cooldown zurück',
+          'Judgement auf Cooldown, Swift Judgement entfesselt das Siegel zusätzlich (eigener Cooldown)',
           'Templar\'s Bulwark als großer Notfall-Schild'
         ],
         stats: 'Defense, Stamina und Block Value; Intellect gegen Mana-Probleme (Shield Specialization gibt beim Blocken Mana zurück).',
         tips: [
           'Templar\'s Bulwark löst Forbearance aus – nicht direkt nach Divine Shield nutzbar.',
-          'Improved Righteous Fury senkt den erlittenen Schaden um 6 %.',
+          'Righteous Fury gibt +33 % Bedrohung (Holy-Schaden +90 %), Improved Righteous Fury senkt den erlittenen Schaden um 9 %.',
           'Reckoning gibt Extra-Angriffe nach Blocks und Crits gegen Dich.'
         ]
       },
       retribution: {
         summary: 'Zweihand-Nahkämpfer mit Holy-Schaden – der beste Paladin-Spec zum Questen.',
-        playstyle: 'Seal of Command aktiv, Judgement auf Cooldown, Holy Strike – mit Sacred Arbiter frischt er alle Judgements auf. Unsealed Wrath (31er, hieß in der Beta Twist of Light) belohnt Siegel-Wechsel: Das alte Siegel hinterlässt ein Echo, das mit dem nächsten Schlag noch einmal wirkt.',
+        playstyle: 'Seal of Command aktiv, Judgement auf Cooldown, Holy Strike – mit Sacred Arbiter frischt er alle Judgements auf. Unsealed Wrath (31er, ersetzt Twist of Light, braucht Repentance): Deine Schläge speichern bis zu 3 Kopien des aktiven Siegels; ein Schlag mit einem anderen Siegel löst sie alle aus.',
         priority: [
           'Siegel aktiv (meist Seal of Command)',
           'Judgement auf Cooldown',
@@ -137,9 +137,9 @@ const HOW_TO_PLAY = {
         ],
         stats: 'Hit bis zum Cap, Strength/Attack Power und Crit. Champion of the Light macht Intellect zu Zauberschaden. Hit und Crit sind in Forever je ein gemeinsamer Wert für Nahkampf und Zauber.',
         tips: [
-          'Benediction und Holy Conduit halten das Mana stabil.',
+          'Benediction und Sanctified Judgement halten das Mana stabil (Holy Conduit liegt jetzt im Holy-Baum).',
           'Repentance ist Dein Crowd Control gegen Humanoide.',
-          'Vengeance (+9 % Schaden) wirkt seit dem 30. Oktober nur noch mit Seal of Command.'
+          'Vengeance stapelt bis zu 5-mal und braucht Seal of Command; Two-Handed Weapon Specialization verstärkt Holy- und physischen Schaden und senkt Deine Bedrohung.'
         ]
       }
     },
@@ -183,7 +183,7 @@ const HOW_TO_PLAY = {
           'Trueshot Aura aktiv',
           'Serpent Sting auf dem Ziel (Rapid Recuperation)',
           'Sniper Shot auf Cooldown',
-          'Aimed Shot bzw. Arcane Shot (Improved Arcane Shot: kürzerer Cooldown)',
+          'Aimed Shot (seit 2.11. rund 110 % mehr Bonusschaden) bzw. Arcane Shot',
           'Multi-Shot bei mehreren Gegnern',
           'Rapid Fire für Burst'
         ],
@@ -204,7 +204,7 @@ const HOW_TO_PLAY = {
           'Counterattack nach einem Parieren',
           'Fallen gegen Gruppen (Clever Traps)'
         ],
-        stats: 'Agility (Lightning Reflexes +10 %), Hit und Crit (Predator\'s Edge).',
+        stats: 'Agility (Lightning Reflexes +15 %), Hit und Crit (Predator\'s Edge).',
         tips: [
           'Deterrence mit Survivalist\'s Discipline für Notfälle.',
           'Resourcefulness senkt die Manakosten Deiner Nahkampf-Fähigkeiten und Fallen stark.',
@@ -222,18 +222,18 @@ const HOW_TO_PLAY = {
   },
 
   rogue: {
-    intro: 'Energie-Nahkämpfer mit Combo-Punkten, Giften und Stealth. Neu: Mutilate und Venom (Assassination), Thousand Cuts rund um Rupture (Subtlety).',
+    intro: 'Energie-Nahkämpfer mit Combo-Punkten, Giften und Stealth. Neu: Shank (Stufe 24) – ein billiger Nebenhand-Stich, der Energie zurückgibt –, Poised (Stufe 18: der erste Angriff aus der Ruhe ist billiger), Mutilate (Assassination) und Death Mark (Subtlety).',
     leveling: 'Combat ist der einfachste Leveling-Weg: wenig Vorbereitung, Sinister Strike und Eviscerate, jede Waffe geht. Ab Stufe 20 Gifte nicht vergessen.',
     races: 'Alle Völker außer Tauren.',
     professions: 'Kürschnerei + Lederverarbeitung für eigene Lederrüstung, oder Ingenieurskunst für PvP-Gadgets. Gifte stellst Du als Schurke ohnehin selbst her.',
     specs: {
       assassination: {
         summary: 'Gift-Spec mit Dolchen – laut aktuellen Sims der stärkste Rogue-Schaden auf Stufe 60.',
-        playstyle: 'Instant Poison auf die Haupthand, Deadly Poison auf die Nebenhand. Mutilate (zwei Dolche, 2 Combo-Punkte, +20 % gegen vergiftete Ziele) baut auf, Seal Fate gibt bei Crits Extra-Punkte. Slice and Dice und Venom aufrechterhalten, übrige Punkte in Eviscerate.',
+        playstyle: 'Instant Poison auf die Haupthand, Deadly Poison auf die Nebenhand. Mutilate (zwei Dolche, 2 Combo-Punkte, +20 % gegen vergiftete Ziele) baut auf, Seal Fate gibt bei Crits Extra-Punkte. Shank auf Cooldown – mit Venom gibt er 6 Sek. lang +30 % Giftschaden und mehr Gift-Chance. Slice and Dice aufrechterhalten, übrige Punkte in Eviscerate oder Rupture (Blood Splatter: länger).',
         priority: [
           'Slice and Dice aktiv',
-          'Venom aktiv',
-          'Eviscerate, wenn beide Buffs laufen',
+          'Shank auf Cooldown (Venom)',
+          'Eviscerate bzw. Rupture mit 5 Punkten',
           'Mutilate zum Punkte-Aufbau',
           'Cold Blood für einen sicheren Crit'
         ],
@@ -241,14 +241,15 @@ const HOW_TO_PLAY = {
         tips: [
           'Mutilate braucht Dolche in beiden Händen.',
           'Improved Poisons lässt Gift-Aufladungen oft nicht verbrauchen.',
-          'Relentless Strikes gibt Energie zurück – Finisher mit 5 Punkten lohnen sich.'
+          'Relentless Strikes (5 Punkte) gibt pro Combo-Punkt eine Chance auf 25 Energie – Finisher mit 5 Punkten lohnen sich.'
         ]
       },
       combat: {
         summary: 'Unkomplizierter Dauerschaden mit freier Waffenwahl.',
-        playstyle: 'Sinister Strike baut Punkte auf, Slice and Dice bleibt aktiv, Eviscerate ist der Finisher. Hack and Slash belohnt je nach Waffe (Schwert/Axt: Extra-Angriffe, Dolch/Faust: Crit). Blade Flurry und Adrenaline Rush für Burst und Gruppen.',
+        playstyle: 'Sinister Strike baut Punkte auf, Shank gibt Energie zurück (Flash of Steel: mehr Energie, kürzerer Cooldown), Slice and Dice bleibt aktiv, Eviscerate ist der Finisher (Coup de Grace: +20 %). Hack and Slash belohnt je nach Waffe (Schwert/Axt: Extra-Angriffe, Dolch/Faust: Crit). Blade Flurry und Adrenaline Rush für Burst und Gruppen.',
         priority: [
           'Slice and Dice aktiv',
+          'Shank auf Cooldown',
           'Sinister Strike bis 5 Punkte',
           'Eviscerate',
           'Blade Flurry bei 2+ Gegnern',
@@ -257,25 +258,26 @@ const HOW_TO_PLAY = {
         ],
         stats: 'Hit bis zum Cap, Agility/Attack Power und Crit. Weapon Expertise senkt die Chance, dass Gegner ausweichen oder parieren.',
         tips: [
+          'Dual Wield Specialization: +50 % Nebenhand-Schaden mit nur 2 Punkten.',
           'Improved Kick silenced zusätzlich 2 Sek.',
           'Endurance verkürzt die Cooldowns von Sprint und Evasion deutlich.'
         ]
       },
       subtlety: {
-        summary: 'Stealth- und Kontroll-Spec rund um Rupture und Hemorrhage.',
-        playstyle: 'Aus Stealth mit Premeditation und Ambush (oder Cheap Shot/Garrote) eröffnen, dann Rupture aufrechthalten. Rupture-Ticks verbilligen über Thousand Cuts Hemorrhage bzw. Backstab, Hemorrhage erhöht wiederum den Rupture-Schaden. Preparation setzt Vanish und Co. zurück.',
+        summary: 'Stealth- und Kontroll-Spec rund um Rupture, Hemorrhage und – neu – Death Mark.',
+        playstyle: 'Aus Stealth mit Premeditation und Ambush (oder Cheap Shot/Garrote) eröffnen, dann Rupture aufrechthalten. Hemorrhage erhöht den Schaden von Rupture und Garrote, Boot Knife lässt Shank 2 Combo-Punkte geben. Death Mark (31er) speichert einen Teil Deines Schadens (Rupture und Garrote doppelt) und entlädt ihn nach 6 Sek. Preparation setzt Vanish und Co. zurück.',
         priority: [
           'Eröffnen: Premeditation + Ambush (oder Cheap Shot/Garrote)',
           'Rupture aktiv halten',
           'Hemorrhage (mit Dolch auch Backstab) zum Aufbau',
-          'Slice and Dice',
+          'Death Mark mit 5 Punkten auf Cooldown',
           'Eviscerate mit übrigen Punkten',
           'Vanish → Ambush, Preparation für eine zweite Runde'
         ],
         stats: 'Agility/Attack Power, Hit und Crit; Serrated Blades ignoriert Rüstung.',
         tips: [
           'Stark im PvP und solo, weil Du Kämpfe aus Stealth kontrollierst.',
-          'Cutthroat: Backstab kann Ambush ohne Stealth freischalten.'
+          'Ghostly Strike: Das nächste Ambush oder Garrote innerhalb von 7 Sek. braucht keinen Stealth.'
         ]
       }
     },
@@ -312,13 +314,12 @@ const HOW_TO_PLAY = {
       },
       holy: {
         summary: 'Gruppen- und Raid-Heiler mit springenden und reaktiven Heilungen.',
-        playstyle: 'Prayer of Mending auf Cooldown, Renew auf Tanks, Heal/Greater Heal (Divine Fury: kürzere Zauberzeit) für große Lücken, Binding Heal (seit dem 30. Oktober ein Lehrer-Zauber), wenn Du selbst auch Schaden hast, Prayer of Healing bzw. Holy Nova gegen Gruppen-Schaden. Litany of Light belohnt, verschiedene Heilzauber abzuwechseln.',
+        playstyle: 'Prayer of Mending auf Cooldown, Renew auf Tanks, Heal/Greater Heal (Divine Fury: kürzere Zauberzeit) für große Lücken, Flash Heal auf andere heilt Dich über Holy Binding mit (Binding Heal ist seit 2.11. entfernt), Prayer of Healing bzw. Holy Nova gegen Gruppen-Schaden. Litany of Light belohnt, verschiedene Heilzauber abzuwechseln.',
         priority: [
           'Prayer of Mending auf Cooldown',
           'Renew auf dem Tank',
           'Heal / Greater Heal bei großem Schaden',
-          'Flash Heal für die schnelle Rettung',
-          'Binding Heal, wenn Du selbst auch Schaden hast',
+          'Flash Heal für die schnelle Rettung (Holy Binding heilt Dich mit)',
           'Prayer of Healing bei Gruppen-Schaden'
         ],
         stats: 'Healing Power, Spirit (Spiritual Guidance), Intellect und Crit.',
@@ -329,7 +330,7 @@ const HOW_TO_PLAY = {
       },
       shadow: {
         summary: 'Fernkampf-Schaden mit DoTs und hoher Mana-Effizienz.',
-        playstyle: 'Shadowform halbiert die Manakosten Deiner Schattenzauber. Shadow Word: Pain und Devouring Plague aufrechterhalten, Mind Blast auf Cooldown, Mind Flay als Füller, Shadow Word: Death zum Abschluss – Vorsicht: Überlebt das Ziel, bekommst Du Rückstoß-Schaden. Shadow Weaving baut sich von selbst auf.',
+        playstyle: 'Shadowform halbiert die Manakosten Deiner Schattenzauber. Shadow Word: Pain und Devouring Plague aufrechterhalten, Mind Blast auf Cooldown, Mind Flay als Füller, Shadow Word: Death zum Abschluss – Vorsicht: Überlebt das Ziel, verlierst Du 30 % Deines Lebens. Shadow Weaving baut sich von selbst auf.',
         priority: [
           'Shadowform',
           'Shadow Word: Pain aktiv',
@@ -355,19 +356,19 @@ const HOW_TO_PLAY = {
   },
 
   shaman: {
-    intro: 'Hybrid aus Totems, Elementarmagie und Nahkampf. Neu: Lava Burst, Maelstrom Weapon, Riptide und Water Shield – und Zwerge können Schamanen werden, damit gibt es sie erstmals auch bei der Allianz.',
-    leveling: 'Enhancement ist der klassische Leveling-Weg: Nahkampf plus Shocks, wenig Pausen. Elemental funktioniert mit Lava Burst deutlich besser als früher, braucht aber mehr Mana.',
+    intro: 'Hybrid aus Totems, Elementarmagie und Nahkampf. Neu: Maelstrom Weapon, Riptide und Water Shield (Lava Burst wurde am 2. November wieder entfernt) – und Zwerge können Schamanen werden, damit gibt es sie erstmals auch bei der Allianz.',
+    leveling: 'Enhancement ist der klassische Leveling-Weg: Nahkampf plus Shocks, wenig Pausen. Elemental funktioniert dank stärkerer Lightning Bolts und Shocks besser als früher, braucht aber mehr Mana.',
     races: 'Zwerg (neu), Orc, Taure, Troll und Skyborne.',
     professions: 'Kürschnerei + Lederverarbeitung (Leder und Schwere Rüstung), oder Kräuterkunde + Alchemie für Tränke und Fläschchen. Bergbau + Schmiedekunst lohnt für Waffen.',
     specs: {
       elemental: {
-        summary: 'Caster mit Feuer und Blitzen – Lava Burst ist das neue Herzstück.',
-        playstyle: 'Flame Shock aufs Ziel, dann Lava Burst (+20 % Schaden mit Flame Shock), Lightning Bolt als Füller, Chain Lightning gegen Gruppen. Elemental Fury verdoppelt den Crit-Bonus, Lightning Overload zaubert gratis nach.',
+        summary: 'Blitz-Caster: Lightning Bolt und Lightning Overload sind das Herzstück.',
+        playstyle: 'Flame Shock aufs Ziel, dann Lightning Bolt (seit 2.11. deutlich mehr Grundschaden) als Hauptzauber, Chain Lightning (2,5 Sek., trifft härter) gegen Gruppen. Lightning Overload wiederholt bis zu 30 % Deiner Blitze gratis, Call of Thunder gibt ihnen +5 % Crit, Elemental Fury verdoppelt den Crit-Bonus. Lightning Mastery (ex Elemental Mastery) für Burst.',
         priority: [
           'Totems passend zur Gruppe',
           'Flame Shock aktiv',
-          'Lava Burst auf Cooldown',
-          'Lightning Bolt als Füller',
+          'Lightning Mastery für Burst',
+          'Lightning Bolt als Hauptzauber',
           'Chain Lightning bei mehreren Gegnern',
           'Earth Shock zum Unterbrechen'
         ],
@@ -379,7 +380,7 @@ const HOW_TO_PLAY = {
       },
       enhancement: {
         summary: 'Nahkampf mit Zaubern zwischendurch. Mit Rockbiter Weapon und Spirit Weapons laut Guides auch als Tank denkbar – aber noch kaum erprobt.',
-        playstyle: 'Windfury Weapon (oder Flametongue), Stormstrike auf Cooldown, danach ein verstärkter Shock. Maelstrom Weapon stapelt sich durch Nahkampftreffer bis 5 und macht Lightning Bolt schneller und billiger. Rage of the Farseer für Burst.',
+        playstyle: 'Windfury Weapon (oder Flametongue), Stormstrike auf Cooldown (seit 2.11. 6 Sek., 150 % Waffenschaden), danach ein verstärkter Shock. Maelstrom Weapon stapelt sich durch Nahkampftreffer (doppelte Chance) bis 5 und macht Lightning Bolt schneller und billiger. Rage of the Farseer für Burst.',
         priority: [
           'Waffenverzauberung und Lightning Shield',
           'Stormstrike auf Cooldown',
@@ -389,13 +390,13 @@ const HOW_TO_PLAY = {
         ],
         stats: 'Hit bis zum Cap (in Forever ein gemeinsamer Wert für Nahkampf und Zauber), Strength/Agility/Attack Power und Crit (Flurry). Mental Dexterity macht Intellect zu Attack Power.',
         tips: [
-          'Improved Ghost Wolf: Ghost Wolf funktioniert auch in Gebäuden.',
+          'Improved Ghost Wolf (seit 2.11. Reihe 4): Ghost Wolf funktioniert auch in Gebäuden.',
           'Improved Stormstrike kann den Stormstrike-Cooldown zurücksetzen.'
         ]
       },
       restoration: {
         summary: 'Gruppen-Heiler mit Totems, Chain Heal und – neu – Riptide.',
-        playstyle: 'Riptide auf den Tank, dann Chain Heal über dieses Ziel (+25 %). Healing Wave für große Einzelheilungen, Nature\'s Swiftness im Notfall, Mana Tide Totem für die Gruppe. Water Shield hält Dein Mana oben.',
+        playstyle: 'Riptide (seit 2.11. nur Heilung über Zeit, 12 Sek. Cooldown) auf den Tank, dann Chain Heal über dieses Ziel (+25 %). Healing Wave für große Einzelheilungen, Nature\'s Swiftness im Notfall, Mana Tide Totem für die Gruppe. Water Shield hält Dein Mana oben.',
         priority: [
           'Water Shield aktiv',
           'Mana Spring / Healing Stream Totem (Restorative Totems)',
@@ -421,13 +422,13 @@ const HOW_TO_PLAY = {
 
   mage: {
     intro: 'Fernkampf-Caster mit viel Kontrolle. Neu: Arcane Blast (Talent), Frostfire Bolt (Lehrer ab Stufe 40), Ice Lance und Fingers of Frost – und Orcs können jetzt Magier werden.',
-    leveling: 'Frost ist der bequemste Leveling-Spec: Frost Nova plus Ice Lance (ein Vielfaches an Schaden gegen eingefrorene Ziele, seit dem Launch mit 8 Sek. Abklingzeit) beendet Kämpfe schnell. Gruppen farmst Du mit Blizzard und Cone of Cold.',
+    leveling: 'Frost ist der bequemste Leveling-Spec: Frost Nova plus Ice Lance (+300 % gegen eingefrorene Ziele, 8 Sek. Abklingzeit mit Fire Blast geteilt) beendet Kämpfe schnell. Gruppen farmst Du mit Blizzard und Cone of Cold.',
     races: 'Mensch, Gnom, Orc (neu), Untote, Troll und Skyborne.',
     professions: 'Schneiderei + Verzauberkunst für eigene Stoffrüstung und Verzauberungen, oder Ingenieurskunst für PvP-Gadgets. Zum Goldmachen beim Leveln: Kräuterkunde + Bergbau.',
     specs: {
       arcane: {
         summary: 'Burst-Spec, bei dem sich alles um Mana-Planung dreht.',
-        playstyle: 'Arcane Blast stapelt sich bis 4×: Jeder Cast gibt Dir einen Teil Deines Intellect als Zauberschaden, macht aber auch den nächsten Arcane Blast deutlich teurer. Missile Barrage (seit dem Launch in der zweiten Reihe) verkürzt dann Arcane Missiles. Arcane Power und Presence of Mind für Burst – immer das Mana im Blick behalten.',
+        playstyle: 'Arcane Blast stapelt sich bis 4×: Jeder Cast gibt Dir 12 % Deines Intellect als Zauberschaden (18 Sek.), macht aber auch den nächsten Arcane Blast um 100 % teurer. Missile Barrage (seit dem Launch in der zweiten Reihe) verkürzt dann Arcane Missiles. Arcane Power und Presence of Mind für Burst – immer das Mana im Blick behalten.',
         priority: [
           'Arcane Blast 2–4× stapeln (je nach Mana)',
           'Arcane Missiles mit Missile Barrage',
@@ -460,7 +461,7 @@ const HOW_TO_PLAY = {
       },
       frost: {
         summary: 'Kontroll-Spec mit Shatter-Combos – die beste Wahl zum Leveln.',
-        playstyle: 'Frostbolt verlangsamt, Frostbite und Frost Nova frieren ein, Ice Lance macht gegen eingefrorene Ziele ein Vielfaches an Schaden, hat seit dem Launch aber 8 Sek. Abklingzeit. Fingers of Frost lässt zwei Zauber wirken, als wäre das Ziel eingefroren. Ice Barrier schützt vor Zauberverzögerung und erhöht Deinen Frostschaden.',
+        playstyle: 'Frostbolt verlangsamt, Frostbite und Frost Nova frieren ein, Ice Lance macht gegen eingefrorene Ziele 300 % mehr Schaden, hat aber 8 Sek. Abklingzeit (geteilt mit Fire Blast). Fingers of Frost lässt zwei Zauber wirken, als wäre das Ziel eingefroren. Ice Barrier erhöht Deinen Frostschaden 1 Min. lang um 15 % (+5 %, solange der Schild hält) und schützt vor Zauberverzögerung.',
         priority: [
           'Ice Barrier aktiv',
           'Frostbolt als Füller',
@@ -504,7 +505,7 @@ const HOW_TO_PLAY = {
         ],
         stats: 'Hit bis zum Cap, Spell Power (Shadow) und Crit (Pandemic); Stamina hilft bei Life Tap.',
         tips: [
-          'Amplify Curse verstärkt den nächsten Bane of Agony um 50 %.',
+          'Amplify Curse verstärkt den nächsten Bane of Agony oder Curse of Weakness um 50 % (Curse of Exhaustion um 20 %).',
           'Soul Harvest: Kill mit Drain Soul gibt einen großen Mana-Schub.'
         ]
       },
@@ -526,7 +527,7 @@ const HOW_TO_PLAY = {
       },
       destruction: {
         summary: 'Direktschaden mit Feuer und Schatten.',
-        playstyle: 'Immolate aufrechterhalten, Incinerate (+25 % mit Immolate) als Füller, Conflagrate verbraucht Immolate für Burst; Shadow and Flame gibt abwechselnd Schatten- und Feuer-Bonus. Bane of Havoc überträgt 15 % Deines Schadens auf ein zweites Ziel.',
+        playstyle: 'Immolate aufrechterhalten, Incinerate (+25 % mit Immolate) als Füller, Conflagrate verbraucht Immolate für Burst; Shadow and Flame gibt abwechselnd Schatten- und Feuer-Bonus (seit 2.11. bis +20 %). Bane of Havoc überträgt 15 % Deines Schadens auf ein zweites Ziel.',
         priority: [
           'Bane of Havoc auf ein Zweitziel (falls vorhanden)',
           'Immolate aktiv',
@@ -557,7 +558,7 @@ const HOW_TO_PLAY = {
     specs: {
       balance: {
         summary: 'Caster mit Natur- und Arkanschaden in Moonkin Form.',
-        playstyle: 'Moonfire und Insect Swarm aufrechterhalten. Wrath lädt Eclipse auf, wodurch die nächsten zwei Starfire schneller werden. Nature\'s Grace beschleunigt Dich nach Crits.',
+        playstyle: 'Moonfire und Insect Swarm aufrechterhalten. Wrath lädt Eclipse auf, wodurch die nächsten zwei Starfire (seit 2.11. rund 40 % mehr Grundschaden) schneller werden. Nature\'s Grace beschleunigt Dich nach Crits.',
         priority: [
           'Moonkin Form',
           'Moonfire + Insect Swarm aktiv',
@@ -573,7 +574,7 @@ const HOW_TO_PLAY = {
       },
       feral: {
         summary: 'Katzen-Nahkampf mit Blutungen.',
-        playstyle: 'Aus Prowl eröffnen, mit Rake, Shred und Claw Combo-Punkte aufbauen, Rip als Blutung, Ferocious Bite als Finisher. Rend and Tear: +10 % gegen blutende Ziele. Shifting Power wandelt Mana in Energie – das neue Powershifting. Seit Berserk am 30. Oktober entfernt wurde, hat die Katze keinen großen Burst-Cooldown mehr. Leader of the Pack hilft der ganzen Gruppe.',
+        playstyle: 'Aus Prowl eröffnen, mit Rake, Shred und Claw Combo-Punkte aufbauen, Rip als Blutung, Ferocious Bite als Finisher. Rend and Tear: +15 % gegen blutende Ziele. Seit 2.11. machen Shred, Claw, Rip, Rake und Ferocious Bite deutlich mehr Schaden, Poised (Stufe 32) verbilligt den Eröffner. Shifting Power (31er, braucht Predatory Discipline) wandelt Mana in Energie – das neue Powershifting. Seit Berserk am 30. Oktober entfernt wurde, hat die Katze keinen großen Burst-Cooldown mehr. Leader of the Pack hilft der ganzen Gruppe.',
         priority: [
           'Rake aktiv',
           'Shred (von hinten) bzw. Claw zum Aufbau',
@@ -589,7 +590,7 @@ const HOW_TO_PLAY = {
       },
       feral_tank: {
         summary: 'Bären-Tank mit viel Rüstung und Leben.',
-        playstyle: 'Bärform, Lacerate (seit dem 30. Oktober ein Talent) bis 5 stapeln, Primal Bite (jetzt das 31er-Talent ganz unten im Baum) als Haupt-Wutverbraucher mit viel Bedrohung, Swipe gegen Gruppen, Maul bei Wut-Überschuss. Feral Charge unterbricht Zauber.',
+        playstyle: 'Bärform, Lacerate (Talent in Reihe 4) bis 5 stapeln, Primal Bite (31er, braucht Leader of the Pack) als Haupt-Wutverbraucher mit viel Bedrohung, Swipe gegen Gruppen, Maul bei Wut-Überschuss. Feral Charge unterbricht Zauber.',
         priority: [
           'Primal Bite auf Cooldown',
           'Lacerate auf 5 Stapeln halten',
@@ -599,13 +600,13 @@ const HOW_TO_PLAY = {
         ],
         stats: 'Stamina, Armor, Dodge (Natural Reaction) und Hit für zuverlässige Bedrohung.',
         tips: [
-          'Thick Hide und Heart of the Wild machen den Bären sehr robust.',
+          'Bärenform gibt seit 2.11. +115 % Bedrohung – als Ausgleich für die entfernte Salvation.',
           'Natural Reaction: Ausweichen gibt Wut.'
         ]
       },
       restoration: {
         summary: 'HoT-Heiler mit starker Gruppenheilung.',
-        playstyle: 'Rejuvenation und Regrowth vorlegen, Swiftmend verbraucht sie für eine sofortige große Heilung, Wild Growth heilt die Gruppe des Ziels über 7 Sek., hat seit dem 30. Oktober aber 3 Sek. Zauberzeit. Bloom (ersetzt Gift of the Earthmother) heilt, wenn Rejuvenation oder Regrowth ausläuft, um 100 % Deines Spirits.',
+        playstyle: 'Rejuvenation und Regrowth vorlegen, Swiftmend verbraucht sie für eine sofortige große Heilung, Wild Growth heilt die Gruppe des Ziels über 7 Sek., hat aber 3 Sek. Zauberzeit (Naturalist: bis −0,5 Sek.). Bloom (ersetzt Gift of the Earthmother) heilt, wenn Rejuvenation oder Regrowth ausläuft, um 100 % Deines Spirits.',
         priority: [
           'Rejuvenation auf Tank bzw. wer Schaden nimmt',
           'Wild Growth bei Gruppen-Schaden',

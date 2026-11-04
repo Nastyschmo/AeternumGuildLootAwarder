@@ -16,6 +16,16 @@ Rules of collaboration: `CLAUDE.md`.
 
 ## Work log (most recent first)
 
+- **2026-11-03** — Levelguide: new tab "Nicht vergessen" — what is easy
+  to miss while leveling in Forever (free starting-zone bag, The Great
+  Outdoors / campfire, camp objects, Cozy Sleeping Bag chain with the Horde
+  start, hidden item quests, library books, Coldflame Saber, gold for
+  training and the mount …), sorted by level passages. "Mein Level" marks
+  the passage (opening the tab jumps there), ticks in localStorage
+  (`rude-levelguide-checklist`), Horde and neutral entries only. Data
+  `data/levelchecklist.js` (same content as nasty-gaming's /checklist,
+  community guides, mostly beta state); works without the quest data.
+
 - **2026-11-03** — How to play updated for Blizzard's development notes of
   Nov 2 (same as nasty-gaming): Rogue rework (Shank, Poised, Death Mark;
   Thousand Cuts / Cutthroat removed), Shaman (Lava Burst removed, Call of

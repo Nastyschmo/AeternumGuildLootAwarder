@@ -1,6 +1,6 @@
 {
- "updated": "2026-11-03",
- "build": "1.60.1.70753",
+ "updated": "2026-11-08",
+ "build": "1.60.1.70862",
  "classes": {
   "warrior": {
    "Bastion": {
@@ -12,7 +12,7 @@
     "desc": "Instantly attack the target causing damage equal to 45% of your Attack Power plus 30 and increasing your movement speed by 10% for 10 sec."
    },
    "Bloodthrill": {
-    "max": 5,
+    "max": 2,
     "desc": "Grants your Main Hand melee attacks against enemies afflicted by your Rend a 20% chance to allow an activation of Overpower."
    },
    "Concussion Blow": {
@@ -28,12 +28,12 @@
     "desc": "Gives you a 30% chance to deal 10% increased Physical damage for 12 sec after being the victim of any damaging attack."
    },
    "Flurry": {
-    "max": 5,
-    "desc": "Increases your melee attack speed by 25% for your next 3 swings after dealing a melee critical strike."
+    "max": 3,
+    "desc": "Increases your melee attack speed by 30% for your next 3 swings after dealing a melee critical strike."
    },
    "Gore Drinker": {
     "max": 2,
-    "desc": "Your Enrage, Berserker Rage, Bloodrage, Death Wish, and Bloodthirst abilities cause your next 3 melee attacks to restore 1% of your maximum Health."
+    "desc": "Your Enrage, Berserker Rage, Bloodrage, Death Wish, Reckless Swings, and Bloodthirst abilities cause your next 3 melee attacks to restore 1% of your maximum Health."
    },
    "Improved Charge": {
     "max": 2,
@@ -49,7 +49,11 @@
    },
    "Improved Slam": {
     "max": 2,
-    "desc": "Reduces the global cooldown and cast time of your Slam ability by 0.5 sec. In addition, Slam no longer interrupts or delays your melee swing and Slam's cooldown is reduced by 3 sec."
+    "desc": "Reduces the cooldown of your Slam ability by 5 sec, the cast time and global cooldown by 0.5 sec, and Slam no longer interrupts or delays your melee swing."
+   },
+   "Improved Whirlwind": {
+    "max": 2,
+    "desc": "Reduces the cooldown of your Whirlwind ability by 2 sec and increases the damage it deals to the closest enemy by 30%."
    },
    "Last Stand": {
     "max": 1,
@@ -63,9 +67,9 @@
     "max": 1,
     "desc": "A vicious strike that deals weapon damage plus 85 and wounds the target, reducing the effectiveness of any healing by 50% for 10 sec."
    },
-   "Raging Blows": {
+   "Reckless Swings": {
     "max": 1,
-    "desc": "Reduces the Rage cost of your Cleave and Whirlwind abilities by 3."
+    "desc": "Your next 4 melee attacks generate ? additional Rage. Lasts 8 sec."
    },
    "Shield Slam": {
     "max": 1,
@@ -77,7 +81,7 @@
    },
    "Spearing Strike": {
     "max": 1,
-    "desc": "A brutal attack that deals 40% weapon damage. Deals an additional 80% weapon damage against Giants, Dragonkin, and mounted targets. Mounted targets are dismounted."
+    "desc": "A brutal attack that deals 75% weapon damage. Deals an additional 75% weapon damage against Giants, Dragonkin, and mounted targets. Mounted targets are dismounted."
    },
    "Sweeping Strikes": {
     "max": 1,
@@ -195,7 +199,7 @@
    },
    "Two-Handed Weapon Specialization": {
     "max": 3,
-    "desc": "Increases the physical damage you deal by 6%, and reduces all threat you generate by 20% while a two-handed melee weapon is equipped."
+    "desc": "Increases the Physical and Holy damage you deal by 6%, and reduces all threat you generate by 20% while a two-handed melee weapon is equipped."
    },
    "Unsealed Wrath": {
     "max": 1,
@@ -203,7 +207,7 @@
    },
    "Vengeance": {
     "max": 3,
-    "desc": "Increases your Physical and Holy damage dealt by 3% for 30 sec after landing a non-periodic critical strike. Stacks up to 3 times."
+    "desc": "Increases your Physical and Holy damage dealt by 3% for 30 sec after landing a non-periodic critical strike. Stacks up to 5 times."
    }
   },
   "hunter": {
@@ -261,7 +265,7 @@
    },
    "Lightning Reflexes": {
     "max": 5,
-    "desc": "Increases your Agility by 10%."
+    "desc": "Increases your Agility by 15%."
    },
    "Lone Wolf": {
     "max": 1,
@@ -293,7 +297,7 @@
    },
    "Sniper Shot": {
     "max": 1,
-    "desc": "A long-range shot that deals ranged damage plus 160 and increases the range of your next 3 Shots by 10 yards for 10 sec."
+    "desc": "A long-range shot that deals ranged damage plus 320 and increases the range of your next 3 Shots by 10 yards for 10 sec."
    },
    "Spirit Bond": {
     "max": 2,
@@ -325,17 +329,37 @@
     "max": 1,
     "desc": "Increases your melee attack speed by 20% and your melee attacks strike an additional nearby opponent. Lasts 15 sec."
    },
+   "Blood Splatter": {
+    "max": 1,
+    "desc": "Increases the duration of your Rupture ability by 6 sec and your Garrote ability by 9 sec."
+   },
+   "Boot Knife": {
+    "max": 5,
+    "desc": "Grants your Shank ability a 100% chance to add 2 Combo Points to the target."
+   },
    "Cold Blood": {
     "max": 1,
     "desc": "When activated, increases the critical strike chance of your next Sinister Strike, Backstab, Ambush, Eviscerate, or Mutilate by 100%."
    },
+   "Coup de Grace": {
+    "max": 3,
+    "desc": "Increases the damage done by your Eviscerate ability by 20%, and the damage and storage rate of your Death Mark ability by 20%."
+   },
+   "Death Mark": {
+    "max": 1,
+    "desc": "Finishing move that marks the target, storing a portion of the damage dealt by your attacks per Combo Point. Garrote and Rupture damage is stored at twice the rate. After 6 sec, the stored damage is dealt, up to a maximum increased by Attack Power and Critical Strike chance: 1 point : ?}% stored, ?*?pm)*(?crit/100+1))*?][1]}} damage cap 2 points: ?}% stored, ?*?pm)*(?crit/100+1))*?][1]}} damage cap 3 points: ?}% stored, ?*?pm)*(?crit/100+1))*?][1]}} damage cap 4 points: ?}% stored, ?*?pm)*(?crit/100+1))*?][1]}} damage cap 5 points: ?}% stored, ?*?pm)*(?crit/100+1))*?][1]}} damage cap"
+   },
    "Dual Wield Specialization": {
-    "max": 5,
-    "desc": "Increases the damage done by your off-hand weapon by 25%."
+    "max": 2,
+    "desc": "Increases the damage done by your off-hand weapon by 50%."
    },
    "Endurance": {
     "max": 2,
     "desc": "Reduces the cooldown of your Sprint and Evasion abilities by 60%."
+   },
+   "Flash of Steel": {
+    "max": 5,
+    "desc": "Increases the Energy generated by your Shank ability by 15 and reduces its cooldown by 2 sec."
    },
    "Ghostly Strike": {
     "max": 1,
@@ -370,7 +394,7 @@
     "desc": "When activated, this ability immediately finishes the cooldown on your other Rogue abilities."
    },
    "Relentless Strikes": {
-    "max": 1,
+    "max": 5,
     "desc": "Your finishing moves have a 20% chance per Combo Point to restore 25 Energy."
    },
    "Riposte": {
@@ -378,7 +402,7 @@
     "desc": "A strike that becomes active after parrying an opponent's attack. This attack deals 150% weapon damage and disarms the target for 6 sec."
    },
    "Seal Fate": {
-    "max": 5,
+    "max": 3,
     "desc": "Your critical strikes from abilities that add Combo Points have a 100% chance to add an additional Combo Point."
    },
    "Serrated Blades": {
@@ -387,7 +411,7 @@
    },
    "Venom": {
     "max": 1,
-    "desc": "Finishing move that increases the damage of your Poisons by 30% and your chance to apply Poisons by 10%. Lasts longer per combo point: 1 point : 9 sec 2 points: 12 sec 3 points: 15 sec 4 points: 18 sec 5 points: 21 sec"
+    "desc": "Causes your Shank ability to increase your Poison damage by 30% and your chance to apply Poisons by 20% for 6 sec."
    },
    "Weapon Expertise": {
     "max": 2,
@@ -501,6 +525,10 @@
    }
   },
   "shaman": {
+   "Call of Thunder": {
+    "max": 1,
+    "desc": "Increases the critical strike chance of your Lightning Bolt and Chain Lightning spells by 5%."
+   },
    "Earthbound": {
     "max": 1,
     "desc": "Your Earthbind Totem Immobilizes nearby targets for 5 sec when cast."
@@ -513,13 +541,9 @@
     "max": 5,
     "desc": "Increases the critical strike damage bonus of your Searing and Magma Totems and your Fire, Frost, and Nature spells by 100%."
    },
-   "Elemental Mastery": {
-    "max": 1,
-    "desc": "Gain mastery over Fire and Lightning, reducing the cast time of Lightning Bolt and Lava Burst by 0.5 sec, and removing the cooldown from Chain Lightning. Lasts 15 sec."
-   },
    "Flurry": {
     "max": 5,
-    "desc": "Increases your attack speed by 25% for your next 3 swings after dealing a melee critical strike."
+    "desc": "Increases your attack speed by 30% for your next 3 swings after dealing a melee critical strike."
    },
    "Healing Way": {
     "max": 3,
@@ -537,13 +561,13 @@
     "max": 2,
     "desc": "When you Stormstrike, you have a 100% chance to gain 50% mana regeneration while casting spells for 15 sec, and Stormstrike's cooldown has a 100% chance to reset each time you Dodge or Parry."
    },
-   "Lava Burst": {
+   "Lightning Mastery": {
     "max": 1,
-    "desc": "You hurl molten lava at the target, dealing 123 Fire damage. If your Flame Shock is on the target, Lava Burst deals 20% increased damage."
+    "desc": "Gain mastery over Lightning, reducing the cast time of your Lightning Bolt spell by 0.5 sec, and removing the cooldown from your Chain Lightning spell. Lasts 15 sec."
    },
    "Lightning Overload": {
     "max": 3,
-    "desc": "Gives your Lightning Bolt and Chain Lightning spells a 10% chance to cast a second, similar spell on the same target at no additional cost that causes half damage and no threat."
+    "desc": "Gives your Lightning Bolt and Chain Lightning spells a 30% chance to cast a second, similar spell on the same target at no additional cost that causes half damage and no threat."
    },
    "Maelstrom Weapon": {
     "max": 5,
@@ -555,7 +579,7 @@
    },
    "Mental Dexterity": {
     "max": 3,
-    "desc": "Increases your Attack Power by an amount equal to 100% of your Intellect."
+    "desc": "Increases your Attack Power by an amount equal to 150% of your Intellect."
    },
    "Nature's Swiftness": {
     "max": 1,
@@ -579,7 +603,7 @@
    },
    "Stormstrike": {
     "max": 1,
-    "desc": "Instantly strike for normal weapon damage and increase the damage you deal to the target with your next Lightning Bolt, Chain Lightning, or Earth Shock spell by 20% for 12 sec."
+    "desc": "Instantly strike for 150% weapon damage and increase the damage you deal to the target with your next Lightning Bolt, Chain Lightning, or Earth Shock spell by 20% for 12 sec."
    },
    "Tidal Mastery": {
     "max": 5,
@@ -669,7 +693,7 @@
    },
    "Missile Barrage": {
     "max": 2,
-    "desc": "Gives your Arcane Blast spell a 40% chance, and your Arcane Wrath, Fireball, Frostbolt, Frost Blast, and Frostfire Bolt spells a 20% chance to reduce the channeled duration of your next Arcane Missiles spell by 50%, reduce the Mana cost by 100%, and missiles fire every 0.5 sec."
+    "desc": "Gives your Arcane Blast spell a 40% chance, and your Arcane Wrath, Fireball, Frostbolt, and Frostfire Bolt spells a 20% chance to reduce the channeled duration of your next Arcane Missiles spell by 50%, reduce the Mana cost by 100%, and missiles fire every 0.5 sec."
    },
    "Precision": {
     "max": 3,
@@ -767,7 +791,7 @@
    },
    "Shadow and Flame": {
     "max": 5,
-    "desc": "Hitting an enemy with Conflagrate increases all Shadow damage you deal by 10% for 20 sec, and hitting an enemy with Shadowburn increases all Fire damage you deal by 10% for 20 sec. In addition, Conflagrate has a 100% chance not to consume Immolate, and Shadowburn has a 100% chance to instantly refund a Soul Shard."
+    "desc": "Hitting an enemy with Conflagrate increases all Shadow damage you deal by 20% for 20 sec, and hitting an enemy with Shadowburn increases all Fire damage you deal by 20% for 20 sec. In addition, Conflagrate has a 100% chance not to consume Immolate, and Shadowburn has a 100% chance to instantly refund a Soul Shard."
    },
    "Shadowburn": {
     "max": 1,
@@ -881,7 +905,7 @@
    },
    "Rend and Tear": {
     "max": 5,
-    "desc": "Increases damage done by your melee abilities on Bleeding targets by 10%."
+    "desc": "Increases damage done by your melee abilities on Bleeding targets by 15%."
    },
    "Shifting Power": {
     "max": 1,

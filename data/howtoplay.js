@@ -8,12 +8,12 @@
 // Dive texts); everything else is German. Edited by hand via PR — bump
 // HOW_TO_PLAY_UPDATED when the content changes.
 
-const HOW_TO_PLAY_UPDATED = '2026-11-03';
+const HOW_TO_PLAY_UPDATED = '2026-11-15';
 
 /** @type {Record<string, HowToPlayClass>} */
 const HOW_TO_PLAY = {
   warrior: {
-    intro: 'Plattenträger mit Wut als Ressource: Wut entsteht, wenn Du Schaden austeilst oder einsteckst. Forever gibt jedem Baum neue Werkzeuge – Arms spielt um Rend und Overpower (Bloodthrill), Fury macht Whirlwind und Cleave billiger (Raging Blows) und heilt sich über Gore Drinker, Protection macht mit Bastion auch Schaden.',
+    intro: 'Plattenträger mit Wut als Ressource: Wut entsteht, wenn Du Schaden austeilst oder einsteckst. Forever gibt jedem Baum neue Werkzeuge – Arms spielt um Rend und Overpower (Bloodthrill), Fury holt mit Improved Whirlwind und Reckless Swings mehr heraus und heilt sich über Gore Drinker, Protection macht mit Bastion auch Schaden.',
     leveling: 'Arms mit Zweihänder ist der bequemste Weg: hoher Einzelschaden, Sweeping Strikes gegen Gruppen und viele Overpower-Procs über Bloodthrill. Fury lohnt sich erst mit zwei guten Waffen, meist ab Dungeon-Ausrüstung. Einen Schild für Dungeons mitnehmen – Tanks werden immer gesucht.',
     races: 'Alle Völker können Warrior spielen. Für Schaden sind Völker mit Angriffs- oder Waffen-Racials beliebt, für Tanks solche mit Stamina- bzw. Verteidigungs-Boni. Die Racials im Detail: Talent Builder → Völker.',
     professions: 'Bergbau + Schmiedekunst für eigene Waffen und Rüstung, oder Ingenieurskunst für Bomben, Zielfernrohre und Gadgets (stark im PvP und Raid). Zum Goldmachen beim Leveln: Bergbau + Kräuterkunde oder Kürschnerei.',
@@ -38,7 +38,7 @@ const HOW_TO_PLAY = {
       },
       fury: {
         summary: 'Beidhändiger Nahkämpfer – im Raid meist der stärkste physische Schaden, braucht aber gute Ausrüstung.',
-        playstyle: 'Bloodthirst und Whirlwind auf Cooldown – Raging Blows senkt die Wutkosten von Whirlwind und Cleave um 3. Flurry (seit 2.11. 3 Punkte für bis zu 30 % Tempo) hält die Angriffsgeschwindigkeit hoch, Death Wish ist Dein Burst – Bloodthirst setzt jetzt Death Wish voraus. Neu sind Improved Whirlwind (kürzere Abklingzeit, mehr Schaden auf das nächste Ziel) und Reckless Swings (Leben gegen Wut). Wut-Überschuss geht in Heroic Strike, bei mehreren Zielen in Cleave.',
+        playstyle: 'Bloodthirst und Whirlwind auf Cooldown. Flurry (seit 2.11. 3 Punkte für bis zu 30 % Tempo) hält die Angriffsgeschwindigkeit hoch, Death Wish ist Dein Burst – Bloodthirst setzt jetzt Death Wish voraus. Neu sind Improved Whirlwind (kürzere Abklingzeit, mehr Schaden auf das nächste Ziel) und Reckless Swings (Leben gegen Wut). Wut-Überschuss geht in Heroic Strike, bei mehreren Zielen in Cleave.',
         priority: [
           'Battle Shout aktiv halten',
           'Bloodthirst auf Cooldown',
@@ -49,7 +49,7 @@ const HOW_TO_PLAY = {
         ],
         stats: 'Hit bis zum Cap ist Pflicht (beidhändig verfehlst Du sonst sehr oft), dann Strength/Attack Power und Crit (Flurry).',
         tips: [
-          'Gore Drinker: Nach Bloodthirst, Death Wish, Bloodrage, Berserker Rage oder Enrage heilen Dich Deine nächsten 3 Schläge um je 1 % Leben.',
+          'Gore Drinker: Nach Bloodthirst, Death Wish, Reckless Swings, Bloodrage, Berserker Rage oder Enrage heilen Dich Deine nächsten 3 Schläge um je 1 % Leben.',
           'Bloodthirst gibt zusätzlich 10 % Laufgeschwindigkeit.',
           'Fury levelt zäh – erst mit ordentlicher Dungeon-Ausrüstung wechseln.'
         ]
@@ -494,7 +494,7 @@ const HOW_TO_PLAY = {
     specs: {
       affliction: {
         summary: 'DoT-Spec – stark in langen Kämpfen und gegen mehrere Ziele.',
-        playstyle: 'Corruption (Improved Corruption: sofort), Bane of Agony und ein Curse aufs Ziel, dazu Siphon Life. Wrack verstärkt Deine anderen DoTs um 10 %, die Drain-Zauber profitieren über Soul Siphon von jedem Affliction-Effekt. Nightfall (Shadow Trance) ermöglicht sofortige Shadow Bolts.',
+        playstyle: 'Corruption (Improved Corruption: sofort), Bane of Agony und ein Curse aufs Ziel, dazu Siphon Life. Wrack verstärkt Deine anderen DoTs um 10 %, die Drain-Zauber und Wrack profitieren über Soul Siphon von Corruption, Siphon Life und Bane of Agony auf dem Ziel (je +12 %, bis +36 %). Nightfall (Shadow Trance) ermöglicht sofortige Shadow Bolts.',
         priority: [
           'Curse (z. B. Curse of Weakness) + Bane of Agony',
           'Corruption',
@@ -606,7 +606,7 @@ const HOW_TO_PLAY = {
       },
       restoration: {
         summary: 'HoT-Heiler mit starker Gruppenheilung.',
-        playstyle: 'Rejuvenation und Regrowth vorlegen, Swiftmend verbraucht sie für eine sofortige große Heilung, Wild Growth heilt die Gruppe des Ziels über 7 Sek., hat aber 3 Sek. Zauberzeit (Naturalist: bis −0,5 Sek.). Bloom (ersetzt Gift of the Earthmother) heilt, wenn Rejuvenation oder Regrowth ausläuft, um 100 % Deines Spirits.',
+        playstyle: 'Rejuvenation und Regrowth vorlegen, Swiftmend heilt sofort um die volle Wirkung eines Deiner HoTs auf dem Ziel, Wild Growth heilt die Gruppe des Ziels über 7 Sek., hat aber 3 Sek. Zauberzeit (Naturalist: bis −0,5 Sek.). Bloom (ersetzt Gift of the Earthmother) heilt, wenn Rejuvenation oder Regrowth ausläuft, um 100 % Deines Spirits.',
         priority: [
           'Rejuvenation auf Tank bzw. wer Schaden nimmt',
           'Wild Growth bei Gruppen-Schaden',

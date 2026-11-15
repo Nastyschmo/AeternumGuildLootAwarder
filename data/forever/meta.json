@@ -1,12 +1,12 @@
 {
-  "build": "1.60.1.70862",
+  "build": "1.60.1.70938",
   "eraBuild": "1.15.9.70576",
-  "generatedAt": "2026-11-07T11:02:34.615Z",
+  "generatedAt": "2026-11-14T11:27:01.835Z",
   "counts": {
-    "items": 14157,
-    "withStats": 11273,
+    "items": 14158,
+    "withStats": 11274,
     "withSources": 6512,
-    "withIcons": 13324
+    "withIcons": 13320
   },
   "sources": [
     "wago.tools (WoW Forever client DB2)",

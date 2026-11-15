@@ -8,7 +8,7 @@
 // Dive texts); everything else is German. Edited by hand via PR — bump
 // HOW_TO_PLAY_UPDATED when the content changes.
 
-const HOW_TO_PLAY_UPDATED = '2026-11-08';
+const HOW_TO_PLAY_UPDATED = '2026-11-15';
 
 /** @type {Record<string, HowToPlayClass>} */
 const HOW_TO_PLAY = {
@@ -494,7 +494,7 @@ const HOW_TO_PLAY = {
     specs: {
       affliction: {
         summary: 'DoT-Spec – stark in langen Kämpfen und gegen mehrere Ziele.',
-        playstyle: 'Corruption (Improved Corruption: sofort), Bane of Agony und ein Curse aufs Ziel, dazu Siphon Life. Wrack verstärkt Deine anderen DoTs um 10 %, die Drain-Zauber profitieren über Soul Siphon von jedem Affliction-Effekt. Nightfall (Shadow Trance) ermöglicht sofortige Shadow Bolts.',
+        playstyle: 'Corruption (Improved Corruption: sofort), Bane of Agony und ein Curse aufs Ziel, dazu Siphon Life. Wrack verstärkt Deine anderen DoTs um 10 %, die Drain-Zauber und Wrack profitieren über Soul Siphon von Corruption, Siphon Life und Bane of Agony auf dem Ziel (je +12 %, bis +36 %). Nightfall (Shadow Trance) ermöglicht sofortige Shadow Bolts.',
         priority: [
           'Curse (z. B. Curse of Weakness) + Bane of Agony',
           'Corruption',
@@ -606,7 +606,7 @@ const HOW_TO_PLAY = {
       },
       restoration: {
         summary: 'HoT-Heiler mit starker Gruppenheilung.',
-        playstyle: 'Rejuvenation und Regrowth vorlegen, Swiftmend verbraucht sie für eine sofortige große Heilung, Wild Growth heilt die Gruppe des Ziels über 7 Sek., hat aber 3 Sek. Zauberzeit (Naturalist: bis −0,5 Sek.). Bloom (ersetzt Gift of the Earthmother) heilt, wenn Rejuvenation oder Regrowth ausläuft, um 100 % Deines Spirits.',
+        playstyle: 'Rejuvenation und Regrowth vorlegen, Swiftmend heilt sofort um die volle Wirkung eines Deiner HoTs auf dem Ziel, Wild Growth heilt die Gruppe des Ziels über 7 Sek., hat aber 3 Sek. Zauberzeit (Naturalist: bis −0,5 Sek.). Bloom (ersetzt Gift of the Earthmother) heilt, wenn Rejuvenation oder Regrowth ausläuft, um 100 % Deines Spirits.',
         priority: [
           'Rejuvenation auf Tank bzw. wer Schaden nimmt',
           'Wild Growth bei Gruppen-Schaden',

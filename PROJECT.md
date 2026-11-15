@@ -16,6 +16,15 @@ Rules of collaboration: `CLAUDE.md`.
 
 ## Work log (most recent first)
 
+- **2026-11-15** — Catch-up of the stalled data updates: the daily data PRs
+  (#75 … #86) all waited for a guide review (strict how-to-play check), so
+  `main` stayed on build 1.60.1.70755. This brings in the weekly review of
+  #79 (build 70862: Raging Blows removed, Gore Drinker / Reckless Swings)
+  plus the data of build 1.60.1.70938 (from #86) and its two guide-relevant
+  changes (Soul Siphon only counts Corruption, Siphon Life and Bane of
+  Agony; Swiftmend text). Baseline rewritten for 70938; #75–#86 and #79 are
+  superseded.
+
 - **2026-11-03** — Levelguide: new tab "Nicht vergessen" — what is easy
   to miss while leveling in Forever (free starting-zone bag, The Great
   Outdoors / campfire, camp objects, Cozy Sleeping Bag chain with the Horde

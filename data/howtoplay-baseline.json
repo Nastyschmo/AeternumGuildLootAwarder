@@ -1,6 +1,6 @@
 {
- "updated": "2026-11-15",
- "build": "1.60.1.70938",
+ "updated": "2026-11-18",
+ "build": "1.60.1.70959",
  "classes": {
   "warrior": {
    "Bastion": {
@@ -579,7 +579,7 @@
    },
    "Mental Dexterity": {
     "max": 3,
-    "desc": "Increases your Attack Power by an amount equal to 150% of your Intellect."
+    "desc": "Increases your Attack Power by an amount equal to 100% of your Intellect."
    },
    "Nature's Swiftness": {
     "max": 1,
@@ -603,7 +603,7 @@
    },
    "Stormstrike": {
     "max": 1,
-    "desc": "Instantly strike for 150% weapon damage and increase the damage you deal to the target with your next Lightning Bolt, Chain Lightning, or Earth Shock spell by 20% for 12 sec."
+    "desc": "Instantly strike for 100% weapon damage and increase the damage you deal to the target with your next Lightning Bolt, Chain Lightning, or Earth Shock spell by 20% for 12 sec."
    },
    "Tidal Mastery": {
     "max": 5,

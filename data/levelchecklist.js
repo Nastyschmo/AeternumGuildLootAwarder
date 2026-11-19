@@ -9,7 +9,7 @@
 //
 // Loaded as a classic <script> before js/level-guide.js (see index.html).
 
-const LEVEL_CHECKLIST_UPDATED = '2026-11-03';
+const LEVEL_CHECKLIST_UPDATED = '2026-11-18';
 
 /**
  * @typedef {{ id: string, level: number, kind: 'bag'|'camp'|'quest'|'secret'|'gold'|'tip'|'pet'|'gear', cls?: string,
@@ -145,7 +145,7 @@ const LEVEL_CHECKLIST = {
       "kind": "quest",
       "title": "Cozy Sleeping Bag – die versteckte Questreihe",
       "where": "Westfall / Brachland → Stonetalon → Loch Modan → Hillsbrad",
-      "text": "Die wichtigste versteckte Kette: kein Questgeber, Start über ein Objekt. Belohnungen: der Schlafsack (Rasten darin gibt bis zu 3 % mehr Erfahrung für 2 Std.), laut Guides 12-Platz-Taschen unterwegs (Sturdy Lunchbox, Old Toolbox) und Holz + Feuerstein fürs Lagerfeuer.",
+      "text": "Die wichtigste versteckte Kette: kein Questgeber, Start über ein Objekt. Belohnungen: der Schlafsack (Rasten darin gibt bis zu 3 % mehr Erfahrung für 2 Std.; seit dem 17. November an mehr Stellen aufstellbar, mit Resting-Aura als Anzeige – beritten geht es nicht), laut Guides 12-Platz-Taschen unterwegs (Sturdy Lunchbox, Old Toolbox) und Holz + Feuerstein fürs Lagerfeuer.",
       "steps": [
         "Horde: „Burned-Out Remains“ am abgebrannten Turm südlich von Camp Taurajo (Brachland)",
         "Stonetalon: verlassenes Lager nordöstlich von Sun Rock Retreat (ca. 40.7, 52.5) – „Pocket Litter“ an der Kiste beim Zelt",
@@ -181,6 +181,18 @@ const LEVEL_CHECKLIST = {
       "source": {
         "label": "wowclassicforever.info",
         "url": "https://wowclassicforever.info/secrets/"
+      }
+    },
+    {
+      "id": "dungeon-xp",
+      "level": 15,
+      "kind": "tip",
+      "title": "Durchziehen lassen bringt keine Erfahrung mehr",
+      "where": "alle Dungeons",
+      "text": "Seit dem 13. November geben Dungeon-Gegner, die für ein Gruppenmitglied grau (trivial) sind, der ganzen Gruppe keine Erfahrung. Mit einem viel höheren Charakter durch einen Dungeon ziehen lassen lohnt sich also nicht mehr – lieber mit Spielern Deiner Stufe gehen.",
+      "source": {
+        "label": "Blizzard – Forever-Hotfixes",
+        "url": "https://worldofwarcraft.blizzard.com/en-us/news/24315281"
       }
     },
     {
@@ -229,12 +241,24 @@ const LEVEL_CHECKLIST = {
       "text": "Stufe 40: Reiten lernen und das erste Reittier kaufen (100 Gold)."
     },
     {
+      "id": "quest-gold",
+      "level": 48,
+      "kind": "gold",
+      "title": "Ab Stufe 48 geben Quests Gold",
+      "where": "überall",
+      "text": "Seit Mitte November geben die meisten Quests ab Stufe 48 zusätzlich Gold. Auf Stufe 60 wird Quest-Erfahrung aber nicht in Gold umgewandelt – Quests also beim Leveln erledigen, nicht für 60 aufsparen.",
+      "source": {
+        "label": "Blizzard – Forever-Hotfixes",
+        "url": "https://worldofwarcraft.blizzard.com/en-us/news/24315281"
+      }
+    },
+    {
       "id": "raids",
       "level": 60,
       "kind": "tip",
-      "title": "Raids kommen etwa einen Monat nach dem Launch",
+      "title": "Raids öffnen am 9. Dezember",
       "where": "–",
-      "text": "Laut Blizzard öffnen die Raids rund einen Monat nach dem Launch; bis dahin sind keine großen Klassen-Änderungen geplant. Zeit für Dungeon-Ausrüstung, Berufe und Ruf.",
+      "text": "Die Raids öffnen am 9. Dezember; bis dahin plant Blizzard keine großen Klassen-Änderungen. Zeit für Dungeon-Ausrüstung, Berufe und Ruf.",
       "source": {
         "label": "Blizzard – Development Notes 2. Nov.",
         "url": "https://us.forums.blizzard.com/en/wow/t/wow-forever-beta-development-notes-%E2%80%93-updated-november-2/2360696"

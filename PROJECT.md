@@ -16,6 +16,16 @@ Rules of collaboration: `CLAUDE.md`.
 
 ## Work log (most recent first)
 
+- **2026-11-18** — How-to-play checked against the live hotfixes (Nov 5–17)
+  and build 70959: Enhancement (Stormstrike 100 %, Mental Dexterity 100 %,
+  Maelstrom by weapon speed, Windfury / Flametongue Weapon stack with their
+  totems), Affliction (Wrack is a 6 sec channel that speeds up Corruption /
+  Siphon Life / Bane of Agony, −30 % own damage, no Soul Siphon bonus),
+  Resto Druid (Wild Growth heals ×2, Nature's Swiftness). Baseline
+  rewritten (`check.mjs --baseline`, strict check clean). Level checklist:
+  "no XP for being carried" (Nov 13 dungeon rule), "quests give gold from
+  48", sleeping bag hotfix, raids open Dec 9. The Klassen-Deep-Dives
+  update history (officer entries in Firebase) isn't touched.
 - **2026-11-15** — Catch-up of the stalled data updates: the daily data PRs
   (#75 … #86) all waited for a guide review (strict how-to-play check), so
   `main` stayed on build 1.60.1.70755. This brings in the weekly review of

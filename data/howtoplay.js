@@ -8,7 +8,7 @@
 // Dive texts); everything else is German. Edited by hand via PR — bump
 // HOW_TO_PLAY_UPDATED when the content changes.
 
-const HOW_TO_PLAY_UPDATED = '2026-11-15';
+const HOW_TO_PLAY_UPDATED = '2026-11-18';
 
 /** @type {Record<string, HowToPlayClass>} */
 const HOW_TO_PLAY = {
@@ -380,7 +380,7 @@ const HOW_TO_PLAY = {
       },
       enhancement: {
         summary: 'Nahkampf mit Zaubern zwischendurch. Mit Rockbiter Weapon und Spirit Weapons laut Guides auch als Tank denkbar – aber noch kaum erprobt.',
-        playstyle: 'Windfury Weapon (oder Flametongue), Stormstrike auf Cooldown (seit 2.11. 6 Sek., 150 % Waffenschaden), danach ein verstärkter Shock. Maelstrom Weapon stapelt sich durch Nahkampftreffer (doppelte Chance) bis 5 und macht Lightning Bolt schneller und billiger. Rage of the Farseer für Burst.',
+        playstyle: 'Windfury Weapon (oder Flametongue) – seit den Hotfixes Mitte November stapelt sie mit Windfury Totem bzw. Flametongue Totem, beides lohnt sich also gleichzeitig. Stormstrike auf Cooldown (6 Sek., seit Mitte November nur noch 100 % Waffenschaden), danach ein verstärkter Shock. Maelstrom Weapon stapelt sich durch Nahkampftreffer bis 5 (Chance hängt jetzt vom Waffentempo ab – langsame Waffen lösen öfter aus) und macht Lightning Bolt schneller und billiger. Rage of the Farseer für Burst.',
         priority: [
           'Waffenverzauberung und Lightning Shield',
           'Stormstrike auf Cooldown',
@@ -388,7 +388,7 @@ const HOW_TO_PLAY = {
           'Lightning Bolt bei 5 Maelstrom-Stapeln',
           'Rage of the Farseer für Burst'
         ],
-        stats: 'Hit bis zum Cap (in Forever ein gemeinsamer Wert für Nahkampf und Zauber), Strength/Agility/Attack Power und Crit (Flurry). Mental Dexterity macht Intellect zu Attack Power.',
+        stats: 'Hit bis zum Cap (in Forever ein gemeinsamer Wert für Nahkampf und Zauber), Strength/Agility/Attack Power und Crit (Flurry). Mental Dexterity macht 100 % Deines Intellects zu Attack Power (seit Mitte November, vorher 150 %).',
         tips: [
           'Improved Ghost Wolf (seit 2.11. Reihe 4): Ghost Wolf funktioniert auch in Gebäuden.',
           'Improved Stormstrike kann den Stormstrike-Cooldown zurücksetzen.'
@@ -494,12 +494,12 @@ const HOW_TO_PLAY = {
     specs: {
       affliction: {
         summary: 'DoT-Spec – stark in langen Kämpfen und gegen mehrere Ziele.',
-        playstyle: 'Corruption (Improved Corruption: sofort), Bane of Agony und ein Curse aufs Ziel, dazu Siphon Life. Wrack verstärkt Deine anderen DoTs um 10 %, die Drain-Zauber und Wrack profitieren über Soul Siphon von Corruption, Siphon Life und Bane of Agony auf dem Ziel (je +12 %, bis +36 %). Nightfall (Shadow Trance) ermöglicht sofortige Shadow Bolts.',
+        playstyle: 'Corruption (Improved Corruption: sofort), Bane of Agony und ein Curse aufs Ziel, dazu Siphon Life. Wrack ist ein 6-Sek.-Kanal: Solange Du kanalisierst, ticken Corruption, Siphon Life und Bane of Agony doppelt so schnell – also erst alle drei DoTs drauf, dann Wrack (seit dem Hotfix vom 16.11. macht Wrack selbst 30 % weniger Schaden und wird von Soul Siphon nicht mehr verstärkt). Drain Life und Drain Soul profitieren über Soul Siphon von Corruption, Siphon Life und Bane of Agony auf dem Ziel (je +12 %, bis +36 %). Nightfall (Shadow Trance) ermöglicht sofortige Shadow Bolts.',
         priority: [
           'Curse (z. B. Curse of Weakness) + Bane of Agony',
           'Corruption',
           'Siphon Life',
-          'Wrack auf Cooldown',
+          'Wrack, wenn alle drei DoTs laufen',
           'Shadow Bolt bei Shadow Trance',
           'Drain Life / Drain Soul als Füller, Life Tap für Mana'
         ],
@@ -606,7 +606,7 @@ const HOW_TO_PLAY = {
       },
       restoration: {
         summary: 'HoT-Heiler mit starker Gruppenheilung.',
-        playstyle: 'Rejuvenation und Regrowth vorlegen, Swiftmend heilt sofort um die volle Wirkung eines Deiner HoTs auf dem Ziel, Wild Growth heilt die Gruppe des Ziels über 7 Sek., hat aber 3 Sek. Zauberzeit (Naturalist: bis −0,5 Sek.). Bloom (ersetzt Gift of the Earthmother) heilt, wenn Rejuvenation oder Regrowth ausläuft, um 100 % Deines Spirits.',
+        playstyle: 'Rejuvenation und Regrowth vorlegen, Swiftmend heilt sofort um die volle Wirkung eines Deiner HoTs auf dem Ziel, Wild Growth heilt die Gruppe des Ziels über 7 Sek., hat aber 3 Sek. Zauberzeit (Naturalist: bis −0,5 Sek.) – seit dem Hotfix vom 13.11. heilt es doppelt so stark, und Nature\'s Swiftness macht es sofort wirkbar. Bloom (ersetzt Gift of the Earthmother) heilt, wenn Rejuvenation oder Regrowth ausläuft, um 100 % Deines Spirits.',
         priority: [
           'Rejuvenation auf Tank bzw. wer Schaden nimmt',
           'Wild Growth bei Gruppen-Schaden',

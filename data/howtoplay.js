@@ -8,7 +8,7 @@
 // Dive texts); everything else is German. Edited by hand via PR — bump
 // HOW_TO_PLAY_UPDATED when the content changes.
 
-const HOW_TO_PLAY_UPDATED = '2026-11-18';
+const HOW_TO_PLAY_UPDATED = '2026-11-22';
 
 /** @type {Record<string, HowToPlayClass>} */
 const HOW_TO_PLAY = {
@@ -341,7 +341,7 @@ const HOW_TO_PLAY = {
         ],
         stats: 'Hit bis zum Cap, Spell Power (Shadow), Intellect und Crit.',
         tips: [
-          'Vampiric Embrace heilt Deine Gruppe mit.',
+          'Vampiric Embrace heilt Deine Gruppe mit – Dich selbst doppelt so stark, das hilft beim Leveln.',
           'Silence unterbricht feindliche Caster.',
           'Spirit Tap füllt nach Kills schnell das Mana auf – ideal fürs Questen.'
         ]
@@ -380,7 +380,7 @@ const HOW_TO_PLAY = {
       },
       enhancement: {
         summary: 'Nahkampf mit Zaubern zwischendurch. Mit Rockbiter Weapon und Spirit Weapons laut Guides auch als Tank denkbar – aber noch kaum erprobt.',
-        playstyle: 'Windfury Weapon (oder Flametongue) – seit den Hotfixes Mitte November stapelt sie mit Windfury Totem bzw. Flametongue Totem, beides lohnt sich also gleichzeitig. Stormstrike auf Cooldown (6 Sek., seit Mitte November nur noch 100 % Waffenschaden), danach ein verstärkter Shock. Maelstrom Weapon stapelt sich durch Nahkampftreffer bis 5 (Chance hängt jetzt vom Waffentempo ab – langsame Waffen lösen öfter aus) und macht Lightning Bolt schneller und billiger. Rage of the Farseer für Burst.',
+        playstyle: 'Windfury Weapon (oder Flametongue) – seit den Hotfixes Mitte November stapelt sie mit Windfury Totem bzw. Flametongue Totem, beides lohnt sich also gleichzeitig. Stormstrike auf Cooldown (seit Mitte November 8 statt 6 Sek. und nur noch 100 % Waffenschaden), danach ein verstärkter Shock. Maelstrom Weapon stapelt sich durch Nahkampftreffer bis 5 (Chance hängt jetzt vom Waffentempo ab – langsame Waffen lösen öfter aus) und macht Lightning Bolt schneller und billiger. Rage of the Farseer für Burst.',
         priority: [
           'Waffenverzauberung und Lightning Shield',
           'Stormstrike auf Cooldown',

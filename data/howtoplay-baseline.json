@@ -1,6 +1,6 @@
 {
- "updated": "2026-11-18",
- "build": "1.60.1.70959",
+ "updated": "2026-11-22",
+ "build": "1.60.1.71037",
  "classes": {
   "warrior": {
    "Bastion": {
@@ -517,7 +517,7 @@
    },
    "Vampiric Embrace": {
     "max": 1,
-    "desc": "Afflicts your target with Shadow energy that causes all party members to be healed for 20% of any Shadow spell damage you deal for 30 sec."
+    "desc": "Afflicts your target with Shadow energy that causes all party members to be healed for 10% of any Shadow spell damage you deal for 30 sec. You receive 100% increased healing on yourself from this effect."
    },
    "Wand Specialization": {
     "max": 2,
